@@ -69,9 +69,9 @@ function LoadedIndexMinuteChart({
   onNineTurnRetry: () => void;
   phase: IndexMinuteSeriesState["phase"];
 }) {
-  const [overlay, setOverlay] = useState<Exclude<IndexMainOverlay, "TREND_CHANNEL">>("MA");
+  const [overlay, setOverlay] = useState<Exclude<IndexMainOverlay, "TREND_CHANNEL"> | null>("MA");
   const points = useMemo(() => data.points.map(toDetailChartPoint), [data.points]);
-  const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : buildBollLines(), [overlay]);
+  const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
   const dataKey = `index:${data.tsCode}:m${data.freq}`;
   const structureVisible = indicatorControls.quantitativeStructureAvailable
     && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
@@ -106,7 +106,7 @@ function LoadedIndexMinuteChart({
         primitives: xxm.macdPrimitives,
         renderHeader: (values) => <><IndexMinutePanelHeader panel="quantitativeStructure" point={values} /><XxmLayerStatus layer={xxm} onRetry={xxm.retry} /></>,
       } : undefined}
-      renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}
+      renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} />}
       renderPanelHeader={(panel, point) => <IndexMinutePanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => (
         <IndexMinuteTooltip point={point} side={side}>
@@ -153,25 +153,14 @@ function buildBollLines(): DetailChartLineDefinition[] {
 function IndexMinuteMainHeader({
   overlay,
   point,
-  setOverlay,
 }: {
-  overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
+  overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL"> | null;
   point: DetailChartPoint | null;
-  setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">) => void;
 }) {
   const keys = overlay === "MA"
     ? ["ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250"]
-    : ["bollUpper", "bollMiddle", "bollLower"];
+    : overlay === "BOLL" ? ["bollUpper", "bollMiddle", "bollLower"] : [];
   return <>
-    <select
-      aria-label="指数分钟主图指标切换"
-      className="detail-chart-overlay-select"
-      value={overlay}
-      onChange={(event) => setOverlay(event.target.value as Exclude<IndexMainOverlay, "TREND_CHANNEL">)}
-    >
-      <option value="MA">MA 均线</option>
-      <option value="BOLL">BOLL 布林线</option>
-    </select>
     {point ? keys.map((key) => (
       <span className={`metric ${metricClass(key)}`} key={key}>{metricLabel(key)}:{format(point.overlays[key] ?? null)}</span>
     )) : null}
@@ -208,14 +197,14 @@ function IndexMinuteIndicatorBar({
   indicatorControls: DetailChartIndicatorControls;
   message: string;
   nineTurnControl: NineTurnDisplayControl;
-  overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
+  overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL"> | null;
   phase: IndexMinuteSeriesState["phase"];
-  setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">) => void;
+  setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL"> | null) => void;
 }) {
   return <div className="detail-chart-indicator-tabs">
     <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
     <NineTurnIndicatorToggle control={nineTurnControl} />
-    <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
+    <button aria-pressed={overlay === "MA"} className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay(overlay === "MA" ? null : "MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {phase === "delayed" || phase === "partial" ? <span className="index-minute-status-message">{message}</span> : null}
   </div>;

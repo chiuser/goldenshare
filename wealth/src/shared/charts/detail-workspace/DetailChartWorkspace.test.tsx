@@ -910,6 +910,15 @@ describe("DetailChartWorkspace", () => {
     const rendered = renderWorkspace(points);
     fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
 
+    rendered.rerender(workspaceElement(points, "daily", "shared:test:daily", []));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 195, to: 299 })
+    ))).toBe(true);
+    rendered.rerender(workspaceElement(points, "daily", "shared:test:daily", mainLines));
+    expect(chartMock.charts.slice(-4).every((chart) => (
+      JSON.stringify(chart.timeScale().getVisibleLogicalRange()) === JSON.stringify({ from: 195, to: 299 })
+    ))).toBe(true);
+
     rendered.rerender(workspaceElement(points, "daily", "shared:test:daily", [
       { color: "#abc", id: "next-line", valueOf: (point) => point.close },
     ]));

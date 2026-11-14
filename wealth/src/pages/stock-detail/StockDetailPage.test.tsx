@@ -561,7 +561,15 @@ describe("StockDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "周K" }));
     expect(screen.getByText("周K 首期暂未接入真实数据")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
+    expect(screen.queryByRole("combobox", { name: "主图指标切换" })).not.toBeInTheDocument();
+    const requestCount = fetchMock.mock.calls.length;
+    const ma = screen.getByRole("button", { name: "均线", pressed: true });
+    fireEvent.click(ma);
+    expect(within(screen.getByLabelText("K线主图")).queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "true");
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     expect(screen.getByText(/UPPER:/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "资料" }));

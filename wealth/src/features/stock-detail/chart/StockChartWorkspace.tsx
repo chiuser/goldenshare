@@ -54,7 +54,7 @@ export function StockChartWorkspace({
   trend,
   tsCode,
 }: StockChartWorkspaceProps) {
-  const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
+  const [overlay, setOverlay] = useState<StockMainOverlay | null>("MA");
   useEffect(() => {
     setOverlay("MA");
   }, [tsCode]);
@@ -90,7 +90,7 @@ export function StockChartWorkspace({
     () => [...trendPrimitives, ...nineTurnChartLayer.mainPrimitives],
     [nineTurnChartLayer.mainPrimitives, trendPrimitives],
   );
-  const changeOverlay = (nextOverlay: StockMainOverlay) => {
+  const changeOverlay = (nextOverlay: StockMainOverlay | null) => {
     setOverlay(nextOverlay);
     if (nextOverlay === "TREND_CHANNEL") onTrendSelect();
   };
@@ -131,10 +131,8 @@ export function StockChartWorkspace({
       renderMainHeader={(point) => (
         <StockMainChartHeader
           onAction={onAction}
-          onOverlayChange={changeOverlay}
           overlay={overlay}
           point={point}
-          supportsTrendChannel={supportsTrendChannel}
           trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
         />
       )}
@@ -211,35 +209,18 @@ function stockFactor(
 
 function StockMainChartHeader({
   onAction,
-  onOverlayChange,
   overlay,
   point,
-  supportsTrendChannel,
   trendPoint,
 }: {
   onAction: (message: string) => void;
-  onOverlayChange: (overlay: StockMainOverlay) => void;
-  overlay: StockMainOverlay;
+  overlay: StockMainOverlay | null;
   point: DetailChartPoint | null;
-  supportsTrendChannel: boolean;
   trendPoint?: { shortUpper: number; shortLower: number; longUpper: number; longLower: number };
 }) {
   return (
     <>
-      <select
-        aria-label="主图指标切换"
-        className="detail-chart-overlay-select"
-        value={overlay}
-        onChange={(event) => {
-          onOverlayChange(event.target.value as StockMainOverlay);
-          event.currentTarget.blur();
-        }}
-      >
-        <option value="MA">MA 均线</option>
-        <option value="BOLL">BOLL 布林线</option>
-        {supportsTrendChannel ? <option value="TREND_CHANNEL">趋势通道</option> : null}
-      </select>
-      {point ? <StockKlineMetrics point={point} overlay={overlay} trendPoint={trendPoint} /> : null}
+      {point && overlay !== null ? <StockKlineMetrics point={point} overlay={overlay} trendPoint={trendPoint} /> : null}
       <button
         className="detail-chart-gear"
         title="指标设置"
@@ -360,8 +341,8 @@ function StockIndicatorBar({
   indicatorTabs: StockIndicatorTab[];
   nineTurnControl: NineTurnDisplayControl;
   onAction: (message: string) => void;
-  onOverlayChange: (overlay: StockMainOverlay) => void;
-  overlay: StockMainOverlay;
+  onOverlayChange: (overlay: StockMainOverlay | null) => void;
+  overlay: StockMainOverlay | null;
   supportsTrendChannel: boolean;
 }) {
   return (
@@ -381,12 +362,13 @@ function StockIndicatorBar({
         }
         return (
           <button
+            aria-pressed={tab.key === "MA" ? overlay === "MA" : undefined}
             className={buildIndicatorClass(tab, overlay)}
             key={tab.key}
             type="button"
             onClick={() => {
               if (tab.overlay) {
-                onOverlayChange(tab.overlay);
+                onOverlayChange(tab.overlay === "MA" && overlay === "MA" ? null : tab.overlay);
                 return;
               }
               onAction(`${tab.label} 指标暂未支持`);
@@ -436,7 +418,7 @@ function StockKlineTooltip({ point, side }: { point: DetailChartPoint; side: Det
   );
 }
 
-function buildIndicatorClass(tab: StockIndicatorTab, overlay: StockMainOverlay): string {
+function buildIndicatorClass(tab: StockIndicatorTab, overlay: StockMainOverlay | null): string {
   const isActive = tab.overlay ? tab.overlay === overlay : tab.active;
   return ["detail-chart-indicator-tab", isActive ? "active" : "", tab.supported ? "" : "unsupported"]
     .filter(Boolean)

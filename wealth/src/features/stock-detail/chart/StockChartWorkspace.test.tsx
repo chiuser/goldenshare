@@ -97,6 +97,51 @@ const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onTo
 describe("StockChartWorkspace shared adapter", () => {
   beforeEach(() => chartMock.reset());
 
+  it("toggles MA lines and header values together without a selector", () => {
+    // StockCandlePoint follows stockDetailViewModelAdapter's seven nullable MA fields.
+    // These literal values verify display and time selection, not MA calculation.
+    const candles = makeCandles(2);
+    Object.assign(candles[0]!, { ma5: 0, ma10: null });
+    Object.assign(candles[1]!, { ma5: 10.5, ma10: 11.5, ma20: 12.5, ma30: 13.5, ma60: 14.5, ma90: 15.5, ma250: 16.5 });
+    const props = {
+      candles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
+      nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
+      onTrendSelect: vi.fn(), supportsTrendChannel: true, trend: null, tsCode: "000001.SZ",
+    };
+    const view = render(<StockChartWorkspace {...props} />);
+    const header = within(screen.getByLabelText("K线主图"));
+    const ma = screen.getByRole("button", { name: "均线" });
+    expect(chartMock.charts[0]!.series).toHaveLength(8);
+    for (const text of ["MA5:10.50", "MA10:11.50", "MA20:12.50", "MA30:13.50", "MA60:14.50", "MA90:15.50", "MA250:16.50"]) {
+      expect(header.getByText(text)).toBeInTheDocument();
+    }
+
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "false");
+    expect(ma).not.toHaveClass("active");
+    expect(chartMock.charts.at(-4)!.series).toHaveLength(1);
+    expect(header.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    expect(header.queryByText(/UPPER:/)).not.toBeInTheDocument();
+    expect(props.onTrendSelect).not.toHaveBeenCalled();
+    act(() => chartMock.charts.at(-4)!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time }));
+    expect(header.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+
+    const nextCandles = candles.map(candle => ({ ...candle }));
+    nextCandles[1]!.ma5 = 20.5;
+    view.rerender(<StockChartWorkspace {...props} candles={nextCandles} />);
+    expect(header.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "true");
+    expect(ma).toHaveClass("active");
+    expect(chartMock.charts.at(-4)!.series).toHaveLength(8);
+    expect(header.getByText("MA5:20.50")).toBeInTheDocument();
+    act(() => chartMock.charts.at(-4)!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: nextCandles[0]!.time }));
+    expect(header.getByText("MA5:0.00")).toBeInTheDocument();
+    expect(header.getByText("MA10:--")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "主图指标切换" })).not.toBeInTheDocument();
+    expect(props.onAction).not.toHaveBeenCalled();
+  });
+
   it("preserves the stock four-pane, 120-bar, overlay and tooltip behavior", () => {
     const candles = makeCandles(300);
     const onAction = vi.fn();
@@ -144,7 +189,7 @@ describe("StockChartWorkspace shared adapter", () => {
     fireEvent.click(screen.getByRole("button", { name: "成交额" }));
     expect(onAction).toHaveBeenCalledWith("成交额 指标暂未支持");
 
-    fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     expect(screen.getByText("UPPER:22.99")).toBeInTheDocument();
     const activeCharts = chartMock.charts.slice(-4);
 
@@ -274,14 +319,15 @@ describe("StockChartWorkspace shared adapter", () => {
     expect(within(klinePanel).getByText("MA5:--")).toBeInTheDocument();
     expect(within(klinePanel).queryByText("MA5:0.00")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
-    const bollSeries = chartMock.charts[0].series.slice(-3);
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
+    const currentKlineChart = chartMock.charts.at(-4)!;
+    const bollSeries = currentKlineChart.series.slice(-3);
     for (const [index, value] of [20, 18, 16].entries()) {
       const data = bollSeries[index].setData.mock.calls.at(-1)[0];
       expect(data.slice(0, 8)).toEqual(candles.slice(0, 8).map(candle => ({ time: candle.time })));
       expect(data.slice(8)).toEqual(candles.slice(8).map(candle => ({ time: candle.time, value })));
     }
-    act(() => chartMock.charts[0].crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time }));
+    act(() => currentKlineChart.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time }));
     expect(within(klinePanel).getByText("UPPER:--")).toBeInTheDocument();
     expect(within(klinePanel).queryByText("UPPER:0.00")).not.toBeInTheDocument();
   });

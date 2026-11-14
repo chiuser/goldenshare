@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DetailChartIndicatorPanelKey, DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
@@ -37,19 +37,69 @@ describe("IndexChartWorkspace adapter", () => {
     vi.mocked(fetchXxm).mockReset().mockReturnValue(new Promise(() => {}));
   });
 
+  it("toggles MA lines and header values together without a selector", () => {
+    const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
+    const history = { active: true, visible: null, phase: "idle" as const, error: undefined, onViewport: vi.fn(), retryLayer: vi.fn() };
+    const props = {
+      indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"),
+      onNineTurnRetry: vi.fn(), recognitionEnabled: false, viewModel, history,
+    };
+    const view = render(<IndexChartWorkspace {...props} trend={null} trendPhase="loading" />);
+    const first = latestProps();
+    expect(first.mainLines.map(line => line.id)).toEqual(["ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250"]);
+    for (const text of ["MA5:3900.00", "MA10:3890.00", "MA20:3880.00", "MA30:3870.00", "MA60:3860.00", "MA90:3850.00", "MA250:3800.00"]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+    const ma = screen.getByRole("button", { name: "均线" });
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "false");
+    expect(ma).not.toHaveClass("active");
+    expect(latestProps().mainLines).toEqual([]);
+    expect(screen.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    const closed = latestProps();
+    const trend = { droppedCount: 0, status: "READY" as const, points: viewModel.chart.candles.map(point => ({
+      time: point.time, close: point.close ?? 0, shortUpper: 4000, shortLower: 3900, longUpper: 4050, longLower: 3850,
+    })) };
+    const olderCandle = { ...viewModel.chart.candles[0]!, time: "2026-07-29", fullDate: "2026-07-29" };
+    view.rerender(<IndexChartWorkspace {...props} trend={trend} trendPhase="ready" history={{ ...history,
+      visible: { candles: [olderCandle, ...viewModel.chart.candles], failedLayers: [], nineTurnMarkers: [], trendPoints: [] },
+    }} />);
+    expect(latestProps().points).toHaveLength(3);
+    expect(latestProps().mainLines).toEqual([]);
+    expect(latestProps().mainPrimitives).toBe(closed.mainPrimitives);
+    expect(latestProps().dataKey).toBe(first.dataKey);
+    expect(screen.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "true");
+    expect(latestProps().mainLines).toHaveLength(7);
+    // The public kline fixture's nullable fields are mapped by the real adapter.
+    const currentPoint = { ...latestProps().points[0]!, overlays: { ma5: 0, ma10: null, ma20: 12, ma30: 13, ma60: 14, ma90: 15, ma250: 16 } };
+    const header = render(latestProps().renderMainHeader(currentPoint));
+    expect(within(header.container).getByText("MA5:0.00")).toBeInTheDocument();
+    expect(within(header.container).getByText("MA10:--")).toBeInTheDocument();
+    header.unmount();
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
+    expect(ma).toHaveAttribute("aria-pressed", "false");
+    expect(latestProps().mainLines).toHaveLength(3);
+    expect(screen.getByText("BOLLUPPER:4000.00")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "指数主图指标切换" })).not.toBeInTheDocument();
+    expect(fetchXxm).not.toHaveBeenCalled();
+    expect(history.onViewport).not.toHaveBeenCalled();
+  });
+
   it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     const props = { indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
     const { rerender } = render(<IndexChartWorkspace recognitionEnabled {...props} trend={null} trendPhase="loading" />);
     const first = latestProps();
-    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     const trend = { droppedCount: 0, status: "READY" as const, points: [{ time: "2023-10-26", close: 120,
       shortUpper: 122, shortLower: 115, longUpper: 125, longLower: 112 }] };
     rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={trend} trendPhase="ready" />);
-    expect(screen.getByLabelText("指数主图指标切换")).toHaveValue("BOLL");
+    expect(screen.getByRole("button", { name: "BOLL" })).toHaveClass("active");
     expect(latestProps().mainLines).toHaveLength(3);
     expect(latestProps().dataKey).toBe(first.dataKey);
-    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "TREND_CHANNEL" } });
+    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
     const selected = latestProps();
     rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={{ ...trend, points: [{ ...trend.points[0]!, shortUpper: 123 }] }} trendPhase="ready" />);
     expect(latestProps().mainPrimitives).toBe(selected.mainPrimitives);
@@ -72,7 +122,7 @@ describe("IndexChartWorkspace adapter", () => {
     expect(structure.nextElementSibling).toBe(screen.getByRole("button", { name: "九转序列", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: false }));
     expect(onToggleIndicatorPanel).toHaveBeenCalledWith("volume");
-    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().mainLines).toHaveLength(3);
     expect(onToggleIndicatorPanel).toHaveBeenCalledTimes(1);

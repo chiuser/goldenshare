@@ -39,6 +39,48 @@ describe("IndexMinuteChartWorkspace adapter", () => {
     vi.mocked(fetchXxm).mockReset();
   });
 
+  it("toggles MA lines and header values together without a selector", () => {
+    // Seven nullable values follow IndexMinuteIndicatorDto and its time-aligned adapter.
+    const data = makeData();
+    Object.assign(data.points[0]!, { ma5: 0, ma10: null, ma20: 12, ma30: 13, ma60: 14, ma90: 15, ma250: 16 });
+    const props = {
+      recognitionEnabled: false, data, errorMessage: "指标部分缺失", phase: "partial" as const,
+      indicatorControls: { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false },
+      nineTurnControl, nineTurnLayer: idleNineTurnLayer("5"), onNineTurnRetry: vi.fn(), onRetry: vi.fn(),
+    };
+    const view = render(<IndexMinuteChartWorkspace {...props} />);
+    const first = latestProps();
+    expect(first.mainLines.map(line => line.id)).toEqual(["ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250"]);
+    for (const text of ["MA5:0.00", "MA10:--", "MA20:12.00", "MA30:13.00", "MA60:14.00", "MA90:15.00", "MA250:16.00"]) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+    const ma = screen.getByRole("button", { name: "均线" });
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "false");
+    expect(ma).not.toHaveClass("active");
+    expect(latestProps().mainLines).toEqual([]);
+    expect(screen.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    expect(screen.queryByText(/UPPER:/)).not.toBeInTheDocument();
+    const nextData = { ...data, points: [{ ...data.points[0]!, ma5: 20.5 }] };
+    view.rerender(<IndexMinuteChartWorkspace {...props} data={nextData} />);
+    expect(latestProps().mainLines).toEqual([]);
+    expect(screen.queryAllByText(/^MA\d+:/)).toHaveLength(0);
+    fireEvent.click(ma);
+    expect(ma).toHaveAttribute("aria-pressed", "true");
+    expect(latestProps().mainLines).toHaveLength(7);
+    expect(latestProps().dataKey).toBe(first.dataKey);
+    expect(latestProps().mainPrimitives).toBe(first.mainPrimitives);
+    expect(screen.getByText("MA5:20.50")).toBeInTheDocument();
+    fireEvent.click(ma);
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
+    expect(latestProps().mainLines).toHaveLength(3);
+    expect(screen.getByText("UPPER:--")).toBeInTheDocument();
+    expect(screen.getByText("指标部分缺失")).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "指数分钟主图指标切换" })).not.toBeInTheDocument();
+    expect(props.indicatorControls.onToggleIndicatorPanel).not.toHaveBeenCalled();
+    expect(fetchXxm).not.toHaveBeenCalled();
+  });
+
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
     const onToggleIndicatorPanel = vi.fn();
     render(<IndexMinuteChartWorkspace recognitionEnabled data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel, quantitativeStructureAvailable: false }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);

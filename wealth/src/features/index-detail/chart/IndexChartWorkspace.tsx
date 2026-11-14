@@ -99,9 +99,9 @@ export function IndexChartWorkspace({
   }, [firstDate, lastDate, historical?.trendPoints, ordinaryTrend]);
   const trendPhase = ordinaryTrendPhase;
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
-  const [selection, setSelection] = useState<{ owner: string; overlay: IndexMainOverlay } | null>(null);
+  const [selection, setSelection] = useState<{ owner: string; overlay: IndexMainOverlay | null } | null>(null);
   const overlay = selection?.owner === ownerKey ? selection.overlay : supportsTrend && ordinaryTrend ? "TREND_CHANNEL" : "MA";
-  const setOverlay = (overlay: IndexMainOverlay) => setSelection({ owner: ownerKey, overlay });
+  const setOverlay = (overlay: IndexMainOverlay | null) => setSelection({ owner: ownerKey, overlay });
   const initialCandles = viewModel.chart.candles;
   const initialPoints = useMemo(() => initialCandles.map(toDetailChartPoint), [initialCandles]);
   const historicalCandles = historical?.candles;
@@ -170,8 +170,6 @@ export function IndexChartWorkspace({
         <IndexMainHeader
           overlay={overlay}
           point={point}
-          setOverlay={setOverlay}
-          supportsTrend={supportsTrend && (trendPhase === "ready")}
           trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
           waveLegend={addon.legend}
         />
@@ -209,22 +207,15 @@ function buildBollLines(): DetailChartLineDefinition[] {
 }
 
 function IndexMainHeader({
-  overlay, point, setOverlay, supportsTrend, trendPoint, waveLegend,
+  overlay, point, trendPoint, waveLegend,
 }: {
-  overlay: IndexMainOverlay;
+  overlay: IndexMainOverlay | null;
   point: DetailChartPoint | null;
-  setOverlay: (overlay: IndexMainOverlay) => void;
-  supportsTrend: boolean;
   trendPoint?: { shortUpper: number; shortLower: number; longUpper: number; longLower: number };
   waveLegend?: import("react").ReactNode;
 }) {
   return <>
-    <select aria-label="指数主图指标切换" className="detail-chart-overlay-select" value={overlay} onChange={(event) => setOverlay(event.target.value as IndexMainOverlay)}>
-      <option value="MA">MA 均线</option>
-      <option value="BOLL">BOLL 布林线</option>
-      {supportsTrend ? <option value="TREND_CHANNEL">趋势通道</option> : null}
-    </select>
-    {point ? <MainMetrics overlay={overlay} point={point} trendPoint={trendPoint} /> : null}
+    {point && overlay !== null ? <MainMetrics overlay={overlay} point={point} trendPoint={trendPoint} /> : null}
     {waveLegend}
     <button className="detail-chart-gear" disabled title="指标设置暂未开通" type="button">⚙</button>
   </>;
@@ -262,8 +253,8 @@ function IndexPanelHeader({ panel, point }: (
 function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOverlay, supportsTrend }: {
   indicatorControls: DetailChartIndicatorControls;
   nineTurnControl: NineTurnDisplayControl;
-  overlay: IndexMainOverlay;
-  setOverlay: (overlay: IndexMainOverlay) => void;
+  overlay: IndexMainOverlay | null;
+  setOverlay: (overlay: IndexMainOverlay | null) => void;
   supportsTrend: boolean;
 }) {
   return <div className="detail-chart-indicator-tabs">
@@ -274,7 +265,7 @@ function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOve
     <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls}
       mode={indicatorControls.quantitativeStructureAvailable ? "available" : "disabled"} />
     <NineTurnIndicatorToggle control={nineTurnControl} />
-    <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
+    <button aria-pressed={overlay === "MA"} className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay(overlay === "MA" ? null : "MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}
   </div>;

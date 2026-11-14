@@ -3,7 +3,7 @@
 > 2026-11-09。原三项副图显隐已在 `ce3246ea5` 实现，管理员确认本机页面验收通过。第 1–6 节保留原交互与量测基线，[第 7 节](#quantitative-structure-plan)单独记录已验收的量化结构与切周期首屏修复。
 > 配套文档为[代码级 LLD](./detail-chart-indicator-panel-visibility-low-level-design-v1.md)。
 > [已审阅的 Figma 交互稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2191-419)使用原设计文件的可编辑图层。比较页展示指数分钟图的全亮、关 KDJ 和全关，四类图表均有可点击的原型入口。图稿用于审阅交互，尺寸依据见[当前页面实测](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)。
-> 2026-11-14 补充：[第 8 节](#main-overlay-interaction-plan)定义去掉主图左上角下拉菜单、由底部 MA 标签同步控制均线和读数。Figma 下拉条已删除并核图；管理员已确认本节和配套 LLD，并授权先提交文档再开发。前述验收只覆盖原副图功能，不代表本次主图交互已实现。
+> 2026-11-14 补充：[第 8 节](#main-overlay-interaction-plan)定义去掉主图左上角下拉菜单、由底部 MA 标签同步控制均线和读数。管理员已确认设计，方案文档已先行提交为 `07b336b7`。前端开发、自动化检查和真实接口响应的组件渲染核验已完成，真实页面验收待验证窗口登录；证据见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)。前述原副图验收不代表本步已经通过页面验收。
 
 ## 1. 交付范围
 
@@ -180,3 +180,7 @@
 | 性能预算 | LLD §9.5 分别核算现有实例更新、重建与中断复验。 |
 | 状态与异常 | 原加载和失败提示继续使用，迟到回包不能重新点亮 MA。 |
 | 用户可见结果 | 验收菜单消失、均线与数值一起开关、无缺值伪零，以及原浏览范围和其它图层。 |
+
+### 8.6 开发对账
+
+2026-11-14 已按本节完成三个有 MA 入口的适配组件及五个现有测试文件的修改，未修改共享图表生产代码、后端合同或配置。MA 高亮、七条线和顶部读数共用原主图选择；空选择明确保留。股票分钟维持现行能力。R7～R14 的自动化、真实响应渲染和未完成页面核验分别记录在 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)。当前没有部署或管理员实页验收结论。
