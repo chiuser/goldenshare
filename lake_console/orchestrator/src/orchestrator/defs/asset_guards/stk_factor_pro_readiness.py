@@ -1120,10 +1120,10 @@ def _stat(path):
         return None
 
 
-def _invalid_code_reason(connection, table, column):
+def _invalid_code_reason(connection, table, column, *, parameters=()):
     predicate = stk_factor_pro_invalid_code_sql(column)
     count = connection.execute(
-        f"SELECT count(*) FROM {table} WHERE {predicate}"
+        f"SELECT count(*) FROM {table} WHERE {predicate}", parameters
     ).fetchone()[0]
     if not count:
         return ""
@@ -1131,14 +1131,14 @@ def _invalid_code_reason(connection, table, column):
         r[0]
         for r in connection.execute(
             f"SELECT {column} FROM {table} WHERE {predicate} "
-            f"ORDER BY {column} NULLS FIRST LIMIT 20"
+            f"ORDER BY {column} NULLS FIRST LIMIT 20",
+            parameters,
         ).fetchall()
     )
     return f"{column}非法代码{count}行，样本{sample}"
 
 
 def _validate_lifecycle(connection, table):
-    code_reason = _invalid_code_reason(connection, table, "ts_code")
     required = ("ts_code", "symbol", "name", "exchange", "curr_type", "list_status")
     empty = " OR ".join(f"{name} IS NULL OR trim({name})=''" for name in required)
     invalid = connection.execute(
@@ -1149,17 +1149,10 @@ def _validate_lifecycle(connection, table):
     duplicates = connection.execute(
         f"SELECT count(*) FROM (SELECT ts_code FROM {table} GROUP BY ts_code HAVING count(*)>1)"
     ).fetchone()[0]
-    rule_reason = (
-        "生命周期必需字段、股票域、日期或唯一键不符" if invalid or duplicates else ""
-    )
-    return "; ".join(value for value in (code_reason, rule_reason) if value)
+    return "生命周期必需字段、股票域、日期或唯一键不符" if invalid or duplicates else ""
 
 
-def _validate_identity(connection, table, *, lifecycle_valid, lifecycle_table):
-    code_reasons = tuple(
-        _invalid_code_reason(connection, table, column)
-        for column in ("source_ts_code", "latest_ts_code")
-    )
+def _validate_identity(connection, table):
     invalid = connection.execute(
         f"SELECT count(*) FROM {table} i WHERE source_ts_code IS NULL OR trim(source_ts_code)='' "
         "OR latest_ts_code IS NULL OR trim(latest_ts_code)='' OR valid_from IS NULL "
@@ -1174,30 +1167,60 @@ def _validate_identity(connection, table, *, lifecycle_valid, lifecycle_table):
     duplicates = connection.execute(
         f"SELECT count(*) FROM (SELECT source_ts_code FROM {table} GROUP BY source_ts_code HAVING count(*)>1)"
     ).fetchone()[0]
-    rule_reason = (
-        "身份映射字段、来源域、日期或唯一键不符" if invalid or duplicates else ""
-    )
-    # An unavailable lifecycle is already reported as lifecycle unknown. Its
-    # absence must neither skip identity's own checks nor create a false error.
-    missing_reference = (
-        connection.execute(
-            f"SELECT count(*) FROM {table} i WHERE NOT EXISTS "
-            f"(SELECT 1 FROM {lifecycle_table} l WHERE l.ts_code=i.latest_ts_code)"
-        ).fetchone()[0]
-        if lifecycle_valid
-        else 0
-    )
-    reference_reason = "身份映射生命周期引用不符" if missing_reference else ""
-    # Producer seed completeness is checked by stock_identity_map_checks; this
-    # consumer verifies the four approved physical inputs, not a fifth seed file.
-    return "; ".join(
-        value for value in (*code_reasons, rule_reason, reference_reason) if value
-    )
+    return "身份映射字段、来源域、日期或唯一键不符" if invalid or duplicates else ""
 
 
-def _validate_basis_rules(
-    connection, *, table, kind, row_count, trade_date, lifecycle_valid, lifecycle_table
-):
+def _stk_factor_pro_date_code_issues(connection, *, trade_date, by_kind):
+    """Apply the factor code rule only inside the target date's effective ranges."""
+    from orchestrator.defs.duckdb_sql import BJ_MARKET_OPEN_DATE
+
+    issues = {}
+    scopes = (
+        (
+            "lifecycle",
+            ("ts_code",),
+            (
+                "list_date<=? AND (delist_date IS NULL OR ?<delist_date) "
+                "AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))"
+            ),
+            (trade_date, trade_date, trade_date, BJ_MARKET_OPEN_DATE),
+        ),
+        (
+            "identity",
+            ("source_ts_code", "latest_ts_code"),
+            "valid_from<=? AND (valid_to IS NULL OR ?<valid_to)",
+            (trade_date, trade_date),
+        ),
+    )
+    for kind, columns, predicate, parameters in scopes:
+        fact = by_kind[kind]
+        if not fact["basis"].valid:
+            continue
+        scoped = f"(SELECT * FROM {fact['relation']} WHERE {predicate}) relevant_codes"
+        reasons = tuple(
+            _invalid_code_reason(connection, scoped, column, parameters=parameters)
+            for column in columns
+        )
+        if (
+            kind == "identity"
+            and by_kind["lifecycle"]["basis"].valid
+            and "lifecycle" not in issues
+        ):
+            missing_reference = connection.execute(
+                f"SELECT count(*) FROM {scoped} WHERE NOT EXISTS "
+                f"(SELECT 1 FROM {by_kind['lifecycle']['relation']} l "
+                "WHERE l.ts_code=relevant_codes.latest_ts_code)",
+                parameters,
+            ).fetchone()[0]
+            if missing_reference:
+                reasons += ("身份映射生命周期引用不符",)
+        reason = "; ".join(value for value in reasons if value)
+        if reason:
+            issues[kind] = f"{kind}本日依据无效：{reason}"
+    return issues
+
+
+def _validate_basis_rules(connection, *, table, kind, row_count, trade_date):
     if kind == "calendar":
         # Per-day duplicates/missing/NULL flags only invalidate that day.
         invalid = connection.execute(
@@ -1208,16 +1231,7 @@ def _validate_basis_rules(
     if kind == "lifecycle":
         return _validate_lifecycle(connection, table) if row_count else "生命周期为空"
     if kind == "identity":
-        return (
-            _validate_identity(
-                connection,
-                table,
-                lifecycle_valid=lifecycle_valid,
-                lifecycle_table=lifecycle_table,
-            )
-            if row_count
-            else "身份映射为空"
-        )
+        return _validate_identity(connection, table) if row_count else "身份映射为空"
     code_reason = _invalid_code_reason(connection, table, "ts_code")
     invalid = connection.execute(
         f"SELECT count(*) FROM {table} WHERE trade_date IS DISTINCT FROM ? "
@@ -1262,7 +1276,6 @@ def _load_basis(
     trade_date,
     basis_inputs,
     known_records,
-    lifecycle_file=None,
 ):
     previous = basis_inputs["files"].get(path)
     if previous is not None:
@@ -1339,11 +1352,6 @@ def _load_basis(
                         kind=kind,
                         row_count=row_count,
                         trade_date=trade_date,
-                        lifecycle_valid=lifecycle_file is None
-                        or lifecycle_file["basis"].valid,
-                        lifecycle_table=lifecycle_file["relation"]
-                        if lifecycle_file is not None
-                        else None,
                     )
                     valid = not invalid
                     reason = f"{kind}依据无效：{invalid}" if invalid else ""
@@ -1396,13 +1404,17 @@ def prepare_stk_factor_pro_coverage_inputs(
             trade_date=trade_date if kind == "suspend" else None,
             basis_inputs={"files": inherited_facts},
             known_records=known_records,
-            lifecycle_file=by_kind.get("lifecycle") if kind == "identity" else None,
         )
     issues = {
         kind: fact["reason"]
         for kind, fact in by_kind.items()
         if not fact["basis"].valid
     }
+    issues.update(
+        _stk_factor_pro_date_code_issues(
+            connection, trade_date=trade_date, by_kind=by_kind
+        )
+    )
     is_open = None
     if by_kind["calendar"]["basis"].valid:
         flags = connection.execute(

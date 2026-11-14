@@ -5,7 +5,8 @@ Only the named corrupt basis cells are intentionally invalid. Expected dates,
 codes, counts and unknown kinds below are independent literals.
 """
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
+from time import perf_counter
 
 import duckdb
 import pytest
@@ -232,7 +233,8 @@ def test_bad_codes_are_unknown_and_both_days_still_import(tmp_path, bad):
             (DAYS[1], expected),
         )
         identity = next(b for b in inputs.basis_files if b.kind == "identity")
-        assert identity.valid is (bad == "lifecycle")
+        # Code format now belongs to the affected dates, not the entire snapshot.
+        assert identity.valid
         assert any(
             "INVALID" in reason and "1行" in reason
             for _, _, reason in inputs.unknown_by_date
@@ -289,6 +291,270 @@ def test_valid_inputs_import_both_days_and_do_not_become_unknown(tmp_path):
         assert summary.all_coverage_determined and summary.total_missing_count == 0
         assert_days_faithful(
             conn, lake, staging, approval, set(), known_records=known_records
+        )
+
+
+@pytest.mark.parametrize("entry", ["bootstrap", "daily"])
+def test_retired_historical_identity_does_not_block_2017(
+    tmp_path, entry, record_property, monkeypatch
+):
+    # Existing bounded DG lookup: these are two independent self identities.
+    # This test preserves both upstream records, rather than changing T600018.SH.
+    day, old, current = date(2017, 1, 3), "T600018.SH", "600018.SH"
+    with connection(tmp_path) as conn:
+        known = {}
+        counts = ((day, 1),)
+        lake, staging, approval, source_identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known
+        )
+        life = [
+            (
+                old,
+                "T600018",
+                "上港集箱(退)",
+                "SSE",
+                None,
+                "CNY",
+                True,
+                "D",
+                date(2000, 7, 19),
+                date(2006, 10, 20),
+            ),
+            (
+                current,
+                "600018",
+                "上港集团",
+                "SSE",
+                None,
+                "CNY",
+                True,
+                "L",
+                date(2006, 10, 26),
+                None,
+            ),
+        ]
+        identities = [
+            (
+                code,
+                code,
+                first,
+                last,
+                first,
+                last,
+                "stock_lifecycle",
+                "confirmed",
+                "historical stock lifecycle self mapping",
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+            )
+            for code, first, last in (
+                (old, date(2000, 7, 19), date(2006, 10, 20)),
+                (current, date(2006, 10, 26), None),
+            )
+        ]
+        upstream(conn, lake, (day,), life=life, identities=identities)
+        if entry == "bootstrap":
+            remote = FakeProd(
+                approval, source_identity, counts, [native_row(current, day=day)]
+            )
+            summary = run_case(lake, staging, approval, remote)
+            assert summary.all_coverage_determined
+            assert (
+                summary.verified_source_rows
+                == summary.verified_raw_rows
+                == summary.verified_silver_rows
+                == 1
+            )
+            result = read_json(
+                operation_path(staging, approval, f"coverage/{day}/result.json"),
+                C.StkFactorProBootstrapDateCoverage,
+                known_records=known,
+            )
+            assert (
+                result.expected_count,
+                result.actual_count,
+                result.matched_count,
+                result.missing_count,
+                result.extra_count,
+            ) == (1, 1, 1, 0, 0)
+        else:
+            inherited, reads, hashes, code_queries = {}, [], [], []
+            file_sha = R.factor_file_sha
+
+            def counted_sha(path):
+                hashes.append(path)
+                return file_sha(path)
+
+            monkeypatch.setattr(R, "factor_file_sha", counted_sha)
+
+            class ObservedConnection:
+                def execute(self, query, *args, **kwargs):
+                    if "read_parquet" in query:
+                        reads.append(query)
+                    if "relevant_codes" in query:
+                        code_queries.append(query)
+                    return conn.execute(query, *args, **kwargs)
+
+            observed = ObservedConnection()
+            started = perf_counter()
+            inputs = R.prepare_stk_factor_pro_coverage_inputs(
+                observed,
+                lake_root=lake,
+                trade_date=day,
+                inherited_facts=inherited,
+                known_records=known,
+            )
+            assert inputs["unknown_input_kinds"] == ()
+            record_property("daily_prepare_seconds", perf_counter() - started)
+            assert (
+                len(code_queries) == 4
+            )  # Three format counts plus one reference count.
+            assert (
+                len(reads) == 4
+            )  # Calendar/lifecycle/identity/this day's final suspend.
+            assert (
+                R.prepare_stk_factor_pro_coverage_inputs(
+                    observed,
+                    lake_root=lake,
+                    trade_date=day,
+                    inherited_facts=inherited,
+                    known_records=known,
+                )
+                is inputs
+            )
+            conn.execute(
+                "CREATE TEMP TABLE actual_day(ts_code VARCHAR,trade_date VARCHAR)"
+            )
+            conn.execute("INSERT INTO actual_day VALUES ('600018.SH','20170103')")
+            calculated = R.calculate_stk_factor_pro_coverage(
+                observed, coverage_inputs=inputs, raw_relation="actual_day"
+            )
+            assert calculated["unknown_input_kinds"] == ()
+            result = calculated["coverage_counts"]
+            assert (
+                result.expected_count,
+                result.actual_count,
+                result.matched_count,
+                result.missing_count,
+                result.extra_count,
+            ) == (1, 1, 1, 0, 0)
+            assert conn.execute(
+                "SELECT ts_code FROM stk_factor_pro_coverage_expected"
+            ).fetchall() == [(current,)]
+            assert len(reads) == 4
+            assert len(hashes) == 4
+            assert len(code_queries) == 4  # Reuse the original date preparation.
+            record_property("basis_parquet_reads", len(reads))
+            record_property("basis_file_hashes", len(hashes))
+            record_property("date_code_queries", len(code_queries))
+            R.release_stk_factor_pro_coverage_inputs(conn, inherited_facts=inherited)
+        # Neither producer input is edited or reduced by the consumer.
+        for path in (
+            silver_stock_lifecycle_path(lake),
+            silver_stock_identity_map_path(lake),
+        ):
+            assert (
+                conn.execute(
+                    f"SELECT count(*) FROM {read_parquet(path, hive_partitioning=False)}"
+                ).fetchone()[0]
+                == 2
+            )
+
+
+@pytest.mark.parametrize(
+    "kind", ["lifecycle", "source_ts_code", "latest_ts_code", "reference"]
+)
+@pytest.mark.parametrize("window", ["ended", "future", "ends_second_day"])
+def test_code_errors_only_affect_dates_in_effective_interval(tmp_path, kind, window):
+    # Synthetic bad code intentionally fails the consumer rule. Date boundaries
+    # and expected unknown days below are literal, independent of the selector.
+    with connection(tmp_path) as conn:
+        known = {}
+        lake, staging, approval, remote = prepare_case(
+            conn, tmp_path, known_records=known
+        )
+        first, last = {
+            "ended": (date(2000, 1, 1), DAY),
+            "future": (DAYS[1] + timedelta(days=1), None),
+            "ends_second_day": (date(2010, 1, 1), DAYS[1]),
+        }[window]
+        life = [
+            (
+                A,
+                "000001",
+                "synthetic A",
+                "SZSE",
+                None,
+                "CNY",
+                True,
+                "L",
+                date(2010, 1, 1),
+                None,
+            ),
+            (
+                "INVALID",
+                "INVALID",
+                "deliberate bad code",
+                "SSE",
+                None,
+                "CNY",
+                True,
+                "D",
+                first if kind == "lifecycle" else date(2000, 1, 1),
+                last if kind == "lifecycle" else date(2006, 10, 20),
+            ),
+        ]
+        identities = [
+            (
+                A,
+                A,
+                date(2010, 1, 1),
+                None,
+                date(2010, 1, 1),
+                None,
+                "stock_lifecycle",
+                "confirmed",
+                None,
+                datetime(2026, 1, 1, tzinfo=timezone.utc),
+            ),
+        ]
+        if kind != "lifecycle":
+            identities.append(
+                (
+                    A
+                    if kind == "source_ts_code"
+                    else ("600999.SH" if kind == "reference" else "INVALID"),
+                    "INVALID" if kind == "source_ts_code" else "600000.SH",
+                    first,
+                    last,
+                    first,
+                    last,
+                    "stock_lifecycle",
+                    "confirmed",
+                    None,
+                    datetime(2026, 1, 1, tzinfo=timezone.utc),
+                )
+            )
+        upstream(conn, lake, DAYS, life=life, identities=identities)
+        inputs = prepare(conn, lake, staging, approval, known_records=known)
+        expected_kind = "lifecycle" if kind == "lifecycle" else "identity"
+        expected_unknown = (
+            ((DAY, (expected_kind,)),) if window == "ends_second_day" else ()
+        )
+        assert (
+            tuple((d, kinds) for d, kinds, _ in inputs.unknown_by_date)
+            == expected_unknown
+        ), inputs.unknown_by_date
+        assert all(
+            b.valid for b in inputs.basis_files if b.kind in ("lifecycle", "identity")
+        )
+        run_case(lake, staging, approval, remote)
+        assert_days_faithful(
+            conn,
+            lake,
+            staging,
+            approval,
+            {DAY} if window == "ends_second_day" else set(),
+            known_records=known,
         )
 
 

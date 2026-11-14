@@ -12,6 +12,7 @@ from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
     _load_basis,
     _schema,
     _stat,
+    _stk_factor_pro_date_code_issues,
     calculate_stk_factor_pro_coverage,
     release_stk_factor_pro_coverage_keys,
     stk_factor_pro_invalid_code_sql,
@@ -98,13 +99,18 @@ def prepare_stk_factor_pro_bootstrap_coverage_month(
             trade_date=None,
             basis_inputs=basis_inputs,
             known_records=known_records,
-            lifecycle_file=by_kind.get("lifecycle") if kind == "identity" else None,
         )
         by_kind[kind] = fact
         files.append(fact["basis"])
         if not fact["basis"].valid:
             for day in dates:
                 issues[day][kind] = fact["reason"]
+    for day in dates:
+        issues[day].update(
+            _stk_factor_pro_date_code_issues(
+                connection, trade_date=day, by_kind=by_kind
+            )
+        )
     flags = {}
     if by_kind["calendar"]["basis"].valid:
         rows = connection.execute(
