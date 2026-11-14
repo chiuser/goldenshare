@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-14，阶段0.5准备及阶段1～4代码/隔离验收已完成，第四阶段执行与独立审计见[第82.24节](#moneyflow-ths-stage-4-complete)。开工说明已提交ba1a6a0e2，第四阶段代码与验收记录随本次提交归档，尚未正式加载；阶段5～6未进入。第82.23节为开工依据，已否决的通用补漏、防御和10日Silver轮询不作为后续待处理。历史章节保留当时范围。
+> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-14，阶段0.5准备及阶段1～4代码/隔离验收已完成，第四阶段执行与独立审计见[第82.24节](#moneyflow-ths-stage-4-complete)。第四阶段已提交a6595fe51，尚未正式加载；第五阶段实施准备见[第82.25节](#moneyflow-ths-stage-5-preparation)，阶段5～6尚未执行。第82.23节为开工依据，已否决的通用补漏、防御和10日Silver轮询不作为后续待处理。历史章节保留当时范围。
 
 <a id="report-attachment-cleanup-20261103"></a>
 
@@ -6817,3 +6817,105 @@ dependency_files沿既有相对导入自动包含两个新模块，当前共153�
 最终收尾核对：两份文档345处本地Markdown链接目标存在，第四阶段新锚点唯一，第82/86节之前仅更新页首当前状态，其余历史段落与本轮开工原文一致；仓库文档完整性三组和本次差异空白检查通过。依赖清单实际返回路径字符串，临时核对脚本最初误按Path访问name属性，已修正核对脚本；生产函数及153份依赖范围均不变。正式DG和测试进程最终只读检查均未见运行，暂存区为空。
 
 本次临时产物已清理：本任务独立临时目录，以及核对所有权后的31个治理临时目录（两轮各15个成功批次，另1个未启动成功的批次）；未清理其它线程目录或正式Lake/staging文件。
+
+
+<a id="moneyflow-ths-stage-5-preparation"></a>
+
+### 82.25 第五阶段执行顺序、只读源核验与开工条件（2026-11-14，文档准备完成，尚未执行）
+
+#### 82.25.1 目标、依据与禁止项
+
+第四阶段已经提交a6595fe51，未推送或正式加载。本阶段依据第82.9、82.13.7、82.20～82.24节，把已有HTTP预检、完整Raw采集/合并/两个metadata名单、Raw成功事件和独立Silver更新串起来验收，再完成一个指定日期的真实源只读核验。不是重新开发阶段1～4，也不是运行整个DG。此次授权仅补文档，不能据本节“准备完成”直接运行测试、真实源请求或正式任务。
+
+后续第五阶段只允许补下述一个最小整链测试及必要测试接线、只读核验临时脚本和两份原文档的验收记录。没有计划中的生产Python、公共函数签名、配置、字段、资产/job/check/sensor、run key或业务规则变更。若实际验收发现生产缺陷，先说明真实错误和影响，回填原方案/LLD并按获准修复范围处理，不借验收顺手改生产代码。
+
+保持20点登记、沪深目标日应交易集合、排除北交所、源端缺整条记录严格小于25、原两轮稳定性、合法NULL保真及按新非NULL优先合并、两个最终Raw名单和原13字段。Raw成功后首次接续；同内容不重建已提交Silver，失败仅人工。不开发进程复用、通用基础设施补漏、自动重试、人工交错更新防御、逐字段来源追踪或额外页面。正式sensor切换、cursor初始化、正式任务和页面查看实际metadata留在阶段6。成功分页清理沿第82.12节已有验收，不重复开发、重跑历史清理或新增一次清理验收。
+
+#### 82.25.2 当前代码、可复用证据和文件范围
+
+| 现有落点 | 本阶段如何使用；不能冒称什么 |
+| --- | --- |
+| tests/test_moneyflow_ths_source_readiness.py::test_native_tick_real_three_page_http_worker_and_cost | 已覆盖原Raw sensor两字段分页/截止时间/正确RunRequest，但没有执行Raw job；复用其临时日历、生命周期、最终停牌与受限DuckDB配置方法 |
+| tests/test_moneyflow_ths_raw_merge.py::test_real_http_worker_raw_job_merge_metadata_and_check | 已覆盖localhost HTTP→真实worker→原Raw job/合并/metadata/原check及真实60秒间隔；没有接新Silver sensor。复用HTTP服务、ths_probe和原job方法，不另写下载入口 |
+| tests/test_moneyflow_ths_silver_handoff.py::test_native_tick_handoff_merged_raw_and_silver_roundtrip | 已覆盖原Raw job→原生成功sensor→原Silver job/check，但源为替身、时钟为测试时钟；复用原生cursor、分区、请求和原job执行方法，不把它当真实HTTP全链 |
+| tests/moneyflow_ths_upstream_support.py、tests/test_moneyflow_ths_http_worker.py | 复用完整10列生命周期/4列最终停牌生产合同及临时事件绑定、假token、localhost响应与进程回收观测。原definitions.env固定2026-10-08且替换取数时钟，不能不加区分地拼到2026-11-10预检；新用例必须统一日期、资源和真实时钟 |
+| defs/source_readiness/moneyflow_transport.py、moneyflow_request_worker.py、io/moneyflow_daily_raw_writer.py | 真实源只读核验直接用现行HTTP worker和build_daily_moneyflow_raw_candidate，不经过SDK DataFrame、MCP结果转换或完整下载器的另一条路径；不修改这些入口 |
+| defs/io/moneyflow_ths_raw_merge.py、moneyflow_daily_silver_update_candidate.py | 只读核验复用源覆盖、最终名单、4MiB检查和仅转换日期的候选生成；使用本轮完整源候选、无旧Raw，不引入正式Raw内容或补正式分区 |
+| 原六类候选生成、其它五类日更Silver、另外六类sensor、continuation与股票技术因子专业版消费者 | 按当前实现/依赖摘要与阶段1～4记录逐条对账；未变且证据仍适用的部分复用，不为凑数量重跑。不覆盖原moneyflow_daily_silver_writer.py，也不更改其它消费者的expected_raw_hash合同 |
+
+新增测试落在tests/test_moneyflow_ths_full_chain.py，开工先确认该路径仍不存在；这是测试组合，不是新业务入口。原三段测试可复用其适用部分，但不能直接代替缺失的组合。本阶段不复制整套资产、writer或readiness，不在生产模块增加测试开关。临时审计脚本、SQLite、Parquet、日志、JUnit和计数均放在本任务独立/private/tmp目录，结果归回本节；不在仓库reports增加过程附件。没有Prod、API、前端或主体分层变更。
+
+#### 82.25.3 后续获得第五阶段授权后的执行顺序
+
+1. 冻结本次相关源码、测试、合同及有效已有证据的摘要；核对dev-interface与阶段4提交，不回退其它线程提交、不收集无关差异。明确区分本次新增验证、沿用旧结果和未执行项。阶段4的1431项普通/113项治理是已记录结果，不能不经核对写成第五阶段新跑通过。
+2. 先实现并执行下面的一个localhost整链用例。它只有假token和临时资源，先完成，失败则停止并定位，不先访问真实源。保留输入和独立预期，禁止修改业务断言、扩大mock范围或放宽预算迎合错误。
+3. 按第82.9节矩阵逐项对账。已有24/25边界、错日/重复/缺列、NaN/无穷、名称NULL、漏行/源修订、发布与人工恢复、原生去重及其它消费者证据仍适用则复用；只补新增接线、实际变化或没有有效证据的用例。不把这些已有能力重复开发成新功能。
+4. 本地整链通过后执行第82.25.5节的一次真实源只读核验。它与pytest隔离，不把正式凭据交给自动化测试，不执行正式DG入口。源端状态和本地实现问题分别记录。
+5. 做一次独立收尾核对：另起临时进程，不导入本次新测试的expected生成器，按独立字面预期读回整链产生的三行/13字段、两个Raw JSON名单、原检查关联、实际输入摘要和原run key；核对真实源统计、源码摘要、必要回归和治理记录。只读已生成的结果，不重新请求源或重算历史。
+6. 结果写回本节及原方案第86.18节，再检查文档/差异，删除本任务无用临时文件。没有实测前不得预填通过。两个证据部分均通过且无未处理错误，才能关闭阶段5；正式加载仍不能随之执行。
+
+#### 82.25.4 一个最小localhost整链用例
+
+固定测试交易日2026-11-10，预检时钟为上海时间该日20:00；只替换“当前时间”，原Raw两轮采集使用真实计时和至少60秒间隔。临时实例只登记此日，日历和上游事实按独立完整生产合同生成；原Raw/Silver资产、原blocking checks、原job及新原生Silver sensor必须真实执行。原HTTP worker的两字段/13字段请求与解析、目标日集合和覆盖检查、合并、metadata、发布器、Silver转换及正式检查均不得替换为“直接成功”。
+
+独立样例声明A=000001.SZ、B=600000.SH、C=000002.SZ，应交易集合为A/B/C，无全日停牌。临时旧Raw仅有A/B：A的name=NULL、net_amount=100，B的net_amount=200；源两字段仅返回B/C，两轮完整字段都返回B=250、C=300，目标日期相同。A除name外、以及B/C的全部业务字段均填合法非NULL字面值，包含合法零/负值，按完整13列逐字段给出独立预期；不得用合并函数生成expected。源中已有行的NULL与旧非NULL取舍沿已通过的独立回归，本用例至少保留A名称NULL，使最终缺记录=[]、NULL代码=[A]，证明两个名单不同且名单非空仍可接续。
+
+按以下顺序完成一条链：
+
+- 为原生Silver sensor初始化临时cursor；初始化不补历史、不创建运行。临时旧Raw文件不伪造为一次新Raw成功事件。
+- 用原Raw sensor或其现行显式now包装入口执行目标日预检，经真实localhost HTTP worker请求ts_code,trade_date。缺A一只允许，得到原Raw job的2026-11-10请求；不把代码集合相同或缺失为零作为此样例的前提。
+- 按该RunRequest的partition_key执行原Raw job，完整13字段两轮下载、真实60秒间隔、合并和原Raw检查通过。receipt=本轮2行，物化行数=最终3行；两个名单是原生JSON值、绑定此次物化，实际文件及发布checkpoint一致。
+- 把同一临时实例中新Raw成功交给原生Silver sensor.evaluate_tick，沿原日期/最终Raw摘要请求原Silver job；执行请求并通过原Silver检查。Silver为3行完整13字段，日期DATE，A保留、B更新、C新增，NULL和其它值与独立预期相同；goldenshare/raw_sha256对应实际Raw。
+- 记录Silver评估及执行阶段没有新的HTTP请求；重复原生评估不再提出已处理请求。跨运行同内容的原生防重复和失败仅人工规则，沿阶段4实际SDK/临时存储测试证据，不在本例重复等待第二轮Raw或增加项目去重逻辑。
+
+预计恰好3次localhost HTTP：预检1次、完整Raw两轮各1次，均因2行短页结束；原Raw与Silver各1次执行。原Raw/Silver结果分别用独立SELECT读回一次，比较完整字面预期。临时HTTP为真正监听127.0.0.1的服务，需要工具层支持本地端口和worker进程观测；沿现有获准执行方式启动，不能重复使用已证实不支持它的执行环境。该测试证明本地请求/解析/事件/文件链，不宣称正式daemon已投递或真实源可用。
+
+#### 82.25.5 一次指定日的真实源只读核验
+
+真实目标固定2026-11-10，理由是第82.14/82.19节已有同日两字段完整分页、单代码13字段和上游合同证据，便于核对，避免任意换日或扩展历史。源端返回量以本次实际为准，旧5218行只是分页估算依据。当天不可取得、字段/身份错误、缺码达到25或两轮不稳定时记录真实原因，停止本次源核验，不换日期、改股票集合、只取某只股票或改走SDK/MCP来制造通过。
+
+本部分作为单独只读审计执行，不调用正式job/sensor，不打开或创建任何正式/临时Dagster instance，也不读写正式事件/cursor。用现有配置读取方式在内存取得token和TUSHARE_BASE_URL，凭据不进入argv、日志或临时文件；不改配置、安装依赖或启停服务。MCP及先前真实核验的合同证据仍保留，但不能代替此次待验收HTTP worker的实际结果，也不额外重复下载同日数据。
+
+具体读写与核对顺序：
+
+1. 只读正式上游silver_stock_lifecycle及2026-11-10的silver_stock_suspend_daily，使用现行silver_cny_stock_lifecycle_select和stock_trading_universe_ctes，限定目标日在市沪深A股，输出应交易/同日全日停牌代码，不导出生命周期全历史明细。复用完整生产schema和已核实语义，不从资金流反推股票池。这里只验证来源覆盖，不冒充正式事件readiness；真实事件readiness已由临时整链执行，正式运行仍沿原链检查。若指定上游文件或合同不可用就停止，不自行更新上游。该读取是目标日过滤/必要列投影，不扩大为数据集全局明细读取。
+2. 用build_daily_moneyflow_raw_candidate(dataset="moneyflow_ths", trade_date="2026-11-10", staging_root=本任务临时目录, operation_id=本次临时标识)，不传假clock/sleep_fn或替换transport。原collector经现行HTTP worker执行两轮完整13字段请求，形成临时raw.parquet、verification.parquet、receipt及原分页JSON；沿原稳定性、类型/精度、日期/主键、行数和资源限制。
+3. 显式字段顺序为trade_date,ts_code,name,pct_change,latest,net_amount,net_d5_amount,buy_lg_amount,buy_lg_amount_rate,buy_md_amount,buy_md_amount_rate,buy_sm_amount,buy_sm_amount_rate。请求由原RequestBuilder生成trade_date=20261110、limit=2000、offset=0/2000/4000…；不传ts_code、start_date、end_date，不把页大小改为源文档列出的6000，不新增两字段请求。两字段预检由上面的本地整链及阶段2真实来源证据负责。
+4. 对临时Raw/verification复用原4MiB文件限制和本轮源覆盖检查。以无旧Raw方式核对本轮候选，复用moneyflow_ths_raw_metadata计算这份候选的两个名单；没有“合并正式旧Raw”，不能把正式数据中的已有值带进只读核验。receipt和两轮文件摘要/数量分别对应实际来源，缺码限制仍先于任何结果解释。
+5. 用build_daily_moneyflow_silver_update_candidate在同一临时目录、已有受限连接中生成一个未发布Silver候选，checkpoint路径不存在，只执行原日期转换/候选对账；不调用正式publisher。核对13字段、行数、DATE和逐字段一致性，保留真实NULL。当前源已无NULL时如实记录0，不为找NULL另扫日期；人工NULL正反例继续证明原错误已修复。
+6. 最后仅对已经生成的同日临时数据做一次核对：Raw/Silver各一次SELECT读回最多A/B/C三个已声明代码的完整13字段，再对第一轮分页JSON一次有界查询核对相同代码的源值；全日行数、键唯一和NULL汇总沿前述原检查/名单统计，不再完整下载一遍。源代码不含某样本时记录缺席，不自动请求替代代码；临时Raw/Silver应按实际存在集合一致，不把缺少某个展示样本误当新的发布规则。两个名单只是本次候选的核验结果，不伪造物化或页面已显示。现有分页JSON是worker返回后的分页记录，不是HTTP响应原文；不新增原文留存。JSON null到None的解析边界由已通过的阶段1协议测试及新localhost用例的原始null响应证明，不能把同一份解析结果自比当独立源原文核验。
+
+通过结果需明确记录：实际源请求/重试和页数、两轮源行数、Raw/verification/Silver候选行数、缺整条记录/NULL代码数、源与候选NULL对应样本、拒绝/过滤原因、13字段、文件摘要与字节、实际资源与耗时。任何确定性拒绝都解释到具体原因；不静默去重、删行、填值或放宽合同。临时统计和样本仍不是新增正式metadata字段或长期来源追踪。
+
+#### 82.25.6 请求、SQL、文件、时间与空间依据
+
+| 项目 | 本阶段适用范围和推导 |
+| --- | --- |
+| localhost整链 | 单日、应交易3只、源2只、旧Raw 2行→最终Raw/Silver各3行；1次预检+2次完整字段=3次localhost请求/worker，真实源请求0。fixture生成与之后业务执行分别计数 |
+| localhost正常SQL | 在Raw尚无成功物化、当前日优先、旧Raw变化、Silver首次写入且无checkpoint条件下：日历/目标集合预检2 + Raw既有P=2模型64 + Silver新写31 + 原正式Silver check 9 + 最后两次读回2 = 108条业务execute。64包含原Raw正式check，不能重复加；连接SET、fixture构造、原生事件/取消查询不算业务SQL。它是条件明确的对账模型，不是新配置或要求删校验凑数，实际有其它分支先解释并按现行模型核对 |
+| 真实源范围与分页 | 仅2026-11-10、同花顺个股资金流向、完整13字段两轮，不读其它来源。设一轮实际N，0<N≤20000，每轮成功请求floor(N/2000)+1（整页含空终止页），两轮最多22次成功请求；非空页总数P=2×ceil(N/2000)≤20。旧N=5218样本预计两轮6次请求，不固定本次返回必须5218 |
+| 真实源失败限制 | 沿原单请求30秒、64次累计请求及300秒collector预算和原有限临时错误重试；两轮至少60秒等待计入，不增加外层重试/补日期。300秒不是整个审计/测试的墙钟保证，前后集合/候选统计、事件与最后验收各自计时。成功页数上限不等于允许无限失败请求 |
+| 真实源SQL/连接 | 原writer为11P+12条；只读上游集合1 + 源覆盖1 + 两个名单同次统计1；仅生成新Silver候选为Raw检查3+COPY1+标准化9=13；最后Raw/Silver/第一轮JSON样本各一次查询=3。合计11P+31，P=6时97，P=20时251条业务execute。分别使用上游集合、原Raw writer、后验核对3次受限连接；连接配置/资源检查不混算。失败分支按停止位置记录，不把这组候选SQL算成正式Raw/Silver job开销 |
+| 文件与内存 | localhost使用3份临时上游（日历/生命周期/目标停牌）、旧/最终Raw同一路径、来源Raw/verification/合并候选及Silver候选/目标路径；同路径提升前后不是两份独立文件。真实只读仅2份正式上游及3份临时Parquet（Raw/verification/Silver候选）、原receipt与最多20个非空分页JSON。原512MB/1线程/no-spill、768MiB进程、32MiB worker结果框、4MiB验收文件和64KiB控制文件限制保持；只按实测汇总临时字节，不把SQL引用次数或这些限制相加冒称真实磁盘占用 |
+| 时间证据与验收开销 | 阶段3同条件Raw样本61.482393秒，阶段4Silver新写样本0.022345秒，均只按原样本范围引用。本地整链和真实源各有一组两轮采集，计划实际稳定等待共2×60=120秒；它不含请求/退出/SQL/事件，不是总耗时上限。新增整链、真实源整体墙钟及最终读回/清理尚无实测，列为本阶段验收记录，不编造余量或将600秒sensor间隔当执行时限 |
+| 最后核对 | localhost读取已生成的3行Raw/Silver，真实核验只读同日候选及第一轮分页中的三个指定样本；全日已做过的schema/唯一键/稳定性及名单证据复用。独立审计另读这些小样本和小型事件记录，不再次联网、不扫历史文件 |
+
+该表不改变任何正式配置。真实源完整调用只有一次安排；失败/中断后结束为未通过，不在本阶段脚本中自动再启动一个完整下载。完成下载但后验中断时保留对应receipt/两轮候选并只继续后验；累计源请求不清零。未完成下载不能声称原writer可续传分页：它拒绝已有operation目录；确需重做时须先记录已发生请求/耗时及新的整日成本，修订本次执行记录和预算后再安排，不能复用新目录掩盖重复费用或自行另换日期。
+
+#### 82.25.7 失败、中断后继续和回归选择
+
+本地整链失败保留本任务临时日志/文件，先确认是业务错误、夹具合同错误还是启动权限错误；只修实际错误，再复跑受影响用例，失败不记作通过。生命周期/停牌/日期/字段夹具仍按真实生产者校验，不能因为直接导入了旧测试就默认合同一致。worker及本地HTTP结束后回收自有进程；中断只重跑这个未完成的新用例，不把其它已通过回归全部再跑一遍。
+
+成功Raw或Silver后的后验失败只读保留结果继续核对，不重下源、不运行正式恢复入口。发布前后取消、intent/complete继续、失败Silver人工原job恢复等已有生产行为与测试按第82.21/82.23节复用；不新增故障注入或实际损坏正式文件。真实源拒绝不触发本数据集或其它数据集任务，保留源状态说明；本地整链通过和真实源未通过必须分别呈现，不能互相替代。
+
+回归采用矩阵与摘要，不采用全部重跑：新增用例与受影响测试先跑；原六类候选527项、其它五类Silver/六类sensor、continuation和阶段1股票技术因子专业版/HTTP组件证据若源码与依赖未变且范围适用可沿用；有变化或证据不足才选相应已有套件补验。治理仍使用原stock_suspend_confirmed_test_runner.py运行test_run_contract_static_gates.py，原清单/保护规则不改；如生产定义未变，可沿用阶段4的113项并核对最终摘要，不能把沿用写成新跑。需要复跑时使用运行器所需权限，不绕到普通pytest；Ruff按本次实际修改的测试文件及原致命错误基线运行。
+
+#### 82.25.8 完成条件与本次文档核对
+
+阶段5后续完成必须同时满足：第82.9及82.13.7节每条业务要求有适用代码和正反证据；新增整链按独立13列预期通过；一次真实指定日完整下载及候选核验通过；源码/测试摘要一致、旧候选入口和其它消费者不回归；必要治理/静态及文档核对通过；实际成本、沿用证据及未覆盖正式范围如实回填；无未处理的实际错误。原成功分页清理证据继续有效，不以“串联”为由再清理正式历史。正式页面、正式事件投递、加载和游标切换均不计入本阶段已完成。
+
+本次仅补齐这两份原文档，未增加测试或第五阶段数据核验脚本、未运行pytest/原生sensor/job、未请求真实Tushare或MCP、未访问正式实例或数据、未改配置/开关、未提交或推送。CodeGraph分析原候选writer、更新链和真实调用方，补用当前测试源码核对原三段的替代边界；本地doc_id=348、完整13字段合同和安装SDK对应规则已核对。Dagster官方[成功事件测试文档](https://dagster.io/docs/guides/automate/sensors/testing-run-status-sensors)用于原生上下文依据，示例中的get_job_success_event不适用于当前安装版本，沿已验收的get_run_success_event及partition_loading_context用法，不复制过时示例。
+
+本阶段目标、范围/禁止项、已有入口及测试落点、日期/字段/请求与文件边界、失败/继续、可复算成本、验收和阶段6分工均已明确；没有新增业务待拍板项。文档核对通过后具备第五阶段测试和只读核验的准备条件；执行仍须后续第五阶段授权，本次不提前执行或预填成功。
+
+本次最终静态核对：206份相关生产/测试Python摘要未变，6个现有函数/测试落点存在，唯一拟新增整链测试文件尚未创建；348处本地Markdown链接目标存在，新增锚点唯一，108/97/251条SQL及6/22次成功请求推导核对通过。页首状态和阶段5表格之外的原文保留，文档完整性三组、两文档差异空白检查通过，暂存区为空。有效结果只归入这两份原文档，工程外本任务文档编辑/核对临时文件收尾清理。
