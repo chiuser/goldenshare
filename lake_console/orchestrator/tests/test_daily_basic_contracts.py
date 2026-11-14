@@ -31,11 +31,13 @@ def test_exact_source_fields_and_decimal_units():
         "free_share",
         "total_mv",
         "circ_mv",
+        "limit_status",
     )
     assert DAILY_BASIC_TYPES["close"] == "DECIMAL(18,4)"
     assert DAILY_BASIC_TYPES["turnover_rate"] == "DECIMAL(12,4)"
     assert DAILY_BASIC_TYPES["total_share"] == "DECIMAL(20,4)"
     assert DAILY_BASIC_TYPES["circ_mv"] == "DECIMAL(20,4)"
+    assert DAILY_BASIC_TYPES["limit_status"] == "INTEGER"
     assert build_raw_daily_basic_update_job_run_config("2026-09-14", "replace")["ops"][
         "raw_tushare_daily_basic"
     ]["config"] == {"write_mode": "replace"}

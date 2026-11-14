@@ -65,12 +65,17 @@ def history_parser():
     parser.add_argument("--batch-id")
     parser.add_argument("--cost-evidence", type=Path)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--replace-existing", action="store_true")
     for name in LIMIT_NAMES:
         parser.add_argument("--" + name.replace("_", "-"), type=int)
     return parser
 
 
 def run_history_cli(args):
+    if args.replace_existing and args.stage != "plan":
+        raise DailyBasicValidationError("history_replace_only_in_plan")
+    if args.sample_date and args.stage not in ("promote", "report-events"):
+        raise DailyBasicValidationError("history_sample_stage")
     report = args.report.absolute()
     if not report.resolve().is_relative_to(Path("/private/tmp")):
         raise DailyBasicValidationError("history_report_requires_private_tmp")
@@ -131,6 +136,7 @@ def run_history_cli(args):
             ),
             cost_evidence=costs,
             limits=budgets,
+            replace_existing=args.replace_existing,
         )
     else:
         if args.plan is None:
@@ -160,12 +166,20 @@ def run_history_cli(args):
         elif args.stage == "build":
             result = build_daily_basic_history(plan, apply=True)
         elif args.stage == "audit":
-            result = audit_daily_basic_history(plan)
+            if plan.get("replace_existing"):
+                from orchestrator.defs.bootstrap.daily_basic_event_instance import (
+                    daily_basic_event_instance,
+                )
+                with daily_basic_event_instance() as instance:
+                    result = audit_daily_basic_history(plan, instance=instance)
+            else:
+                result = audit_daily_basic_history(plan)
         else:
             if args.audit_report is None:
                 raise DailyBasicValidationError("history_audit_required")
             result = promote_daily_basic_history(
-                plan, load_history_report(args.audit_report), apply=True
+                plan, load_history_report(args.audit_report), apply=True,
+                sample_date=args.sample_date,
             )
     save_history_report(report, result)
     print(

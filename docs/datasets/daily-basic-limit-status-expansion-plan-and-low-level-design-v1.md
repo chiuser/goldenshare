@@ -4,11 +4,11 @@
 
 本次执行：管理员部署v5后，§28部署审计及APPLY19603均已成功，剩余96日处理完成。固定范围2010-01-04～2026-11-12共4,093日已全部按确认规则处理，每表累计覆盖14,493,888行；本轮每表实际补入526,690行，1,092条B股旧记录原样保留，5,573条已有完整状态跳过，无新增留空或拒绝。DG未动，结果见§28。
 
-状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG 第四、第五阶段尚未开发。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
+状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG第四阶段开发与隔离验收已完成，见§31；第五阶段待开发，未执行本次正式DG切换。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
-2026-11-14 DG 设计修订：按 Prod 的实际补录结果校准 §7～§10，区分日更与历史导出的股票范围、状态空值、原始类型及续跑依据；本轮只修订文档。DG 当前代码仍为18字段，第四、第五阶段尚未开发，不以本文设计代替实现或正式验收。
+2026-11-14先按Prod实际结果修订§7～§10，再按批准范围完成第四阶段开发，实际验收见§31。19字段日更与文件能力已在隔离环境验证；替换事件追加/重检/续跑留给第五阶段，正式文件与事件均未变更。本段不把开发通过解释成DG已完成正式扩充。
 
 ## 1. 目标、范围与已确认原则
 
@@ -397,7 +397,7 @@ DG完整19字段源契约放在现有`daily_basic_contract.py`，由本模块完
 
 日更metadata保持`source_row_count`与本次交付文件行数一致，另记录`fetched_row_count`（范围过滤前源行数）、`excluded_b_share_row_count`、`retained_b_share_row_count`（从旧目标原样保留）和`null_limit_status_count`。本次有效A股＝源读取－源B股排除；文件行数＝本次有效A股＋旧B股保留。NULL属于已交付行，不能再作为被排除数量相加；额外A股仍保留。字段说明、asset日志、coverage及readiness消费者同步，不能因过滤或保留行误报源丢行。历史来源直接以完整导出计数，B股来自Prod源，不套日更的排除/旧目标保留公式。
 
-日更的最近 10 日期窗口、17:00 注册/19:00 更新观察时刻、900 秒间隔，以及原 1 秒请求间隔、12 次请求/3 次重试、60 秒接收截止的本族规则保持原定义。这些是已存在规则，不是本次新增预算；60 秒仍不等于 SDK 保证在 60 秒内结束。新结构切换期间不得启动本族日更去读取混合 schema。
+日更的最近 10 日期窗口、17:00 注册/19:00 更新观察时刻、900 秒间隔，以及原 1 秒请求间隔、12 次请求/3 次重试、60 秒接收截止的本族规则保持原定义。这些是已存在规则，不是本次新增预算；60秒是本族接收截止，不承诺操作系统层面的硬中断。新结构切换期间不得启动本族日更去读取混合 schema。
 
 ### 7.2 一次正常导出与候选构建
 
@@ -524,7 +524,7 @@ plan-events、audit-events 保留原参数合同，不接收 sample-date；其�
 
 ### 7.8 Prod经验、配置与验收对账
 
-本节是第四、第五阶段的开发约束，不是本轮已实现结果。真实Prod证据继续引用原记录，DG不新增维护任务、第二套下载器/事件入口、锁、进度表或修复股票池。
+本节是第四、第五阶段的开发约束；第四阶段实际完成范围见§31，第五阶段尚未实现。真实Prod证据继续引用原记录，DG不新增维护任务、第二套下载器/事件入口、锁、进度表或修复股票池。
 
 | Prod已暴露的问题或现有DG依据 | DG开发时必须证明的结果 | 代码及测试位置（相对orchestrator） |
 | --- | --- | --- |
@@ -628,7 +628,7 @@ DG沿用现有DuckDB默认16GB/4线程，不把默认值解释为本次实测需
 
 ## 10. 分阶段实施、读写边界与完成条件
 
-所有阶段在当前`dev-interface`工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。第一至第三阶段开发、部署及Prod固定范围历史补录已完成，最新结果见§28；DG第四、第五阶段仍未开发。2026-11-14本轮只修订DG设计，不操作正式资源，后续开发及正式读写按范围分别安排。
+所有阶段在当前`dev-interface`工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。第一至第三阶段开发、部署及Prod固定范围历史补录已完成，最新结果见§28；DG第四阶段开发和隔离验收完成见§31，第五阶段待开发。本轮不操作正式资源，后续开发及正式读写按范围分别安排。
 
 ### 10.1 五个开发阶段
 
@@ -666,7 +666,7 @@ Prod 在 P3 完成后冻结历史窗口，随后 DG 才导出；其他日期正�
 |---|---|
 | 管理员确认的方向 | Prod 只补新增列；DG 从补齐后的 Prod 重新 bootstrap；新增能力不影响旧能力 |
 | 只读事实与源样本 | §2 已记录；统计、检查数和版本执行前刷新 |
-| 扩充代码、数据库、Lake、事件变更 | 第一至第三阶段及Prod固定范围补录完成，最新正式结果见§28；DG设计已按Prod经验修订§7～§10，第四、第五阶段未开发，未变更本次DG文件或事件；两个现有修复见§12 |
+| 扩充代码、数据库、Lake、事件变更 | 第一至第三阶段及Prod固定范围补录完成见§28；DG第四阶段开发与隔离验收完成见§31，第五阶段待开发，未变更本次正式DG文件或事件；两个现有修复见§12 |
 | 性能决定 | 管理员决定不另做专项测量，后半夜平峰执行；未知耗时如实保留，现有执行限制不变 |
 | 已确认修订 | 校验错误任务失败并给代码/名称/数值原因；文本 SQL 保持旧列；DG 旧身份冻结、重新规划续跑及日期锁 |
 | 后续证据落点 | 本文对应阶段回填最终代码位置、命令/范围、测试、源/归一化/拒绝/写入/目标计数、性能与恢复验收；不另存第二份主方案 |
@@ -1757,3 +1757,55 @@ APPLY19603于2026-11-14 09:53:07.671112+08:00开始、10:02:55.330044+08:00成�
 审计修订落点：日更/历史范围分开；同日日线集合实际用于缺源与NULL检查；B股历史和合法NULL不丢；16个小数与新增整数类型分开；chunk读回与夹具不再假定全部NUMERIC；新计划显式冻结19字段，不接收旧报告；原文件/报告与事件身份支持续跑；检查实际范围按K，计划上界不沿用旧20日；覆盖、排除、NULL、实际写入各自可解释。第四、第五阶段的测试和配置/读写边界已同步，日更窗口、正式路径、现有锁与原默认导入拒绝行为保持。
 
 本轮没有新建文件或修改产品源码，没有请求Tushare、读取Prod/DG正式数据库、Dagster instance或Lake业务文件，也没有运行job、check、sensor、bootstrap或事件写入；没有安装依赖、变更配置或增加性能测量。正式DG日期、C/K、磁盘及执行输入尚须在对应执行步骤按批准范围刷新，不能从Prod已完成或旧统计推断。文档规则与代码依据对账不等于第四、第五阶段已实现，后续开发及正式执行仍分别验收。
+
+## 30. 第四阶段开发约束与验收（2026-11-14）
+
+管理员已批准按本文推进第四阶段，完成后独立审计。本步只开发§7.1～7.3的日更和历史文件能力，以及§7.7替换前审计所需的旧事件身份读取；不实施第五阶段的替换事件追加/重检/续跑，不部署或操作正式资源，不提交。日期/路径、16个DECIMAL字段、原日更调度、默认导入和通用SDK/HTTP实现保持原定义。
+
+| 硬口径 | 实现位置（相对orchestrator） | 正向及反向验收 |
+| --- | --- | --- |
+| 完整19字段、原始int/NULL先校验 | daily_basic_contract、source_readiness/daily_basic、现有http_pro绑定 | 两字段probe与19字段写入；本机HTTP整数/NULL经候选和隔离job/check；小数、bool、缺列拒绝，不经过SDK回退 |
+| 同日日线A股集合实际参与判断 | asset_guards/daily_basic_readiness、daily_basic_raw_io | 必需缺源/NULL整日失败；非必需NULL及0保留；正常同日日线变化不会误拦 |
+| 源B股不更新，旧B股原行保留 | daily_basic_contract、daily_basic_raw_io | 200011.SZ/201872.SZ/900901.SH排除；旧B股19列不变；write_new冲突仍拒绝，replace能改A股 |
+| 文件/check/readiness共用规则与计数 | daily_basic_raw_io、assets/daily_basic、派生schema/catalog | 交付＋源B股排除＝源读取＋旧B股保留；NULL在交付内；历史来源不套日更非空规则；旧检查目标回归 |
+| Prod完整镜像，NUMERIC和INTEGER分开 | prod_db/daily_basic、bootstrap/daily_basic_history | 真实生产者schema依据的夹具；keyset和10000行批次不变；整数/NULL chunk读回、B股完整保留、旧报告拒绝 |
+| 显式18→19，原18列一致 | history、history_cli | 默认false保留拒绝；批准替换比较旧18列；源/候选完整19列对账；旧列差异和候选变化拒绝 |
+| 原进度累积、按文件续跑 | history.promote、history_cli | 逐文件checkpoint；一个日期后中断、替换成功而保存失败后读回补进度；样本累积；替换提升不重调全历史audit |
+| 旧事件身份在audit冻结 | history audit、daily_basic_events只读身份读取、history_cli | 隔离instance冻结D/K及旧物化/检查ID；已有失败/不对应旧物化的检查仍拒绝；不新增事件入口/锁 |
+
+单日期日更沿用6000行分页及原12次请求/3重试/60秒接收截止；HTTP每页仅一次，沿用原配置并把IO超时约束到剩余时间，不增加线程或进程。历史每次只持10000行，原keyset导出、前缀重核、年度DuckDB构建与首次完整审计保留；NULL计数合入已有批次/年度统计。替换提升只读所选候选/目标校验值；中断和最终验收成本按§8计算，不新增专项测量或无依据的预算值。
+
+开工审计已通过：CodeGraph explore/impact核对入口及影响面，再以当前直接引用补齐schema/catalog、asset、两项check、readiness、sensor、Prod导出、bootstrap和现有测试。当前18字段全部数值循环与夹具必须分别改为16个DECIMAL加1个INTEGER；catalog/schema已从DAILY_BASIC_COLUMN_SPECS派生，不改无关catalog条目。替换audit只读取得旧事件身份，后续追加事件留到第五阶段，避免把文件能力完成误报为正式切换可执行。全部测试使用/private/tmp及隔离instance，本机HTTP只用人工JSON，不访问真实token、源站或正式库/湖。
+
+## 31. 第四阶段完成与独立复核结果（2026-11-14）
+
+本阶段按§30实施，完成DG股票每日指标19字段日更、检查和历史文件能力。未推进第五阶段的旧/新事件分类、替换事件追加、重检或事件部分成功续跑；`daily_basic_events.py`本轮仅增加替换audit的只读身份冻结函数，原事件PLAN/APPLY行为未迁移。正式导出、文件切换和事件操作均未执行，不得部署本阶段代码后单独恢复18字段正式文件的日更。
+
+### 31.1 实现与硬口径对账
+
+| §30要求 | 本阶段最终落点与实际验证 |
+| --- | --- |
+| 19字段及原始整数 | `daily_basic_contract.py`定义完整SourceDatasetContract、INTEGER和16个小数字段；`source_readiness/daily_basic.py`复用HttpProTransport/RequestBuilder，外层仍是原分页和重试。仅增加http_pro绑定，不注册通用下载会话；状态从原始int/None构建Int64，JSON小数/bool/字符串不能经过CAST变合法 |
+| 当天应有股票实际参与判断 | `load_daily_basic_input_codes`读取已就绪同日日线并排除B股；writer和正式coverage/readiness共用实际集合。必需NULL/缺源失败；额外A股NULL和0保留，正常应有股票增加可更新 |
+| 源B股排除、旧B股保留 | writer在状态及小数转换前排除源B股，用DuckDB UNION ALL将本次A股与旧目标B股原行组成交付关系。独立样本验证源3行、交付2行、排除1行；另有旧B股时源3行、交付3行、排除1行、保留1行，旧B股19列逐值不变 |
+| 文件、状态和计数 | 文件校验区分通用整数范围与必需集合非空；metadata及asset日志分别记录源读取、交付、源B股排除、旧B股保留、NULL。prod_history仍不重查日线或上市/停牌历史。派生schema/catalog无需重复编辑；独立字面字段/类型样本核对asset definition、catalog及两项检查一致 |
+| 完整历史与类型 | 原Prod keyset SQL从DAILY_BASIC_FIELDS派生为19列，不改查询模式；`make_history_plan`核对可空INTEGER，`_canonical_page/_write_chunk`分开处理16个小数和状态，原值/NULL读回一致。夹具类型依据现行Raw模型和迁移188，未从消费者反推INTEGER |
+| 显式迁移、旧列不变 | CLI仅plan允许--replace-existing，默认false；新计划冻结完整source_fields和18列比较投影，旧有效hash报告仍拒绝。替换audit按原18列读取旧文件，候选19列完整对账；正常18→19可以通过，旧列变化/候选损坏仍停止 |
+| 续跑与开销 | promote仅替换分支免去重复全历史audit，逐文件核对批准旧/新SHA；原promote.files累积，不另建状态表。单日期后中断、目标已替换而checkpoint保存失败都能读回续跑，已提升文件不再复制。导出日志明确区分前缀重核与新增完成量，NULL不重复计数 |
+| 替换前旧事件 | audit使用现有按500日期批查询及物化分页，冻结materialization_ids/check_ids/K。已有失败检查仍拒绝；近期窗口外的旧检查日期进入K，显式替换计划检查上界覆盖全部批准日期。没有新增锁、逐日期事件监视或事件写入路径 |
+
+### 31.2 验证结果与证据边界
+
+最终在orchestrator现有`.venv/bin/python3 -B`中合跑每日指标10个测试文件与下载组件5个回归文件，**238 passed，17.29秒**；这是隔离测试耗时，不是正式bootstrap性能预算。构成为原每日指标122项、新增业务/文件/迁移41项、本机HTTP集成8项、下载组件回归67项。测试使用`-p no:cacheprovider`、`PYTHONDONTWRITEBYTECODE=1`及/private/tmp独立basetemp，不读取正式来源。
+
+HTTP集成运行真实本机HTTP服务，验证实际JSON解析、整数与NULL、小数/布尔/字符串反例、两字段probe、19字段实际下载、源B股排除，以及隔离asset job和两项partitioned checks；检查目标storage_id/run_id/timestamp均对应本次物化。它使用按doc32构造的人工响应，未重新请求Tushare，因此不声称本轮完成源站实测或正式DG验收。原伪源测试显式使用`isolated_daily_basic_transport`，不会把mock返回int当成HTTP类型验证。
+
+扩大执行`test_asset_governance_contracts.py`为7通过、5失败；不得把本轮全部检查写成全绿。失败分别为`test_assets_register_definition_column_schema`、`test_catalog_api_returns_registered_entries`、`test_catalog_blocking_checks_match_active_check_specs`、`test_confirmed_external_spec_has_no_writer_or_partition`、`test_current_assets_have_governance_tags_and_dataset_metadata`。错误涉及全仓资产清单中`gold_major_index_quantitative_structure`未进入该测试的活动清单，以及`stock_suspend_confirmed_test_support`导入失败。基线复核在独立Python进程中仅将本任务10个产品模块换回当前已提交代码a6595fe5134e783fca9d49a33b32ed9fcf04aba1，其他工作区内容保持当前值，原样复现同5项失败（7通过、218个subtests通过）。未修改这些测试、放宽断言、skip或扩到其他资产；每日指标自身的catalog/schema/check合同另有独立测试并通过。
+
+当前改动文件完整Ruff检查及文档完整性、差异空白检查通过。CodeGraph开发前explore/impact、开发后sync/status均已执行，索引正常；常量别名未完整展开的消费者通过当前直接引用补齐。通用TushareResource.call、HTTP/JSON实现、配置默认值、SDK、CONTRACTS注册表及其他数据集绑定未改；产品运行代码未新增配置、锁、线程或进度实体，未安装包。
+
+### 31.3 开发后独立复核
+
+开发完成后另行从§30硬口径检查最终代码、SQL、真实生产者schema、测试输入与字面预期、CLI默认值和文件/事件边界。复核发现原导出续跑日志仍可能把前缀重核显示成从头开始，已修正并增加完成量不回退及NULL只计一次的用例；一处新夹具误用了DuckDB目录推断日期，也已改成读取文件内部日期，未迎合错误实现修改预期。最终238项结果在这些修正后取得。
+
+结论：**第四阶段满足本LLD的开发与隔离验收要求，未发现本阶段尚未解决的阻塞问题。** 上述5项全仓存量失败继续保留，不以本阶段通过证明整体检查全绿。下一步只安排第五阶段开发和文件/事件联调；两阶段均完成并另行确认正式D/K、磁盘及执行范围前，不做本次正式切换。测试服务和隔离instance已结束，过程文件在有效结果回填后清理。本轮不提交、不推送、不部署、不访问正式Prod/DG数据或写入正式事件。

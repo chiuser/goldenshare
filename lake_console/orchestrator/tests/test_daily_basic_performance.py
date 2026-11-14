@@ -6,6 +6,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import dagster as dg
+import pytest
 
 from orchestrator.defs.asset_guards.daily_basic_readiness import (
     batch_daily_basic_readiness,
@@ -14,6 +15,7 @@ from orchestrator.defs.daily_basic_contract import DAILY_BASIC_ASSET
 from tests.test_daily_basic_raw_io import DB, Source, row, write
 
 GUARD = "orchestrator.defs.asset_guards.daily_basic_readiness"
+pytestmark = pytest.mark.usefixtures("isolated_daily_basic_transport")
 
 
 def test_ten_day_bounded_fixture(tmp_path, capsys):

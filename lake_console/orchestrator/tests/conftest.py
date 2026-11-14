@@ -4,6 +4,21 @@ import pytest
 
 
 @pytest.fixture
+def isolated_daily_basic_transport(monkeypatch):
+    """Explicit fake pages for unit tests; HTTP integration tests do not use it."""
+    from orchestrator.defs.source_readiness import daily_basic
+
+    def fetch(*, tushare, trade_date, offset, fields, base_url, remaining):
+        return tushare.call(
+            "daily_basic",
+            {"trade_date": trade_date.replace("-", ""), "limit": daily_basic.DAILY_BASIC_PAGE_SIZE, "offset": offset},
+            fields,
+        )
+
+    monkeypatch.setattr(daily_basic, "_fetch_daily_basic_page", fetch)
+
+
+@pytest.fixture
 def isolated_moneyflow_transport(monkeypatch):
     """Existing fake-source tests prove collection/files, not real HTTP expiry.
 

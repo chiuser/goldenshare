@@ -132,6 +132,36 @@ def _check_identity(check, record):
     )
 
 
+def freeze_daily_basic_replacement(instance, plan, files):
+    """Read the existing identities once, before approved file replacement."""
+    _idle(instance)
+    latest = _latest_materializations(instance, plan["dates"])
+    original = {item["date"]: item["old_sha256"] for item in files}
+    for day, record in latest.items():
+        if original[day] is None or delivery_metadata(record).get("file_sha256") != original[day]:
+            raise DailyBasicValidationError("history_original_delivery_conflict")
+    keys = [dg.AssetCheckKey(dg.AssetKey(DAILY_BASIC_ASSET), name) for name in DAILY_BASIC_CHECKS]
+    check_ids = {}
+    checked_dates = set(plan["dates"][-RECENT_CHECK_DAYS:])
+    for offset in range(0, len(files), EVENT_DATE_BATCH):
+        dates = [f["date"] for f in files[offset:offset + EVENT_DATE_BATCH]]
+        infos = instance.event_log_storage.get_asset_check_partition_info(keys, partition_keys=dates)
+        for info in infos:
+            record = latest.get(info.partition_key)
+            if (
+                record is None or info.latest_execution_status.value != "SUCCEEDED"
+                or info.latest_target_materialization_storage_id != record.storage_id
+            ):
+                raise DailyBasicValidationError("history_check_conflict")
+            check_ids[f"{info.partition_key}|{info.check_key.name}"] = info.latest_check_event_storage_id
+            checked_dates.add(info.partition_key)
+    return {
+        "materialization_ids": {day: record.storage_id for day, record in sorted(latest.items())},
+        "check_ids": dict(sorted(check_ids.items())),
+        "check_dates": sorted(checked_dates),
+    }
+
+
 def plan_daily_basic_events(instance, connection, plan, audit, promote):
     """Hash all published files; evaluate only the recent twenty, without writes."""
     started = monotonic()

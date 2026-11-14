@@ -46,7 +46,7 @@ from orchestrator.utils.dg_log_helper import DgStdoutLogger
     ],
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
-    description="按交易日保留Tushare股票每日指标18字段，覆盖同日股票Raw日线，额外代码原样保留。",
+    description="按交易日保留Tushare股票每日指标19字段，覆盖同日A股日线，额外A股及既有B股原行保留。",
     metadata=build_asset_definition_metadata(
         dataset_id="daily_basic",
         source_system=SourceSystem.TUSHARE,
@@ -92,6 +92,10 @@ def raw_tushare_daily_basic(
         partition_key=context.partition_key,
         row_count=result["source_row_count"],
         request_count=result["request_count"],
+        fetched_row_count=result["fetched_row_count"],
+        excluded_b_share_row_count=result["excluded_b_share_row_count"],
+        retained_b_share_row_count=result["retained_b_share_row_count"],
+        null_limit_status_count=result["null_limit_status_count"],
     )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
@@ -100,7 +104,7 @@ def raw_tushare_daily_basic(
             observed_columns=DAILY_BASIC_FIELDS,
             extra_metadata={
                 **result,
-                "summary": "每日指标已交付，保留源端18字段和额外代码。",
+                "summary": "每日指标19字段已交付；源B股不更新，旧B股及合法空值保留。",
                 "next_action": "等待两项检查通过后使用。",
             },
         )

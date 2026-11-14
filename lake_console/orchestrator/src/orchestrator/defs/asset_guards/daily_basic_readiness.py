@@ -16,6 +16,7 @@ from orchestrator.defs.daily_basic_contract import (
     DAILY_BASIC_CHECKS,
     DAILY_BASIC_WINDOW,
     DailyBasicValidationError,
+    daily_basic_is_b_share,
 )
 from orchestrator.defs.daily_basic_raw_io import (
     audit_daily_basic_coverage,
@@ -63,7 +64,7 @@ def load_daily_basic_input_codes(
     codes = tuple(values)
     if len(codes) != count:
         raise DailyBasicValidationError("upstream_duplicate_keys")
-    return codes
+    return tuple(code for code in codes if not daily_basic_is_b_share(code))
 
 
 def daily_basic_materializations(instance, dates):

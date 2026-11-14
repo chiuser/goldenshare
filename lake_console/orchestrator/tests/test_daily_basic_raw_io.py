@@ -25,11 +25,12 @@ from orchestrator.defs.paths import raw_daily_basic_path
 from orchestrator.defs.source_readiness.daily_basic import fetch_daily_basic_pages
 
 DAY = "2026-09-14"
+pytestmark = pytest.mark.usefixtures("isolated_daily_basic_transport")
 
 
 def row(code="000001.SZ", **values):
     result = dict.fromkeys(DAILY_BASIC_FIELDS, "1.2345")
-    result.update(ts_code=code, trade_date="20260914", pe=None, pb="-2.1000")
+    result.update(ts_code=code, trade_date="20260914", pe=None, pb="-2.1000", limit_status=1)
     result.update(values)
     return result
 

@@ -13,13 +13,17 @@ from time import perf_counter, sleep
 import pandas as pd
 
 from orchestrator.defs.daily_basic_contract import (
+    DAILY_BASIC_B_SHARE_PATTERN,
+    DAILY_BASIC_DECIMAL_FIELDS,
     DAILY_BASIC_FIELDS,
     DAILY_BASIC_TYPES,
     DailyBasicValidationError,
     daily_basic_code_hash,
+    daily_basic_is_b_share,
     daily_basic_trade_date,
+    validate_daily_basic_limit_status,
 )
-from orchestrator.defs.duckdb_sql import read_parquet
+from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import raw_daily_basic_path, raw_daily_basic_staging_path
 from orchestrator.defs.source_readiness.daily_basic import fetch_daily_basic_pages
 
@@ -36,6 +40,8 @@ class DailyBasicFileAudit:
     failed_rules: tuple[str, ...]
     row_count: int = 0
     codes: tuple[str, ...] = ()
+    null_limit_status_codes: tuple[str, ...] = ()
+    b_share_row_count: int = 0
 
 
 def audit_daily_basic_file(
@@ -54,11 +60,13 @@ def audit_daily_basic_file(
             return DailyBasicFileAudit(("schema",))
         if len(schema) != len(DAILY_BASIC_FIELDS):
             return DailyBasicFileAudit(("schema",))
-        rows, keys, invalid, wrong = connection.execute(
+        rows, keys, invalid, wrong, invalid_status, b_shares = connection.execute(
             f"SELECT count(*), count(DISTINCT (ts_code,trade_date)), "
             "count(*) FILTER (WHERE ts_code IS NULL OR trim(ts_code)='' OR ts_code!=trim(ts_code) OR trade_date IS NULL), "
-            f"count(*) FILTER (WHERE trade_date != ?) FROM {relation}",
-            [day],
+            "count(*) FILTER (WHERE trade_date != ?), "
+            "count(*) FILTER (WHERE limit_status NOT BETWEEN 0 AND 6), "
+            f"count(*) FILTER (WHERE regexp_full_match(ts_code, ?)) FROM {relation}",
+            [day, DAILY_BASIC_B_SHARE_PATTERN],
         ).fetchone()
         codes = tuple(
             row[0]
@@ -66,6 +74,9 @@ def audit_daily_basic_file(
                 f"SELECT DISTINCT ts_code FROM {relation} WHERE ts_code IS NOT NULL ORDER BY ts_code"
             ).fetchall()
         )
+        null_codes = tuple(row[0] for row in connection.execute(
+            f"SELECT ts_code FROM {relation} WHERE limit_status IS NULL ORDER BY ts_code"
+        ).fetchall())
         failures = tuple(
             name
             for name, failed in (
@@ -73,10 +84,11 @@ def audit_daily_basic_file(
                 ("duplicate_key", rows != keys),
                 ("null_key", invalid),
                 ("partition_date", wrong),
+                ("limit_status_range", invalid_status),
             )
             if failed
         )
-        return DailyBasicFileAudit(failures, rows, codes)
+        return DailyBasicFileAudit(failures, rows, codes, null_codes, b_shares)
     except Exception:  # noqa: BLE001 -- corrupt candidates/check files fail closed.
         return DailyBasicFileAudit(("file_unreadable_or_schema",))
 
@@ -114,6 +126,8 @@ def audit_daily_basic_coverage(
     rules = []
     if not expected or expected - set(audit.codes):
         rules.append("missing_upstream_codes")
+    if expected.intersection(audit.null_limit_status_codes):
+        rules.append("null_required_limit_status")
     expected_evidence = {
         "delivery_method": "tushare_daily",
         "file_sha256": file_sha256(path),
@@ -121,10 +135,17 @@ def audit_daily_basic_coverage(
         "code_count": len(audit.codes),
         "input_code_count": len(expected),
         "input_code_hash": daily_basic_code_hash(expected),
+        "null_limit_status_count": len(audit.null_limit_status_codes),
+        "retained_b_share_row_count": audit.b_share_row_count,
     }
     for key, value in expected_evidence.items():
         if evidence.get(key) != value:
             rules.append(f"delivery_{key}")
+    if not {"fetched_row_count", "excluded_b_share_row_count"} <= evidence.keys() or (
+        evidence["fetched_row_count"] + audit.b_share_row_count
+        != audit.row_count + evidence["excluded_b_share_row_count"]
+    ):
+        rules.append("delivery_row_counts")
     return tuple(rules)
 
 
@@ -187,13 +208,47 @@ def write_daily_basic_partition(
                 )
                 connection.execute(f"CREATE TEMP TABLE daily_basic_source ({schema})")
                 received = 0
+                excluded = 0
+                retained = 0
+                expected_set = set(expected)
+                delivery_relation = "daily_basic_source"
+                if target.exists():
+                    old_relation = read_parquet(target, hive_partitioning=False)
+                    old_schema = connection.execute(f"DESCRIBE SELECT * FROM {old_relation}").fetchall()
+                    if [(r[0], r[1]) for r in old_schema] != list(DAILY_BASIC_TYPES.items()):
+                        raise DailyBasicValidationError("existing_target_schema：18到19字段只能通过bootstrap切换")
+                    retained = connection.execute(
+                        f"SELECT count(*) FROM {old_relation} "
+                        "WHERE regexp_full_match(ts_code, ?)", [DAILY_BASIC_B_SHARE_PATTERN],
+                    ).fetchone()[0]
+                    delivery_relation = (
+                        f"(SELECT {_COLUMNS} FROM daily_basic_source UNION ALL "
+                        f"SELECT {_COLUMNS} FROM {old_relation} WHERE regexp_full_match("
+                        f"ts_code, {duckdb_string(DAILY_BASIC_B_SHARE_PATTERN)}))"
+                    )
 
                 def consume(_offset, rows):
-                    nonlocal received
+                    nonlocal received, excluded
+                    received += len(rows)
+                    accepted = []
+                    statuses = []
+                    for row in rows:
+                        if daily_basic_is_b_share(row["ts_code"]):
+                            excluded += 1
+                            continue
+                        status = row["limit_status"]
+                        validate_daily_basic_limit_status(
+                            status, row["ts_code"], trade_date,
+                            required=row["ts_code"] in expected_set,
+                        )
+                        accepted.append(row)
+                        statuses.append(status)
+                    rows = accepted
                     if not rows:
                         return
-                    frame = pd.DataFrame(rows, columns=DAILY_BASIC_FIELDS)
-                    for column in DAILY_BASIC_FIELDS[2:]:
+                    frame = pd.DataFrame(rows, columns=DAILY_BASIC_FIELDS[:-1])
+                    frame["limit_status"] = pd.array(statuses, dtype="Int64")
+                    for column in DAILY_BASIC_DECIMAL_FIELDS:
                         frame[column] = frame[column].map(_decimal_text)
                     connection.register("daily_basic_page", frame)
                     try:
@@ -206,7 +261,6 @@ def write_daily_basic_partition(
                         )
                     finally:
                         connection.unregister("daily_basic_page")
-                    received += len(rows)
 
                 result = fetch_daily_basic_pages(
                     tushare=tushare,
@@ -217,20 +271,30 @@ def write_daily_basic_partition(
                     sleep_fn=sleep_fn,
                 )
                 connection.execute(
-                    f"COPY (SELECT {_COLUMNS} FROM daily_basic_source ORDER BY ts_code) TO ? (FORMAT PARQUET, COMPRESSION ZSTD)",
+                    f"COPY (SELECT {_COLUMNS} FROM {delivery_relation} ORDER BY ts_code) TO ? (FORMAT PARQUET, COMPRESSION ZSTD)",
                     [str(candidate)],
                 )
                 audit = audit_daily_basic_file(connection, candidate, trade_date)
+                evidence = {
+                    "delivery_method": "tushare_daily",
+                    "file_sha256": file_sha256(candidate),
+                    "source_row_count": received - excluded + retained,
+                    "fetched_row_count": received,
+                    "excluded_b_share_row_count": excluded,
+                    "retained_b_share_row_count": retained,
+                    "null_limit_status_count": len(audit.null_limit_status_codes),
+                    "code_count": len(audit.codes),
+                    "input_code_count": len(expected),
+                    "input_code_hash": daily_basic_code_hash(expected),
+                }
                 if (
-                    audit.failed_rules
-                    or audit.row_count != received
-                    or set(expected) - set(audit.codes)
+                    audit_daily_basic_coverage(candidate, audit, expected, evidence)
                 ):
                     raise DailyBasicValidationError("candidate_contract_or_coverage")
                 relation = read_parquet(candidate, hive_partitioning=False)
                 for left, right in (
-                    ("daily_basic_source", relation),
-                    (relation, "daily_basic_source"),
+                    (delivery_relation, relation),
+                    (relation, delivery_relation),
                 ):
                     if connection.execute(
                         f"SELECT count(*) FROM (SELECT {_COLUMNS} FROM {left} EXCEPT ALL SELECT {_COLUMNS} FROM {right})"
@@ -264,12 +328,8 @@ def write_daily_basic_partition(
                         raise DailyBasicValidationError("cross_device_promotion")
                     os.replace(candidate, target)
                 return {
-                    "delivery_method": "tushare_daily",
+                    **evidence,
                     "file_sha256": file_sha256(target),
-                    "source_row_count": received,
-                    "code_count": len(audit.codes),
-                    "input_code_count": len(expected),
-                    "input_code_hash": daily_basic_code_hash(expected),
                     "request_count": result.request_count,
                     "page_count": result.page_count,
                     "elapsed_ms": (clock() - started) * 1000,

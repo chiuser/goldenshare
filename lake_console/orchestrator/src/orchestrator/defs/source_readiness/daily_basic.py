@@ -1,19 +1,46 @@
 """Bounded Tushare requests; late successful responses are rejected locally."""
 
+import os
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from time import perf_counter, sleep
 from typing import Any
 
 from orchestrator.defs.daily_basic_contract import (
     DAILY_BASIC_FIELDS,
     DAILY_BASIC_PAGE_SIZE,
+    DAILY_BASIC_SOURCE_CONTRACT,
     DailyBasicValidationError,
     daily_basic_request_policy,
     daily_basic_trade_date,
 )
-from orchestrator.defs.resources import TushareResource
+from orchestrator.defs.resources import TushareResource, TushareResult
+from orchestrator.defs.tushare_errors import TushareResponseError
 from orchestrator.defs.tushare_request_policy import execute_bounded_pages
+from orchestrator.tushare_download.configuration import (
+    DEFAULT_BASE_URL,
+    ConfigurationSnapshot,
+)
+from orchestrator.tushare_download.dataset_transport_mapping import (
+    BINDINGS,
+    DatasetTransportMapping,
+)
+from orchestrator.tushare_download.download_errors import DownloadErrorCode
+from orchestrator.tushare_download.download_models import (
+    DownloadMode,
+    DownloadTask,
+    PagePosition,
+    RequestCounters,
+    SessionCounters,
+    UnitCounters,
+)
+from orchestrator.tushare_download.download_session import SessionControl
+from orchestrator.tushare_download.http_transport import HttpProTransport
+from orchestrator.tushare_download.request_builder import RequestBuilder
+from orchestrator.tushare_download.source_transport import SystemClock
+from orchestrator.tushare_download.task_input import validate_task
+from orchestrator.tushare_download.unit_memory import UnitMemory
+from orchestrator.tushare_download.unit_planner import UnitPlanner
 
 
 @dataclass(frozen=True)
@@ -29,6 +56,55 @@ class DailyBasicSourceStatus:
     elapsed_ms: float = 0
 
 
+def _fetch_daily_basic_page(*, tushare, trade_date, offset, fields, base_url, remaining):
+    """One native-JSON request; the existing outer policy owns every retry."""
+    contract = DAILY_BASIC_SOURCE_CONTRACT
+    config = ConfigurationSnapshot(token=tushare.token, base_url=base_url)
+    config = replace(
+        config,
+        connect_timeout_seconds=min(config.connect_timeout_seconds, remaining),
+        read_timeout_seconds=min(config.read_timeout_seconds, remaining),
+        request_timeout_seconds=min(config.request_timeout_seconds, remaining),
+        poll_interval_seconds=min(config.poll_interval_seconds, remaining / 2),
+    )
+    task = validate_task(
+        DownloadTask(contract.contract_name, DownloadMode.BY_POINT, points=(trade_date,)),
+        contract, config.max_request_bytes,
+    )
+    unit = UnitPlanner(task, contract).next_unit()
+    builder = RequestBuilder(contract)
+    request = builder.build_page(
+        unit, next(builder.iter_inputs(unit)), PagePosition(0, offset=offset),
+        request_fields=tuple(fields),
+    )
+    transport = HttpProTransport(SystemClock())
+    memory = UnitMemory(config)
+    try:
+        transport.prepare(DatasetTransportMapping(BINDINGS).resolve(contract), config, contract)
+        outcome = transport.fetch_page(
+            request, config, memory, SessionControl(None, contract.contract_name),
+            RequestCounters(SessionCounters(), UnitCounters()), 1,
+        )
+        failure = outcome.failure
+        if failure is not None:
+            if failure.code == DownloadErrorCode.TRANSIENT_SOURCE:
+                raise TimeoutError("daily_basic source timeout or transient IO failure")
+            if failure.code == DownloadErrorCode.RATE_LIMIT:
+                raise RuntimeError("daily_basic source rate limit")
+            if failure.code == DownloadErrorCode.NO_VALID_RESPONSE:
+                raise TushareResponseError("daily_basic source response has no fields")
+            if failure.code == DownloadErrorCode.PERMISSION_OR_PARAMETER:
+                raise RuntimeError("daily_basic source permission denied or invalid parameter")
+            raise DailyBasicValidationError(f"daily_basic source {failure.code.name}")
+        return TushareResult(
+            rows=[record.as_mapping() for record in outcome.page.records],
+            columns=outcome.page.fields, metadata={},
+        )
+    finally:
+        transport.close()
+        memory.clear()
+
+
 def fetch_daily_basic_pages(
     *,
     tushare: TushareResource,
@@ -41,6 +117,7 @@ def fetch_daily_basic_pages(
     day = daily_basic_trade_date(trade_date).replace("-", "")
     policy = daily_basic_request_policy()
     started = clock()
+    base_url = os.environ.get("TUSHARE_BASE_URL", DEFAULT_BASE_URL).strip()
 
     def guard():
         if clock() - started >= policy.max_elapsed_seconds:
@@ -50,10 +127,9 @@ def fetch_daily_basic_pages(
 
     def request(offset):
         guard()
-        result = tushare.call(
-            "daily_basic",
-            {"trade_date": day, "limit": DAILY_BASIC_PAGE_SIZE, "offset": offset},
-            fields,
+        result = _fetch_daily_basic_page(
+            tushare=tushare, trade_date=trade_date, offset=offset, fields=fields,
+            base_url=base_url, remaining=policy.max_elapsed_seconds - (clock() - started),
         )
         guard()
         if (
@@ -65,7 +141,10 @@ def fetch_daily_basic_pages(
 
     def key(row):
         if set(row) != set(fields):
-            raise DailyBasicValidationError("source_row_schema")
+            raise DailyBasicValidationError(
+                f"source_row_schema：日期={trade_date} 代码={row.get('ts_code')} "
+                f"缺少字段={sorted(set(fields) - set(row))}"
+            )
         code = row.get("ts_code")
         if not isinstance(code, str) or not code.strip() or code != code.strip():
             raise DailyBasicValidationError("source_invalid_code")

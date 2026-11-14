@@ -21,10 +21,12 @@ from uuid import uuid4
 import pandas as pd
 
 from orchestrator.defs.daily_basic_contract import (
+    DAILY_BASIC_DECIMAL_FIELDS,
     DAILY_BASIC_FIELDS,
     DAILY_BASIC_TYPES,
     DailyBasicValidationError,
     daily_basic_trade_date,
+    validate_daily_basic_limit_status,
 )
 from orchestrator.defs.daily_basic_raw_io import _decimal_text, file_sha256
 from orchestrator.defs.duckdb_connection import (
@@ -132,6 +134,7 @@ def make_history_plan(
     source_evidence,
     cost_evidence,
     limits=None,
+    replace_existing=False,
 ):
     start, end = daily_basic_trade_date(start), daily_basic_trade_date(end)
     if start > end or not re.fullmatch(r"[A-Za-z0-9_-]{1,80}", batch_id):
@@ -157,14 +160,16 @@ def make_history_plan(
             "text",
         ):
             reasons.append("source_key_types")
-        if any(columns[name][1] != "numeric" for name in DAILY_BASIC_FIELDS[2:]):
+        if any(columns[name][1] != "numeric" for name in DAILY_BASIC_DECIMAL_FIELDS):
             reasons.append("source_numeric_types")
         if any(
             tuple(columns[name][3:])
             != (int(DAILY_BASIC_TYPES[name].split("(")[1].split(",")[0]), 4)
-            for name in DAILY_BASIC_FIELDS[2:]
+            for name in DAILY_BASIC_DECIMAL_FIELDS
         ):
             reasons.append("source_numeric_precision")
+        if tuple(columns["limit_status"][1:3]) != ("integer", "YES"):
+            reasons.append("source_limit_status_type")
     if source_evidence["primary_key"] != ["ts_code", "trade_date"]:
         reasons.append("source_primary_key")
     if len(source_evidence["explain"]) != 2:
@@ -176,11 +181,14 @@ def make_history_plan(
         if node_types.intersection({"Seq Scan", "Sort", "Incremental Sort"}):
             reasons.append("source_plan_io_amplification")
     targets = [d for d in dates if raw_daily_basic_path(lake, d).exists()]
-    if targets:
+    if targets and not replace_existing:
         reasons.append("existing_targets_require_content_audit")
     return seal_history_report(
         {
             "schema_version": 1,
+            "source_fields": list(DAILY_BASIC_FIELDS),
+            "replace_existing": replace_existing,
+            "comparison_fields": list(DAILY_BASIC_FIELDS[:-1]),
             "stage": "plan",
             "created_at": datetime.now(UTC).isoformat(),
             "start": start,
@@ -203,13 +211,17 @@ def make_history_plan(
             "disk_free_bytes": shutil.disk_usage(_existing_parent(staging)).free,
             "execution_budget_frozen": limits is not None,
             "materializations_upper": len(dates),
-            "checks_upper": min(len(dates), 20) * 2,
+            "checks_upper": (len(dates) if replace_existing else min(len(dates), 20)) * 2,
         }
     )
 
 
 def _validate_plan(plan, *, apply=False):
     verify_history_report(plan)
+    if plan.get("source_fields") != list(DAILY_BASIC_FIELDS):
+        raise DailyBasicValidationError("history_plan_fields_changed：请按完整19字段重新生成计划")
+    if plan.get("replace_existing") and plan.get("comparison_fields") != list(DAILY_BASIC_FIELDS[:-1]):
+        raise DailyBasicValidationError("history_comparison_fields_changed")
     if plan["stage"] != "plan" or plan["stop_reasons"]:
         raise DailyBasicValidationError("history_plan_not_green")
     if plan.get("source_policy") != SOURCE_POLICY:
@@ -297,7 +309,7 @@ def _canonical_page(rows, plan, last_key):
         if iso not in allowed or (previous is not None and key <= tuple(previous)):
             raise DailyBasicValidationError("history_source_key_or_calendar")
         values = [code, day]
-        for name, value in zip(DAILY_BASIC_FIELDS[2:], row[2:], strict=True):
+        for name, value in zip(DAILY_BASIC_DECIMAL_FIELDS, row[2:-1], strict=True):
             text = _decimal_text(value)
             if value is not None and text is None:
                 raise DailyBasicValidationError("history_non_finite_numeric")
@@ -308,13 +320,16 @@ def _canonical_page(rows, plan, last_key):
                     raise DailyBasicValidationError("history_numeric_overflow")
                 text = format(number, ".4f") if number else "0.0000"
             values.append(text)
+        validate_daily_basic_limit_status(row[-1], code, iso)
+        values.append(row[-1])
         normalized.append(values)
         previous = key
     return normalized, previous
 
 
 def _write_chunk(connection, rows, path):
-    frame = pd.DataFrame(rows, columns=DAILY_BASIC_FIELDS)
+    frame = pd.DataFrame(rows, columns=DAILY_BASIC_FIELDS, dtype=object)
+    frame["limit_status"] = pd.array([r[-1] for r in rows], dtype="Int64")
     connection.register("history_page", frame)
     projection = ", ".join(
         f'CAST("{n}" AS {t}) AS "{n}"' for n, t in DAILY_BASIC_TYPES.items()
@@ -339,8 +354,9 @@ def _write_chunk(connection, rows, path):
                 r[1],
                 *(
                     None if v is None else format(v, ".4f") if v else "0.0000"
-                    for v in r[2:]
+                    for v in r[2:-1]
                 ),
+                r[-1],
             ]
             for r in back
         ]
@@ -392,6 +408,9 @@ def export_daily_basic_history(plan, source, *, apply=False):
         if state["frozen"]:
             return state
         chunks = state["chunks"]
+        null_count = sum(c["null_limit_status_count"] for c in chunks)
+        confirmed_rows = sum(c["rows"] for c in chunks)
+        print(f"每日指标历史导出 confirmed_batches={len(chunks)} confirmed_rows={confirmed_rows}", flush=True)
         # Only an interrupted export rechecks its persisted prefix.
         last, index, count = None, 0, 0
         while True:
@@ -413,6 +432,7 @@ def export_daily_basic_history(plan, source, *, apply=False):
                     or len(rows) != chunks[index]["rows"]
                 ):
                     raise DailyBasicValidationError("history_source_changed")
+                phase = "prefix_recheck"
             else:
                 path = workspace / "chunks" / f"{index:06d}.parquet"
                 path.parent.mkdir(parents=True, exist_ok=True)
@@ -427,12 +447,23 @@ def export_daily_basic_history(plan, source, *, apply=False):
                         "last_key": list(next_key),
                         "content_hash": digest,
                         "sha256": file_sha256(path),
+                        "null_limit_status_count": sum(r[-1] is None for r in rows),
+                        "null_limit_status_sample": next(
+                            (r[:2] for r in rows if r[-1] is None), None
+                        ),
                     }
                 )
+                null_count += chunks[-1]["null_limit_status_count"]
+                confirmed_rows += len(rows)
+                state["null_limit_status_count"] = null_count
                 save_history_report(checkpoint, state)
+                phase = "export"
             last = next_key
             index += 1
-            print(f"每日指标历史导出 batch={index} rows={count}", flush=True)
+            print(
+                f"每日指标历史导出 phase={phase} batch={index} read_rows={count} "
+                f"confirmed_batches={len(chunks)} confirmed_rows={confirmed_rows}", flush=True,
+            )
         fresh = source.inspect(plan["start"], plan["end"])
         _deadline(started, plan["limits"]["max_source_seconds"])
         if history_fingerprint(
@@ -443,6 +474,7 @@ def export_daily_basic_history(plan, source, *, apply=False):
             frozen=True,
             source_policy=SOURCE_POLICY,
             rows=count,
+            null_limit_status_count=null_count,
             verified_at=datetime.now(UTC).isoformat(),
             elapsed_seconds=monotonic() - started,
         )
@@ -454,7 +486,7 @@ def _chunk_relation(state):
     return _parquet_files([Path(c["path"]) for c in state["chunks"]])
 
 
-def _schema_and_counts(connection, relation):
+def _schema_and_counts(connection, relation, *, null_stats=None):
     schema = [
         (r[0], r[1])
         for r in connection.execute(f"DESCRIBE SELECT * FROM {relation}").fetchall()
@@ -464,13 +496,19 @@ def _schema_and_counts(connection, relation):
     counts = connection.execute(
         f"SELECT trade_date, count(*), count(DISTINCT ts_code), "
         "count(*) FILTER (WHERE ts_code IS NULL OR trim(ts_code)='' OR ts_code!=trim(ts_code)) "
+        ", count(*) FILTER (WHERE limit_status NOT BETWEEN 0 AND 6), "
+        "count(*) FILTER (WHERE limit_status IS NULL), "
+        "min(ts_code) FILTER (WHERE limit_status IS NULL) "
         f"FROM {relation} GROUP BY trade_date ORDER BY trade_date"
     ).fetchall()
     if any(
-        not n or n != keys or invalid or day is None for day, n, keys, invalid in counts
+        not n or n != keys or invalid or bad_status or day is None
+        for day, n, keys, invalid, bad_status, _, _ in counts
     ):
         raise DailyBasicValidationError("history_keys")
-    return {day: n for day, n, _, _ in counts}
+    if null_stats is not None:
+        null_stats.update({day: (nulls, sample) for day, _, _, _, _, nulls, sample in counts})
+    return {day: n for day, n, _, _, _, _, _ in counts}
 
 
 def _compact_history_partition(connection, folder):
@@ -503,7 +541,8 @@ def build_daily_basic_history(plan, *, apply=False):
         if not state["frozen"]:
             raise DailyBasicValidationError("history_source_not_frozen")
         relation = _chunk_relation(state)
-        counts = _schema_and_counts(connection, relation)
+        null_stats = {}
+        counts = _schema_and_counts(connection, relation, null_stats=null_stats)
         if set(counts) != {d.replace("-", "") for d in plan["dates"]}:
             raise DailyBasicValidationError("history_calendar_source_difference")
         years = sorted({d[:4] for d in counts})
@@ -573,6 +612,8 @@ def build_daily_basic_history(plan, *, apply=False):
                         "path": str(path),
                         "sha256": file_sha256(path),
                         "rows": counts[day.replace("-", "")],
+                        "null_limit_status_count": null_stats[day.replace("-", "")][0],
+                        "null_limit_status_sample": null_stats[day.replace("-", "")][1],
                     }
                 )
             completed["completed_years"].append(year)
@@ -585,17 +626,17 @@ def build_daily_basic_history(plan, *, apply=False):
         return load_history_report(manifest_path)
 
 
-def _equal_rows(connection, left, right):
+def _equal_rows(connection, left, right, *, columns=COLUMNS):
     return all(
         connection.execute(
-            f"SELECT count(*) FROM (SELECT {COLUMNS} FROM {a} EXCEPT ALL SELECT {COLUMNS} FROM {b})"
+            f"SELECT count(*) FROM (SELECT {columns} FROM {a} EXCEPT ALL SELECT {columns} FROM {b})"
         ).fetchone()[0]
         == 0
         for a, b in ((left, right), (right, left))
     )
 
 
-def audit_daily_basic_history(plan):
+def audit_daily_basic_history(plan, *, instance=None):
     _validate_plan(plan, apply=True)
     workspace = _workspace(plan)
     state = load_history_report(workspace / "export.json")
@@ -606,6 +647,7 @@ def audit_daily_basic_history(plan):
     if sorted(f["date"] for f in build["files"]) != plan["dates"]:
         raise DailyBasicValidationError("history_build_dates")
     started = monotonic()
+    files = [dict(item) for item in build["files"]]
     with _connection(plan, readonly=True) as connection:
         source = _chunk_relation(state)
         # Single scan into a bounded DuckDB temporary table, not one source scan per date/year.
@@ -613,8 +655,8 @@ def audit_daily_basic_history(plan):
             f"CREATE TEMP TABLE history_frozen AS SELECT {COLUMNS} FROM {source} ORDER BY trade_date, ts_code"
         )
         for year in sorted({d[:4] for d in plan["dates"]}):
-            files = [f for f in build["files"] if f["date"].startswith(year)]
-            for item in files:
+            annual_files = [f for f in files if f["date"].startswith(year)]
+            for item in annual_files:
                 expected = _safe_root(item["path"])
                 if (
                     not expected.is_relative_to(workspace / "by_date" / year)
@@ -628,17 +670,20 @@ def audit_daily_basic_history(plan):
                 ).fetchall()
                 if [(r[0], r[1]) for r in schema] != list(DAILY_BASIC_TYPES.items()):
                     raise DailyBasicValidationError("history_candidate_schema")
-            target = _parquet_files([Path(f["path"]) for f in files])
-            counts = _schema_and_counts(connection, target)
-            if counts != {f["date"].replace("-", ""): f["rows"] for f in files}:
+            target = _parquet_files([Path(f["path"]) for f in annual_files])
+            null_stats = {}
+            counts = _schema_and_counts(connection, target, null_stats=null_stats)
+            if counts != {f["date"].replace("-", ""): f["rows"] for f in annual_files}:
                 raise DailyBasicValidationError("history_candidate_counts")
+            if any(null_stats[f["date"].replace("-", "")][0] != f["null_limit_status_count"] for f in annual_files):
+                raise DailyBasicValidationError("history_candidate_null_counts")
             by_file = connection.execute(
                 "SELECT filename, trade_date, count(*) FROM "
-                f"{_parquet_files([Path(f['path']) for f in files], filename=True)} "
+                f"{_parquet_files([Path(f['path']) for f in annual_files], filename=True)} "
                 "GROUP BY filename, trade_date"
             ).fetchall()
             if sorted(by_file) != sorted(
-                (f["path"], f["date"].replace("-", ""), f["rows"]) for f in files
+                (f["path"], f["date"].replace("-", ""), f["rows"]) for f in annual_files
             ):
                 raise DailyBasicValidationError("history_file_partition_alignment")
             if not _equal_rows(
@@ -647,61 +692,98 @@ def audit_daily_basic_history(plan):
                 target,
             ):
                 raise DailyBasicValidationError("history_value_difference")
-            for item in files:
+            for item in annual_files:
                 existing = raw_daily_basic_path(Path(plan["lake_root"]), item["date"])
+                if plan.get("replace_existing"):
+                    item["old_sha256"] = file_sha256(existing) if existing.exists() else None
                 if existing.exists():
                     relation = read_parquet(existing, hive_partitioning=False)
-                    _schema_and_counts(connection, relation)
+                    comparison = COLUMNS
+                    if plan.get("replace_existing"):
+                        comparison = ", ".join(f'"{n}"' for n in plan["comparison_fields"])
+                        schema = [(r[0], r[1]) for r in connection.execute(f"DESCRIBE SELECT * FROM {relation}").fetchall()]
+                        if schema != list(DAILY_BASIC_TYPES.items())[:-1]:
+                            raise DailyBasicValidationError("history_original_schema")
+                    else:
+                        _schema_and_counts(connection, relation)
                     if not _equal_rows(
                         connection,
                         relation,
                         read_parquet(Path(item["path"]), hive_partitioning=False),
+                        columns=comparison,
                     ):
                         raise DailyBasicValidationError("history_target_conflict")
             _deadline(started, plan["limits"]["max_stage_seconds"])
+    replacement = {}
+    if plan.get("replace_existing"):
+        if instance is None:
+            raise DailyBasicValidationError("history_replacement_instance_required")
+        from orchestrator.defs.bootstrap.daily_basic_events import (
+            freeze_daily_basic_replacement,
+        )
+        replacement = {"replacement": freeze_daily_basic_replacement(instance, plan, files)}
+        _deadline(started, plan["limits"]["max_stage_seconds"])
     return seal_history_report(
         {
             "stage": "audit",
             "plan_fingerprint": plan["fingerprint"],
             "export_fingerprint": state["fingerprint"],
             "build_fingerprint": build["fingerprint"],
-            "files": build["files"],
+            "files": files,
+            **replacement,
             "rows": sum(f["rows"] for f in build["files"]),
+            "null_limit_status_count": sum(f["null_limit_status_count"] for f in files),
             "elapsed_seconds": monotonic() - started,
             "passed": True,
         }
     )
 
 
-def promote_daily_basic_history(plan, audit, *, apply=False):
+def promote_daily_basic_history(plan, audit, *, apply=False, sample_date=None):
     if not apply:
         raise DailyBasicValidationError("history_apply_required")
     _validate_plan(plan, apply=True)
     verify_history_report(audit)
+    replacing = plan.get("replace_existing", False)
+    if sample_date is not None and (not replacing or sample_date not in plan["dates"]):
+        raise DailyBasicValidationError("history_sample_stage_or_date")
     with _history_lock(plan) as workspace:
-        fresh = audit_daily_basic_history(plan)
-        if any(
-            fresh[key] != audit.get(key)
-            for key in (
-                "stage",
-                "passed",
-                "plan_fingerprint",
-                "export_fingerprint",
-                "build_fingerprint",
-                "files",
-                "rows",
-            )
-        ):
-            raise DailyBasicValidationError("history_stale_audit")
+        if replacing:
+            state = load_history_report(workspace / "export.json")
+            build = load_history_report(workspace / "build.json")
+            if (
+                audit.get("stage") != "audit" or audit.get("passed") is not True
+                or audit.get("plan_fingerprint") != plan["fingerprint"]
+                or audit.get("export_fingerprint") != state["fingerprint"]
+                or audit.get("build_fingerprint") != build["fingerprint"]
+                or sorted(f["date"] for f in audit["files"]) != plan["dates"]
+                or "replacement" not in audit
+            ):
+                raise DailyBasicValidationError("history_stale_audit")
+        else:
+            fresh = audit_daily_basic_history(plan)
+            if any(
+                fresh[key] != audit.get(key)
+                for key in (
+                    "stage", "passed", "plan_fingerprint", "export_fingerprint",
+                    "build_fingerprint", "files", "rows",
+                )
+            ):
+                raise DailyBasicValidationError("history_stale_audit")
         started = monotonic()
         checkpoint = workspace / "promote.json"
-        done = {
+        done = load_history_report(checkpoint) if checkpoint.exists() else {
             "stage": "promote",
             "plan_fingerprint": plan["fingerprint"],
             "files": [],
         }
+        if done["plan_fingerprint"] != plan["fingerprint"]:
+            raise DailyBasicValidationError("history_checkpoint_plan_changed")
+        print(f"每日指标历史提升 confirmed_files={len(done['files'])}", flush=True)
         with _connection(plan) as connection:
             for item in audit["files"]:
+                if sample_date is not None and item["date"] != sample_date:
+                    continue
                 _deadline(started, plan["limits"]["max_stage_seconds"])
                 candidate = _safe_root(item["path"])
                 target = _safe_root(
@@ -718,7 +800,16 @@ def promote_daily_basic_history(plan, audit, *, apply=False):
                     fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
                     if file_sha256(candidate) != item["sha256"]:
                         raise DailyBasicValidationError("history_candidate_changed")
-                    if target.exists():
+                    target_hash = file_sha256(target) if target.exists() else None
+                    copy_candidate = target_hash is None
+                    if replacing:
+                        if target_hash == item["sha256"]:
+                            copy_candidate = False
+                        elif target_hash == item["old_sha256"]:
+                            copy_candidate = True
+                        else:
+                            raise DailyBasicValidationError("history_target_conflict")
+                    elif target.exists():
                         _schema_and_counts(
                             connection, read_parquet(target, hive_partitioning=False)
                         )
@@ -728,7 +819,7 @@ def promote_daily_basic_history(plan, audit, *, apply=False):
                             read_parquet(target, hive_partitioning=False),
                         ):
                             raise DailyBasicValidationError("history_target_conflict")
-                    else:
+                    if copy_candidate:
                         target.parent.mkdir(parents=True, exist_ok=True)
                         if candidate.stat().st_dev != target.parent.stat().st_dev:
                             raise DailyBasicValidationError("history_cross_device")
@@ -741,16 +832,23 @@ def promote_daily_basic_history(plan, audit, *, apply=False):
                                 "history_promotion_copy_changed"
                             )
                         os.replace(temporary, target)
-                    if file_sha256(target) != item["sha256"] and not _equal_rows(
-                        connection,
-                        read_parquet(candidate, hive_partitioning=False),
-                        read_parquet(target, hive_partitioning=False),
+                    target_hash = file_sha256(target)
+                    if target_hash != item["sha256"] and (
+                        replacing or not _equal_rows(
+                            connection,
+                            read_parquet(candidate, hive_partitioning=False),
+                            read_parquet(target, hive_partitioning=False),
+                        )
                     ):
                         raise DailyBasicValidationError("history_promoted_content")
-                    done["files"].append(
-                        {"date": item["date"], "sha256": file_sha256(target)}
-                    )
+                    entry = {"date": item["date"], "sha256": target_hash}
+                    if replacing:
+                        entry["old_sha256"] = item["old_sha256"]
+                    done["files"] = [f for f in done["files"] if f["date"] != item["date"]]
+                    done["files"].append(entry)
+                    done["files"].sort(key=lambda f: f["date"])
                     save_history_report(checkpoint, done)
+                    print(f"每日指标历史提升 date={item['date']} confirmed_files={len(done['files'])}", flush=True)
         return load_history_report(checkpoint)
 
 

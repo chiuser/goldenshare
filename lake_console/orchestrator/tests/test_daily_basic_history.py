@@ -29,6 +29,13 @@ DAYS = ["2024-12-31", "2025-01-02"]
 
 
 def source_evidence():
+    # Producer: raw_tushare.daily_basic model/migration188, not consumer-derived types.
+    precision = {
+        "close": 18, "turnover_rate": 12, "turnover_rate_f": 12, "volume_ratio": 12,
+        "pe": 18, "pe_ttm": 18, "pb": 18, "ps": 18, "ps_ttm": 18,
+        "dv_ratio": 12, "dv_ttm": 12, "total_share": 20, "float_share": 20,
+        "free_share": 20, "total_mv": 20, "circ_mv": 20,
+    }
     return {
         "columns": [
             [
@@ -37,12 +44,14 @@ def source_evidence():
                 if n == "ts_code"
                 else "date"
                 if n == "trade_date"
+                else "integer"
+                if n == "limit_status"
                 else "numeric",
                 "NO" if i < 2 else "YES",
                 None
                 if i < 2
-                else int(DAILY_BASIC_TYPES[n].split("(")[1].split(",")[0]),
-                None if i < 2 else 4,
+                else 32 if n == "limit_status" else precision[n],
+                None if i < 2 else 0 if n == "limit_status" else 4,
             ]
             for i, n in enumerate(DAILY_BASIC_FIELDS)
         ],
@@ -84,6 +93,7 @@ def rows(code="000001.SZ"):
             None,
             Decimal("-2.0000"),
             *([Decimal(0)] * 13),
+            1,
         )
         for d in DAYS
     ]

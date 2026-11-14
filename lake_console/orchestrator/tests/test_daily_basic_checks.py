@@ -26,6 +26,7 @@ from orchestrator.defs.run_contracts.metadata import build_materialization_metad
 from tests.test_daily_basic_raw_io import DAY, DB, row, write
 
 GUARD = "orchestrator.defs.asset_guards.daily_basic_readiness"
+pytestmark = pytest.mark.usefixtures("isolated_daily_basic_transport")
 
 
 def materialize_event(instance, evidence):

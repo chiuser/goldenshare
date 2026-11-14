@@ -16,6 +16,8 @@ from orchestrator.defs.source_readiness.daily_basic import (
 )
 from tests.test_daily_basic_raw_io import DAY, Source, row
 
+pytestmark = pytest.mark.usefixtures("isolated_daily_basic_transport")
+
 
 class KeysSource(Source):
     def call(self, api, params, fields):

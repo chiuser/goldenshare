@@ -95,7 +95,7 @@ def daily_basic_check_result(context, lake_root, duckdb, *, coverage):
     name=DAILY_BASIC_CHECKS[0],
     partitions_def=cn_a_daily_basic_trade_days,
     blocking=True,
-    description="核对18字段、日期、空键、重复键与文件可读性。",
+    description="核对19字段、整数状态范围、日期、空键、重复键与文件可读性；允许合法空状态。",
 )
 def raw_tushare_daily_basic_file_contract_check(
     context: dg.AssetCheckExecutionContext,

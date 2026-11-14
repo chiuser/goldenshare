@@ -49,6 +49,7 @@ class DatasetTransportMapping:
 
 # Dataset onboarding owns source evidence; this binding never selects an SDK fallback.
 BINDINGS = (
+    TransportBinding(dataset_id="daily_basic", source_api_name="daily_basic"),
     TransportBinding(
         dataset_id="stk_factor_pro",
         source_api_name="stk_factor_pro",
