@@ -24,6 +24,9 @@ from orchestrator.defs.io.moneyflow_candidates import (
 from orchestrator.defs.io.moneyflow_daily_raw_writer import (
     build_daily_moneyflow_raw_candidate,
 )
+from orchestrator.defs.io.moneyflow_daily_silver_update_candidate import (
+    build_daily_moneyflow_silver_update_candidate,
+)
 from orchestrator.defs.io.moneyflow_ths_raw_merge import (
     assert_moneyflow_ths_file_budget,
     assert_moneyflow_ths_source_coverage,
@@ -49,7 +52,6 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MoneyflowContractError,
     assert_moneyflow_memory_budget,
 )
-from orchestrator.defs.run_contracts.moneyflow_daily import daily_key_fields
 from orchestrator.defs.source_readiness.moneyflow_ths import load_moneyflow_ths_universe
 
 
@@ -281,17 +283,10 @@ def update_daily_moneyflow_silver(
             audit_standardization = partial(
                 audit_daily_moneyflow_standardization, dataset=dataset
             )
-            count = audit_file(connection, raw, trade_date)
-            if not checkpoint.exists():
-                if candidate.exists():
-                    audit_standardization(connection, raw, candidate, trade_date)
-                else:
-                    connection.execute(
-                        "COPY (SELECT * REPLACE(strptime(trade_date,'%Y%m%d')::DATE AS trade_date) "
-                        f"FROM read_parquet($source,hive_partitioning=false) ORDER BY {','.join(daily_key_fields(dataset))}) TO $target (FORMAT PARQUET)",
-                        {"source": str(raw), "target": str(candidate)},
-                    )
-                audit_standardization(connection, raw, candidate, trade_date)
+            count = build_daily_moneyflow_silver_update_candidate(
+                connection, raw=raw, candidate=candidate, trade_date=trade_date,
+                dataset=dataset, checkpoint=checkpoint,
+            )
             assert_moneyflow_memory_budget()
             if candidate_file_hash(raw) != expected_raw_hash:
                 raise MoneyflowContractError("raw_materialization_file_changed")

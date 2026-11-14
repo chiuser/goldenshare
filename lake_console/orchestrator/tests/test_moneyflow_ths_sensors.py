@@ -25,6 +25,7 @@ from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 from . import test_moneyflow_ths_definitions as support
 from .test_moneyflow_ths_definitions import row, run
+from .test_moneyflow_ths_silver_handoff import handoff
 
 pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
 
@@ -95,9 +96,11 @@ def decision(result):
 
 def publish(env, *, amount="-123.4567", silver=True):
     support.set_rows(env, support.sample(amount=amount, day=DAY))
-    assert run(env, sensors.RAW_JOB, day=DAY).success
+    result = run(env, sensors.RAW_JOB, day=DAY)
+    assert result.success
     if silver:
         assert run(env, sensors.SILVER_JOB, day=DAY).success
+    return result
 
 
 def test_three_sensors_stopped_and_only_raw_requires_source():
@@ -115,13 +118,9 @@ def test_three_sensors_stopped_and_only_raw_requires_source():
         assert ("tushare" in sensor.required_resource_keys) == (name == sensors.RAW_JOB + "_sensor")
 
 
-def test_before_each_layers_window_reads_nothing():
-    ctx = SimpleNamespace(cursor=None)
-    for silver in (False, True):
-        result = sensors.evaluate_stock_moneyflow_ths(
-            ctx, NOW.replace(hour=21 if silver else 19), silver=silver
-        )
-        assert decision(result) == "before_window" and not result.run_requests
+def test_before_raw_window_reads_nothing():
+    result = sensors.evaluate_stock_moneyflow_ths(SimpleNamespace(cursor=None), NOW.replace(hour=19))
+    assert decision(result) == "before_window" and not result.run_requests
 
 
 def test_missing_date_and_historical_cutoff(env):
@@ -146,16 +145,14 @@ def test_request_replay_does_not_burn_attempt_and_source_never_called(env):
 
 def test_real_delivery_current_check_file_and_safe_upstream_revision(env):
     ctx = context(env)
-    publish(env)
+    first = publish(env)
     ready = batch_stock_moneyflow_ths_readiness(env.instance, env.lake, [DAY])
     assert ready["raw"][DAY].ready and ready["silver"][DAY].ready
-    assert (
-        decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW, silver=True))
-        == "all_ready"
-    )
-    publish(env, amount="1.0000", silver=False)
-    result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW, silver=True)
-    assert decision(result) == "request_run"
+    assert isinstance(handoff(env, first), dg.SkipReason)
+    changed = publish(env, amount="1.0000", silver=False)
+    request = handoff(env, changed)
+    assert isinstance(request, dg.RunRequest)
+    result = dg.SensorResult(run_requests=[request])
     assert ready["raw"][DAY].record.storage_id not in [
         result.run_requests[0].run_config
     ]
@@ -255,7 +252,6 @@ def test_blocking_check_wrong_identity_is_not_green(env):
         decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW))
         == "check_failed_or_stale"
     )
-    assert not sensors.evaluate_stock_moneyflow_ths(ctx, NOW, silver=True).run_requests
 
 
 def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
@@ -377,7 +373,7 @@ def test_bounded_hash_size_and_query_count_real_evidence(env, monkeypatch):
         "check_status": "SUCCEEDED",
         "source_calls_during_sensors": 0,
         "cursor_bytes": len(
-            sensors.evaluate_stock_moneyflow_ths(ctx, NOW, silver=True).cursor.encode()
+            sensors.evaluate_stock_moneyflow_ths(ctx, NOW).cursor.encode()
         ),
     }
     (env.staging / "sensor-readiness-evidence.json").write_text(
@@ -438,8 +434,6 @@ def test_cursor_cannot_be_reused_between_dataset_or_layer(env):
         board.evaluate_board_moneyflow_dc(ctx, NOW)
     with pytest.raises(MoneyflowContractError, match="cursor_identity"):
         dc_stock.evaluate_stock_moneyflow_dc(ctx, NOW)
-    with pytest.raises(MoneyflowContractError, match="cursor_identity"):
-        sensors.evaluate_stock_moneyflow_ths(ctx, NOW, silver=True)
 
 
 def test_registration_does_not_admit_dates_before_daily_start(env, monkeypatch):
@@ -483,12 +477,11 @@ def test_unstable_source_failing_job_is_explicitly_retryable(env, second):
     assert decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW)) == "request_run"
 
 
-def test_ten_date_window_uses_batch_queries_and_bounded_file_hashes(env, monkeypatch):
+def test_raw_ten_date_window_uses_batch_queries_and_bounded_file_hashes(env, monkeypatch):
     import json
     from time import perf_counter
 
     import orchestrator.defs.asset_guards.moneyflow_delivery_readiness as guard
-    from orchestrator.defs.paths import silver_moneyflow_path
 
     dates = (
         "2026-10-08",
@@ -517,7 +510,6 @@ def test_ten_date_window_uses_batch_queries_and_bounded_file_hashes(env, monkeyp
         rows = [{**r, "trade_date": day.replace("-", "")} for r in fixture]
         support.set_rows(env, rows)
         assert run(env, sensors.RAW_JOB, day=day).success
-        assert run(env, sensors.SILVER_JOB, day=day).success
     counts = {
         "materializations": 0,
         "checks": 0,
@@ -580,22 +572,21 @@ def test_ten_date_window_uses_batch_queries_and_bounded_file_hashes(env, monkeyp
     monkeypatch.setattr(guard, "candidate_file_hash", hashing)
     monkeypatch.setattr(env.instance, "get_runs", runs)
     monkeypatch.setattr(env.instance, "get_dynamic_partitions", parts)
-    ctx.resources.duckdb.connect = measured_connect
+    monkeypatch.setattr(selection, "moneyflow_ths_connection", lambda deadline: measured_connect())
     source_calls = len(env.source.calls)
     started = perf_counter()
-    result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW.replace(day=21), silver=True)
+    result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW.replace(day=21))
     elapsed = perf_counter() - started
     assert decision(result) == "all_ready" and not result.run_requests
     assert counts == {
-        "materializations": 2,
-        "checks": 2,
-        "hashes": 20,
+        "materializations": 1,
+        "checks": 1,
+        "hashes": 10,
         "hash_bytes": sum(
             p.stat().st_size
             for d in dates
             for p in (
                 raw_moneyflow_path(env.lake, "moneyflow_ths", d),
-                silver_moneyflow_path(env.lake, "moneyflow_ths", d),
             )
         ),
         "runs": 2,

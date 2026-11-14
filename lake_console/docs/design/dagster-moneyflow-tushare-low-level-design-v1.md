@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-14，阶段0.5及阶段1～3代码/隔离验收已完成，第三阶段已提交1d44ed56b；第四阶段完整实施说明与开工审计见[第82.23节](#moneyflow-ths-stage-4-preparation)。阶段4～6代码和正式发布尚未执行。第82.23节收口Silver独立流程、单日事件读取和明确不做事项，不再把已否决的通用补漏、防御或已取消的10日Silver轮询列为待处理。历史章节保留当时范围。
+> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-14，阶段0.5准备及阶段1～4代码/隔离验收已完成，第四阶段执行与独立审计见[第82.24节](#moneyflow-ths-stage-4-complete)。开工说明已提交ba1a6a0e2，第四阶段代码与验收记录随本次提交归档，尚未正式加载；阶段5～6未进入。第82.23节为开工依据，已否决的通用补漏、防御和10日Silver轮询不作为后续待处理。历史章节保留当时范围。
 
 <a id="report-attachment-cleanup-20261103"></a>
 
@@ -5585,7 +5585,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 <a id="moneyflow-ths-manual-gap-repair-decisions"></a>
 
-## 82. 同花顺个股资金流向当前实施口径（2026-11-14，阶段3完成，后续待实现）
+## 82. 同花顺个股资金流向当前实施口径（2026-11-14，阶段4代码及隔离验收完成）
 
 ### 82.1 范围、状态与依据
 
@@ -5593,7 +5593,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 本轮已核对当前代码，使用 `codegraph_explore` 覆盖Raw/Silver更新、资产入口、共用选择器和行数判断。共用 `evaluate_moneyflow_update` 有七个资金流家族消费者，Raw/Silver更新及metadata helper也有其它消费者，后续不能直接修改共用22点常量或放宽所有数据集。原同花顺概念、行业资金流向是否停用没有形成执行决定。
 
-本节补数主链的设计准备已经完成：完整流程和消费者范围见第82.13节，实施前配置及有界性能证据见第82.14节，Raw暂时源不齐和THS错误映射的确认见第82.15.3、82.15.4节，Silver保留原标识及不做旧提交迁移见第82.16节，新增阶段0.5及其与阶段1的测量、测试衔接见第82.17节。本次已确认事项均有实现位置、边界和验收要求，没有尚待管理员拍板的业务事项；进程复用仍是待实测后判断的候选，不是已确认的实施选型。阶段1～3已完成代码及隔离验收，第三阶段结果见第82.22节；当前未完成的是阶段4的Silver成功接续及删除启动重复检查、后续整链回归和指定单日正式验收；不把设计准备完成写成代码已实现或正式执行授权。分页JSON清理作为独立步骤，按第82.12节单独授权、实现和验收。历史证据继续按其记录日期解释，不据旧文档推断本轮Dagster实际开关或加载状态。
+本节补数主链的设计准备已经完成：完整流程和消费者范围见第82.13节，实施前配置及有界性能证据见第82.14节，Raw暂时源不齐和THS错误映射的确认见第82.15.3、82.15.4节，Silver保留原标识及不做旧提交迁移见第82.16节，新增阶段0.5及其与阶段1的测量、测试衔接见第82.17节。本次已确认事项均有实现位置、边界和验收要求，没有尚待管理员拍板的业务事项；进程复用仍是待实测后判断的候选，不是已确认的实施选型。阶段1～4已完成代码及隔离验收，第三阶段结果见第82.22节，第四阶段的Silver成功接续、独立更新流程及重复检查删除见第82.24节；阶段5整链收尾和阶段6指定单日正式验收未进入，不把隔离验收通过写成正式发布或正式执行授权。分页JSON清理作为独立步骤，按第82.12节单独授权、实现和验收。历史证据继续按其记录日期解释，不据旧文档推断本轮Dagster实际开关或加载状态。
 
 ### 82.2 日期、预期范围和缺失计数
 
@@ -6625,7 +6625,7 @@ Raw资产测试原先只种旧数量基准，阶段3改用真实合同的目标�
 
 <a id="moneyflow-ths-stage-4-preparation"></a>
 
-### 82.23 第四阶段实施说明与开工审计（2026-11-14，文档补齐，代码尚未实施）
+### 82.23 第四阶段实施说明与开工审计（2026-11-14开工依据，执行结果见第82.24节）
 
 #### 82.23.1 目标、已确认边界和明确不做事项
 
@@ -6656,12 +6656,14 @@ CodeGraph explore/impact覆盖Silver资产、共享更新函数、readiness与�
 | defs/sensors/moneyflow_update_selection.py | 保留其它数据集仍使用的共用Silver分支、Raw未成功补采和原签名；THS Silver生产调用清零，不新增THS专用轮询、绕过分支或无用兼容参数。若本文件没有剩余THS Silver专用代码，不为制造差异修改健康代码 |
 | defs/assets/moneyflow_ths.py | silver_moneyflow_ths删除asset_readiness_status、最新Raw物化二次查询、expected_hash及传参；改调下面的独立Silver更新函数。只读消费同日Raw，原资产key、deps、字段、partition、metadata builder和取消入口保留。Raw资产和两个名单不改 |
 | 新defs/io/moneyflow_ths_silver_update.py | update_moneyflow_ths_silver只组织本数据集的实际Raw读取、一次实际摘要记录、候选与安全发布；无instance、expected_raw_hash或额外业务输入。按第82.23.4节实现，不复制六套整个更新函数 |
-| 新defs/io/moneyflow_daily_silver_writer.py | build_daily_moneyflow_silver_candidate从原共用函数抽取同日Raw文件校验、原日期转换COPY及候选对账，供THS独立流程和原五类流程调用。不查询事件/历史，不判断任务是否可触发，不发布正式文件 |
+| 新defs/io/moneyflow_daily_silver_update_candidate.py | build_daily_moneyflow_silver_update_candidate从原共用函数抽取同日Raw文件校验、原日期转换COPY及候选对账，供THS独立流程和原五类流程调用。不查询事件/历史，不判断任务是否可触发，不发布正式文件 |
 | defs/io/moneyflow_daily_update.py | 只把原Silver函数中上述相同候选操作委托给新writer；其它五类expected_raw_hash参数、前后核对、调用契约、SQL语义和发布行为保持。Raw函数不改，不给整段Silver函数加THS条件开关 |
 | 既有checks/moneyflow_daily.py、io/moneyflow_update_publication.py、moneyflow_candidates.py | 直接复用原schema/日期/唯一键/逐字段对账、受限连接、摘要、writer互斥、intent/reuse/replace/checkpoint。不得新增或弱化校验，不为本次搬移其它健康helper |
 | defs/catalog/lake_assets.py、THS资产/job/sensor说明 | 只校准silver_moneyflow_ths相关说明为成功事件接续、任务直接加工实际Raw；保留字段/path/check/分区合同和其它已有差异。原jobs/moneyflow_ths.py、paths.py、partitions.py、检查定义不需新入口或改名 |
 | moneyflow_continuation/state.py及bootstrap/事件消费者 | 审计仍沿原Silver job和raw_sha256/file_sha256事实工作，实际调用若无旧函数参数不修改；dependency_files沿现有相对导入解析自然包含新writer，原范围/数量合同不放宽。不得因本次拆分恢复旧20%或来源等于最终文件的错误等式；不改写既有收据/事件 |
 | 测试 | 迁移test_moneyflow_ths_sensors.py、test_moneyflow_ths_definitions.py对旧Silver轮询/共用函数及旧expected_raw_hash的直接调用；按下面矩阵增加THS成功事件及独立writer测试，复用上游support。原五类definitions、其余六类sensors、registration、continuation integration/state和受保护治理覆盖共享影响 |
+
+2026-11-14开发中纠正文件落点：仓库已有io/moneyflow_daily_silver_writer.py及build_daily_moneyflow_silver_candidate(raw, trade_date, dataset)，供原六类来源候选验收测试使用，会核对receipt和verification.parquet，不能拿来替代日更从正式Raw生成Silver的操作，也不能覆盖其签名。原文件完整保留；本次抽取只落在上表独立的moneyflow_daily_silver_update_candidate.py。CodeGraph未列出这些测试调用，已按当前全部引用补齐六份test_moneyflow_moneyflow*.py消费者；必须原样运行它们，证明原入口仍可用，不迁移这些旧测试迎合本次误改。此修正不改变已确认业务范围、SQL、读取预算或原五类日更合同。
 
 不新增asset、job、check、resource类、分区、配置项、表、来源追踪或运营输入。Sensor保持同一模块/函数身份，分类仍为quote_data/silver/asset_update；因此治理预期身份清单不新增另一项，但必须验证新定义类型及完整Definitions，避免再次漏验治理。
 
@@ -6687,7 +6689,7 @@ CodeGraph explore/impact覆盖Silver资产、共享更新函数、readiness与�
 
 独立update_moneyflow_ths_silver的输入仅lake_root、staging_root、operation_id、trade_date和原check_cancel，数据集固定moneyflow_ths。原资产直接传context.partition_key及本次Silver运行ID。没有instance、expected_raw_hash、源接口或第二个版本/日期参数；不从sensor run_key反解析执行参数。
 
-build_daily_moneyflow_silver_candidate以已有connection、raw、candidate、trade_date、dataset、checkpoint为输入，返回原Raw行数。抽取边界为原update_daily_moneyflow_silver中的count=audit_file及“checkpoint不存在时，核对已有候选或执行原COPY，再做候选标准化对账”这一段。保留原调用次序和列式SQL，不顺手合并/删除原校验；该helper只读本日Raw及候选、最多生成一个本日候选，checkpoint只判断既有发布阶段，不查Dagster、不执行提升。原五类流程调用它后仍按原expected_raw_hash进行核对和发布；接口签名与资产调用方不变。
+build_daily_moneyflow_silver_update_candidate以已有connection、raw、candidate、trade_date、dataset、checkpoint为输入，返回原Raw行数。抽取边界为原update_daily_moneyflow_silver中的count=audit_file及“checkpoint不存在时，核对已有候选或执行原COPY，再做候选标准化对账”这一段。保留原调用次序和列式SQL，不顺手合并/删除原校验；该helper只读本日Raw及候选、最多生成一个本日候选，checkpoint只判断既有发布阶段，不查Dagster、不执行提升。原五类流程调用它后仍按原expected_raw_hash进行核对和发布；接口签名与资产调用方不变。
 
 THS独立流程按顺序：原路径/根校验和候选定位 → 原moneyflow namespace writer互斥及取消检查 → 同日Raw文件校验与上述候选生成 → 取实际Raw文件摘要一次 → 原内存检查 → publish_moneyflow_update_file(raw_hash=实际摘要) → 原最终Raw/Silver逐字段对账 → 返回实际row_count、raw_sha256、最终file_sha256及promotion_mode。实际摘要同时进入原发布checkpoint和物化metadata；取消的是对照旧物化摘要的重复门禁，实际输入文件记录仍保留。文件不存在、schema/日期/主键不合法继续由原文件校验拒绝。
 
@@ -6723,7 +6725,7 @@ THS独立流程按顺序：原路径/根校验和候选定位 → 原moneyflow n
 | THS独立writer与原job | 按实际完整13列合同，独立字面样例含名称NULL、数值NULL、零/负值和源2行合并后3行；实际Raw直接加工且不读任何Raw事件/检查。日期转DATE，其余值/行保真；metadata的raw_sha256取实际文件。新的THS调用没有expected_raw_hash，原五类仍验证它；原共用入口拒绝非法dataset的反例保留，固定THS函数不新增任意dataset输入 |
 | 已有文件安全与人工恢复 | 复用原取消、intent前/后、replace后及complete恢复用例，证明旧文件保持或新文件保留、同操作继续可读回且无源请求；同内容复用正式文件。Silver失败/取消/正式check失败后只人工原job恢复，不增加自动补数；不注入额外网络/数据库故障或测试交错更新 |
 | 最小隔离链 | 使用原Raw job/现行生产者生成临时成功物化及真实文件检查（源用明确替身、原13字段和受限文件），经新原生sensor评估得到请求，再执行原Silver job并读回文件/metadata/check。假源/时钟及手动执行请求的替代边界写清，不冒充正式daemon投递；原生防重复/提交结果核对单独用上行SDK测试证明 |
-| 共享回归及治理 | 原五类Silver及全部六类其它资金流sensor/登记保留原行为；THS Raw源预检、合并名单不回归。continuation/state及integration核对实际输入/输出摘要；catalog/Definitions与同名新sensor类型通过。原test_run_contract_static_gates.py仍走stock_suspend_confirmed_test_runner.py，清单/保护规则不放宽；Ruff及文档/差异检查通过 |
+| 共享回归及治理 | 原六类test_moneyflow_moneyflow*.py候选验收（原入口完整保留）、原五类Silver及全部六类其它资金流sensor/登记保留原行为；THS Raw源预检、合并名单不回归。continuation/state及integration核对实际输入/输出摘要；catalog/Definitions与同名新sensor类型通过。原test_run_contract_static_gates.py仍走stock_suspend_confirmed_test_runner.py，清单/保护规则不放宽；Ruff及文档/差异检查通过 |
 
 fixture以原真实生产者和既有13列Raw/Silver schema、当前检查关联结构为依据；直接给出独立日期/字段/摘要预期，不调用被测函数生成expected。隔离测试不访问正式token、Dagster instance、PostgreSQL或Lake；不安装依赖。开发阶段无新增Tushare真实请求必要，既有来源合同和阶段1～3证据继续复用；阶段5获准的最小真实只读核验及阶段6单日正式验收另计，不强行作为本步编码前置条件。
 
@@ -6736,3 +6738,82 @@ fixture以原真实生产者和既有13列Raw/Silver schema、当前检查关联
 本轮只读进程检查未见DG服务、守护进程、资金流取数worker；没有新业务测试、Dagster定义加载/评估、源请求、正式实例初始化或数据/事件写入。两文档的原有其它差异保留，本轮变化仅为当前状态提示及第82/86节获准内容，Python、测试、配置和暂存区未改。没有尚待管理员拍板的业务问题，也没有因已否决事项留下的待处理要求。结论为具备推进第四阶段代码开发和隔离验收的准备条件；不是第四阶段功能已验收、正式服务已加载或生产触发已授权。
 
 正式切换沿第82.13.5节留在阶段6：同名sensor停旧、初始化原生cursor时暂停本数据集Raw、初始化不补历史，然后正常启用；其它共享工作区改动是否可一并加载另按发布审计核对。本轮不改运行开关、cursor、队列、分区、正式事件或文件，不启动/停止DG，不提交或推送。
+
+<a id="moneyflow-ths-stage-4-complete"></a>
+
+### 82.24 第四阶段执行、修正与独立审计结果（2026-11-14）
+
+#### 82.24.1 范围与实际改动
+
+管理员授权先提交准备文档，再严格实施第四阶段并独立审计。准备文档已按限定片段提交ba1a6a0e2，未推送；随后在同一dev-interface工作区实施本阶段。只读确认DG服务、守护进程和资金流worker停止，未自行启动服务、切分支或改正式开关。原工作区其它改动保留。
+
+最终本阶段Python改动为7个生产文件和4个测试文件。生产文件为defs/assets/moneyflow_ths.py、defs/sensors/moneyflow_ths_sensor.py、defs/io/moneyflow_ths_silver_update.py、defs/io/moneyflow_daily_silver_update_candidate.py、defs/io/moneyflow_daily_update.py，以及仅校准同花顺个股Silver说明的defs/jobs/moneyflow_ths.py和defs/catalog/lake_assets.py。测试为原test_moneyflow_ths_definitions.py、test_moneyflow_ths_sensors.py，以及新增test_moneyflow_ths_silver_handoff.py、test_moneyflow_ths_silver_update.py。后两份分别27和14个用例。没有修改共享选择器、readiness、原发布器、合同、资源、路径、分区或Dagster包。
+
+开工前171份相关代码/测试中，不属于最终改动范围的165份与基线摘要一致，包含原moneyflow_daily_silver_writer.py及其消费者；正式Raw更新函数、Raw资产函数和另外六类资产文件均保持。CodeGraph explore/callers/impact用于分析入口和共享影响；其测试调用结果不完整，已按当前源码全引用补齐原候选生成消费者。最终codegraph sync/status显示索引已同步；没有主体分层、API或前端合同变化，没有需要另行确认的消费者边界。
+
+#### 82.24.2 硬口径与实现、验收对账
+
+| 已确认要求 | 最终实现及证据 |
+| --- | --- |
+| Raw任务连同检查完整成功才接续 | 原同名Silver sensor改为原生run_status_sensor，仅监听原Raw job的SUCCESS，目标仍为原Silver job；临时原生evaluate_tick验证完整成功触发、仅物化后检查失败/取消不触发、其它job成功不触发 |
+| 人工补历史Raw后接续，不等22点或扫描10日 | 日期来自成功Raw上下文，摘要来自该次Raw运行的最终物化；历史日、其它日期干扰和较新无关Raw事件样例均通过。THS Silver旧选择器调用及silver选项已移除，Raw原20点/未成功日期补采窗口保持 |
+| 只读目标日的必要记录 | 分支计数证明首次/不同内容2次业务查询、同内容最多3次，分别最多2/3条记录；同内容成功时最多1次该日Silver文件摘要，其它日期及全历史不读。回调无业务SQL、来源请求、Raw检查查询或Raw文件读取；Dagster内部读取/查重单列，不纳入上述3次 |
+| 同内容只自动提交一次，失败只人工 | 沿原silver_moneyflow_ths:日期:最终Raw摘要。真实临时instance与安装SDK原生fetch_existing_runs/_get_or_create_sensor_run验证旧sensor同key成功/失败/取消/排队/运行中不新建，NOT_STARTED复用原run_id；同内容的新Raw运行仍不重启失败Silver，不同内容可首次请求。不新增运行ID标识、项目历史运行扫描、自动重试或补漏机制 |
+| 原成功事实不能被错误记录遮蔽 | 原检查按单日期及已执行状态过滤，PLANNED不遮蔽先前完成结果；最新失败不能被更早成功替代，检查必须绑定同次物化。缺检查、错关联或Silver文件不符交人工处理；缺少旧raw_sha256不能冒充已消费本次内容 |
+| THS独立加工实际Raw，取消重复启动门禁 | 独立update_moneyflow_ths_silver无instance/expected_raw_hash输入，不读Raw事件或检查，只记录实际Raw摘要。没有Raw物化也能直接按原Silver job加工合法同日文件；实际Raw合法值改变可正常加工，不再被旧预期摘要误拦。日期、13字段、NULL、零/负值及最终逐字段对账保持 |
+| 其它五类保留原检查，已有候选入口保持 | 共享日更Silver的签名、前后expected_raw_hash核验和发布流程保持；只抽取原count/COPY/候选检查，AST核对与原代码相同。原moneyflow_daily_silver_writer.py字节与基线一致，六类旧候选测试不改输入/断言，补跑527项通过；五类日更原job入口另在最终代码各复验一次 |
+| 沿原文件安全、取消与恢复 | 九个生成/复用/候选/intent/已发布/完成分支的SQL数量与第82.23.5节一致；原取消、发布前后中断、同操作继续、同内容复用和正式检查失败后人工Silver恢复通过。保留原512MB/1线程/no-spill、768MiB检查、原路径、writer互斥和逐文件原子提升，无新增版本副本或并发机制 |
+| 完整字段和两个Raw名单 | 实际原Raw job的假源两轮各2行，按阶段3合并最终Raw 3行，经原生成功sensor得到请求，再执行原Silver job，最终3行13字段/实际Raw摘要/正式检查正确，原Raw两个名单未被Silver改写；有允许的欠缺名单也不阻断接续 |
+
+dependency_files沿既有相对导入自动包含两个新模块，当前共153份（基线151份加本次2份），不修改其范围或放宽上限。没有恢复THS旧20%判断、来源数量等于最终合并数量等错误要求。
+
+#### 82.24.3 原预算、恢复与最后验收的实际成本
+
+以下为临时小样本中独立更新函数的实测，不是生产墙钟保证；不包含来源下载、队列、Dagster事件保存和正式asset check。原正式Silver检查仍另执行9条业务SQL，不把Raw的300秒/64请求合同套成Silver限制。正常与恢复的实际SQL数均与事先逐项推导一致，没有为通过测试删原检查。
+
+| 分支 | 业务SQL条数 | 最终复验样本秒数 |
+| --- | --- | --- |
+| 新候选、首次写入 | 31 | 0.022345 |
+| 新候选、旧目标变化 | 35 | 0.024485 |
+| 新候选、旧目标相同 | 32 | 0.024307 |
+| 已有候选、首次写入 | 39 | 0.024910 |
+| 已有候选、旧目标变化 | 43 | 0.027908 |
+| 已有候选、旧目标相同 | 40 | 0.026713 |
+| intent后、尚未replace继续 | 18 | 0.016269 |
+| 已replace、complete尚未落盘继续 | 15 | 0.014770 |
+| complete后继续 | 15 | 0.013943 |
+
+上述3行小样本Raw为2146～2147字节，Silver为2127～2128字节；变化由样例编码产生，不宣称任意字段长度均有此大小。原20000行容量合同样本，最终Raw101863字节、Silver101838字节，独立更新函数0.053337秒，20000行及NULL保真；该计时从输入准备后开始，不是完整job或网络耗时，也不是内存上界。
+
+临时原生sensor评估的源2行/最终3行样本，最后一次0.009572秒，评估期间源请求0；计时包括SDK上下文/分区解析，不等同纯回调时间。原Raw采集使用显式假源及假时钟，未重复等待真实60秒，完整真实worker/HTTP及60秒间隔的阶段3证据继续按原适用范围引用。原生去重另用真实临时运行存储验证，未宣称已完成正式daemon投递。
+
+最后验收只读回测试已生成的对应日期文件、事件及检查，核对13字段、DATE类型、NULL和输入摘要；独立审计另读回两行，不再次请求来源或全历史扫描。中断恢复只处理同日候选/目标/checkpoint，实际18/15条SQL见上表；测试补跑仅针对修改或失败位置，已通过且未受影响的回归不全量重跑。没有调大超时、内存、请求量或文件上限。
+
+#### 82.24.4 测试范围与发现问题的修正
+
+按JUnit的classname+用例名对重复执行去重，最终普通pytest为1431项，全部通过：新增成功接续/独立writer41项、原THS定义及sensor79项、其它Raw/Silver定义和接续363项、其它sensor/登记/来源预检/完整定义/退役/数量及历史接续331项、原Raw合并90项、补齐的六类旧候选生成527项。原受保护治理test_run_contract_static_gates.py通过现有stock_suspend_confirmed_test_runner.py原生运行，15批113个方法全部通过；最终代码更正后整组复跑仍113项通过，重复次数不增加独立用例数。总计1544项。最终Ruff本次11文件默认规则、全src/tests的E9/F63/F7/F82检查通过。
+
+分组实际时间仅用于说明本轮验证成本，不作未来限额：最初THS81次执行57.722秒、接续17次19.658秒、writer14次14.482秒、原生补充9次6.198秒、共享364次142.904秒、其它sensor等331次172.557秒、Raw90次22.533秒；部分含下述失败或重复，不能把各组执行次数相加冒称独立用例数。最终新41项复跑34.917秒、五类原job最小复验5项5.620秒、六类旧候选527项19批累计45.689秒。原生状态去重的6种运行状态均有测试，不增加基础设施故障注入。
+
+本轮有以下错误，均已在最终代码及测试证据中纠正，未用skip、改业务预期或放宽合同消除失败：
+
+- 最初2个回归在旧代码按预期失败，分别证明旧sensor不是成功事件、旧Silver会因缺Raw物化拒绝合法文件；新路径均通过。
+- 我把仓库已有moneyflow_daily_silver_writer.py误当新文件，覆盖了旧来源候选入口，且最初共享回归漏了它的六类测试。独立审计当时也漏了这项，所以先前“其它消费者保持”的结论撤回。补取原行业稳定样例后真实出现签名TypeError；先纠正第82.23.2节和原方案文件落点，再恢复原文件，抽取操作移至独立新模块。原六类测试代码与断言均不修改，527项最终通过；最终独立审计增加旧文件字节核对。没有正式数据或服务受影响。
+- 3个测试接入错误分别是误用安装SDK没有的run_status公开属性、get_job_success_event方法，以及原生动态分区评估缺partition_loading_context。按已安装Dagster 1.13.26实际接口和原分区合同修正测试，未改生产合同或绕过分区检查。
+- 既有“HTTP响应丢失”本地端口测试首次未按所需权限启动，权限错误导致失败；原代码和断言不改，仅正确启动后该项1.440秒通过。最终治理复跑首次也因启动权限方式错误，sandbox-exec未开始执行用例；保留失败原因后按原受保护运行器所需权限重新执行，113项全部通过。这是我的执行方式错误，不是数据或Dagster运行缺陷。
+
+原Raw合并90项本轮未重跑其唯一real_http_worker约60秒用例：原Raw和传输未改，已在阶段3完整验收；本次将它明确deselected，不计入1431项，也不声称重验真实源。已有两字段三页localhost worker回放和上述本地单次HTTP响应丢失恢复实际执行；真实Tushare请求始终0。旧候选容量用例仍逐例独立进程，其余按文件运行，所有输出/fixture/SQLite/Parquet在本任务工程外临时目录，无仓库运行缓存、包安装或依赖升级。
+
+#### 82.24.5 最终独立审计与交付边界
+
+更正后单独启动审计进程，不导入本次测试模块、夹具或expected生成器。源码审核核对Raw函数/资产不变、共享Silver参数和抽取之外流程与原AST一致、原候选入口完整保持，以及回调无旧窗口/时间选择、运行ID新标识、重试或补漏代码。另用2026-10-15、600101.SH与000101.SZ的独立完整13列样本，覆盖名称NULL、数值NULL、零/负值，原Raw文件检查 → 真实临时SQLite成功事件 → 原生sensor → 原Silver job/原检查 → 13列独立字面结果读回全部通过，最终0.808827秒。
+
+该独立链的Raw生产者显式替换为写入上述两行文件并返回正确metadata的小资产，不声称验证来源采集；原Raw文件检查、原生sensor及Silver生产代码未替换。独立审计本身未替换磁盘容量检查，临时目录所在卷满足原限制。此前使用原Raw job的源2/最终3链由普通隔离测试覆盖，两者证据范围分别记录。独立程序同时核对最终11份代码摘要、1431个普通用例最新通过结果及最终113项治理结果，审计通过，第四阶段无剩余阻断。
+
+最终11文件按相对orchestrator路径排序，把每项“路径、制表符、文件SHA256、换行”拼接后取SHA256，结果为4fddf53dd1db5e4b8410c06c0c78aab66542a2bc5cfe80904b9a434aadf518c4；原文件恢复及最终41项复跑后代码未再变化。有效结果仅回填两份原文档，相关临时审计/测试产物按任务所有权核对后清理，不保留另一套长期过程附件。
+
+本轮源请求、正式DG分区/job/sensor评估/事件/Lake写入及服务启停均为0，正式DG仍停止；没有配置变化、旧提交迁移、自动Raw回查、Silver自动重试、通用基础设施补漏或交错更新防御。第四阶段代码与隔离验收完成，开发改动与本节验收记录随本次提交归档，未推送或加载。阶段5整链收尾和阶段6正式sensor切换、cursor初始化及指定单日验收均未进入，不能据本轮结果宣布正式链已启用。
+
+最终收尾核对：两份文档345处本地Markdown链接目标存在，第四阶段新锚点唯一，第82/86节之前仅更新页首当前状态，其余历史段落与本轮开工原文一致；仓库文档完整性三组和本次差异空白检查通过。依赖清单实际返回路径字符串，临时核对脚本最初误按Path访问name属性，已修正核对脚本；生产函数及153份依赖范围均不变。正式DG和测试进程最终只读检查均未见运行，暂存区为空。
+
+本次临时产物已清理：本任务独立临时目录，以及核对所有权后的31个治理临时目录（两轮各15个成功批次，另1个未启动成功的批次）；未清理其它线程目录或正式Lake/staging文件。

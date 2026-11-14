@@ -21,5 +21,5 @@ silver_moneyflow_ths_update_job = dg.define_asset_job(
     selection=dg.AssetSelection.assets(silver_moneyflow_ths)
     | dg.AssetSelection.checks_for_assets(silver_moneyflow_ths),
     partitions_def=cn_a_moneyflow_ths_trade_days,
-    description="只读同日已绿Raw，仅生成同花顺个股资金流Silver并执行逐字段对账check。",
+    description="直接读取同日实际Raw并记录输入摘要，仅生成同花顺个股资金流Silver并执行逐字段对账check。",
 )

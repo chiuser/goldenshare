@@ -6,7 +6,9 @@ import dagster as dg
 
 from orchestrator.defs.io.moneyflow_daily_update import (
     update_daily_moneyflow_raw,
-    update_daily_moneyflow_silver,
+)
+from orchestrator.defs.io.moneyflow_ths_silver_update import (
+    update_moneyflow_ths_silver,
 )
 from orchestrator.defs.partitions import cn_a_moneyflow_ths_trade_days
 from orchestrator.defs.paths import (
@@ -37,13 +39,8 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.run_contracts.moneyflow import (
-    MONEYFLOW_THS_RAW_CHECK,
     MONEYFLOW_WRITER_POOL,
     MoneyflowContractError,
-)
-from orchestrator.defs.sensors.readiness import (
-    AssetReadinessSpec,
-    asset_readiness_status,
 )
 
 
@@ -151,7 +148,7 @@ def raw_tushare_moneyflow_ths(
             "write_boundary": "verified_candidate_per_file_replace",
         },
     ),
-    description="只读同日已绿Raw，将同花顺个股资金流trade_date标准化为DATE，其余字段保真。",
+    description="直接读取同日实际Raw，将同花顺个股资金流trade_date标准化为DATE，其余字段保真并记录实际输入摘要。",
 )
 def silver_moneyflow_ths(
     context: dg.AssetExecutionContext,
@@ -161,32 +158,11 @@ def silver_moneyflow_ths(
     # DuckDB resource is part of the declared execution surface; the writer uses
     # the existing moneyflow-specific configured connection (512MB/one thread).
     lake_root.ensure_available_for_run()
-    key = raw_tushare_moneyflow_ths.key
-    status = asset_readiness_status(
-        context.instance,
-        AssetReadinessSpec(key, (MONEYFLOW_THS_RAW_CHECK,)),
-        partition_key=context.partition_key,
-    )
-    if not status.ready:
-        raise dg.Failure(f"moneyflow_raw_not_ready:{status.reason}")
-    records = context.instance.fetch_materializations(
-        dg.AssetRecordsFilter(asset_key=key, asset_partitions=[context.partition_key]),
-        limit=1,
-    ).records
-    if not records or records[0].storage_id != status.materialization_storage_id:
-        raise dg.Failure("moneyflow_raw_materialization_changed")
-    metadata = records[0].asset_materialization.metadata
-    hash_metadata = metadata.get("goldenshare/file_sha256")
-    expected_hash = hash_metadata.value if hash_metadata is not None else None
-    if not isinstance(expected_hash, str) or len(expected_hash) != 64:
-        raise dg.Failure("moneyflow_raw_hash_missing")
-    result = update_daily_moneyflow_silver(
-        dataset="moneyflow_ths",
+    result = update_moneyflow_ths_silver(
         lake_root=lake_root.root(),
         staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
         operation_id=context.run.run_id,
         trade_date=context.partition_key,
-        expected_raw_hash=expected_hash,
         check_cancel=lambda: _check_cancel(context),
     )
     return _result(result, SILVER_MONEYFLOW_THS_SCHEMA)

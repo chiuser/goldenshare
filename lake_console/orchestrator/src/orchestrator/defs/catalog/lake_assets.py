@@ -1710,7 +1710,7 @@ LAKE_ASSET_CATALOG = (
         batch_grain="trade_date", write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
-        notes="Same-day green Raw with matching physical hash; only normalize trade_date to DATE; no source requests.",
+        notes="Raw job SUCCESS triggers the original Silver job for its target date and final Raw digest; native same-content run-key deduplication. Independent THS Silver reads the actual same-date Raw without event readiness rechecks, records its actual digest, normalizes trade_date to DATE and preserves all other values; existing file checks and atomic publication; no source requests or Silver retry polling.",
     ),
     _entry(
         asset_key="raw_tushare_moneyflow_dc", dataset_id="moneyflow_dc",

@@ -23,6 +23,7 @@ from orchestrator.defs.io.moneyflow_candidates import (
     candidate_file_hash,
     moneyflow_candidate_connection,
 )
+from orchestrator.defs.io.moneyflow_ths_silver_update import update_moneyflow_ths_silver
 from orchestrator.defs.jobs.moneyflow_ths import (
     raw_tushare_moneyflow_ths_update_job,
     silver_moneyflow_ths_update_job,
@@ -506,46 +507,39 @@ def test_full_page_uses_stock_offsets_and_empty_termination(env):
     )
 
 
-def test_silver_requires_green_same_day_raw(env):
+def test_silver_requires_actual_same_day_raw_file(env):
     result = run(env, "silver_moneyflow_ths_update_job", raise_on_error=False)
     assert not result.success and not env.source.calls
     assert not silver_moneyflow_path(env.lake, "moneyflow_ths", DAY).exists()
 
 
-@pytest.mark.parametrize("condition", ["other_day", "stale_check", "failed_check"])
-def test_silver_rejects_other_day_stale_or_failed_raw_check(env, condition):
+@pytest.mark.parametrize("condition", ["other_day", "wrong_date"])
+def test_silver_rejects_missing_or_invalid_actual_raw(env, condition):
     assert run(env, "raw_tushare_moneyflow_ths_update_job").success
     day = "2026-09-29" if condition == "other_day" else DAY
-    if condition == "stale_check":
-        env.instance.report_runless_asset_event(
-            dg.AssetMaterialization(
-                asset_key=RAW.key,
-                partition=DAY,
-                metadata={
-                    "goldenshare/file_sha256": candidate_file_hash(
-                        raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
-                    )
-                },
-            )
-        )
-    elif condition == "failed_check":
-        _change_file(
-            env,
-            raw_moneyflow_path(env.lake, "moneyflow_ths", DAY),
-            "* REPLACE('20260929'::VARCHAR AS trade_date)",
-        )
-        assert not _check_existing_file(env, CHECKS[0]).success
+    if condition == "wrong_date":
+        _change_file(env, raw_moneyflow_path(env.lake, "moneyflow_ths", DAY),
+                     "* REPLACE('20260929'::VARCHAR AS trade_date)")
     result = run(env, "silver_moneyflow_ths_update_job", day=day, raise_on_error=False)
     assert not result.success and len(env.source.calls) == 2
     assert not silver_moneyflow_path(env.lake, "moneyflow_ths", day).exists()
 
 
-def test_raw_physical_hash_change_blocks_silver_before_source(env):
+def test_silver_uses_actual_raw_when_latest_event_is_unrelated(env):
+    assert run(env, "raw_tushare_moneyflow_ths_update_job").success
+    env.instance.report_runless_asset_event(dg.AssetMaterialization(asset_key=RAW.key, partition=DAY))
+    assert run(env, "silver_moneyflow_ths_update_job").success
+    assert len(env.source.calls) == 2
+
+
+def test_silver_consumes_valid_actual_raw_revision_without_old_event_hash(env):
     assert run(env, "raw_tushare_moneyflow_ths_update_job").success
     raw = raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
     _change_file(env, raw, "* REPLACE(99::DECIMAL(24,4) AS net_amount)")
-    result = run(env, "silver_moneyflow_ths_update_job", raise_on_error=False)
-    assert not result.success and len(env.source.calls) == 2
+    result = run(env, "silver_moneyflow_ths_update_job")
+    assert result.success and len(env.source.calls) == 2
+    event = result.get_asset_materialization_events()[0].event_specific_data.materialization
+    assert event.metadata["goldenshare/raw_sha256"].value == candidate_file_hash(raw)
 
 
 @pytest.mark.parametrize(
@@ -660,17 +654,16 @@ def test_exit_after_replace_resumes_without_source_or_rebuild(env, monkeypatch, 
         kwargs["tushare"] = env.source
         kwargs["instance"] = env.instance
     else:
-        kwargs["expected_raw_hash"] = candidate_file_hash(
-            raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
-        )
+        kwargs.pop("dataset")
+    execute = update.update_daily_moneyflow_raw if layer == "raw" else update_moneyflow_ths_silver
     with pytest.raises(RuntimeError, match="exit after replace"):
-        getattr(update, "update_daily_moneyflow_" + layer)(**kwargs)
+        execute(**kwargs)
     target = (raw_moneyflow_path if layer == "raw" else silver_moneyflow_path)(
         env.lake, "moneyflow_ths", DAY
     )
     digest = candidate_file_hash(target)
     monkeypatch.setattr(publication, "_checkpoint", original)
-    result = getattr(update, "update_daily_moneyflow_" + layer)(**kwargs)
+    result = execute(**kwargs)
     assert result["file_sha256"] == digest and len(env.source.calls) == 2
 
 
