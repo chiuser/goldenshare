@@ -28,7 +28,6 @@ from orchestrator.defs.run_contracts.moneyflow_automation import (
     INDUSTRY_THS_MONEYFLOW_AUTOMATION,
     STOCK_DC_MONEYFLOW_AUTOMATION,
     STOCK_MONEYFLOW_AUTOMATION,
-    STOCK_THS_MONEYFLOW_AUTOMATION,
 )
 
 
@@ -65,7 +64,6 @@ def moneyflow_row_count_baseline(
                 CONCEPT_THS_MONEYFLOW_AUTOMATION,
                 BOARD_DC_MONEYFLOW_AUTOMATION,
                 STOCK_DC_MONEYFLOW_AUTOMATION,
-                STOCK_THS_MONEYFLOW_AUTOMATION,
                 STOCK_MONEYFLOW_AUTOMATION,
             )
             if c.dataset == dataset

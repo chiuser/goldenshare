@@ -59,6 +59,9 @@ NOW = datetime(2026, 10, 9, 22, 1, tzinfo=CN_A_SENSOR_TIMEZONE)
 
 
 def context(env, dates=(DAY,), cursor=None):
+    from .moneyflow_ths_upstream_support import seed_market
+
+    seed_market(env.instance, env.lake, env.staging, dates)
     calendar = silver_trade_calendar_path(env.lake)
     calendar.parent.mkdir(parents=True, exist_ok=True)
     settings = DuckDBConnectionSettings(
@@ -466,7 +469,7 @@ def test_registration_does_not_admit_dates_before_daily_start(env, monkeypatch):
     "second",
     [
         support.sample(amount="1", day=DAY),
-        [*support.sample(day=DAY), row(code="000002.SZ", name="额外个股", day=DAY)],
+        [*support.sample(day=DAY), row(code="000003.SZ", name="额外个股", day=DAY)],
     ],
 )
 def test_unstable_source_failing_job_is_explicitly_retryable(env, second):
@@ -505,6 +508,11 @@ def test_ten_date_window_uses_batch_queries_and_bounded_file_hashes(env, monkeyp
         .Path("tests/fixtures/moneyflow_ths_20260930.json")
         .read_text()
     )
+    from .moneyflow_ths_upstream_support import seed_market
+
+    # Explicit artificial archive cohort and future snapshot; this measures batch
+    # sensor reads, not real historical lifecycle coverage.
+    seed_market(env.instance, env.lake, env.staging, dates, codes=tuple(r["ts_code"] for r in fixture))
     for day in dates:
         rows = [{**r, "trade_date": day.replace("-", "")} for r in fixture]
         support.set_rows(env, rows)

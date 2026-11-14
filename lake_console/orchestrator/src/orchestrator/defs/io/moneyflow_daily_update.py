@@ -24,6 +24,13 @@ from orchestrator.defs.io.moneyflow_candidates import (
 from orchestrator.defs.io.moneyflow_daily_raw_writer import (
     build_daily_moneyflow_raw_candidate,
 )
+from orchestrator.defs.io.moneyflow_ths_raw_merge import (
+    assert_moneyflow_ths_file_budget,
+    assert_moneyflow_ths_source_coverage,
+    merge_moneyflow_ths_raw_candidate,
+    moneyflow_ths_raw_connection,
+    moneyflow_ths_raw_metadata,
+)
 from orchestrator.defs.io.moneyflow_update_publication import (
     assert_moneyflow_update_path,
     assert_moneyflow_update_roots,
@@ -43,6 +50,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     assert_moneyflow_memory_budget,
 )
 from orchestrator.defs.run_contracts.moneyflow_daily import daily_key_fields
+from orchestrator.defs.source_readiness.moneyflow_ths import load_moneyflow_ths_universe
 
 
 def _assert_daily_update_dataset(dataset: str) -> None:
@@ -88,6 +96,17 @@ def update_daily_moneyflow_raw(
 
     with moneyflow_writer_lock(namespace):
         check_cancel()
+        ths = dataset == "moneyflow_ths"
+        deadline = started + MONEYFLOW_MAX_ELAPSED_SECONDS
+        if ths:
+            try:
+                expected, suspended = load_moneyflow_ths_universe(
+                    instance, lake_root, trade_date, deadline=deadline
+                )
+            except MoneyflowContractError:
+                check_budget()
+                raise
+            check_budget()
         receipt_path = directory / "receipt.json"
         if not receipt_path.exists():
             build_daily_moneyflow_raw_candidate(
@@ -118,19 +137,27 @@ def update_daily_moneyflow_raw(
         raw = directory / "raw.parquet"
         target = raw_moneyflow_path(lake_root, dataset, trade_date)
         assert_moneyflow_update_path(target)
-        proof_file = raw if raw.exists() else target
+        proof_file = raw if ths or raw.exists() else target
         checkpoint = directory / "promotion-raw.json"
-        if not checkpoint.exists() and (
+        if (ths or not checkpoint.exists()) and (
             not raw.exists() or candidate_file_hash(raw) != receipt.get("raw_sha256")
         ):
             raise MoneyflowContractError("raw_source_proof")
-        with moneyflow_candidate_connection(directory) as connection:
+        with (
+            moneyflow_ths_raw_connection(directory, deadline, check_budget)
+            if ths else moneyflow_candidate_connection(directory)
+        ) as connection:
             verification = directory / "verification.parquet"
             assert_moneyflow_update_path(verification)
             if not verification.is_file() or candidate_file_hash(
                 verification
             ) != receipt.get("verification_sha256"):
                 raise MoneyflowContractError("raw_source_proof")
+            if ths:
+                for path in (raw, verification):
+                    assert_moneyflow_ths_file_budget(path)
+                if target.exists():
+                    assert_moneyflow_ths_file_budget(target)
             count = audit_file(connection, proof_file, trade_date)
             if (
                 count != receipt["row_count"]
@@ -144,47 +171,75 @@ def update_daily_moneyflow_raw(
             audit_daily_moneyflow_equality(
                 connection, proof_file, verification, dataset=dataset
             )
-            try:
-                baseline = moneyflow_row_count_baseline(
-                    instance=instance,
-                    connection=connection,
-                    lake_root=lake_root,
-                    dataset=dataset,
-                    trade_date=trade_date,
-                    check=check_budget,
+            final_metadata = {}
+            candidate = raw
+            if ths:
+                check_budget()
+                assert_moneyflow_ths_source_coverage(
+                    connection, raw, expected, suspended
                 )
-                decision = moneyflow_row_count_decision(
-                    baseline, receipt["scope_row_counts"]
-                )
-            except MoneyflowContractError as error:
-                receipt["row_count_guard"] = {
-                    "passed": False,
-                    "reason_code": str(error),
-                }
+                check_budget()
+                candidate = directory / "raw-merged.parquet"
+                assert_moneyflow_update_path(candidate)
+                if checkpoint.exists():
+                    published = read_moneyflow_update_control(checkpoint)
+                    final = (
+                        target if target.is_file()
+                        and candidate_file_hash(target) == published.get("published_sha256")
+                        else candidate
+                    )
+                else:
+                    merge_moneyflow_ths_raw_candidate(connection, raw, target, candidate)
+                    final = candidate
+                check_budget()
+                assert_moneyflow_ths_file_budget(final)
+                final_metadata = moneyflow_ths_raw_metadata(connection, final, expected)
+                check_budget()
+            else:
+                try:
+                    baseline = moneyflow_row_count_baseline(
+                        instance=instance,
+                        connection=connection,
+                        lake_root=lake_root,
+                        dataset=dataset,
+                        trade_date=trade_date,
+                        check=check_budget,
+                    )
+                    decision = moneyflow_row_count_decision(
+                        baseline, receipt["scope_row_counts"]
+                    )
+                except MoneyflowContractError as error:
+                    receipt["row_count_guard"] = {
+                        "passed": False,
+                        "reason_code": str(error),
+                    }
+                    write_moneyflow_receipt(directory, receipt)
+                    raise
+                receipt["row_count_guard"] = decision
                 write_moneyflow_receipt(directory, receipt)
-                raise
-            receipt["row_count_guard"] = decision
-            write_moneyflow_receipt(directory, receipt)
-            if not decision["passed"]:
-                raise MoneyflowContractError(
-                    "row_count_drop:" + ",".join(decision["declined_scopes"])
-                )
+                if not decision["passed"]:
+                    raise MoneyflowContractError(
+                        "row_count_drop:" + ",".join(decision["declined_scopes"])
+                    )
             assert_moneyflow_memory_budget()
             if (perf_counter() - started) >= MONEYFLOW_MAX_ELAPSED_SECONDS:
                 raise MoneyflowContractError("request_budget_exceeded")
             state = publish_moneyflow_update_file(
                 connection,
-                raw,
+                candidate,
                 target,
                 dataset=dataset,
                 audit_file=audit_file,
                 day=trade_date,
                 layer="raw",
                 checkpoint=checkpoint,
-                check_cancel=check_cancel,
+                check_cancel=check_budget if ths else check_cancel,
             )
+            if ths:
+                check_budget()
         return {
             **receipt,
+            **final_metadata,
             "target": str(target),
             "file_sha256": state["published_sha256"],
             "promotion_mode": state["mode"],

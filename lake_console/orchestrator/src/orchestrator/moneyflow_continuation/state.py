@@ -10,6 +10,7 @@ import urllib.request
 import uuid
 from contextlib import contextmanager
 from datetime import datetime
+from importlib.util import resolve_name
 from pathlib import Path
 
 import dagster as dg
@@ -125,10 +126,16 @@ def dependency_files():
             if isinstance(node, ast.Import):
                 modules = [name.name for name in node.names]
             elif isinstance(node, ast.ImportFrom):
-                require(node.level == 0, "relative_dependency_needs_audit")
-                modules = [node.module or ""]
+                module = node.module or ""
+                if node.level:
+                    package = ".".join(path.relative_to(base).parts[:-1])
+                    try:
+                        module = resolve_name("." * node.level + module, package)
+                    except ImportError as error:
+                        raise ContinuationError("relative_dependency_needs_audit") from error
+                modules = [module]
                 modules += [
-                    (node.module or "") + "." + name.name for name in node.names
+                    module + "." + name.name for name in node.names
                 ]
             else:
                 continue
@@ -903,8 +910,13 @@ class NativeBackend:
                     proof.get("stage") == "raw_candidate_ready"
                     and proof.get("source") == "tushare"
                     and proof.get("trade_date") == day
-                    and proof.get("row_count") == count
-                    and proof.get("raw_sha256") == md["file_sha256"]
+                    and (
+                        dataset == "moneyflow_ths"
+                        or (
+                            proof.get("row_count") == count
+                            and proof.get("raw_sha256") == md["file_sha256"]
+                        )
+                    )
                     and 2 <= proof.get("request_count", 0) <= MONEYFLOW_MAX_REQUESTS
                     and MONEYFLOW_STABILITY_SECONDS
                     <= proof.get("stability_gap_seconds", 0)
@@ -925,10 +937,33 @@ class NativeBackend:
                     "publication_proof",
                 )
                 if dataset != "moneyflow_mkt_dc":
+                    source = raw
+                    if dataset == "moneyflow_ths":
+                        source = safe_path(directory / "raw.parquet")
+                        if not source.is_file():
+                            require(
+                                checkpoint.get("candidate") == str(source)
+                                and file_hash(raw) == proof.get("raw_sha256"),
+                                "source_receipt",
+                            )
+                            source = raw
+                        require(
+                            source.stat().st_size <= MONEYFLOW_STOCK_READINESS_FILE_MAX_BYTES
+                            and file_hash(source) == proof.get("raw_sha256"),
+                            "source_receipt",
+                        )
+                        require(
+                            audit_daily_moneyflow_file(connection, source, day, dataset=dataset)
+                            == proof.get("row_count"),
+                            "source_receipt",
+                        )
                     verification = safe_path(directory / "verification.parquet")
                     require(
                         proof.get("dataset") == dataset
-                        and proof.get("row_count_guard", {}).get("passed") is True
+                        and (
+                            dataset == "moneyflow_ths"
+                            or proof.get("row_count_guard", {}).get("passed") is True
+                        )
                         and verification.stat().st_size
                         <= MONEYFLOW_STOCK_READINESS_FILE_MAX_BYTES
                         and file_hash(verification) == proof.get("verification_sha256"),
@@ -938,13 +973,13 @@ class NativeBackend:
                         audit_daily_moneyflow_file(
                             connection, verification, day, dataset=dataset
                         )
-                        == count
-                        and daily_file_scope_counts(connection, raw, dataset=dataset)
+                        == (proof.get("row_count") if dataset == "moneyflow_ths" else count)
+                        and daily_file_scope_counts(connection, source, dataset=dataset)
                         == proof.get("scope_row_counts"),
                         "source_scope_counts",
                     )
                     audit_daily_moneyflow_equality(
-                        connection, raw, verification, dataset=dataset
+                        connection, source, verification, dataset=dataset
                     )
         return {
             "run_id": delivery.record.event_log_entry.run_id,

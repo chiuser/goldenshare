@@ -54,7 +54,9 @@ def _result(result: dict, columns) -> dg.MaterializeResult:
             row_count=result["row_count"],
             observed_columns=tuple(c.name for c in columns),
             extra_metadata={
-                k: v for k, v in result.items() if k not in {"target", "row_count"}
+                k: dg.MetadataValue.json(v)
+                if k in {"missing_record_codes", "null_value_codes"} else v
+                for k, v in result.items() if k not in {"target", "row_count"}
             },
         )
     )

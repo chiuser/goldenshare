@@ -90,7 +90,7 @@ def sample(amount="-5.1234", day=DAY):
         for code, name in (
             ("000001.SZ", None),
             ("600000.SH", "同名股票"),
-            ("920305.BJ", "同名股票"),
+            ("000002.SZ", "同名股票"),
         )
     ]
 
@@ -179,15 +179,12 @@ def env(tmp_path, monkeypatch):
         instance.add_dynamic_partitions(
             cn_a_moneyflow_ths_trade_days.name, [DAY, "2026-09-29"]
         )
-        from .moneyflow_baseline_support import seed_moneyflow_baseline
+        import orchestrator.defs.source_readiness.moneyflow_ths as upstream
 
-        seed_moneyflow_baseline(
-            instance=instance,
-            lake=lake,
-            staging=staging,
-            dataset="moneyflow_ths",
-            rows=sample()[:1],
-        )
+        from .moneyflow_ths_upstream_support import seed_market
+
+        monkeypatch.setattr(upstream, "DEFAULT_DUCKDB_TEMP_DIRECTORY", staging)
+        seed_market(instance, lake, staging, (DAY, "2026-09-29"))
         yield SimpleNamespace(
             defs=defs, instance=instance, source=source, lake=lake, staging=staging
         )
@@ -279,6 +276,12 @@ def test_independent_definitions_catalog_schema_and_selections(env):
 
 
 def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
+    # The source's SH/SZ coverage does not change the valid historical BJ row contract.
+    from .moneyflow_baseline_support import seed_moneyflow_baseline
+
+    seed_moneyflow_baseline(instance=env.instance, lake=env.lake, staging=env.staging,
+                           dataset="moneyflow_ths", rows=[row("920305.BJ", "同名股票")], day=DAY)
+    set_rows(env, sample()[:2])
     first = run(env, "raw_tushare_moneyflow_ths_update_job")
     second = run(env, "silver_moneyflow_ths_update_job")
     assert first.success and second.success and len(env.source.calls) == 2
@@ -337,6 +340,11 @@ def test_archived_real_5215_rows_reconcile_all_fields_and_markets(env):
     assert len(fixture) == 5215
     # Preserve archived field values; project date to the isolated continuation run.
     fixture = [dict(r, trade_date=DAY.replace("-", "")) for r in fixture]
+    # Synthetic archive-code lifecycle: validates all archived values through jobs,
+    # not the real historical lifecycle/coverage. Independent coverage has its own tests.
+    from .moneyflow_ths_upstream_support import seed_market
+
+    seed_market(env.instance, env.lake, env.staging, (DAY,), codes=tuple(r["ts_code"] for r in fixture))
     set_rows(env, fixture, list(reversed(fixture)))
     started = perf_counter()
     first = run(env, "raw_tushare_moneyflow_ths_update_job")
@@ -487,6 +495,9 @@ def test_invalid_or_unstable_source_cannot_publish_green_events(env, reason):
 
 
 def test_full_page_uses_stock_offsets_and_empty_termination(env):
+    from .moneyflow_ths_upstream_support import seed_market
+
+    seed_market(env.instance, env.lake, env.staging, (DAY,), codes=tuple(f"{i:06d}.SZ" for i in range(2000)))
     set_rows(env, [row(code=f"{i:06d}.SZ") for i in range(2000)])
     assert run(env, "raw_tushare_moneyflow_ths_update_job").success
     assert [p["offset"] for _, p, _ in env.source.calls] == [0, 2000] * 2

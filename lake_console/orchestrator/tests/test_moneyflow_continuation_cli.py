@@ -47,7 +47,9 @@ def test_plan_output_new_file_only_and_digest(tmp_path):
         with pytest.raises(ContinuationError, match="plan_sha256"):
             verify_plan_file(path, "wrong")
     with pytest.raises(ContinuationError, match="output_location"):
-        new_plan_output(tmp_path / "forbidden.json", plan_for())
+        # tmp_path is legitimately under /private/tmp when basetemp is explicit.
+        # Location is rejected before any filesystem write; parent does not exist.
+        new_plan_output(Path("/outside-approved-plan-output/forbidden.json"), plan_for())
 
 
 def test_source_contains_no_alternate_native_write_paths():

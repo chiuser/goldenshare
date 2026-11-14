@@ -111,11 +111,10 @@ def test_missing_baseline_no_file_only_success(env):
         "moneyflow_cnt_ths",
         "moneyflow_ind_dc",
         "moneyflow_dc",
-        "moneyflow_ths",
         "moneyflow",
     ),
 )
-def test_all_six_jobs_stable_drop_retains_candidates_without_success(
+def test_five_jobs_stable_drop_retains_candidates_without_success(
     tmp_path, monkeypatch, dataset
 ):
     module = importlib.import_module("tests.test_" + dataset + "_definitions")

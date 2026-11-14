@@ -183,6 +183,10 @@ def test_source_dependencies_include_shared_symbols_and_tool_but_not_period_jobs
     from orchestrator.moneyflow_continuation.state import dependency_files
 
     paths = dependency_files()
+    assert "src/orchestrator/tushare_download/download_api.py" in paths
+    assert "src/orchestrator/tushare_download/source_response.py" in paths
+    assert "src/orchestrator/tushare_download/contracts/moneyflow_ths.py" in paths
+    assert "src/orchestrator/defs/io/moneyflow_ths_raw_merge.py" in paths
     assert "src/orchestrator/defs/paths.py" in paths
     assert "src/orchestrator/defs/run_contracts/asset_column_schemas.py" in paths
     assert "src/orchestrator/moneyflow_continuation/submission.py" in paths
@@ -274,3 +278,15 @@ def test_run_scoped_disk_walk_refuses_unbounded_or_unsafe_inputs(tmp_path, probl
         (directory / "link").symlink_to(tmp_path)
     with pytest.raises(ContinuationError):
         backend.run_disk_size(directory)
+
+
+def test_source_dependency_relative_import_cannot_escape_package_root(monkeypatch):
+    import ast
+
+    from orchestrator.moneyflow_continuation import state
+    from orchestrator.moneyflow_continuation.contract import ContinuationError
+
+    broken_tree = ast.parse("from ........outside import unexpected")
+    monkeypatch.setattr(state.ast, "parse", lambda *a, **kw: broken_tree)
+    with pytest.raises(ContinuationError, match="relative_dependency_needs_audit"):
+        state.dependency_files()

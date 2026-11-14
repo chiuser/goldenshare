@@ -1697,7 +1697,7 @@ LAKE_ASSET_CATALOG = (
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="trade_date", compute_engine=ComputeEngine.TUSHARE_RESOURCE,
                                    source_request_policy="moneyflow_two_round_bounded_pages",
-                                   notes="One complete THS stock date without market/pool filters; date+ts_code key, nullable name, source amounts in ten-thousand yuan; all 13 source fields preserved, including latest and source net_d5_amount without recomputation; <=20000 rows per round; two stable rounds, 60-second gap; 64 requests/300 seconds; original namespace writer."),
+                                   notes="One target THS stock date, all 13 source fields; SH/SZ expected codes from lifecycle minus final full-day suspensions; source missing <25 before merging. New non-NULL values replace old values; source NULLs and absent rows preserve prior values. Final Raw metadata stores missing-record and NULL-code JSON lists (name and ten numeric fields). Source receipt counts/digests remain independent of final Raw. <=20000 source/final rows; two stable rounds, 60-second gap; 64 requests/300 seconds; original namespace writer and atomic publication."),
     ),
     _derived_entry(
         asset_key="silver_moneyflow_ths", dataset_id="moneyflow_ths",
