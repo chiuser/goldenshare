@@ -1,5 +1,9 @@
 # 股票每日指标接入 DG 技术方案
 
+文档定位（2026-11-14）：本文保留原18字段接入目标和历史证据。新增收盘涨跌状态`limit_status`统一按[扩充方案与LLD第7节](../../../docs/datasets/daily-basic-limit-status-expansion-plan-and-low-level-design-v1.md#dg-limit-status-lld)推进；2026-11-14已按Prod经验修订DG设计，尚未开发或正式执行。日更股票范围与完整历史导出的保留范围分开，合法NULL不填0，原18字段不顺带修改；具体文件、事件、配置和验收要求只在专项维护。Prod已完成其固定范围，不代表DG已完成。
+
+以下状态是2026-09-15的18字段历史记录，不是19字段扩充验收，也不是本轮正式DG运行状态查询：
+
 状态：P4正式状态补录及最终审计完成；4,056个历史日期已materialized，最近20个交易日40条check通过，待补事件为0。两个sensor已正式启用；首个自然日更run结果尚未验收。更新：2026-09-15。
 
 对应 [代码级 LLD](dagster-stock-daily-basic-onboarding-low-level-design-v1.md)。本文件定义目标和边界；LLD 定义代码、测试与分阶段验收。两份文件共同使用 R01-R12 约束编号。
