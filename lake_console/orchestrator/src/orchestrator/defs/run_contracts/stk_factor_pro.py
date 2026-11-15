@@ -1732,6 +1732,31 @@ def stk_factor_pro_files_manifest_digest(
     )
 
 
+def build_stk_factor_pro_publication_metadata(
+    audit: StkFactorProFileAudit,
+    *,
+    raw_file_sha256: str | None = None,
+    source_metadata: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Existing publication fields, shared by run and bootstrap event writers."""
+    from orchestrator.defs.run_contracts.metadata import FILE_PATH_METADATA_KEY
+
+    values = {
+        FILE_PATH_METADATA_KEY: str(audit.path),
+        "goldenshare/file_sha256": audit.file_sha256,
+        "goldenshare/contract_content_digest": STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST,
+        "goldenshare/processing_version": STK_FACTOR_PRO_PROCESSING_VERSION,
+        "dagster/row_count": audit.row_count,
+    }
+    if audit.layer == "silver":
+        values["goldenshare/raw_sha256"] = raw_file_sha256
+    values.update(source_metadata or {})
+    values["goldenshare/comparison"] = dg.MetadataValue.json(
+        stk_factor_pro_record_to_dict(audit.comparison)
+    )
+    return values
+
+
 def stk_factor_pro_record_to_dict(record: object):
     """Canonical JSON-ready closed records; I/O remains in the owning module."""
     if record is None or type(record) in (str, bool, int, float):

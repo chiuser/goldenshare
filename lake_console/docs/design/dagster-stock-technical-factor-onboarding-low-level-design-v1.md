@@ -3678,7 +3678,7 @@ readiness新增read_stk_factor_pro_day_publication接收同T的recorded_results�
 
 ### 22.6 第2小步：历史事件工具的开发、隔离验收及正式使用
 
-**2026-11-15重新审查结论。**原设计把同一份文件事实和Dagster事件状态再次保存到计划，又安排计划、写入、独立审计多轮核对；“必要文件身份缺失时补核验”还可能把事件补录变成全历史文件重审。这些要求删除。此前将补齐Raw文件身份列为开工前置的判断撤回：原发布完成记录已经保存文件校验结论，本步不再补做文件审计，也不把当前文件属性与旧SHA拼成新的校验结论。本节整体替换原事件设计，下面是唯一实施口径，尚未开发或正式执行。
+**2026-11-15重新审查结论。**原设计把同一份文件事实和Dagster事件状态再次保存到计划，又安排计划、写入、独立审计多轮核对；“必要文件身份缺失时补核验”还可能把事件补录变成全历史文件重审。这些要求删除。此前将补齐Raw文件身份列为开工前置的判断撤回：原发布完成记录已经保存文件校验结论，本步不再补做文件审计，也不把当前文件属性与旧SHA拼成新的校验结论。本节整体替换原事件设计，下面是唯一实施口径。工具已完成开发及隔离验收，实际对账见§22.33；正式事件计划、补录和启用尚未执行。
 
 **目标、范围和禁止项。**把已经验收的bootstrap文件发布事实登记为本数据集两资产的物化事件及对应blocking check，不负责确认业务数据是否完整。直接使用§22.32已通过的历史覆盖验收及原逐文件发布完成记录；不读Parquet内容、不调用DuckDB、不重新计算业务文件SHA、不查Prod/Tushare、不重跑bootstrap、不复制或备份业务文件/验收报告，不新建数据或进度表，不登记分区，不启用sensor。
 
@@ -3691,6 +3691,8 @@ readiness新增read_stk_factor_pro_day_publication接收同T的recorded_results�
 - bootstrap事件的文件路径、SHA、行数、合同/处理版本、Silver引用的Raw SHA及比较结论来自原完成audit；来源只说明真实operation、approval和publication-complete引用。不伪造下载、日更或历史观察、成功run。事件所需metadata属于现行消费者合同，必须保留；不另存一份同内容文件清单。
 
 **输入、批准计划及唯一依据。**两个操作使用调用方已有的instance/resources，不另建instance连接、配置解析或URL适配层。规划显式接收`operation_id`、`historical_coverage_ref`、非空`trade_dates`；没有隐藏的全历史默认范围。日期必须是该已验收范围的子集。apply接收批准的`expected_plan_digest`及本次明确`trade_dates`，只能执行计划内日期及原已批准缺项；允许先选小批，再执行余量。
+
+实现参数明确为调用方已有的`instance`、`lake_root`、`staging_root`；规划另传`code_revision`。`historical_coverage_ref`使用相对路径及SHA二元组，不借用带creator_run_id的run内RecordRef伪造bootstrap run。计划用本工具内的小dataclass，沿用现有记录序列化、read_json/write_json和原子保存；规划返回计划及实际SHA，apply按SHA定位同一计划并返回所选日期的简明结果。instance定位只取已有root_directory和事件存储类型，不解析连接凭据。执行前复用现有require_stk_factor_pro_no_other_active_runs，一次操作两次有界任务查询，另计于逐月事件读取之外；sensor停止及维护安排由正式执行阶段的既有检查保证。
 
 本次`historical_coverage_ref`固定指向原operation内`coverage/audits/3cd38b4d33170d35c4f12dd112eafef1db3945a2d876cc65a9c90963715a7246/summary.json`，SHA同目录名，`rule_version=stock_daily.v1`。每次操作只核摘要实际字节SHA、operation、passed及覆盖范围，并读取一次该摘要引用的必要逐日统计来确认所选日期；不重开全部248份审计文件或核7,182份输入文件身份，不用原导入时的coverage未知覆盖本次有效验收。只读取所选日期的原发布记录，不读源片段、旧date_result或另重算覆盖。
 
@@ -4459,11 +4461,11 @@ CodeGraph explore/callers/impact的影响面已由当前代码补齐，收尾syn
 | 顺序 | 下一步具体做什么 | 已有内容、缺项及完成条件 |
 | --- | --- | --- |
 | 1. 收尾历史覆盖验收（已完成） | 按§22.32采用DG实际普通日线代码基准，上市首日可选；2,393日、10,320,714项应有股票/日期全部覆盖，缺失/未知0。 | 代码提交e0ea60d6d；真实统计、独立核对及原operation内验收报告保存完成。原导入事实及运行合同不改，技术因子文件实际重读0、bootstrap重跑0。下一项是历史事件工具开发及隔离验收。 |
-| 2. 开发并隔离验收历史事件工具 | 按§22.6实现规划、补录两个操作，读回在补录批次内完成；只读已有验收/发布记录，业务文件读取和SHA重算均0；将现有发布metadata的构造提成同一方法，供日更和历史补录使用。 | 当前专用stk_factor_pro_bootstrap_events.py及两个操作尚不存在，纯metadata builder也未提取；现有emit_stk_factor_pro_publications依赖真实context.run，不能直接当runless入口。先完成设计对账、代码和隔离验收；物化/check绑定、已有事件复用、中断续跑、零业务内容读取/写入，以及无额外审计/进度副本须验证。 |
+| 2. 开发并隔离验收历史事件工具（已完成） | §22.6两个操作、批内读回及纯metadata提取已实现，业务文件读取/SHA重算均0；实际对账见§22.33。 | 新增30项隔离验证全部通过；相关回归59项及受保护Definitions 1项通过。另有既有全局下载登记断言失败，原因及边界见§22.33，不冒称全部测试通过。正式事件计划及补录尚未执行。 |
 | 3. 制定并执行正式历史事件计划 | 取得有效历史覆盖收尾记录后，只读统计当前已有和待补事件，生成具体计划；另获事件写入授权，先小批读回，再按同一批准按月补余量。 | 沿§22.6的明确资产/检查/日期过滤，不深扫事件历史、不重算业务文件；每批读回后直接汇总，不另做全范围终审。已有合法事件复用；失败保留已写事件，按原生记录核余量续跑。全部物化/check及当前文件绑定读回无遗漏、无冲突后完成。 |
 | 4. 启用并验收首个实际日更 | 按§22.7核对正式装载版本、覆盖及事件结果、无冲突活动任务；单独获准后先启用分区sensor，再启用日更sensor，跟踪首个实际任务。 | 两条定义默认STOPPED不改。源端两列代码齐备门槛、指定日期补跑和复权因子触发历史回刷均沿现行实现；历史修复只写目标日之前。尚未发生的真实复权变化分支如实保留待验证，不额外制造正式任务。 |
 
-本节11月14日初写时仅记录最终结论、修正文首过期状态并核对后续步骤；随后第1项已按§22.32完成。当前下一小步是第2项历史事件工具开发，专用工具尚未实现，不能直接补录正式历史事件或启用sensor。数据源完整性继续引用Prod既有结论；没有真实缺口，不安排Tushare补数，不恢复已取消的定时任务。
+本节11月14日初写时仅记录最终结论、修正文首过期状态并核对后续步骤；随后第1项已按§22.32、第2项已按§22.33完成。当前下一步是第3项制定正式历史事件计划；仍须具体计划及事件写入授权，不能直接启用sensor。数据源完整性继续引用Prod既有结论；没有真实缺口，不安排Tushare补数，不恢复已取消的定时任务。
 
 ### 22.32 第1小步：按实际普通日线收尾历史覆盖验收（2026-11-15）
 
@@ -4523,3 +4525,29 @@ passed=true
 正式位置为/Volumes/datasource/data_lake_staging/stk_factor_pro/bootstrap/operation_id=stk-factor-pro-bootstrap-20261112下上述相对路径。原approval SHA仍26271c8326dabf2e149a6ded21a4ccd26f9f6fd3e5bafaf068fc04044937db23，原coverage/summary.json SHA仍e49ad8ac720be75527e5f27af4c4e9b16108d2f12882b00ff0ad7ebb72575e25，保存前后均未变；原导入时未知记录不回写、不伪造本次运行结果。
 
 本步历史覆盖验收及与原operation的证据衔接已完成。业务数据写入、bootstrap重跑、Prod/Tushare请求、动态分区/事件写入和sensor启用均0。后续只推进§22.6专用历史事件工具的开发与隔离验收；本轮没有开始该开发或正式事件补录。
+
+### 22.33 第2小步开发完成及独立核验（2026-11-15）
+
+**授权及范围。**先按管理员要求提交原方案/LLD，提交为bd9fa618a，仅两份文档；随后按§22.6实施历史事件工具及隔离验收。管理员确认两天休市且数据未被修改，已有物理及历史覆盖验收继续复用，没有重跑bootstrap、重算覆盖、全文件SHA或261字段审计。为核实夹具合同，仅查看原验收摘要及daily.csv表头/首条记录，不读取正式业务Parquet或复制报告。
+
+**实现及计划对账。**
+
+| §22.6硬口径 | 实际代码及核验 |
+| --- | --- |
+| 只有规划、补录两个操作，显式日期，无业务内容读取 | 新增defs/bootstrap/stk_factor_pro_bootstrap_events.py；plan_stk_factor_pro_bootstrap_events、apply_stk_factor_pro_bootstrap_events显式接收instance、两根目录、operation及日期，规划另接验收引用/代码版本，执行另接批准SHA。原批准及验收摘要/必要CSV各一次；所选日期只走原read_stk_factor_pro_bootstrap_publication。没有Parquet/DuckDB/下载/恢复调用。 |
+| 只保存一份最小批准记录，无文件/事件状态副本 | 本工具内_EventPlan沿原read_json/write_json序列化及原子保存到events/plans/<实际SHA>.json。正文只含批准范围、已有数量、缺项及冲突和原事实引用，不保存业务文件路径/SHA/行数清单或原生事件快照；相同内容重复规划复用同一文件。无events/audits、checkpoint、进度表或汇总资产。 |
+| 按所选月份有界读取最新物化/check | _materials按明确非空分区先取最新id再取确切记录；_checks固定两组资产/检查，按asset/check/partition取最大id，1条SQL取每个分区最新记录，包含PLANNED/FAILED。同日多物化、错误交叉配对、其他日期和旧绿灯均有原生存储反例。空月零查询。 |
+| 原检查绑定、只补缺项、正常进度不重建计划 | _inspect只产生复用、只补check、补物化及check、冲突四种结果；apply对当前缺项核批准范围，先Raw后Silver物化，从实际保存记录取得storage_id/run_id/timestamp，再补check。写后只查本批check，复用已持有物化；批次结果直接累计。物化/check写入后退出再重开实例只补余量，不复制事件或删事件重来。 |
+| 原日更/历史metadata保持不变 | run_contracts/stk_factor_pro.py新增build_stk_factor_pro_publication_metadata；原readiness.emit_stk_factor_pro_publications仅改为调用该方法，原验证、事件顺序及消费者不变。独立字面预期逐项覆盖Raw/Silver的原日更来源字段、历史manifest及比较结果，bootstrap只加真实operation/approval/publication引用，不伪造run或日更观察。 |
+| 不补齐Raw文件身份、不恢复业务文件 | 真实bootstrap生产者生成的Raw complete无文件系统身份，正常通过。测试把业务Parquet打开、SHA/恢复/文件重审、DuckDB连接、Tushare请求、默认instance发现及动态分区写入设为一调用即失败，仍能完成规划、补录、读回及重开续跑；缺完成记录/目标、原批准变更、越界日期、计划SHA错误和活动本数据集任务均在写入前停止。 |
+| 正常/续跑/最后验收不重复读取 | 每批使用当前月known_records，结束释放发布小记录；不把全部历史发布正文或原生事件常驻内存。实际spy确认每次操作同日intent/complete四份小JSON各读一次，Silver不重读Raw。每月check最新状态为1条实际SELECT；空实例规划为2次最新id＋1次check逻辑读取，一次新写为4次最新id＋2次确切物化读取＋2次check读取，已完成重入为2次最新id＋2次确切物化读取＋1次check读取。写前另有原有2次有界活动任务查询；不另做全范围终审。 |
+
+**测试及真实性边界。**新增tests/test_stk_factor_pro_bootstrap_events.py共30项：28项完整隔离套件通过，27.70秒；另补2项原日更/历史metadata独立字面合同验证通过，2.60秒。夹具以原approval/source/publication生产者实际生成临时完整日文件及记录，历史覆盖JSON/CSV形状取自已通过的真实报告生产者，期望数量人工核算；事件使用原生ConsolidatedSqliteEventLogStorage，不用mock替代持久化和绑定。最多3个交易日、跨两个自然月，未将SQLite实测当正式PostgreSQL吞吐保证。
+
+相关既有回归首轮60项中57项通过，17.41秒；两项只使用保存样本和127.0.0.1的HTTP回放受外层沙箱socket.bind限制，按工具权限重跑后均通过，0.11秒。因此相关回归实际59项通过，1项仍失败。失败为test_stk_factor_pro_contracts.py::test_formal_registry_and_http_mapping_match_registered_contracts：断言全工程BINDINGS仅有stk_factor_pro、moneyflow_ths，当前既有登记还含daily_basic；该测试及dataset_transport_mapping.py均与HEAD原字节相同，本步不修改这条无关断言、登记或过滤其失败。不能据此声称整套回归全部通过。
+
+受保护Definitions仍通过原stock_suspend_confirmed_test_runner.py启动。外层沙箱首次拒绝sandbox_apply；按工具要求提权后原隔离启动器运行通过，1项/1.61秒，正式资源及网络仍由其原生sandbox禁止。未修改保护启动器、检查清单或全局定义；两条sensor继续定义默认STOPPED。Ruff、本次文档和限定差异检查通过。
+
+**独立核验结论。**开发完成后重新按本节硬口径查当前源码、原生产者和实际测试，另以AST核仅两个公开操作、没有业务读取/备份/分区/任务执行调用，计划字段无文件或原生事件状态副本。CodeGraph explore/impact及动态调用引用补核覆盖原发布函数、两处资产调用、合同方法和直接测试，无Prod、前端或其他数据集消费者迁移。未发现本步实现与修订LLD的剩余偏差；上述既有全局登记断言单列，不以修改无关代码消除它。
+
+本步正式业务数据读取/写入、bootstrap执行、正式事件/分区写入、备份、报告复制及sensor启用均0。已有40行bootstrap超时/续跑授权类是本轮开始前的工作区改动，原样保留，不作为本步交付。正式事件计划和PostgreSQL小批/余量补录均尚未执行；下一步按§22.6制定具体计划，事件写入另行批准，不能从本次隔离通过推断正式事件已补齐。

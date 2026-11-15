@@ -1912,7 +1912,6 @@ def emit_stk_factor_pro_publications(
 
     from orchestrator.defs.paths import raw_stk_factor_pro_path
     from orchestrator.defs.run_contracts import stk_factor_pro as C
-    from orchestrator.defs.run_contracts.metadata import FILE_PATH_METADATA_KEY
 
     files = tuple(
         (target, audit) for target, audit in completed if not target.skip_no_file
@@ -1930,21 +1929,14 @@ def emit_stk_factor_pro_publications(
             else (C.STK_FACTOR_PRO_SILVER_ASSET_KEY, C.STK_FACTOR_PRO_SILVER_CHECK_NAME)
         )
         key = dg.AssetKey(asset_name), str(target.trade_date)
-        values = {
-            FILE_PATH_METADATA_KEY: str(audit.path),
-            "goldenshare/file_sha256": audit.file_sha256,
-            "goldenshare/contract_content_digest": C.STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST,
-            "goldenshare/processing_version": C.STK_FACTOR_PRO_PROCESSING_VERSION,
-            "dagster/row_count": audit.row_count,
-        }
+        raw_sha = None
         if target.layer == "silver":
             raw = raw_stk_factor_pro_path(lake_root, str(target.trade_date))
             if raw not in known_records:
                 raise ValueError("Silver事件缺本次对应Raw摘要")
-            values["goldenshare/raw_sha256"] = known_records[raw][1]
-        values.update(source_metadata or {})
-        values["goldenshare/comparison"] = dg.MetadataValue.json(
-            C.stk_factor_pro_record_to_dict(audit.comparison)
+            raw_sha = known_records[raw][1]
+        values = C.build_stk_factor_pro_publication_metadata(
+            audit, raw_file_sha256=raw_sha, source_metadata=source_metadata
         )
         metadata[key] = values
         expected[key] = target, audit, check_name
