@@ -10,7 +10,7 @@
 
 2026-11-14先按Prod实际结果修订§7～§10，再按批准范围完成第四阶段开发，实际验收见§31。19字段日更与文件能力已在隔离环境验证；替换事件追加/重检/续跑留给第五阶段，正式文件与事件均未变更。本段不把开发通过解释成DG已完成正式扩充。
 
-2026-11-15的执行前轻量统计见§35；按管理员要求，先补齐§36，再完成PLAN统计输入的最小修正和开发后独立复核。正式执行上限尚未选定，未创建正式PLAN，未执行正式导出。
+2026-11-15的执行前轻量统计见§35；先按管理员要求完成§36的PLAN统计输入修正，再获准按§37正式执行第二项并确认四项上限。单遍导出14,499,459行、构建4,094个候选均成功，完整audit因旧18字段差异停止；有界样本为2026-09-24、000333.SZ的股息率：旧DG4.8356、Prod候选4.8355。第二项尚未全部通过，未替换正式文件或发布事件；本族日更sensor保持STOPPED，详见§37.6～§37.7。
 
 ## 1. 目标、范围与已确认原则
 
@@ -2040,3 +2040,110 @@ CodeGraph的`codegraph_explore`、`codegraph_impact`及当前代码检索已核�
 本次修改文件Ruff检查、全工程`E9/F63/F7/F82`静态检查、文档完整性检查与差异空白检查均通过。CodeGraph已在仓库根同步并确认索引有效；没有新增共享合同、跨子系统依赖或前端/API影响。
 
 开发后重新独立复读产品差异、CLI调用方、磁盘算法和上述验收矩阵：未发现本次范围内的阻塞问题或多余限制。新分支只由明确标记触发，旧P0输出、普通导入默认行为、显式替换、四项上限及恢复路径保持原语义；未知耗时和文件体积没有被伪造成测量结果，统计模式的磁盘检查仍仅涵盖已知spill上限，不宣称全面空间保证。可以用§35统计依据和后续明确的上限生成新PLAN，无须再补P0测量。本轮仅为隔离验收；没有连接Prod、正式Lake或正式Dagster，没有执行正式导出、文件提升或事件发布，也未选定正式上限。所有本轮临时测试资源在记录结果后清理。
+
+## 37. 第二项正式执行：来源导出与候选准备（2026-11-15）
+
+### 37.1 本步授权、执行范围与开工核对
+
+管理员在§36修正提交`6747e29cd`后，明确要求按LLD开始第二项，并确认沿用四项原执行上限：`max_source_rows=15000000`行、`max_source_seconds=10800`秒、`max_stage_seconds=1800`秒、`max_spill_bytes=4294967296`字节。这些是本次管理员确认的停止值，不是耗时、空间需求或性能保证，不自动扩容或抬高。
+
+本步生成完整19字段、显式`replace_existing=true`的新PLAN，从`raw_tushare.daily_basic`只读导出**2010-01-04～2026-11-13**并构建候选。全范围读取的目的、表、字段、日期和§35的14,499,459行统计已向管理员说明，第二项执行授权覆盖该读取；不扩大到其他数据集、日期或Prod写入。字段为`DAILY_BASIC_FIELDS`：股票代码、交易日期、收盘价、换手率、自由流通股换手率、量比、市盈率、TTM市盈率、市净率、市销率、TTM市销率、股息率、TTM股息率、总股本、流通股本、自由流通股本、总市值、流通市值、收盘涨跌状态。历史保留B股旧行与合法NULL，不做日线/停牌/上市过滤，不请求Tushare。
+
+工作目录为`/Users/congming/github/goldenshare/lake_console/orchestrator`；使用本项目已安装的`.venv/bin/python3 -B -u`，由现有Bash登录环境提供`PROD_POSTGRES_*`，不加载仓库根`.env`、不显示秘密、不安装依赖。PLAN/导出/构建不加载Dagster instance，不改变`DAGSTER_HOME`。正式根只读`/Volumes/datasource/data_lake`，候选与checkpoint只写`/Volumes/datasource/data_lake_staging/daily_basic_history/limit_status_20100104_20261113_20261115`；统计依据、PLAN和阶段输出/日志只放`/private/tmp/daily-basic-execution-El0Pug`，不写工程过程文件。
+
+开工审计已核对原CLI的实际`plan/export/build/audit`调用、`DailyBasicHistorySource`只读事务和主键分页、`_validate_plan`、候选构建及替换审计。§36的108项隔离回归继续适用，未改产品代码。正式PLAN先复查源列、主键及两处EXPLAIN，要求无顺序扫描或排序放大；只读元数据核验不是额外全历史业务读取。另仅核对挂载、空间、候选目录冲突和现有进程，不重复§35明细统计。来源历史在导出期间不得被其他维护任务修改；新交易日正常同步在本次冻结范围之外。
+
+### 37.2 原入口、读写与失败/继续
+
+依次执行，任何一步失败均停止后续步骤，按原错误和持久化事实汇报，不改计划或绕过校验：
+
+```bash
+.venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli plan \
+  --start 2010-01-04 --end 2026-11-13 \
+  --batch-id limit_status_20100104_20261113_20261115 --replace-existing \
+  --cost-evidence /private/tmp/daily-basic-execution-El0Pug/statistics.json \
+  --max-source-rows 15000000 --max-source-seconds 10800 \
+  --max-stage-seconds 1800 --max-spill-bytes 4294967296 \
+  --report /private/tmp/daily-basic-execution-El0Pug/plan.json
+```
+
+PLAN必须无`stop_reasons`、四项上限已冻结、日期为本次4,094日、19字段及原18字段比较投影正确，确认后使用该PLAN实际`fingerprint`执行以下原命令，`PLAN_FINGERPRINT`只代表本次报告的实际值：
+
+```bash
+.venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli export \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint "$PLAN_FINGERPRINT" \
+  --report /private/tmp/daily-basic-execution-El0Pug/export.json
+.venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli build \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint "$PLAN_FINGERPRINT" \
+  --report /private/tmp/daily-basic-execution-El0Pug/build.json
+```
+
+导出使用现有`ProdPostgresResource.connect_readonly_transaction()`，每页最多10,000行、每页独立只读事务和10秒SQL超时，按`(ts_code,trade_date)`继续，不用OFFSET。每批规范化、写候选、读回后原子保存chunk与checkpoint；累计进度沿用原日志。中断保留已提交批次，使用同一PLAN和原命令续跑，原工具会核对已持久化前缀；失败前缀不被当作冻结来源。正常完成冻结一次来源，构建只读此来源；不额外二次导出或全量请求Prod。
+
+构建按年度分流，逐年保存候选进度，每日期一个19字段`part-000.parquet`。验收使用原`audit`入口做冻结来源/候选完整19字段双向对账、旧DG前18字段双向对账及NULL、schema、键/日期检查，且按§7要求先满足本族维护窗口，才冻结旧文件和事件身份。命令为：
+
+```bash
+.venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli audit \
+  --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --report /private/tmp/daily-basic-execution-El0Pug/audit.json
+```
+
+替换audit仅通过现有`daily_basic_event_instance(writable=false)`读取`/Users/congming/.goldenshare/dagster_home`对应的正式Dagster PostgreSQL，连接强制只读且不自动建表；不初始化新instance，不执行检查作业或写事件。维护条件未满足时保留已冻结来源和候选，不绕过§7、不先冻结旧身份。本步不运行`promote/register/report-events`、不注册分区、不更新正式Raw文件，不把本步成功记作DG字段切换完成。
+
+### 37.3 开销与验收
+
+规模沿用§35：4,094日、14,499,459行；按10,000行批量推导1,450非空批次加1结束空批次，共1,451次正常业务分页请求，另计原PLAN/导出前后元数据检查。源吞吐、19字段体积和总耗时未知，不追加测量；原18字段历史导出40分27秒仅作历史事实，不作为本次承诺。运行采用16GB/4线程和本次4GiB spill上限，候选audit禁spill；不改变通用默认值。
+
+构建及最后audit必须计入同一轮工作：构建读取冻结chunk并形成年度中间与4,094个日期候选；audit核对全部冻结来源、候选和旧文件，沿用§7/§8已有读取方式及阶段停止值，不重复来源导出。中断继续的最坏额外成本为重新核对已提交前缀，最多重读该范围已提交行；文件构建仍复用已冻结导出和已完成年度，不重复Prod业务导出。正常路径与续跑均不制造额外耗时保证。
+
+完成条件：PLAN无停止原因且已冻结本次四项上限；导出`frozen=true`；构建候选日期集合等于PLAN、行数合计等于冻结导出；合法NULL不被默认化；原audit通过后记录指纹、数量、实际时间和明确的未执行项。如原18字段内容存在差异，必须按§7停止并报告，不能改旧文件或放宽比较。阶段结果回填本节，保留有效冻结来源/候选与续跑报告，不清理这些执行输入。
+
+### 37.4 正式PLAN与导出前记录
+
+当前分支`dev-interface`，本轮开始时每日指标代码/文档无未提交改动。挂载、正式根及staging可用，同一文件系统，拟用批次不存在且未发现其他每日指标历史CLI进程；正式文件仍4,094个、772,647,909字节，范围与§35一致。启动前空闲2,817,991,630,848字节。环境所需Prod变量齐备，未输出秘密。
+
+原CLI已生成新PLAN，`fingerprint=8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2`：4,094日、19来源字段、18比较字段、现有目标4,094个、`replace_existing=true`，`stop_reasons=[]`、`execution_budget_frozen=true`。来源元数据检查读业务行0，两处EXPLAIN通过原索引/排序检查，未执行EXPLAIN ANALYZE。四项上限与管理员确认值完全一致，依据为statistics，不含P0耗时或体积估算。以此原封存PLAN进入export，不调整字段、范围、限制或源SQL。
+
+导出开始后只读查询本机`127.0.0.1:3000/graphql`：本族`raw_tushare_daily_basic_update_job_sensor`原状态RUNNING，本族非终态run数量0。该状态不阻止提前构建staging，但正式audit前须按§7暂停此sensor并读回确认、本族无活动任务后再冻结身份；其他sensor和服务不动。审计完成后维护状态与是否恢复须在本节和交付中明确，不能在尚未切换19字段正式文件时擅自执行日更或发布绿色检查。
+
+### 37.5 导出、构建结果与审计维护窗口
+
+单遍导出成功，`frozen=true`，14,499,459行，1,450个非空批次及1次结束空页，状态NULL共1,093行，函数实际2,281.10秒（约38分1秒），来源schema前后通过原检查；无中断、续跑、拒绝或第二遍业务导出。导出指纹`88c57a0f587f7f56ab19903ba2dd319eaa573f6747046fe1af0296891dee39a2`。
+
+构建成功：2010～2026共17个年度、4,094个日期候选、14,499,459行、1,093条NULL，日期范围与本次PLAN对应；原CLI墙钟20.58秒，未超阶段上限。构建指纹`a6a0fbaafee1e3ddf59e25fcfc1da077df7c76ddacf8ad0df03c3491cdd61e02`。尚未以这些计数代替完整内容audit。
+
+接着按已确认§7维护边界，仅暂停本族sensor；目标正式instance仍为`/Users/congming/.goldenshare/dagster_home`对应服务。暂停前再次只读查询其状态和本族活动run，随后通过本机GraphQL执行现有`stopSensor`，仅把此sensor状态改为STOPPED，不改cursor、不终止任务、不变更其他sensor。实际命令为`curl --silent --show-error --max-time 10 --header 'Content-Type: application/json' --data-binary @/private/tmp/daily-basic-execution-El0Pug/stop-sensor.json http://127.0.0.1:3000/graphql`；请求内容固定为：
+
+```json
+{"query":"mutation { stopSensor(id:\"794ca5a818963ffc4539502c90dc5c4c9984bd2d::139b7b1a821d855a0723e5133c66bb5e73933605\") { __typename ... on StopSensorMutationResult { instigationState { id status } } ... on PythonError { message } ... on UnauthorizedError { message } } }"}
+```
+
+须读回STOPPED、本族活动run为0，才执行§37.2的原audit。成功后保留本族维护窗口等待下一步正式切换，交付明确当前暂停状态；不自行推进文件提升、检查事件发布或恢复日更。若未成功进入维护窗口，不执行audit或冻结旧身份。所有本机查询/暂停结果只写本任务临时目录，最终事实回填本节。
+
+### 37.6 完整audit停止与必要的有界诊断
+
+暂停接口成功，读回本族sensor为STOPPED、活动run为0后执行原audit。该次CLI在83.21秒退出，错误为`history_target_conflict`，位置`daily_basic_history.py:715`：候选前18字段与某个旧DG日期文件的双向对账不一致。异常未给出具体日期；没有生成通过的audit报告，尚未进入旧事件身份冻结。导出与构建仍成功，不能据此宣称完整audit成功；未执行正式文件提升或事件发布。
+
+接下来只对末日2026-11-13及其前一交易日2026-11-12做本地有界只读诊断：每日期各读一个旧正式文件和一个已冻结候选，使用原18字段投影、按`ts_code/trade_date`对应，区分缺键和字段值差异，先输出一个实际差异样本及字段名。依据是本次批准范围末日和Prod固定补录末日，目的是先判断近期正常更新数据是否与Prod有不同值，不把这两个日期推断为全部差异范围。复用已封存build报告定位候选，不连接Prod、不重跑完整audit、不以计数名义重新全量比较。此时本族保持维护暂停，先解释差异再决定后续处理，不改旧数据或放宽比较。
+
+两日各自旧/新行数一致（5,571、5,573），原18字段双向比较也一致，未发现近期样本差异。下一步先只读旧文件访问时间等文件系统元数据，查看是否能定位本次audit最后读取的日期；元数据仅帮助选择后续单日样本，不作为业务一致性证明，不读取全历史业务列。只有取得具体线索才补对应单日比较，不重跑全局对账。
+
+访问时间仍为旧创建时间，不能定位本次读取位置，不据此猜测失败日期。原18字段接入LLD§14.7记录旧bootstrap截至2026-09-14、此后进入日更，故下一有界样本选取日更起点2026-09-15，核对是否从直接源日更开始与Prod存在差异；只读该单日两侧文件，不把历史记录当作已证明的原因。
+
+日更起点样本也未取得差异。为给出可处理的实际例子，诊断范围限定为原bootstrap之后的38个日更日期（2026-09-15～2026-11-13），只读各日旧文件与对应冻结候选，发现首个双向差异即停止并读回该键两侧数值。范围依据是原4056日bootstrap与本次4094日的来源方式差别；不包含此前4056日，不继续扩大成完整历史重审。实际候选行数从build元数据累计，不重新查询Prod；这个局部诊断不证明其余日期一致。
+
+该38日候选元数据合计211,448行；局部诊断实际检查前8日后即停止，首个取得的差异样本为**2026-09-24、000333.SZ、股息率`dv_ratio`：旧DG为4.8356，本次Prod冻结导出生成的候选为4.8355**，两侧都有该主键。本例是所查局部窗口的首个样本，不能据此声称它是全4,094日的第一个差异，也没有查明全部差异数量/字段。
+
+代码核对：本次导出`_decimal_text/_write_chunk`会保留已具4位小数的Decimal，不会将本例4.8356改为4.8355；Prod当前`coerce_row/to_decimal`也通过`Decimal(str(value))`保留输入，不做这种减值。因此已确认两边存储的旧字段有差异，尚不能仅凭0.0001或当前代码，断定历史原因是舍入、源站修订或历史更新；未再次请求Tushare、读取Prod原始载荷或修改历史值。
+
+### 37.7 执行后独立核对与本步结论
+
+独立核对封存PLAN、导出、构建报告的指纹及引用关系，实际范围/19字段/18字段比较投影/四项上限均未变，候选日期集合等于PLAN，来源与构建均为14,499,459行及1,093条NULL。未生成`audit.json`，不能进入正式提升或事件阶段；停止条件已按原代码生效，未为完成阶段修改判断。
+
+仅做文件系统元数据统计：chunk共457,311,795字节，4,094个候选共776,765,813字节，整个批次staging为1,714,521,461字节；保留冻结chunk、年度中间、候选和checkpoint用于后续处理。spill残留文件0只表示结束后的残留，不代表峰值实测0。正式文件仍4,094个、772,647,909字节；本轮未执行正式文件写入、Prod写入、分区注册、物化或检查事件发布、检查作业、部署、代码修改或提交。
+
+最终只读查询本族sensor为**STOPPED**、活动run数量0。该sensor原为RUNNING，本轮按§7暂停；当前为尚未解决差异的维护状态，不误报已恢复或整体DG已扩充。其他sensor/服务未操作。有效阶段输入、日志和诊断样本保留在`/private/tmp/daily-basic-execution-El0Pug`；临时诊断脚本清理，事实归入本文。
+
+结论：**第二项的正式导出和候选构建已完成，完整audit未通过，第二项尚未完成**。本轮到此停止，不重导出、不额外扫Prod、不自动覆盖旧18字段或引入容差。建议下一步先使用本地旧文件和冻结候选列清差异及其范围，再由管理员决定如何处理既有18字段；这项进一步读取和规则调整尚未执行，须先确认范围并更新本文，不把本次有界样本当作全历史差异清单。
