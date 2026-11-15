@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-15，阶段0.5准备及阶段1～5开发/验收已完成；第五阶段整链、真实源只读核验和独立审计见[第82.26节](#moneyflow-ths-stage-5-complete)。阶段4已提交a6595fe51，阶段5准备文档已提交9c621bdf7；本次新增测试及验收记录随本次提交归档，未推送或正式加载。阶段6正式切换、cursor初始化及指定单日验收未进入。已否决的通用补漏、防御和10日Silver轮询不作为待处理事项；历史章节按当时范围解释。
+> 同花顺个股资金流向当前实施口径见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-15，阶段0.5准备、阶段1～5开发/验收及第六阶段正式切换、11月10日单日验收与独立审计均已完成。第五阶段已提交96625f804；第六阶段正式执行、页面及四sensor恢复结果见[第82.27节](#moneyflow-ths-stage-6-preparation)，结果随本次文档提交归档，未推送。新增每日指标共享代码隔离验收见[第82.28节](#moneyflow-ths-daily-basic-shared-acceptance)。本次不关闭原七资金流P5多真实交易日观察；已否决的通用补漏、防御和10日Silver轮询不作为待处理事项，历史章节按当时范围解释。
 
 <a id="report-attachment-cleanup-20261103"></a>
 
@@ -5585,7 +5585,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 <a id="moneyflow-ths-manual-gap-repair-decisions"></a>
 
-## 82. 同花顺个股资金流向当前实施口径（2026-11-15，阶段5验收完成）
+## 82. 同花顺个股资金流向当前实施口径（2026-11-15，阶段6正式验收完成）
 
 ### 82.1 范围、状态与依据
 
@@ -5593,7 +5593,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 本轮已核对当前代码，使用 `codegraph_explore` 覆盖Raw/Silver更新、资产入口、共用选择器和行数判断。共用 `evaluate_moneyflow_update` 有七个资金流家族消费者，Raw/Silver更新及metadata helper也有其它消费者，后续不能直接修改共用22点常量或放宽所有数据集。原同花顺概念、行业资金流向是否停用没有形成执行决定。
 
-本节补数主链的设计准备已经完成：完整流程和消费者范围见第82.13节，实施前配置及有界性能证据见第82.14节，Raw暂时源不齐和THS错误映射的确认见第82.15.3、82.15.4节，Silver保留原标识及不做旧提交迁移见第82.16节，新增阶段0.5及其与阶段1的测量、测试衔接见第82.17节。本次已确认事项均有实现位置、边界和验收要求，没有尚待管理员拍板的业务事项；进程复用仍是待实测后判断的候选，不是已确认的实施选型。阶段1～4已完成代码及隔离验收，第三阶段结果见第82.22节，第四阶段的Silver成功接续、独立更新流程及重复检查删除见第82.24节；阶段5整链、指定日真实源只读核验和独立审计已完成，见第82.26节；阶段6指定单日正式验收未进入，不把隔离/只读验收通过写成正式发布或正式执行授权。分页JSON清理作为独立步骤，按第82.12节单独授权、实现和验收。历史证据继续按其记录日期解释，不据旧文档推断本轮Dagster实际开关或加载状态。
+本节补数主链的设计准备已经完成：完整流程和消费者范围见第82.13节，实施前配置及有界性能证据见第82.14节，Raw暂时源不齐和THS错误映射的确认见第82.15.3、82.15.4节，Silver保留原标识及不做旧提交迁移见第82.16节，新增阶段0.5及其与阶段1的测量、测试衔接见第82.17节。本次已确认事项均有实现位置、边界和验收要求，没有尚待管理员拍板的业务事项；进程复用仍是待实测后判断的候选，不是已确认的实施选型。阶段1～4已完成代码及隔离验收，第三阶段结果见第82.22节，第四阶段的Silver成功接续、独立更新流程及重复检查删除见第82.24节；阶段5整链、指定日真实源只读核验和独立审计已完成，见第82.26节。阶段6正式切换、两个成功监听器初始化、2026-11-10单日Raw自动接续Silver及独立审计已完成，四sensor恢复RUNNING，详见第82.27.11节。分页JSON清理按第82.12节实现，其本次正式自动清理结果也已在第82.27.11节验收。原七资金流P5多真实交易日观察和最终运行说明仍保留，不将单日人工Raw计入三日真实自动更新验收。历史证据继续按其记录日期解释，不据旧文档推断当前Dagster实际开关或加载状态。
 
 ### 82.2 日期、预期范围和缺失计数
 
@@ -5919,7 +5919,7 @@ Raw成功而Silver失败或取消时保留Raw及名单，由管理员手动重�
 
 同花顺个股Silver由独立流程读取该日正式Raw、记录实际摘要、转日期并完成原Raw/Silver检查；删除该资产的asset_readiness_status、二次物化查询、旧事件摘要参数及下层同义阻断。其它五类共用流程继续保留原检查，日期转换与候选校验等相同操作按第82.23.4节复用。原候选提升、实际文件安全、schema及逐字段一致性保持。按管理员确认的单队列执行前提，不增加交错更新分支。
 
-部署时停用旧普通Silver sensor，清除其旧自定义cursor并初始化同名原生成功事件cursor；初始化不发历史补数请求，切换期间不发起本数据集Raw。保持原Sensor名、目标job、代码位置及仓库身份，并继续使用原run_key，已有运行防重复记录直接生效，无需旧提交迁移或新旧两套标识查询。初始化后正常启用并恢复Raw运行，之后任意业务日期的新Raw成功事件都可接续。切换前已经失败或缺失的Silver由管理员手动处理，不以迁移名义自动重试或扫全历史；游标初始化只改变事件消费起点，不删除或改写已有运行记录。正常停机后沿已保存的原生cursor继续处理尚未消费的成功事件；cursor不能确认时人工核对，不清空后假装全部处理完成。正式切换须在本步代码完成、隔离测试和部署范围审计后执行，本轮不操作sensor。
+部署时停用旧普通Silver sensor，清除其旧自定义cursor并初始化同名原生成功事件cursor；初始化不发历史补数请求，切换期间不发起本数据集Raw。保持原Sensor名、目标job、代码位置及仓库身份，并继续使用原run_key，已有运行防重复记录直接生效，无需旧提交迁移或新旧两套标识查询。初始化后先保持Raw自动更新暂停，完成指定单日正式验收后再恢复正常日更；之后任意业务日期的新Raw成功事件都可接续。完整命令、分页清理sensor的首次初始化及恢复顺序统一见第82.27节。切换前已经失败或缺失的Silver由管理员手动处理，不以迁移名义自动重试或扫全历史；游标初始化只改变事件消费起点，不删除或改写已有运行记录。正常停机后沿已保存的原生cursor继续处理尚未消费的成功事件；cursor不能确认时人工核对，不清空后假装全部处理完成。正式切换须在本步代码完成、隔离测试和部署范围审计后执行，本轮不操作sensor。
 
 #### 82.13.6 配置来源和完整删除范围
 
@@ -7004,3 +7004,246 @@ dependency_files沿既有相对导入自动包含两个新模块，当前共153�
 有效结果归入本节及原方案第86.19节；本任务测试、来源候选、SQLite、日志和审计脚本，以及逐个核对所有权/批次/成功结果的15个治理临时目录在最终核对后清理，不触碰其它线程目录、正式Lake/staging或失败历史分页。没有安装/升级依赖、改开关或重跑正式历史清理。
 
 最终收尾核对：两份文档344处本地链接目标存在，新锚点唯一，第82/86节之前的历史正文除页首状态外保持；207份开工摘要及新增测试摘要一致，暂存区为空。只读进程核对未见本任务worker或DG服务。已实际删除本任务独立临时目录及日志明确列出的15个治理目录，清理实测0.153487秒（仅本次范围）；没有删除其它线程或正式数据。有效结论已归入本节，文档完整性三组和最终差异检查通过。
+
+
+<a id="moneyflow-ths-stage-6-preparation"></a>
+
+### 82.27 第六阶段正式切换与指定单日验收LLD（2026-11-15，执行及独立审计完成）
+
+**本次执行授权及开工核对。**管理员已明确要求按本节推进第六阶段并在完成后独立审计。以下“本轮只补文档、尚未执行”为制定LLD时的历史记录，不再代表当前授权。执行范围、顺序、成本和失败处理均沿本节，不新增生产代码。每日指标共享变化已按第82.28节验收；随后提交2b3d8a1ee的股票技术因子专业版历史事件工具，已核对原专项第22.33节及当前代码：日更发布只提取原metadata构造方法，独立字面合同覆盖，原检查及字段保持；历史补录入口不在本阶段调用。该专项既有全局绑定登记断言失配单列保留，不称全仓回归全绿，也不影响本次同花顺资金流运行。开工源码身份、四sensor/游标、目标日文件和在途任务以本次正式操作前的有界只读记录为准；执行结果回填本节。
+
+#### 82.27.1 目标、范围和授权边界
+
+第五阶段测试及两份原文档的对应片段已提交96625f804，完整结果见第82.26节。第六阶段不再开发生产代码；目标是在现有正式DG启用已验收的同花顺个股资金流向补数链，切换同名Silver sensor、初始化两个成功事件sensor，并用2026-11-10一个日期完成真实Raw→自动Silver及成功分页清理验收。选择该日依据是第82.26节已有同日真实13字段/两轮源证据，且本轮08:29只读核对两层正式文件均缺失；不扩大为历史批量补数。
+
+管理员本轮只要求补齐LLD，当前不执行下列正式命令。以后第六阶段正式执行授权须覆盖：现有四个同花顺个股sensor的临时启停/游标切换，现有DG启动，一次原Raw任务及原生接续Silver，当次成功分页清理，验收通过后恢复登记器/Raw并保持两个成功监听器启用。授权不包含其它sensor开关、其它日期的人工任务、Prod写入、runless补录、重新清理历史、依赖安装、重建实例或数据库迁移。恢复正常日更后的原自动任务按既有窗口运行，另记实际运行，不冒称本次单日验收的一部分。
+
+保持原13字段、沪深目标日集合/排除北交所、缺整条记录严格小于25、名称及10个数值字段NULL名单、两轮稳定性、新合法非NULL优先及旧记录保留规则。原Raw/Silver名称、分区、队列、提交标识、来源收据、检查及正式路径不改。没有新组件、配置项、维护服务、补漏sensor或备用游标，不新增自动整日任务重试；原Raw分页内有限临时错误重试保持。不处理管理员已排除的人工交错补数场景。原七资金流P5的多真实交易日观察目标不由本次一个数据集的单日验收自动关闭。
+
+#### 82.27.2 当前状态和为什么必须先暂停Raw
+
+2026-11-15独立进程以只读事务核对现有goldenshare_dagster：DG webserver/daemon/资金流worker未运行，3000未监听，活动任务计数为0；登记器、Raw、Silver的持久化状态仍为RUNNING，Silver游标是旧自定义格式，分页清理sensor尚无持久化记录。不能把服务停止或代码的default_status=STOPPED解释成数据库已停用。正式Lake和staging存在、同设备，已有空间满足64GiB门槛；这只是当时事实，执行前只读复核，不进行写探测。
+
+当前Dagster 1.13.26的run_status_sensor第一次看到空/非法游标时，只保存最新成功事件位置并返回初始化SkipReason，不回放既有成功任务。Silver和分页清理都使用此机制。因此先暂停本数据集自动Raw和登记器；两个成功sensor的首次真实daemon评估均已保存原生游标后，才提交验收Raw。不能用sensor preview、测试评估或临时instance初始化替代正式游标落库。
+
+| Sensor完整名称 | 当前持久化事实 | 单日验收期间 | 验收通过后的正常状态 |
+| --- | --- | --- | --- |
+| cn_a_moneyflow_ths_trade_day_sensor | RUNNING、自定义登记游标 | STOPPED，原游标保留 | 恢复RUNNING，继续原20点登记 |
+| raw_tushare_moneyflow_ths_update_job_sensor | RUNNING、自定义Raw游标 | STOPPED，原游标保留 | 恢复RUNNING，继续20点后源覆盖预检及未成功日期补采 |
+| silver_moneyflow_ths_update_job_sensor | RUNNING、旧自定义Silver游标 | 停旧；仅第一次删除旧游标，再RUNNING并确认原生初始化 | RUNNING，沿已保存的原生游标继续 |
+| raw_tushare_moneyflow_ths_page_cleanup_sensor | 无记录，代码默认STOPPED | RUNNING并确认原生初始化 | RUNNING，只清理新成功Raw的分页 |
+
+Silver最小间隔沿MONEYFLOW_SENSOR_INTERVAL=600秒；分页清理未显式配置，沿安装SDK默认30秒。间隔不是完成时限；取两条sensor各自的实际tick/游标为准。Raw和登记器在单日验收全部通过前保持暂停，其它数据集的开关不动；其它原有任务可能正常排队，不能为本次验收取消它们。
+
+#### 82.27.3 当前代码、共享发布范围与开工门槛
+
+原正式入口为src/orchestrator/definitions.py，load_from_defs_folder加载同一代码位置；启动不会只加载本次提交的三个文件。第六阶段LLD准备时的10个orchestrator生产文件已分类核对；随后新增的每日指标两个事件文件另按第82.28节验收：
+
+- 六个其它资金流Raw sensor仅说明文字变化，去除description后AST与HEAD一致；相关新增36项回归在阶段5通过，不要求本轮提交或撤销这些文件。
+- defs/catalog/lake_assets.py当前差异为格式，完整AST与HEAD一致。
+- defs/bootstrap/stk_factor_pro_bootstrap_source.py、stk_factor_pro_history.py及defs/run_contracts/stk_factor_pro.py的逻辑差异为股票技术因子专业版bootstrap专用的查询超时/续跑窗口授权。引用核对仅落在专属bootstrap链；对应[原LLD第22.24～22.26节](dagster-stock-technical-factor-onboarding-low-level-design-v1.md)已有44/56项隔离证据及11月14日正式续跑完成记录。本阶段不调用该bootstrap、不更改其批准、窗口或配置，也不把其未提交本身当作资金流阻碍。
+
+按路径排序，将每项“仓库相对路径、制表符、文件SHA256、换行”拼接取SHA256，当前10文件组合摘要为db2aa2367bcd7788cdc3d698ef8837e613ac122683cc67ec1b42feb937f51f76。它记录本次实际核对基线，不是新运行开关；执行前若出现新逻辑差异，核对真实影响及相应验收，不能只因文件仍脏就清空、另建工作区或要求全部并入本次提交。
+
+CodeGraph explore与直接引用核对覆盖THS成功接续、原Raw/Silver和清理入口；共享bootstrap变化另以当前调用方及原专项对账。正式加载前核对完整Definitions仍来自orchestrator/__repository__、THS四sensor/两job/两check存在、资源指向当前正式根，且没有新引入未验收的日更变化。不得通过修改代码位置名称或换一个实例绕开发布范围核对。
+
+本阶段实际修改范围为正式运行状态和目标日文件，不预设生产Python开发；若发现实际代码缺陷，停止正式步骤，先回到原方案/LLD明确原因和修复范围。第五阶段151项、本地真实HTTP整链及一次真实源只读核验继续按原范围使用，不默认重跑全部回归或再次只读下载同日来源。
+
+#### 82.27.4 执行入口、配置和读写范围
+
+所有命令工作目录固定/Users/congming/github/goldenshare/lake_console/orchestrator，使用现有.venv；DAGSTER_HOME固定/Users/congming/.goldenshare/dagster_home，原PostgreSQL数据库goldenshare_dagster。沿用户既有登录环境读取TUSHARE_TOKEN、TUSHARE_BASE_URL及原资源变量，不输出值、不加载仓库根.env、不另存凭据，不安装或隐式同步依赖。
+
+| 对象 | 范围与处理 |
+| --- | --- |
+| Dagster身份 | code location=orchestrator，repository=__repository__；原三个sensor稳定selector已与只读保存值逐个核对。临时gRPC socket会随原生加载变化，不固定或复用旧socket，不新建代码位置 |
+| 原任务/分区 | raw_tushare_moneyflow_ths_update_job及自动silver_moneyflow_ths_update_job；cn_a_moneyflow_ths_trade_days中的2026-11-10；不新建业务日期参数 |
+| 正式数据 | /Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-11-10/part-000.parquet及silver/moneyflow/moneyflow_ths同日part-000.parquet；没有其它数据文件的人工写入 |
+| 上游读取 | 人工Raw实际读取完整生命周期中目标日有效沪深集合和目标日最终停牌；日历仍由原登记/自动Raw选择器消费，暂停期间不另扫日历。沿原Raw就绪和集合实现，不执行上游更新；管理预检只核这两文件存在及原分区/运行状态，不事先再运行完整上游SQL/check |
+| 候选与控制 | /Volumes/datasource/data_lake_staging/moneyflow/<各自run_id>/moneyflow_ths/2026-11-10/；Raw的receipt.json、raw.parquet、verification.parquet、raw-merged.parquet及promotion-raw.json；Silver的silver.parquet及promotion-silver.json，沿原实际写法 |
+| 自动删除 | 仅本次成功Raw目录round-1/scope-1及round-2/scope-1下page-*.json。保留源Parquet、收据和发布记录；合并/Silver候选可能已经os.replace到正式目标，不要求旧候选路径仍存在 |
+| 管理状态 | 仅上述四sensor状态、Silver旧游标一次删除、两个原生游标/tick，以及原两任务/物化/check/提交记录；不删除旧任务或事件，不改队列和其它sensor |
+| 临时操作记录 | 请求/响应、只读状态摘录和脚本只放本任务独立/private/tmp目录。阶段结束将有效结果写回本节/原方案，清理自建临时文件，不把过程附件放仓库reports |
+
+源请求、数据覆盖、Raw健康检查及实际文件检查仍由原任务执行。管理预检不新增源请求或写健康探针；原asset的现有健康检查保持。Raw/Silver使用既有writer pool及候选完整校验、同设备逐文件os.replace和checkpoint，不引入备份/Kopia或双轨实现。
+
+#### 82.27.5 正式执行顺序和具体命令
+
+下面是以后获准执行时的顺序，本轮未运行。正式操作前先以只读SQL/原生有界接口保存四个指定sensor状态/游标类型、活动任务计数、目标日最近Raw/Silver运行、目标分区是否已登记、文件身份/空间及源码基线；目标上游文件必须存在。目标分区用has_dynamic_partition的点查询（原SQL LIMIT 1），不导出全分区集合。当前两层缺失；如已由其它获准工作完成，读回已有事实，不为重复验收再下源。
+
+**第一步：在DG和daemon仍停止时暂停原三个sensor。**原CLI的-m参数默认位置名会随模块名改变，-l只负责选择、不负责改名；因此复用当前dg dev生成的python_module工作区形状，把同样的模块/工作目录/位置名写到本任务临时workspace。安装SDK的旧autoload路径不用于本次切换。下面的临时文件没有新配置项或独立代码位置；通过-w让原CLI准确识别现有orchestrator/__repository__，稳定selector与已有三条记录一致。每条命令临时加载当前代码位置，只改指定sensor状态，不启动daemon、不执行sensor或job。
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+THS_STAGE6_DIR="$(mktemp -d /private/tmp/dg-ths-stage6.XXXXXX)"
+cat > "$THS_STAGE6_DIR/workspace.yaml" <<'YAML'
+load_from:
+  - python_module:
+      module_name: orchestrator.definitions
+      working_directory: /Users/congming/github/goldenshare/lake_console/orchestrator/src
+      location_name: orchestrator
+      executable_path: /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python
+YAML
+.venv/bin/dagster sensor stop -w "$THS_STAGE6_DIR/workspace.yaml" -l orchestrator -r __repository__ cn_a_moneyflow_ths_trade_day_sensor
+.venv/bin/dagster sensor stop -w "$THS_STAGE6_DIR/workspace.yaml" -l orchestrator -r __repository__ raw_tushare_moneyflow_ths_update_job_sensor
+.venv/bin/dagster sensor stop -w "$THS_STAGE6_DIR/workspace.yaml" -l orchestrator -r __repository__ silver_moneyflow_ths_update_job_sensor
+```
+
+读回三条状态为STOPPED，原Raw/登记游标仍保留。分页清理当前无记录、默认STOPPED，无须为制造记录多运行一次stop；若续做时已有RUNNING记录，先按同一命令形式只暂停它并保留已初始化游标。没有确认暂停成功不启动DG。
+
+**第二步：只在首次切换时删除Silver旧自定义游标。**确认它确为旧格式且未初始化为原生游标后执行；Raw和登记器的自定义游标不删除。
+
+```bash
+.venv/bin/dagster sensor cursor --delete -w "$THS_STAGE6_DIR/workspace.yaml" -l orchestrator -r __repository__ silver_moneyflow_ths_update_job_sensor
+```
+
+该原CLI把cursor置空并采用当前sensor类型，不删除已有运行、tick或提交记录；Raw/登记器的状态数据不变。已保存合法原生游标时跳过本命令，不能在中断后重复清空并跳过尚未消费的成功事件。
+
+**第三步：按现有正式入口启动DG并核对加载结果。**
+
+```bash
+/Users/congming/github/goldenshare/lake_console/bin/lake-dg-start
+```
+
+该入口复用登录环境和当前.venv，检查原本机PG/ClickHouse/Prod ClickHouse隧道，需要时按其已实现行为启动原依赖，随后同时启动webserver与daemon。其副作用属于正式启动范围，不调用Kopia或包管理器安装。若当前服务已由管理员启动，不重复启动/重启，先重新核对本步状态。其它数据集原开关不改，可能正常运行；本数据集Raw/登记器仍暂停。
+
+通过下述只读workspace查询确认locationEntries里orchestrator的locationOrLoadError为RepositoryLocation、仓库为__repository__，不能只看loadStatus字符串或HTTP端口；再核对本数据集新Silver定义和清理定义存在。加载失败或有未识别新源码变化就停在此步，不重启循环。
+
+**第四步：依次启用两个成功监听器，等待真实初始化。**按现有http://127.0.0.1:3000/graphql发送下面Start请求，selector分别为silver_moneyflow_ths_update_job_sensor、raw_tushare_moneyflow_ths_page_cleanup_sensor。每个回应均核对__typename=Sensor及sensorState.status=RUNNING。观察原daemon的首次tick，读回两条正式cursor，并用当前RunStatusSensorCursor.is_valid确认；两条均有合法保存游标、初始化没有历史补数请求后才进入下一步。此时Raw/登记器仍STOPPED，不运行preview或手工调用回调初始化。
+
+**第五步：仅提交一次2026-11-10原Raw任务。**保存原Launch请求/回应和run_id；只提交Raw，Silver由原生成功sensor正常创建，不能手动Silver代替这项自动验收。原Raw任务内部仍执行全字段两轮、目标日覆盖和合并，不另加两字段源请求；这里使用人工补数入口，不取消正常Raw sensor中的源端预检。请求参数保持如下：
+
+```json
+{"selector":{"repositoryLocationName":"orchestrator","repositoryName":"__repository__","pipelineName":"raw_tushare_moneyflow_ths_update_job"},"runConfigData":{},"executionMetadata":{"tags":[{"key":"dagster/partition","value":"2026-11-10"},{"key":"dagster/partition_set","value":"raw_tushare_moneyflow_ths_update_job_partition_set"}]}}
+```
+
+该对象是Launch的executionParams变量，核对__typename=LaunchRunSuccess及run.runId。只按响应和原任务实际状态跟踪；回执不明时保持暂停，按同日原运行记录人工确认，不自动重发请求。Raw失败/取消，不会接续Silver或成功清理；保留真实错误，不能以放宽25只、跳过检查或换日完成验收。
+
+**第六步：验收本次Raw成功后的两个独立动作。**Raw连同blocking check完整SUCCESS后，Silver sensor应提交同日原Silver任务，run key仍为silver_moneyflow_ths:2026-11-10:<最终Raw SHA256>；清理sensor独立清理该Raw的分页JSON。清理只依赖Raw成功，不等待Silver成功，所以Silver失败时分页可能已经清理；收据/源Parquet/发布记录仍保留。只读核对目标任务、对应物化/check、实际文件及当次清理tick，不能为了检查再执行一次asset check或重新下载。
+
+**第七步：单日验收全部通过后恢复正常日更。**用同一Start请求分别恢复cn_a_moneyflow_ths_trade_day_sensor及raw_tushare_moneyflow_ths_update_job_sensor，两个成功监听器保持RUNNING。读回四条状态及两个合法原生游标；已有Raw/登记游标不重置。恢复意味着原自动调度继续按20点及最近10日未成功范围工作，之后正常任务另记，不再人为扩大本次单日Raw提交数量。
+
+#### 82.27.6 管理请求形状及只读观察
+
+复用既有HTTP接口，不新增服务或运营参数。以下四个文档已用本机安装dagster_graphql的create_schema/validate离线验证，仅证明语法和字段符合当前schema，没有实际发送GraphQL或创建正式任务。
+
+```graphql
+query Workspace { workspaceOrError { __typename ... on Workspace { locationEntries { name loadStatus locationOrLoadError { __typename ... on RepositoryLocation { name repositories { name } } ... on PythonError { message } } } } } }
+mutation Start($selector: SensorSelector!) { startSensor(sensorSelector:$selector) { __typename ... on Sensor { name sensorState { status } } ... on PythonError { message } } }
+mutation Launch($executionParams: ExecutionParams!) { launchPipelineExecution(executionParams:$executionParams) { __typename ... on LaunchRunSuccess { run { runId status } } ... on PythonError { message } } }
+query Run($runId:ID!) { runOrError(runId:$runId) { __typename ... on Run { runId status pipelineName } ... on PythonError { message } } }
+```
+
+Start的selector固定repositoryLocationName=orchestrator、repositoryName=__repository__，只有本节列明的sensorName变化。每次正式请求写入本任务/private/tmp中的JSON，复用原curl --data-binary @请求文件/-o响应文件方式；请求中只有以上query/variables，不含源token。HTTP客户端时限沿当前DagsterGraphQLClient默认timeout=300秒，不修改服务端期限；使用curl时对应--max-time 300。该300来自管理客户端，不能混同Raw采集300秒或当作任务排队期限。
+
+只读观察按明确里程碑进行：暂停读回、加载读回、两个游标保存、Raw终态、Silver/清理结果、恢复开关。已有run_id用Run查询，不扫描全历史；尚未得到Silver run_id时只按原Silver job、目标日期和本次Raw成功时间有界查询最近1条，随后固定其run_id。清理tick按该sensor、本次Raw成功时间及skip_reason中的“已清理该次成功Raw运行”结果提示过滤，读取匹配的最近1条；SQL可用tick_body::jsonb ->> 'skip_reason'读取原字符串，不因JSON的Unicode转义漏掉。清理回调返回SkipReason，SDK不为该分支额外生成DagsterRunReaction，所以不要求origin_run_ids中存在Raw ID；结合本阶段唯一Raw成功、结果提示以及该run目录分页确实消失、必要文件保留核对，不误取后续无事件tick或初始化tick。若观察时尚未完成，记录当前阶段后等待原daemon/队列，继续只读同一运行，不再次启动任务或清游标；无新增常驻轮询程序。续核次数实际累计记录，不把600/30秒当完成上限，也不编造固定轮询次数/总耗时保证。
+
+#### 82.27.7 性能、数量和恢复成本
+
+| 项目 | 当前依据和本阶段模型 |
+| --- | --- |
+| 正常管理写入 | 当前快照原三个sensor停用3次+Silver旧cursor删除1次，共4次离线CLI；两个监听器启动2次+唯一Raw提交1次+恢复登记/Raw2次，共5次HTTP写请求。新清理sensor不先制造stop记录；中断后的未完成动作按真实状态计数，不机械重做全部命令 |
+| 加载和本机依赖 | 4次CLI各会加载一次原代码位置，正式启动1次，实际耗时分别记录。原StartupPolicy的查询/就绪/启动单项值为10/30/40秒，沿原入口使用，不累加冒称DG整体保证；gRPC加载、原任务排队和tick等候另记。未经正式执行尚无这些步骤墙钟实测，不用阶段5的125秒或66秒替代 |
+| Raw源请求 | 只有2026-11-10完整13字段两轮；无额外预检或指定股票请求。实际一轮N≤20000时成功请求为2×(floor(N/2000)+1)，最多22次；非空页总数P=2×ceil(N/2000)≤20，重试仍受原64次累计/300秒/单次30秒约束，两轮至少60秒。沿最新N=5219样本预计6次请求，不要求执行时恰好5219 |
+| Raw/Silver业务SQL | 无旧目标的Raw模型11P+38（包含原Raw check），Silver首次31+正式check9=40；最终验收count两次及两个三代码样本两次=4条SQL，独立验收再读两层三代码样本=2条，合计11P+84。P=6时150，P=20时304。fixture、连接SET、管理/事件存储查询及页面读取不混算，不再运行一次全字段check/全日NULL统计 |
+| 元数据查询 | 操作预检仅四sensor的单组有界读取（最多5条以发现多余身份）、活动任务分组计数、一个分区点查询、两job目标日各最多1条运行；首次两个原生cursor初始化各读最新成功事件最多1条。新Silver业务回调最多2次各1条读取，清理回调额外读取本次Raw检查1条；原生框架自身游标/判重读取按第82.23.3节单列，不冒称业务0SQL等于整个Dagster无查询 |
+| 最终事件读回 | 仅本次Raw/Silver各1条物化及其原检查、两条指定sensor当前状态/本次相关tick（清理结果按skip_reason过滤）、各自原run_id/提交标识；每次有明确filter及limit，不读最近10日Silver窗口。等待/恢复次数以R记，按同一组有界读取的实际R次汇总，不把无实测的等候成本写成0 |
+| 文件/空间 | 正式只发布2个同日Parquet；run目录内沿原两源候选/合并候选/Silver候选及小收据/checkpoint，候选提升前后同路径迁移不相加为备份。成功清理P个非空分页JSON，最新样本P=6；原helper拒绝超过64页文件，不扫其它run。沿4MiB验收文件、512MB/1线程/no-spill、768MiB父子进程、32MiB结果框及64KiB控制文件限制，两名单不塞入控制文件/cursor。最后读回仅目标日计数及指定样本，不扫业务历史 |
+| 原始结果与时间 | 第82.26节真实只读源5219行、6请求、65.850798秒、259.875MiB及Raw333598/Silver333574字节只作同日样本。正式任务多了事件/发布/队列，正常总时间尚无实测。最终独立审计、状态等待和清理分别计时，不预填正式耗时或新空间上限 |
+| Raw失败后人工重跑 | 本阶段不自动重新提交整日Raw任务，原单页暂时错误重试保持；管理员选择原Raw整日任务时是新的run_id/目录，重新进行完整两轮源请求，不能声称免费续传或继承旧源目录。已有目标时Raw为11P+42，源/重试上限不变；额外请求/SQL按每次实际累加，先保留前次成本与失败，不能清零记录掩盖重复费用 |
+| Silver失败后人工重跑 | 原Silver job只读同日Raw、无源请求，新的run_id不借用旧run staging。已有目标相同/变化时新候选32/35+原check9=41/44条；无目标时仍40条。底层同operation的18/15条恢复证据按第82.24.3节适用，不把它们套为新人工job成本或另造恢复入口 |
+
+单日正式源请求只安排一次Raw采集；出现需人工重跑的失败，先报告实际失败和已发生成本，再按管理员明确选择恢复，不在本节偷偷循环采集。管理HTTP回执不明、代码位置不可用、通用基础设施故障只按已有原生记录和人工处理，不新增补漏机制或故障注入测试。
+
+#### 82.27.8 失败、中断与按已完成步骤继续
+
+- 在启动DG前某条stop/旧cursor清除未完成：DG保持停止，保存已经完成的状态，后续只补未完成命令；清除后的空cursor尚未初始化时Raw继续暂停。
+- 已启动但某个成功sensor未完成原生初始化：不提交Raw，不重启循环；已初始化的另一个cursor保留，只继续未完成的正常首次tick。若cursor已经合法而Raw尚未提交，直接继续单次Raw提交，不再delete。
+- Raw失败/取消：不触发Silver/成功清理；保留已发布文件/checkpoint（如有）及失败分页，按真实状态停止验收，不回滚旧文件，不恢复自动Raw。重跑仍由管理员选原Raw完整日期任务。
+- Raw成功但Silver失败/取消或接续未形成：保留已成功Raw，Silver仅按管理员选择手动运行原任务恢复，源请求0；不能通过重新采Raw强制重投同内容Silver。成功清理可能已完成，不把它误当Silver成功。
+- 清理未完成或失败：文件/任务事实分别保留，只核对本次run的原生清理tick。已有同一helper支持幂等继续，但本阶段不直接重扫历史或自动调用helper补删；需要管理员明确选择时仍只处理该run，不开发新清理入口。
+- 两任务及清理均完成、收尾核对或恢复开关中断：只读原run_id、两个名单/摘要及cursor，完成尚未完成的验收/启用；不重下来源、不重做已完成清理、不清空已推进的原生cursor。任一步有实际错误都如实记录，不能用恢复RUNNING冒称验收已完成。
+
+记录用于继续的是原Dagster运行/物化/check/tick/cursor和原发布记录，不创建新待办表、来源字段或备用状态服务。正常执行不增加人工交错操作防御。
+
+#### 82.27.9 正式验收、独立复核与文档退出条件
+
+| 必须证明的结果 | 实际验收方法；不重复开发的证据 |
+| --- | --- |
+| 初始化顺序正确且不补旧成功事件 | Raw/登记器暂停期间，两个真实daemon初始化tick及合法保存cursor，历史Raw/Silver请求没有增加；原生首次tick行为沿安装SDK和阶段4/5正反测试 |
+| 原Raw完整成功且名单保存 | 本次Raw SUCCESS，原blocking check通过且storage_id/run_id/timestamp对应本次物化；读取goldenshare/missing_record_codes和goldenshare/null_value_codes两个JsonMetadataValue。名单以本次真实源/合并结果为准，不强制复现旧5只NULL或旧5219行，不扫Silver生成缺失名单 |
+| 真正自动接续Silver | 由同名sensor创建原Silver job、分区2026-11-10；原日期/最终Raw摘要run key及实际输入raw_sha256一致。两层行数/完整13字段、Raw日期字符串与Silver DATE、NULL/零负值按原正式检查及3代码样本核对；没有手动Silver代替自动验收 |
+| 页面确实能查看 | 正式DG目标日Raw本次物化页面直接看到两个metadata JSON数组；Silver页面看到本次输入摘要、行数和通过检查。页面只展示已保存metadata，不建设查询页或另扫文件 |
+| 成功分页清理且保留必要文件 | 该Raw对应的清理tick记录删除数量/字节；仅其两轮scope-1下page-*.json消失，receipt、源Raw/verification、发布记录及两个正式文件保留。已有17项清理边界/失败与继续证据沿用，不重跑历史清理 |
+| 恢复后状态正确 | 单日全部验收后四sensor RUNNING，两个成功sensor保持各自原生cursor，登记/Raw原游标保留；没有修改其它sensor开关或旧任务/事件 |
+
+最后由独立进程复核本次真实事件/文件：不导入阶段5 expected生成器、不再联网下载；读取两个正式文件的三个固定代码000001.SZ、000002.SZ、600000.SH最多各3行/13字段，核对日期转换、逐字段对应、实际摘要及两条原check完整关联。行数、覆盖/NULL统计沿本次原检查及前述计数和物化名单，不另跑全日字段统计。文件hash只读本次2文件，不扫历史；阶段5已证明人工NULL和合并反例，不能为了验收在正式文件制造NULL或漏行。
+
+收尾必须分别记录：正式加载/游标切换、Raw/Silver run_id与状态、物化/check身份、两个真实名单、源请求/重试/行数/耗时/资源、正式路径/hash/字节、清理数量/字节及保留文件、四sensor终态、独立审计和全部实际管理/查询/恢复成本。有效结果只回填本节及原方案第86.20节，清理自建临时产物；不预填成功、不把之前已清理的临时SQLite当正式事实。
+
+#### 82.27.10 本轮文档准备验证与边界
+
+本轮只补原方案/LLD。已核对当前CLI stop/cursor/list的本机--help、实际stop/cursor实现、同一defs加载路径、已安装SDK首次原生cursor逻辑及清理条件；初稿曾选另一条autoload路径，现已纠正为与现有DG一致的python_module工作区；临时workspace通过安装SDK配置解析，不启动代码服务。纯SDK对象验证orchestrator/__repository__的三个既有selector与只读持久化身份一致。四个GraphQL文档通过当前本机schema的离线parse/validate；没有实际发送请求或运行CLI stop/cursor/start，没有创建正式/临时Dagster instance、启动gRPC/DG或触发job/sensor，没有改变正式游标/文件/开关。
+
+依据为[Dagster CLI sensor文档](https://dagster.io/docs/api/clis/cli)、当前安装1.13.26实际实现和第82.24/82.26节适用证据；官方最新文档不代替安装版本核对。CodeGraph加当前调用引用核对用于影响面；本阶段没有新合同/API/前端/主体分层或生产源码变更。准备内容已经具体覆盖目标、共享发布范围、配置/读写、停用与首次初始化、单日任务、成本及中断后继续、正反证据和退出条件；正式执行及页面/自动投递结果仍未验收。
+
+本轮最终独立文档复核通过：现行python_module临时workspace配置解析及三个稳定selector一致；四个GraphQL文档和Raw executionParams变量通过安装schema检查；4次CLI/5次HTTP写入、11P+84及P=6/20时150/304条SQL推导一致；10份既有生产源码摘要未变，两个原文档的历史正文前缀保持，347处本地链接目标存在、新锚点唯一、暂存区为空。原文档完整性三组和两文件差异检查通过；本任务临时审计/配置验证产物收尾清理，正式命令、源请求与状态写入均未执行，文档尚未提交。
+
+
+#### 82.27.11 本次正式执行与独立审计（2026-11-15）
+
+**正式操作与自动接续。**开工HEAD为2b3d8a1ee，记录orchestrator下819份Python源码身份；最终独立核对差异0。操作前活动任务0、11月10日分区已登记、Raw/Silver均无文件，正式Lake与staging同设备，可用空间2,818,000,199,680字节。原三个sensor保存RUNNING，Silver为旧游标，清理sensor无记录。按本节顺序执行3次原CLI stop和1次cursor --delete；读回均STOPPED，仅Silver游标清空，Raw/登记原游标与操作前相同。原入口启动DG，日志21:43:42记录启动服务、21:43:47提供webserver；依赖均复用已有服务，workspace实际为orchestrator/__repository__，没有安装、迁移、手工事件补录或其它sensor开关修改。
+
+两个成功监听器经真实daemon初始化：Silver tick 3611881（21:46:15.654414），清理tick 3611884（21:46:16.199681），均SKIPPED/Initiating并保存合法RunStatusSensorCursor，初始record_id同为8091560，run_ids/run_requests为空；此时Raw/登记仍暂停。初始化完成后只人工提交一次原Raw的2026-11-10分区。实际结果如下，时间均为北京时间：
+
+| 项目 | 正式事实 |
+| --- | --- |
+| 原Raw运行 | 84b7f777-2186-4efc-89ce-a0df4986ad5a；21:46:54.943299开始，21:48:09.637180成功，运行74.693881秒 |
+| Raw物化及原检查 | 物化8091607，原raw_tushare_moneyflow_ths_file_contract_check记录1782046/SUCCEEDED；passed/blocking为真，storage_id、run_id和timestamp完整对应 |
+| 自动Silver提交 | 原sensor的真实tick 3612255/SUCCESS，21:56:22.482902；仅一个run_id，无手工Silver。原run key为silver_moneyflow_ths:2026-11-10:386b310258953224176c545aa9490e96e447f78176e0d62a4c8e762fc8cf38bc，run的dagster/sensor_name对应原Silver sensor |
+| Silver运行及原检查 | fc1d0476-4860-4e39-aa6e-f4ee4e8aa391；21:56:25.787820开始，21:56:30.769758成功，运行4.981938秒；物化8101540，silver_moneyflow_ths_standardization_check记录1786845/SUCCEEDED，完整绑定通过 |
+| 自动接续等待 | Raw成功至Silver开始496.150640秒；沿原600秒最小评估间隔等待下一真实tick，没有修改间隔、手工评估、清游标或重复采Raw |
+| 采集和资源 | 真实完整13字段两轮，共6请求、0重试，收据采集耗时68,615.958208毫秒，稳定间隔60.026415秒；收据peak_rss_bytes=368,295,936，即351.234375 MiB。没有追加两字段预检或指定代码请求 |
+| 最终两层文件 | 均5,219行、完整13字段。Raw为333,598字节，SHA256=386b310258953224176c545aa9490e96e447f78176e0d62a4c8e762fc8cf38bc；Silver为333,574字节，SHA256=14d566eee6883fd039cd679f85c798d08ef31e6ed669d4131e3735adb2675c30。目录见第82.27.4节，不读取其它日期 |
+| 两个Raw名单 | goldenshare/missing_record_codes为[]；goldenshare/null_value_codes为[002019.SZ,002731.SZ,300152.SZ,300490.SZ,601330.SH]。正式事件中的两值均为JsonMetadataValue；页面接口也返回两个JsonMetadataEntry，不扫描Silver生成名单 |
+| 成功分页清理 | tick 3611953/SKIPPED，21:48:31.176776；skip_reason记录清理6个JSON、3,689,844字节。只核对本次Raw run目录，分页0个；receipt.json（480字节）、raw.parquet/verification.parquet（各333,598字节）、promotion-raw.json（593字节）保留。没有重扫或清理其它历史运行 |
+
+**文件及独立审计。**主审计仅两次count及两层各一个三代码样本，最终通过实测0.181116秒。另起独立进程，从正式PG重新读取两个run、两条物化和两条检查，核对完整关联、自动提交tags及原run key；只计算本次两文件SHA，并各读取000001.SZ、000002.SZ、600000.SH三行13字段。Raw日期为VARCHAR/20261110、Silver为DATE/2026-11-10，其余字段逐项相同；输入Raw摘要等于最终Raw文件摘要。独立审计通过，实测0.316186秒，没有调用第五阶段expected生成器、重下来源或重新运行全日检查/NULL统计。
+
+**如实保留的审计脚本错误和额外成本。**临时观察脚本首次按id取tick，未用现有selector_id/timestamp索引，触发3秒只读时限；按实际索引纠正，没有提高时限。随后保存PG时间字段时漏做类型转换，再纠正。文件审计的主、独立脚本最初都遗漏正式读取合同的hive_partitioning=false，DuckDB按trade_date目录推断日期，原VARCHAR断言因此失败；查明正式检查及Silver生产者均明确关闭该行为后，只修正临时SQL，原断言和正式代码/数据保持。失败执行共多3条业务SQL、独立PG查询6条和对同两文件的2次摘要读取；失败读回不能作通过证据。与第82.27.7节模型对账：原任务144条业务SQL为沿已验证代码推导，最终实际验收9条（正常6条＋失败3条），合计153条为推导总数，不冒称对正式任务逐条插桩的实测。连接配置、CLI/daemon及PG元数据另记，额外源请求0。
+
+**页面验收。**浏览器工具最初两次连接均30秒超时，Codex打开请求仅返回queued，未得到页面画面。管理员首次确认Raw两个JSON可见；确认时Silver尚未生成，已明确撤回将该次回答用于Silver目视验收的做法，并在Silver实际成功后按其确切run_id再次询问。随后连接恢复，本线程已自行打开准确的2026-11-10分区：Raw页面显示84b7f777、5,219行和两个完整JSON名单；Silver页面显示fc1d0476、5,219行和386b3102开头的完整Raw摘要，Checks页显示Passed、blocking、目标分区2026-11-10、checked_row_count=5219、failed_row_count=0，并链接本次Silver run。此时两层页面验收已直接完成，管理员无需再回答第二个确认；未将旧2024-12-20分区或浏览器加载中的None视为本次结果。验收期间登记/Raw一直暂停，随后仅执行原定两次恢复请求。
+
+**恢复、成本和结论。**22:06:42验收后开始两次原Start恢复请求，响应均为Sensor/RUNNING；22:07:19.797695正式只读读回四sensor均RUNNING，Silver和分页清理的两个原生游标均合法。Raw/登记游标在恢复前始终与开工原值一致，未重置；恢复后允许原正常评估继续推进。22:07:23.274919按原Raw job和恢复时间只取最近1条，尚无新增正常Raw运行；这是该时点事实，不禁止以后原自动日更，也不把它们算入这次唯一人工Raw验收。DG保持运行，没有重启循环、失败任务重跑或手工Silver。
+
+显式管理共4次CLI、5次HTTP写请求；另有4次显式HTTP只读请求（workspace、Raw状态、Raw页面数据、Silver状态）。临时观察/主审计/独立审计累计68条显式PG SELECT，包括失败查询；浏览器页面查询、原生CLI/daemon内部存储调用和连接配置未插桩，不冒称包含在68条内。业务SQL按上文为9条实测验收、144条原任务模型推导；两次独立尝试对同两文件共读取4次摘要，没有扫历史。开工观察21:41:26.046343至恢复读回22:07:19.797695累计1,553.751352秒，含浏览器连接、人工确认等候、原sensor间隔及审计修正，不作为服务时限或源请求耗时；本次没有重新采源的恢复成本。
+
+源码独立审计时819文件差异0；随后的收尾对比发现其它线程新增defs/bootstrap/daily_basic_history.py的history_cost_estimate统计依据分支，并有文档提交415065c3c。已读其真实差异和唯一调用方daily_basic_history_cli.py:120：仅历史工具的统计费用说明，未进入同花顺Raw/Silver/sensor或日更读写，未改变本次已验收链；不把它当本次开发、不回滚或并入本次文件。正式文件/事件和恢复开关均符合第82.27.9节；第六阶段单日正式验收与独立审计通过。原七资金流P5多真实交易日观察仍按原范围保留。本轮无生产源码改动、无新测试或依赖安装，变更只有本次正式状态/目标日数据及两份原文档。
+
+**收尾。**文档完整性原三组检查和两文件git diff --check通过，未改暂存区。最后服务检查脚本最初以连字符程序名匹配，漏掉实际由-m dagster_webserver及-m dagster._daemon启动的进程；按真实命令确认PID 2979/2980及3000端口正常，DG没有中断或重启。全部有效结果已归回原文档，随后只删除本任务/private/tmp/dg-ths-stage6.k548CU，实测0.005254秒；其中仅临时请求/响应、审计脚本和观察结果，不含正式数据。没有删除收据、源Parquet、发布记录、其它线程文件或停止运行中的DG。两份结果文档随本次文档提交归档，未推送。
+
+<a id="moneyflow-ths-daily-basic-shared-acceptance"></a>
+
+### 82.28 新增每日指标共享代码独立隔离验收（2026-11-15）
+
+第六阶段复审期间，工作区新增每日指标历史事件的daily_basic_events.py、daily_basic_history_cli.py及替换事件测试，尚无当时版本的完成记录，因此暂停正式启动。管理员随后要求先做该项验收。本节只复核这项共享代码，不执行第六阶段正式切换、每日指标正式历史PLAN/APPLY、Prod访问或正式事件写入。
+
+验收依据为[每日指标扩充方案/LLD第7、32～34节](../../../docs/datasets/daily-basic-limit-status-expansion-plan-and-low-level-design-v1.md)：只处理已提升日期、K取冻结范围、旧runless检查能够替换，同日非空待完成集合只运行一次原作业检查子集，空集合不执行，部分成功按原生结果继续，明确失败停止，普通首次导入及只读路径不变。CodeGraph explore加当前调用引用核对确认仅由每日指标历史CLI/替换链消费；没有改同花顺资金流或正常日更入口。
+
+本轮从orchestrator的现有.venv独立执行每日指标11个测试文件，**187项全部通过，22.24秒**，其中新增替换事件用例16项。覆盖22日期的真实临时18→19列文件替换与旧事件更新、同日期双检查一次run/单项剩余/空集合、PLANNED无结果续做/活动run阻断/明确失败停止、报告保存失败后的事实恢复、日期锁、CLI执行模式、受控持久化实例装配，以及现有来源、本机HTTP、检查、readiness和sensor回归。只用/private/tmp及临时SQLite/Parquet/localhost假源，正式token和DAGSTER_HOME从测试进程环境移除，不访问正式来源/实例/Lake。
+
+另按原stock_suspend_confirmed_test_runner.py执行受保护test_run_contract_static_gates.py：15批113项全部通过，没有修改清单、运行器或断言。本轮新执行定向检查总数为187+113=300，没有将原线程的300项重复相加，也不把子断言或warning计成新增用例。三个变更文件Ruff默认规则通过。原专项第34.3节已记录的另一全仓治理文件5项存量失败保留，不因本次定向通过宣称全仓全部通过。
+
+另起独立进程，不导入新测试或expected生成器，直接读回受控实例装配用例的持久化SQLite和3行19字段Raw：一个SUCCESS检查run（0af0cfaa-fd20-45d1-b79f-d4a981d499c5），执行计划和实际运行仅含原文件合同/来源覆盖两个检查，未选择Raw asset；两个evaluation对应物化storage_id=1，检查存储ID=5/6，目标storage_id/run_id/timestamp及分区一致。三个代码000001.SZ、201872.SZ、920964.BJ及全部19列按独立字面值核对，状态0/NULL、B股保留、旧数值/NULL/零负值正确，文件读回前后SHA一致。独立读回0.188693秒、正式访问和真实源请求均为0。
+
+该装配用例的输入物化由夹具手工登记，不是事件APPLY生成；独立脚本最初将它误当发布输出，查询了未保存的observed_columns，并误按独立列查询运行快照。这是我的样本/存储形状判断错误，按真实夹具生产者及SQLite schema纠正了脚本，产品代码、原测试及断言均未修改。该独立读回只证明持久化装配、只检查执行、绑定与文件保真；真实事件APPLY的19字段metadata由前述22日替换用例实际执行验证，不扩大为正式PostgreSQL集成。
+
+原线程已提交本版为c0f3913fa；本轮执行前、执行后及该提交中的三个文件SHA逐字节一致：
+
+| 文件（相对orchestrator） | SHA256 |
+| --- | --- |
+| src/orchestrator/defs/bootstrap/daily_basic_events.py | 2471a4a3badc8037c5e71c8a4a4a583f0ba7db4dccf3305696aa180ef3a6a450 |
+| src/orchestrator/defs/bootstrap/daily_basic_history_cli.py | 08dc722ccaf6f2d2d09d135465736cbe213347784e64d8cd5c9bc09948c1fa41 |
+| tests/test_daily_basic_replacement_events.py | d3e921a5a2098a6d8f051df539581434c6d2e0d62faae494850911af37339c6e |
+
+结论：此前标出的每日指标这项共享代码隔离验收通过，该项发布准备阻碍解除。资金流已有阶段和第82.27节执行顺序不改；本结论仅覆盖本节三文件，不替代正式执行前对随后其它工作区变化的发布范围核对，也不批准每日指标正式历史执行。本轮未修改生产源码或原测试、未触碰他人暂存区、未启动DG、未切sensor/cursor或写正式数据。本任务有效结果只归本节及原方案第86.21节，原测试/审计及所有权确认后的15个治理临时目录收尾清理。
