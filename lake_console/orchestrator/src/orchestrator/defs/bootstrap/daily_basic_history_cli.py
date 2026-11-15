@@ -233,7 +233,11 @@ def _run_event_stage(args):
     )
     with (
         _event_apply_lock() if writable else nullcontext(),
-        daily_basic_event_instance(writable=writable) as instance,
+        daily_basic_event_instance(
+            writable=writable,
+            for_execution=bool(plan.get("replace_existing"))
+            and args.stage == "report-events",
+        ) as instance,
         connect_configured_duckdb(
             settings, temp_policy="existing_no_spill"
         ) as connection,

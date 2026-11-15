@@ -28,6 +28,7 @@ from orchestrator.defs.bootstrap.daily_basic_history import (
 from orchestrator.defs.daily_basic_contract import (
     DAILY_BASIC_ASSET,
     DAILY_BASIC_CHECKS,
+    DAILY_BASIC_FIELDS,
     DAILY_BASIC_JOB,
     DAILY_BASIC_PARTITIONS,
     DailyBasicValidationError,
@@ -132,6 +133,33 @@ def _check_identity(check, record):
     )
 
 
+def _approved_replacement_check(audit, info):
+    identity = f"{info.partition_key}|{info.check_key.name}"
+    replacement = audit["replacement"]
+    return (
+        info.latest_check_event_storage_id == replacement["check_ids"].get(identity)
+        and info.latest_execution_status.value == "SUCCEEDED"
+        and info.latest_target_materialization_storage_id
+        == replacement["materialization_ids"].get(info.partition_key)
+    )
+
+
+def _unfinished_replacement_check(instance, check, record, day):
+    if check.status.value != "PLANNED":
+        return False
+    run = instance.get_run_by_id(check.run_id)
+    if (
+        run is None
+        or not run.is_finished
+        or run.job_name != DAILY_BASIC_JOB
+        or run.tags.get("dagster/partition") != day
+        or check.event.timestamp < record.event_log_entry.timestamp
+    ):
+        return False
+    execution = instance.get_execution_plan_snapshot(run.execution_plan_snapshot_id)
+    return not execution.asset_selection and check.key in execution.asset_check_keys
+
+
 def freeze_daily_basic_replacement(instance, plan, files):
     """Read the existing identities once, before approved file replacement."""
     _idle(instance)
@@ -163,11 +191,13 @@ def freeze_daily_basic_replacement(instance, plan, files):
 
 
 def plan_daily_basic_events(instance, connection, plan, audit, promote):
-    """Hash all published files; evaluate only the recent twenty, without writes."""
+    """Read promoted files and pending events; replacement checks use frozen K."""
     started = monotonic()
     _validate_plan(plan)
     verify_history_report(audit)
     verify_history_report(promote)
+    replacing = plan.get("replace_existing", False)
+    selected_dates = sorted(f["date"] for f in promote["files"])
     if (
         audit.get("stage") != "audit"
         or audit.get("passed") is not True
@@ -175,16 +205,27 @@ def plan_daily_basic_events(instance, connection, plan, audit, promote):
         or audit.get("plan_fingerprint") != plan["fingerprint"]
         or promote.get("plan_fingerprint") != plan["fingerprint"]
         or sorted(f["date"] for f in audit["files"]) != plan["dates"]
-        or sorted(f["date"] for f in promote["files"]) != plan["dates"]
+        or (
+            not set(selected_dates) <= set(plan["dates"])
+            if replacing
+            else selected_dates != plan["dates"]
+        )
         or audit["rows"] != sum(f["rows"] for f in audit["files"])
     ):
         raise DailyBasicValidationError("history_publication_evidence")
     _idle(instance)
     promoted = {f["date"]: f["sha256"] for f in promote["files"]}
     recent = plan["dates"][-RECENT_CHECK_DAYS:]
+    check_dates = (
+        sorted(set(audit["replacement"]["check_dates"]) & set(selected_dates))
+        if replacing
+        else recent
+    )
     files = []
     for item in audit["files"]:
         day = item["date"]
+        if day not in promoted:
+            continue
         path = _safe_root(raw_daily_basic_path(Path(plan["lake_root"]), day))
         if (
             not path.is_file()
@@ -195,15 +236,23 @@ def plan_daily_basic_events(instance, connection, plan, audit, promote):
         if not isinstance(item["rows"], int) or item["rows"] <= 0:
             raise DailyBasicValidationError("history_empty_publication")
         evidence = _history_evidence(plan, audit, item)
-        if day in recent:
+        if day in check_dates:
             checked = audit_daily_basic_file(connection, path, day)
             if audit_daily_basic_coverage(path, checked, (), evidence):
                 raise DailyBasicValidationError("history_recent_file_contract")
         files.append({"date": day, "path": str(path), "evidence": evidence})
     registered = set(instance.get_dynamic_partitions(DAILY_BASIC_PARTITIONS))
-    latest = _latest_materializations(instance, plan["dates"])
+    latest = _latest_materializations(instance, selected_dates)
+    pending_materializations = []
     for item in files:
         record = latest.get(item["date"])
+        if record is None or (
+            replacing
+            and record.storage_id
+            == audit["replacement"]["materialization_ids"].get(item["date"])
+        ):
+            pending_materializations.append(item["date"])
+            continue
         if record and any(
             delivery_metadata(record).get(k) != v for k, v in item["evidence"].items()
         ):
@@ -220,22 +269,39 @@ def plan_daily_basic_events(instance, connection, plan, audit, promote):
         )
         for info in infos:
             record = latest.get(info.partition_key)
+            identity = f"{info.partition_key}|{info.check_key.name}"
+            check_ids[identity] = info.latest_check_event_storage_id
+            if replacing and _approved_replacement_check(audit, info):
+                continue
+            current = (
+                info.latest_execution_status.value == "SUCCEEDED"
+                and info.latest_target_materialization_storage_id == record.storage_id
+                if record is not None
+                else False
+            )
+            unfinished = replacing and info.latest_execution_status.value == "PLANNED"
             if (
                 record is None
-                or info.latest_execution_status.value != "SUCCEEDED"
-                or info.latest_target_materialization_storage_id != record.storage_id
+                or info.partition_key in pending_materializations
+                or not (current or unfinished)
             ):
                 raise DailyBasicValidationError("history_check_conflict")
-            check_ids[f"{info.partition_key}|{info.check_key.name}"] = (
-                info.latest_check_event_storage_id
-            )
     pending_checks = []
-    for day in recent:
+    for day in check_dates:
         record = latest.get(day)
         checks = current_daily_basic_check_records(instance, day)
         for name in DAILY_BASIC_CHECKS:
             check = checks.get(dg.AssetCheckKey(dg.AssetKey(DAILY_BASIC_ASSET), name))
-            if check is None:
+            identity = f"{day}|{name}"
+            if check is None or (
+                replacing
+                and identity in audit["replacement"]["check_ids"]
+                and check_ids.get(identity) == audit["replacement"]["check_ids"][identity]
+            ) or (
+                replacing
+                and day not in pending_materializations
+                and _unfinished_replacement_check(instance, check, record, day)
+            ):
                 pending_checks.append([day, name])
             elif record is None or not _check_identity(check, record):
                 raise DailyBasicValidationError("history_check_target_conflict")
@@ -246,12 +312,14 @@ def plan_daily_basic_events(instance, connection, plan, audit, promote):
         "promote_fingerprint": promote["fingerprint"],
         "files": files,
         "recent_dates": recent,
-        "missing_registered_dates": sorted(set(plan["dates"]) - registered),
+        "missing_registered_dates": sorted(set(selected_dates) - registered),
         "materialization_ids": {d: r.storage_id for d, r in sorted(latest.items())},
         "check_ids": dict(sorted(check_ids.items())),
-        "pending_materializations": sorted(set(plan["dates"]) - latest.keys()),
+        "pending_materializations": sorted(pending_materializations),
         "pending_checks": pending_checks,
     }
+    if replacing:
+        payload["check_dates"] = check_dates
     return seal_history_report(
         {
             **payload,
@@ -275,6 +343,7 @@ def apply_daily_basic_events(
     apply=False,
     sample_date=None,
 ):
+    started = monotonic()
     if not apply or stage not in ("register", "report-events"):
         raise DailyBasicValidationError("history_event_apply_required")
     verify_history_report(approved)
@@ -286,15 +355,18 @@ def apply_daily_basic_events(
     fresh = plan_daily_basic_events(instance, connection, plan, audit, promote)
     if fresh["state_fingerprint"] != approved["state_fingerprint"]:
         raise DailyBasicValidationError("history_event_plan_stale")
+    replacing = plan.get("replace_existing", False)
+    selected_dates = [item["date"] for item in fresh["files"]]
+    sample_dates = selected_dates if replacing else fresh["recent_dates"]
     if sample_date is not None and (
-        stage != "report-events" or sample_date not in fresh["recent_dates"]
+        stage != "report-events" or sample_date not in sample_dates
     ):
         raise DailyBasicValidationError("history_sample_outside_recent_window")
     if stage == "register":
         dates = fresh["missing_registered_dates"]
         if dates:
             instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, dates)
-        if set(plan["dates"]) - set(
+        if set(selected_dates) - set(
             instance.get_dynamic_partitions(DAILY_BASIC_PARTITIONS)
         ):
             raise DailyBasicValidationError("history_registration_incomplete")
@@ -307,6 +379,27 @@ def apply_daily_basic_events(
         f for f in fresh["files"] if sample_date is None or f["date"] == sample_date
     ]
     written = 0
+    check_job = None
+    runs = 0
+    check_dates = fresh.get("check_dates", fresh["recent_dates"])
+    pending_by_day = {}
+    for day, name in fresh["pending_checks"]:
+        pending_by_day.setdefault(day, set()).add(
+            dg.AssetCheckKey(dg.AssetKey(DAILY_BASIC_ASSET), name)
+        )
+    total = len(files) + 2 * sum(f["date"] in check_dates for f in files)
+    confirmed = total - sum(
+        int(f["date"] in fresh["pending_materializations"])
+        + len(pending_by_day.get(f["date"], ()))
+        for f in files
+    )
+    materializations = 0
+    evaluations = 0
+    if replacing:
+        print(
+            f"daily_basic events confirmed={confirmed} total={total} elapsed_seconds={monotonic() - started:.3f}",
+            flush=True,
+        )
     for offset in range(0, len(files), EVENT_DATE_BATCH):
         _idle(instance)
         batch = files[offset : offset + EVENT_DATE_BATCH]
@@ -349,6 +442,7 @@ def apply_daily_basic_events(
                             metadata=build_materialization_metadata(
                                 uri=path,
                                 row_count=item["evidence"]["source_row_count"],
+                                observed_columns=list(DAILY_BASIC_FIELDS),
                                 extra_metadata={
                                     **item["evidence"],
                                     "summary": "历史每日指标文件已核实并登记。",
@@ -357,6 +451,13 @@ def apply_daily_basic_events(
                         )
                     )
                     written += 1
+                    materializations += 1
+                    confirmed += 1
+                    if replacing:
+                        print(
+                            f"daily_basic events date={day} stage=materialization confirmed={confirmed} total={total} materializations={materializations} elapsed_seconds={monotonic() - started:.3f}",
+                            flush=True,
+                        )
         records = _latest_materializations(instance, days)
         for item in batch:
             day = item["date"]
@@ -366,7 +467,7 @@ def apply_daily_basic_events(
                 for k, v in item["evidence"].items()
             ):
                 raise DailyBasicValidationError("history_delivery_not_current")
-            if day not in fresh["recent_dates"]:
+            if day not in check_dates:
                 continue
             with _daily_basic_partition_lock(plan, day):
                 record = _latest_materializations(instance, [day]).get(day)
@@ -379,6 +480,51 @@ def apply_daily_basic_events(
                 checked = audit_daily_basic_file(connection, path, day)
                 if audit_daily_basic_coverage(path, checked, (), item["evidence"]):
                     raise DailyBasicValidationError("history_file_changed_before_check")
+                if replacing:
+                    selected = pending_by_day.get(day, set())
+                    if selected:
+                        if check_job is None:
+                            from orchestrator.definitions import defs
+
+                            check_job = defs().resolve_job_def(DAILY_BASIC_JOB)
+                        print(
+                            f"daily_basic events date={day} stage=checks pending={len(selected)} confirmed={confirmed} total={total} elapsed_seconds={monotonic() - started:.3f}",
+                            flush=True,
+                        )
+                        result = check_job.get_subset(
+                            asset_selection=set(), asset_check_selection=selected
+                        ).execute_in_process(
+                            instance=instance, partition_key=day, raise_on_error=False
+                        )
+                        runs += 1
+                        count = len(result.get_asset_check_evaluations())
+                        written += count
+                        evaluations += count
+                        if not result.success:
+                            raise DailyBasicValidationError(
+                                f"history_check_run_failed：date={day} run_id={result.run_id}"
+                            )
+                        del result
+                    current = _latest_materializations(instance, [day]).get(day)
+                    checks = current_daily_basic_check_records(instance, day)
+                    if (
+                        current is None
+                        or current.storage_id != record.storage_id
+                        or len(checks) != len(DAILY_BASIC_CHECKS)
+                        or any(
+                            check is None
+                            or not _check_identity(check, record)
+                            or asset_check_record_evaluation(check).partition != day
+                            for check in checks.values()
+                        )
+                    ):
+                        raise DailyBasicValidationError("history_check_readback")
+                    confirmed += len(selected)
+                    print(
+                        f"daily_basic events date={day} stage=checks confirmed={confirmed} total={total} materializations={materializations} evaluations={evaluations} runs={runs} elapsed_seconds={monotonic() - started:.3f}",
+                        flush=True,
+                    )
+                    continue
                 target = AssetCheckEvaluationTargetMaterializationData(
                     storage_id=record.storage_id,
                     run_id=record.event_log_entry.run_id,
@@ -427,10 +573,11 @@ def apply_daily_basic_events(
                     for check in checks.values()
                 ) or len(checks) != len(DAILY_BASIC_CHECKS):
                     raise DailyBasicValidationError("history_check_readback")
-        print(
-            f"daily_basic events completed_dates={min(offset + EVENT_DATE_BATCH, len(files))} total_dates={len(files)} written={written}",
-            flush=True,
-        )
+        if not replacing:
+            print(
+                f"daily_basic events completed_dates={min(offset + EVENT_DATE_BATCH, len(files))} total_dates={len(files)} written={written}",
+                flush=True,
+            )
     return seal_history_report(
         {"stage": stage, "event_count": written, "sample_date": sample_date}
     )
