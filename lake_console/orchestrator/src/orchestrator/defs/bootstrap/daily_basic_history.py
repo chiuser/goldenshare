@@ -854,6 +854,16 @@ def promote_daily_basic_history(plan, audit, *, apply=False, sample_date=None):
 
 def history_cost_estimate(p0):
     rows = p0["row_baseline"]
+    if p0.get("basis") == "statistics":
+        return {
+            "basis": "statistics",
+            "baseline_rows": rows,
+            "baseline_asof": p0["row_baseline_asof"],
+            "estimated_pages_per_pass": math.ceil(rows / HISTORY_BATCH_SIZE) + 1,
+            "source_policy": SOURCE_POLICY,
+            "source_pass_count": 1,
+            "full_execution_approved": False,
+        }
     return {
         "basis": "P0 measured samples; extrapolation, not SLA",
         "baseline_rows": rows,
