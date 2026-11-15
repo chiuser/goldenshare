@@ -112,8 +112,8 @@ def deliver_asset(context, config, lake_root, freq):
             source_status = check_period_rows(
                 rows, freq=freq, business_date=day.isoformat(), required_codes=universe["required"],
                 optional_codes=universe["optional"], aliases=universe["aliases"],
-                expected_dates=universe["expected_dates"] if config.intent == "closed_period" else None,
-                maximum_asof=current_day.isoformat() if config.intent == "closed_period" else day.isoformat(),
+                expected_dates=universe["expected_dates"],
+                maximum_asof=current_day.isoformat(),
             )
             if not source_status["ready"]:
                 raise ValueError(source_status["reason"])

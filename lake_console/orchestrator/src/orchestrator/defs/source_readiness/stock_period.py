@@ -162,7 +162,7 @@ def check_period_rows(
         if (
             dates[code] < expected_dates[code].replace("-", "")
             if expected_dates is not None
-            else dates[code] != business_date.replace("-", "")
+            else dates[code] < business_date.replace("-", "")
         )
     }
     ready = not missing and not stale and not duplicates

@@ -319,6 +319,8 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 ## 11. 当月全市场单点预检与日更
 
+**2026-11-16跨日日期修正。** 原月线日更使用`intent=daily`和原`automatic_intent_date`重跑时，业务日只表示最低覆盖日，正式21列响应的`end_date`允许更晚，但不得晚于实际执行日的上海日期。例如原业务日11月9日、上海11月10日执行，仍请求`trade_date=20261130`，允许`end_date=20261110`。同日sensor只检查当天，因此同日预检仍要求当天覆盖。闭合月保持每股在周期内最后应更新日；人工完整月历史不增加逐条等于业务日或执行日的条件。原业务日、源日期及真实完成时间分别保留；不新增快照。代码、消费者、夹具、失败与资源边界见[周月线LLD第13.22节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-cross-day-daily-date-fix)。本次只开发和隔离验证，不操作正式DG。
+
 本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。第3阶段独立回刷和第4阶段单频退市清理亦已实现并独立审计，同频Silver可完整接续；新sensor代码默认STOPPED，正式实际状态见下文结果。旧Silver日更私有回执与续跑分支已移除；第5阶段已接入人工维护并清零旧Raw离线入口、共享索引和日常交接，首次建库本次恢复及原Silver审计合同保留；实际测试、独立审计修正及当时全局门禁的历史失败见[周月线LLD第13.17节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)。该全局suite已在11月12日开工审计完整复核通过，第6阶段细则见[第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)，开发和隔离结果见[第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。正式切换及11月11日补数亦已完成，实际结果见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。
 
 本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、股票复权因子变化历史回刷、Dagster记录及切换沿共享规则，月线只补下列差异。 三列传输、原生交付字段、新任务及实测预算统一见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。

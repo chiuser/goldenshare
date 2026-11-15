@@ -85,6 +85,40 @@ def test_bad_label_future_or_invalid_date_rejected(row):
         )
 
 
+@pytest.mark.parametrize("freq,label", [("week", "20261113"), ("month", "20261130")])
+@pytest.mark.parametrize("explicit_minimum", [False, True])
+@pytest.mark.parametrize(
+    "source_day,ready,error",
+    [
+        ("20261109", True, None),
+        ("20261110", True, None),
+        ("20261108", False, None),
+        ("20261111", False, "period_source_future_date"),
+    ],
+)
+def test_date_floor_and_execution_ceiling(
+    freq, label, explicit_minimum, source_day, ready, error
+):
+    # LLD13.22: original intent is a floor; the explicit Shanghai run day is
+    # the ceiling. Dates and expected results are independent literal cases.
+    kwargs = {
+        "freq": freq,
+        "business_date": "2026-11-09",
+        "required_codes": {A},
+        "optional_codes": set(),
+        "aliases": {},
+        "expected_dates": {A: "2026-11-09"} if explicit_minimum else None,
+        "maximum_asof": "2026-11-10",
+    }
+    if error:
+        with pytest.raises(ValueError, match=error):
+            readiness.check_period_rows([[A, label, source_day]], **kwargs)
+    else:
+        result = readiness.check_period_rows([[A, label, source_day]], **kwargs)
+        assert result["ready"] is ready
+        assert result["stale_count"] == int(not ready)
+
+
 def envelope(items, fields=None):
     return json.dumps(
         {

@@ -111,10 +111,12 @@ def market(tmp_path, monkeypatch):
         )
     state = {
         "price": "11.0000",
+        "asof": "20261110",
         "missing": None,
         "calls": [],
         "instance": None,
         "include_s": False,
+        "include_delisting": False,
     }
 
     class Wire:
@@ -127,19 +129,26 @@ def market(tmp_path, monkeypatch):
             freq = params["freq"]
             rows = [
                 literal_row(
-                    A, params["trade_date"], freq, asof="20261110", qfq=state["price"]
+                    A, params["trade_date"], freq, asof=state["asof"], qfq=state["price"]
                 ),
                 literal_row(
-                    N, params["trade_date"], freq, asof="20261110", qfq="12.0000"
+                    N, params["trade_date"], freq, asof=state["asof"], qfq="12.0000"
                 ),
                 literal_row(
-                    I, params["trade_date"], freq, asof="20261110", qfq="13.0000"
+                    I, params["trade_date"], freq, asof=state["asof"], qfq="13.0000"
                 ),
             ]
             if state["include_s"]:
                 rows.append(
                     literal_row(
-                        S, params["trade_date"], freq, asof="20261110", qfq="4.0000"
+                        S, params["trade_date"], freq, asof=state["asof"], qfq="4.0000"
+                    )
+                )
+            if state["include_delisting"]:
+                rows.append(
+                    literal_row(
+                        "000004.SZ", params["trade_date"], freq,
+                        asof=state["asof"], qfq="14.0000",
                     )
                 )
             rows = [row for row in rows if row[0] != state["missing"]]
@@ -214,7 +223,7 @@ def market(tmp_path, monkeypatch):
     )
 
 
-def raw_job(market, instance, freq, *, raise_on_error=True):
+def raw_job(market, instance, freq, *, raise_on_error=True, business_date=D):
     period = "2026-11-13" if freq == "week" else "2026-11"
     instance.add_dynamic_partitions(
         "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months", [period]
@@ -228,7 +237,7 @@ def raw_job(market, instance, freq, *, raise_on_error=True):
         run_config={
             "ops": {
                 f"raw_tushare_stk_period_bar_adj_{freq}": {
-                    "config": {"automatic_intent_date": D}
+                    "config": {"automatic_intent_date": business_date}
                 }
             }
         },
@@ -346,6 +355,147 @@ def test_universe_date_effective_and_intraday_still_required(market):
     actual = load_period_universe(market.root, D, "week")
     assert actual["required"] == {A, N, I} and actual["optional"] == {S}
     assert not paths.silver_stock_daily_path(market.root, D).exists()
+
+
+@pytest.mark.parametrize("freq", ["week", "month"])
+@pytest.mark.parametrize(
+    "execution_at,source_day,error",
+    [
+        ("2026-11-09T15:30:00+00:00", "20261109", None),
+        ("2026-11-09T16:30:00+00:00", "20261110", None),
+        ("2026-11-09T16:30:00+00:00", "20261109", None),
+        ("2026-11-09T16:30:00+00:00", "20261108", "period_source_incomplete"),
+        ("2026-11-09T16:30:00+00:00", "20261111", "period_source_future_date"),
+    ],
+    ids=["same_day", "later_source", "minimum_source", "stale_source", "future_source"],
+)
+def test_raw_job_original_day_date_bounds_and_silver(
+    market, monkeypatch, freq, execution_at, source_day, error
+):
+    original_day = "2026-11-09"
+    period = "2026-11-13" if freq == "week" else "2026-11"
+    label = "20261113" if freq == "week" else "20261130"
+    suspension = paths.silver_stock_suspend_daily_path(market.root, original_day)
+    suspension.parent.mkdir(parents=True, exist_ok=True)
+    # These project the same real producer DATE/VARCHAR columns as market.
+    # The original day's calendar/suspension must exist before the Raw job;
+    # market replaces only upstream acceptance facts and the HTTP transport.
+    with connection(market.tmp / "original_day_inputs") as con:
+        execute(
+            con,
+            "COPY (SELECT 'SSE' exchange,d::DATE trade_date,true is_open,NULL::DATE pretrade_date "
+            "FROM (VALUES ('2026-11-09'),('2026-11-10')) v(d)) TO ? (FORMAT PARQUET)",
+            [str(paths.silver_trade_calendar_path(market.root))],
+        )
+        execute(
+            con,
+            "COPY (SELECT * FROM (VALUES ('000002.SZ',DATE '2026-11-09','S',NULL::VARCHAR),"
+            "('000003.SZ',DATE '2026-11-09','S','10:00-10:30')) "
+            "v(ts_code,trade_date,suspend_type,suspend_timing)) TO ? (FORMAT PARQUET)",
+            [str(suspension)],
+        )
+        write_raw(
+            con,
+            raw_path(market.root, freq, period),
+            [
+                literal_row(A, label, freq, asof="20261106", qfq="8"),
+                literal_row(S, label, freq, asof="20261106", qfq="4"),
+            ],
+        )
+    universe = load_period_universe(market.root, original_day, freq)
+    assert universe["required"] == {A, I, "000004.SZ"} and universe["optional"] == {S}
+
+    class Clock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            assert tz.key == "Asia/Shanghai"
+            return datetime.fromisoformat(execution_at).astimezone(tz)
+
+    monkeypatch.setattr(stock_period_update, "datetime", Clock)
+    # N lists on November 10 and is outside the original November 9 universe.
+    # 000004.SZ delists on November 10, so it is still required on November 9.
+    market.state.update(asof=source_day, missing=N, include_delisting=True)
+    before = file_digest(raw_path(market.root, freq, period))
+    with dg.DagsterInstance.local_temp(
+        str(market.tmp / "instance"), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        market.state["instance"] = instance
+        result = raw_job(
+            market, instance, freq, raise_on_error=False, business_date=original_day
+        )
+        assert market.state["calls"] == [
+            ({"freq": freq, "trade_date": label, "limit": 6000, "offset": 0}, FIELDS)
+        ]
+        failures = [
+            event.event_specific_data.error.to_string()
+            for event in result.all_events
+            if event.event_type == DagsterEventType.STEP_FAILURE
+        ]
+        if error:
+            assert not result.success
+            assert any(error in failure for failure in failures), failures
+            assert file_digest(raw_path(market.root, freq, period)) == before
+            assert not result.get_asset_materialization_events()
+            assert not [
+                record
+                for record in instance.get_records_for_run(
+                    result.run_id, of_type=DagsterEventType.ASSET_OBSERVATION
+                ).records
+                if COMPLETION_KEY in record.asset_observation.metadata
+            ]
+            return
+        assert result.success, failures
+        assert len(result.get_asset_check_evaluations()) == 3
+        reference = reference_for(instance, result.run_id)
+        origin = read_completion(instance, reference, root=market.root)
+        assert origin["completion"]["business_date"] == original_day
+        expected_asof = f"{source_day[:4]}-{source_day[4:6]}-{source_day[6:]}"
+        assert origin["items"][(freq, period)]["source_asof"] == expected_asof
+        mat = instance.fetch_materializations(
+            dg.AssetRecordsFilter(
+                asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}")
+            ),
+            limit=1,
+        ).records[0]
+        assert mat.asset_materialization.metadata["goldenshare/business_date"].value == original_day
+        assert mat.event_log_entry.timestamp > 0  # The real event retains its own completion time.
+        with dg.build_sensor_context(
+            instance=instance, resources={"lake_root": market.resource}
+        ) as ctx:
+            response = stock_period_silver.evaluate_update_sensor(ctx, freq=freq)
+            assert len(response.run_requests) == 1
+            request = response.run_requests[0]
+        silver = market.defs.resolve_job_def(request.job_name).execute_in_process(
+            instance=instance,
+            partition_key=request.partition_key,
+            run_config=request.run_config,
+            tags={"dagster/run_key": request.run_key},
+        )
+        assert silver.success and len(silver.get_asset_check_evaluations()) == 3
+        silver_metadata = silver.get_asset_materialization_events()[0].materialization.metadata
+        assert silver_metadata["goldenshare/silver_asof"].value == expected_asof
+        assert price_rows(market, target_path(market.root, freq, period)) == {
+            A: Decimal(11), I: Decimal(13), S: Decimal(4),
+        }
+        with connection(market.tmp / "read_original_day") as con:
+            raw_rows = con.execute(
+                "SELECT ts_code,end_date FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
+                [str(raw_path(market.root, freq, period))],
+            ).fetchall()
+            assert raw_rows == [
+                (A, source_day), (S, "20261106"), (I, source_day),
+                ("000004.SZ", source_day),
+            ]
+            # The existing Silver contract retains current list_status='L'
+            # stocks (LLD section 9.1); 000004.SZ is D and remains only in Raw.
+            rows = con.execute(
+                "SELECT ts_code,end_date FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
+                [str(target_path(market.root, freq, period))],
+            ).fetchall()
+            assert rows == [(A, source_day), (S, "20261106"), (I, source_day)]
+        assert silver_completion_consumed(
+            instance, reference, [period], root=market.root, business_date=original_day
+        )
 
 
 @pytest.mark.parametrize("freq", ["week", "month"])
