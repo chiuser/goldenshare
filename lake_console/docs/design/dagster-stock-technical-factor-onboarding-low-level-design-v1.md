@@ -1969,22 +1969,18 @@ evaluate在本节仅表示现有最终记录构造函数：输入原SourceComple
 
 ### 10.6 上线前从初始化导入到历史事件、自动化启用的条件
 
-完整顺序固定为：忠实导入并记录缺口→完成批准范围物理及覆盖审计→管理员批准历史事件补录→补录并读回核对所有应有历史事件→管理员批准启用本数据集自动化。前一项未完成，不进入后一项；物理bootstrap函数不调用事件写入或sensor启用接口。这里把阶段衔接接上，不把后续正式事件/启用执行授权并入bootstrap批准。
+完整顺序固定为：忠实导入→物理及覆盖验收→开发和隔离验收事件工具→正式事件计划及批准→补录并在每批读回→单独批准自动化启用。前一项未完成不进入后一项；bootstrap不写Dagster事件或启用sensor。已完成阶段直接复用有效记录，不因换阶段再审一次业务数据。
 
 | 阶段 | 必须已有的输入与通过条件 | 未通过时的动作 |
 | --- | --- | --- |
-| 物理bootstrap | 沿§10.1～10.5忠实导入；来源完整性、源到Raw及Raw到Silver261字段核对均有完整事实；合法Prod原缺口不阻止其余日期导入。 | 传输/文件错误按原规则停；市场缺口/依据未知记录在既有逐日统计和summary，合法已导入文件保留且可读。不因缺口删文件或自动补采。 |
-| 批准范围完整性审计 | 同operation原导入事实完整；当前result/summary、文件/依据身份匹配，所有缺口/未知/当前不可核验日期为空且total_missing_count=0。原导入对账及当前两层文件合同审计有效，允许当前数量不同于原source_rows；按本规则extra_count=0，不能以解释额外代码代替集合相等。合法补数已有Dagster检查须绑定当前文件；原导入尚缺的Dagster事件在下一阶段补录，不反过来要求先有全部Dagster check才能开始事件阶段。另核本operation已产生的必要历史计划无未完成范围/未解除失败，完成或确实无历史的阶段事实有效。 | 缺失/未知/两层未完成、当前身份不符或必要历史未完均不放行。即使T已补齐、summary缺口0，后续历史失败仍阻止补绿/启用；复用已有阶段/plan/完整发布事实，不重算全历史。补数收尾更新现有统计，覆盖绿灯不冒充历史完成。 |
-| 历史事件补录 | 引用上述同范围最新有效result/summary及当前正式文件身份；先做只读事件计划，列资产/分区、已存在、应补、冲突及精确写入上界，管理员另批后写入。补数任务已产生且与当前文件绑定的物化/check直接使用，只补仍缺失的合法事件；先物化后check。原源0但已补出数据的日期按当前文件处理，仍无文件日期不造事件。 | 有缺口/未知不补绿色；旧失败、旧文件或metadata冲突不能覆盖掩盖为通过，也不能因原source_rows少于当前数量而拒绝合法补数。写入失败保留已成功事件，按已核缺失清单继续并读回，不重导业务文件、不自动启用。 |
-| 自动化启用 | 当前数据、同operation必要历史完成及事件补录三类依据都仍有效，全部应补事件已关联核对、无活动修复/发布。管理员按§4.2明确启用分区/日更sensor。 | 任一事件缺失/失败/绑定不明或补数必要历史pending/失败，均STOPPED；不能只凭文件存在、缺口0、run结束或summary已保存启用。 |
+| 物理bootstrap | 沿§10.1～10.5忠实导入；源到Raw及Raw到Silver的261字段核对和逐文件完成记录有效。 | 按原发布规则保留已完成文件，不因覆盖未知或事件未补而重导。当前已完成，结论见§22.26。 |
+| 历史覆盖验收 | 原导入事实保留；历史应有股票是否缺失按§22.32的有效独立验收，额外历史数据不阻断，不继续使用原导入时未知统计作门槛。 | 已确认真实缺口才另批补数；有未知或真实缺失不补绿色。当前验收已完成，不重算全历史。 |
+| 历史事件补录 | 严格按§22.6：复用已验收的原文件发布事实，最小计划列明日期、缺项、冲突及事件上界；开发和隔离验收后，另获正式事件写入批准。 | 只补缺失合法事件，已有有效项复用；明确冲突停止，不重读或恢复业务文件，不新建覆盖结论或重复事件状态。 |
+| 自动化启用 | 已批准范围的事件在补录各批内读回通过、无未完成/冲突；代码已装载、无活动修复/发布。按§22.7单独批准。 | 任一前置未完成则保持STOPPED；不因启用再做全文件审计或全范围事件历史扫描。 |
 
-首次启用仍要求批准范围数据完整性、历史事件和绑定检查通过。日更sensor按§21只判断当天，本节不再提供上一交易日覆盖结论给sensor作放行条件。
+首次启用日更sensor按§21只判断当天，不把上一交易日覆盖作门槛。若未来实际发生初始化补数，仍沿§10.5.6维护其当前结果及必要历史，由任务本身形成事件；不把这条能力做成当前已完成bootstrap事件工具的一套来源重建分支。当前没有真实缺口或此类补数，不为补事件主动制造补数、repair或复权因子历史回刷。
 
-事件阶段沿现有[性能治理§7](dagster-data-pipeline-performance-governance.md#7-dagster-event-与-runless-event-规则)使用有界批量读取/补录和写后核验；不在日常sensor逐日扫描历史。它的正式写入实现和执行清单必须在进入该阶段前完成独立审查和批准，物理bootstrap交付只输出可接用的文件及审计事实，不自行增加事件job、状态表或启用配置。事件补录及启用的必要验证为：物理导入成功但仍缺一股/有一个未知日期时均禁止补绿及启用；审计已过但少一个历史check时仍禁止启用；两者范围/身份均匹配且事件已完整读回后才可按批准启用。
-
-管理员已确认：原来源及忠实导入4,800条、应有5,000条时，原导入证明继续记录4,800条；上线前初始化补数后当前Raw/Silver各5,000条、缺口0，由补数入口按§10.5.6直接更新同一operation当前结果及汇总。最终事件/启用条件读取这一最新有效结果，不再要求当前数量与原Prod来源相等；无需另外创建修复后审计入口。文件变化必须有合法发布/check依据，不能把任意改文件登记成补数。
-
-最终只读事件计划须同时列出本operation关联的补数原T、已核授权/最近日与历史阶段引用及必要历史完成/未完状态。沿§6.2同Context记录和原plan/publication-complete核验；只有真实整范围成功及producer成功，或已检查输入且明确no_action，才可标历史已处理。没有发生补数的原导入不因此重算全历史因子；已知pending/失败/引用不明则停止。这里使用既有元数据，不增加状态表或审计入口；超过治理阈值时按授权run/阶段引用批量读取，避免每个历史分区重做readiness/数据扫描。具体事件写入实现仍按本节既有独立阶段方案/LLD批准，不将其混入本次物理导入函数。
+事件阶段沿[性能治理§7](dagster-data-pipeline-performance-governance.md#7-dagster-event-与-runless-event-规则)有界读取、补录和写后读回。具体输入、代码位置、失败续跑和成本只以§22.6为准，不另建事件job、状态表、独立终审入口或文件备份。
 
 ### 10.7 开发阶段上线前初始化补数及重新执行
 
@@ -3668,7 +3664,7 @@ readiness新增read_stk_factor_pro_day_publication接收同T的recorded_results�
 
 ### 22.5 补齐缺口和批准范围完整性验收
 
-**当前适用范围。**物理导入已完成，当前没有已确认需要补采的技术因子缺口，不能按§22.29的6,617项直接启动补数。历史覆盖只检查应有股票是否缺失，额外历史数据不阻断；§22.29～§22.31的最新审计及衔接说明优先于本节原始多码门禁。应有名单依据及原覆盖记录尚待收尾，不能直接进入正式事件补录。本节指定日期补数能力保留，只有确认真实缺口并取得该步授权时才使用。
+**当前适用范围。**物理导入已完成，当前没有已确认需要补采的技术因子缺口，不能按§22.29的6,617项直接启动补数。历史覆盖只检查应有股票是否缺失，额外历史数据不阻断；§22.29～§22.31的最新审计及衔接说明优先于本节原始多码门禁。历史覆盖已按§22.32完成收尾；下一步先完成§22.6事件工具开发及隔离验收，尚不能正式补录。本节指定日期补数能力保留，只有确认真实缺口并取得该步授权时才使用。
 
 只消费同operation最新有效日期结果与coverage/summary.json，逐项核摘要和当前文件/依据。读取StkFactorProBootstrapCoverageSummary的import_pending_dates、calendar_unknown_dates、coverage_unknown_dates、current_files_unverified_dates、gap_dates，以及missing_count_known_dates、extra_count_known_dates和total_missing_count。来源原空日仍进入开市/应有覆盖判断，不能因为没有Parquet就从日期范围删掉；已确认休市且原源0的日期不造文件/事件。
 
@@ -3680,60 +3676,82 @@ readiness新增read_stk_factor_pro_day_publication接收同T的recorded_results�
 
 这里的原导入文件合同audit是StkFactorProFileAudit，不要求尚未补录的原导入日期先具备Dagster check；否则会与下一阶段相互等待。补数已经产生的真实物化/check必须匹配当前文件并复用。最后只读核验以小记录汇总、文件集合/身份和必要既有audit为主，已有当前有效结果不重算覆盖；缺首次事实才在获准范围核相应实际文件一次。
 
-### 22.6 历史事件工具、只读计划、补录和读回
+### 22.6 第2小步：历史事件工具的开发、隔离验收及正式使用
 
-**尚需开发的限定范围。**拟新增defs/bootstrap/stk_factor_pro_bootstrap_events.py及直接测试tests/test_stk_factor_pro_bootstrap_events.py，提供plan_stk_factor_pro_bootstrap_events、apply_stk_factor_pro_bootstrap_events、audit_stk_factor_pro_bootstrap_events三个明确方法。正式调用输入只有operation_id、现有instance/resources及apply所需expected_plan_digest；从固定operation目录取得原approval/current result/summary，路径按paths.py复算。plan只读，apply写Dagster事件，audit只读；不增加DG定义、job/sensor、env或通用事件平台，不改物理bootstrap入口。
+**2026-11-15重新审查结论。**原设计把同一份文件事实和Dagster事件状态再次保存到计划，又安排计划、写入、独立审计多轮核对；“必要文件身份缺失时补核验”还可能把事件补录变成全历史文件重审。这些要求删除。此前将补齐Raw文件身份列为开工前置的判断撤回：原发布完成记录已经保存文件校验结论，本步不再补做文件审计，也不把当前文件属性与旧SHA拼成新的校验结论。本节整体替换原事件设计，下面是唯一实施口径，尚未开发或正式执行。
 
-现有emit_stk_factor_pro_publications依赖context.run并yield本run事件，不能直接用作runless writer。事件阶段实施前，将它已有的纯metadata构造抽成同一build_stk_factor_pro_publication_metadata函数，供原emit和本工具共同调用，落在本数据集run_contracts；现有字段及日更/历史调用顺序保持不变，同步其直接测试和消费者。bootstrap额外来源字段只说明operation、approval及真实source-complete/current-publication引用，不伪造day_source_digest、下载开始、历史日更观察或成功run。
+**目标、范围和禁止项。**把已经验收的bootstrap文件发布事实登记为本数据集两资产的物化事件及对应blocking check，不负责确认业务数据是否完整。直接使用§22.32已通过的历史覆盖验收及原逐文件发布完成记录；不读Parquet内容、不调用DuckDB、不重新计算业务文件SHA、不查Prod/Tushare、不重跑bootstrap、不复制或备份业务文件/验收报告，不新建数据或进度表，不登记分区，不启用sensor。
 
-该提取的影响面明确为原emit、assets日/历史发布及直接metadata/事件测试，不修改文件合同、观察parser、Prod或其他数据集。原日更/历史metadata按现行字段和值的独立字面样本逐项不变，新bootstrap metadata另按真实原导入/当前补数来源断言；不能用同一新builder产生expected来证明提取没有改变旧合同。
+本次仅处理`stk-factor-pro-bootstrap-20261112`已验收的原导入日期。不存在已确认需要补数的日期，不在本工具重建补日、repair或历史回刷的run/阶段/计划链；这些任务自身已经负责发布事件。已有事件只按其内容与原发布事实是否一致决定复用，不要求带本工具标签。发现已被后续合法发布替换的日期或其他明确冲突时停止并列出日期/对象，不追溯整条运行链，不自行修文件或补绿。
 
-**计划内容与边界。**plan使用原operation下固定的events/plans/<plan文件SHA>.json位置，SHA取保存内容的实际字节，plan正文不包含自身SHA，管理员核准该SHA；旧计划不可覆写。内容包括代码/合同/处理及覆盖版本、非秘密正式instance定位、approval/summary及逐日result摘要、必要补数run/日/历史引用与已核完成状态；逐日期/层保存当前合法文件路径、SHA、行数、audit引用、已有最新物化及check身份/状态、复用/应补/冲突动作、逐月数量及精确事件写入上界。它只是本次批准清单，不是新的覆盖事实或下载进度，不能替代原result/summary。已有实际登记分区/文件不因plan存在而修改。
+**当前代码依据与最小影响面。**拟新增`defs/bootstrap/stk_factor_pro_bootstrap_events.py`及直接测试`tests/test_stk_factor_pro_bootstrap_events.py`，仅提供`plan_stk_factor_pro_bootstrap_events`、`apply_stk_factor_pro_bootstrap_events`两个操作。写后读回放在apply的当前批次内，取消独立`audit_stk_factor_pro_bootstrap_events`入口及最后另扫全范围的步骤。不增加DG定义、job/sensor、env、配置项、通用事件平台或其他工程改动，不改物理bootstrap入口。
 
-2026-11-15历史验收衔接更新：按§22.32取得历史普通日线基准的有效审计后，plan另存historical_coverage_ref，引用原operation内coverage/audits/<summary实际SHA>/summary.json的相对路径及实际SHA，coverage_rule_version取该验收记录的stock_daily.v1。须核passed、批准范围、逐日及文件身份引用均有效；原summary/date_result仍只负责导入及当前文件事实，不能用导入时未知结果推翻新审计，也不能把新覆盖结果当作文件合同audit或伪造日更观察。本工具尚未实现，此项随开发同步落实，不新增既有runtime兼容分支。
+- 文件事实复用`stk_factor_pro_bootstrap_publication.py::read_stk_factor_pro_bootstrap_publication`：它只读指定日期/层的`intent.json`、`complete.json`，核对原批准、记录绑定和已保存的audit；共用`known_records`避免Silver重复读取Raw记录。禁止调用该模块用于物理恢复的`_verify_target_identity`、`_current_file_sha`及重新校验文件的路径。原Raw记录没有保存当前文件系统身份，不因此拒绝可信原完成记录或重读文件。
+- 现有`emit_stk_factor_pro_publications`依赖`context.run`，不能直接当runless入口。只将其已有纯metadata构造提取为本数据集`run_contracts`内的`build_stk_factor_pro_publication_metadata`，由原emit与本工具共用；影响面限原emit、`assets/stk_factor_pro.py`日/历史发布及直接测试。现有metadata字段和值、日更/历史顺序不变；不改文件合同、观察parser或下载规则。
+- bootstrap事件的文件路径、SHA、行数、合同/处理版本、Silver引用的Raw SHA及比较结论来自原完成audit；来源只说明真实operation、approval和publication-complete引用。不伪造下载、日更或历史观察、成功run。事件所需metadata属于现行消费者合同，必须保留；不另存一份同内容文件清单。
 
-计划的封闭字段按以下投影保存，使用既有日期/RecordRef/结果序列化，不接受任意metadata或SQL作为输入；实现时在本数据集合同及直接消费者同步落地，不迁移其他工程。
+**输入、批准计划及唯一依据。**两个操作使用调用方已有的instance/resources，不另建instance连接、配置解析或URL适配层。规划显式接收`operation_id`、`historical_coverage_ref`、非空`trade_dates`；没有隐藏的全历史默认范围。日期必须是该已验收范围的子集。apply接收批准的`expected_plan_digest`及本次明确`trade_dates`，只能执行计划内日期及原已批准缺项；允许先选小批，再执行余量。
 
-| 字段组 | 固定内容与来源 |
+本次`historical_coverage_ref`固定指向原operation内`coverage/audits/3cd38b4d33170d35c4f12dd112eafef1db3945a2d876cc65a9c90963715a7246/summary.json`，SHA同目录名，`rule_version=stock_daily.v1`。每次操作只核摘要实际字节SHA、operation、passed及覆盖范围，并读取一次该摘要引用的必要逐日统计来确认所选日期；不重开全部248份审计文件或核7,182份输入文件身份，不用原导入时的coverage未知覆盖本次有效验收。只读取所选日期的原发布记录，不读源片段、旧date_result或另重算覆盖。
+
+plan从原批准、有效验收和所选日期发布记录取得事实，按下面的有界方法读取当前Dagster事件。只保存一份必要的批准计划到原operation的`events/plans/<计划实际字节SHA>.json`，正文不含自身SHA，管理员批准这个SHA。plan不写业务数据或Dagster事件，但保存批准计划会写这一份小JSON，不能将其描述为完全不写文件。计划不复制原审计正文、路径/SHA/行数清单、已有原生事件编号/状态快照或逐月成功记录。
+
+| 计划保存内容 | 用途及来源 |
 | --- | --- |
-| 计划身份 | record_version=1、operation_id、created_at（有时区时间）、code_revision、contract_content_digest、processing_version、coverage_rule_version、instance_identity（正式DAGSTER_HOME及存储后端非秘密定位）。 |
-| 原事实引用 | approval_ref、summary_ref及按日期的date_result_refs均为规范相对路径/文件SHA；bootstrap原audit引用publication对应complete.json，补数使用现有CurrentPublication和真实四事件身份；必要history_refs保存原run/日与历史观察、plan/publication-complete引用及其已核结果。 |
-| 每个日期/层的项 | trade_date、layer、固定asset_key/check_name、复算target_path、file_sha256、row_count、source_kind（bootstrap或supplement）、source_ref、raw_file_sha256（Silver绑定Raw，Raw无此值）、materialization_ref（storage_id/run_id/timestamp或None）、check_ref（execution_id/状态/目标绑定或None）、action。 |
-| action及汇总 | action只取reuse、materialize_and_check、check_only、conflict；按月保存明确日期集合、已有/待补物化和check数量、冲突数量及样本、max_new_events；总上界为各月待补数量之和，不能超过原已确认范围。原生编号只定位事件，不进入日更run_key/tags。 |
+| operation、原approval引用、historical_coverage_ref、代码/合同/处理/覆盖版本、正式instance的非秘密定位 | 明确批准对象、已有依据与执行环境；业务文件事实仍由原发布记录提供。 |
+| 明确日期、固定两组asset_key/check_name及每个应补的日期/层/事件种类 | 限定可写范围；只有确实缺失的物化/check进入待补项，不保存已有合法事件的副本。 |
+| 已有/应补数量、冲突及具体原因、最大新事件数量 | 管理员审阅；有冲突的计划不可执行。上界等于批准缺项之和。 |
 
-来源引用和已有检查metadata是事实输入，不允许运营另填一份文件已通过声明。正式apply仍从原引用读回并验证；plan不能通过复制passed=True构造新的文件audit。
+原批准、验收和发布完成记录按原operation不可变事实使用，规划和执行各读取本次必要记录一次，操作内复用。每次操作对所选正式目标只做一次存在性检查，不读取内容或重新证明SHA；现有维护及无冲突写入条件沿用。发现原记录缺失/不可信、目标文件缺失、明确的后续发布或原生事件冲突，立即停止并指出对象，不在本步恢复或审计文件。需要变更已批准来源/范围时另行修正和批准，不以“新进程没读过”为理由重验。
 
-plan引用§22.5已通过的物理及覆盖事实，可以先用这些记录制定待补上界；正式写入前优先复用已经对应当前文件的有效身份与audit，不以进入事件阶段或新进程为由再扫描所有文件SHA；只有实际文件/输入已变化、必要身份事实缺失或明确冲突的对象才核相应范围一次，并说明必要性及授权/成本。不能把旧记录当成新实测，也不能把“本进程未读”本身当成全量重审理由。补数/原导入依据缺失、范围不全、最新事件冲突或必要历史未完时，计划列明冲突而不可执行；不回查旧成功盖过最新失败/等待。发现失效文件必须返回业务修复阶段，不能在事件工具内修文件。
+**按所选自然月读最新事件。**令本月所选日期集合为S、K=|S|，只查本数据集固定两资产/两check。空集合直接跳过，不能把空set传给会将其理解为不限分区的API。
 
-**按自然月读最新记录，禁止深扫。**令该月需有文件的合法日期集合为S，K=|S|，只处理固定两资产/两check。K=0直接零查询，禁止把空set传入会将其理解为不限分区的API。
+1. 两资产各用`get_latest_storage_id_by_partition`，事件类型固定`ASSET_MATERIALIZATION`、partitions明确为S；再各用`fetch_materializations`按确切storage_ids读回，limit等于id数，无id不fetch。最多4次原生调用、2K份物化结果，不扫历史事件，不猜limit。
+2. 当前已核Dagster 1.13.26的`get_latest_asset_check_execution_by_key`只按asset/check分组，不能正确批量取得各日期最新check；`get_asset_check_partition_info`也不能覆盖最新PLANNED。因此只增加本工具内一个小查询：通过已有`index_connection`和`AssetCheckExecutionsTable`，精确限制两组(asset_key,check_name)及partition IN S，按asset_key/check_name/partition取最大id再回表。每月1条查询、最多2K条，保留最新PLANNED/FAILED/SUCCEEDED及evaluation，不先过滤成功，不误查交叉配对，不修改表或索引。值绑定，调用方不能传SQL。
+3. 结果交给本批规划、metadata和绑定核对共同使用，不重复读取，不复用其他事件工具的深扫、全文件检查或checkpoint。隔离测试使用当前安装版本的真实原生存储/schema/解码；正式规划首次小批就核对该边界，不另开全范围审计。
 
-1. 两资产各调用get_latest_storage_id_by_partition，event_type固定ASSET_MATERIALIZATION，partitions为明确非空S；再各用fetch_materializations按这些确切storage_ids及limit=len(ids)读回，缺id则该次fetch为0。最多4次原生API，至多2K份物化结果，不用按整晚/全历史limit猜测每日期最新记录。
-2. 当前已核Dagster的get_latest_asset_check_execution_by_key只按asset/check分组，不能一次给多日期得到逐日最新；get_asset_check_partition_info会排除没有evaluation事件的PLANNED，不能代替本任务要求。新增一个本工具私有的有界原生存储读取：通过现有index_connection及Dagster的AssetCheckExecutionsTable，固定两组精确(asset_key,check_name)配对、partition IN S，按asset_key/check_name/partition取MAX(id)后回表，不能用两个独立IN集合误收交叉配对。保留最新PLANNED/FAILED/SUCCEEDED及原evaluation，不在SQL先过滤成功；每月1条结果查询，至多2K条。值全部绑定，不接收表名/SQL参数，不改Dagster表或索引；隔离测试及正式只读小批验证实际安装版本的schema/解码后才能用于正式计划。
-3. 读取和比较只按精确引用，不复用其他数据集按历史深扫并乘倍率limit的实现。当前ETF事件工具的这部分语义不适用，不直接import。日常sensor仍沿原有界单T/P读法，本工具的离线读取不放入sensor。
+上述每个非空月最多5次逻辑读取、4K条结果；逻辑次数不冒充底层连接/内部SQL条数。按月处理本次日期，不先加载全历史事件到Python。原生写入使用[Dagster官方runless API](https://dagster.io/docs/api/dagster/external-assets-instance-api)及已核本机实现。
 
-每月计划首次最新记录获取最多4次原生API加1条有界check结果查询，结果上限4K；这是逻辑读取，不承诺底层初始化/数据库内部总SQL条数。已有run/阶段/plan按本operation真实不同引用各首次一次缓存，R个不同run就计R个身份，不能把reader函数调用数当成数据库访问数。大范围按月累计和报告，不先把全部历史check载入Python。
+**事件判断。**最新物化须与原发布audit中的路径、SHA、行数、合同/处理版本及来源一致，Silver须绑定对应Raw SHA；最新check须成功、passed/blocking、日期/名称正确，真实绑定该物化的storage_id/run_id/timestamp。使用下面四种结果，不查更早成功掩盖最新失败：
 
-**事件判断。**已有最新物化必须与该层当前合法文件、合同/处理版本和来源引用匹配，已有最新check必须成功、passed/blocking、日期/名称准确，target的storage_id/run_id/timestamp真实绑定该物化，Silver metadata对应当前Raw SHA。全部成立就复用，不因为没有本工具标签而重写合法日更/补数事件。无物化则计划补物化和check；物化合法而check确实缺失则只补check。最新失败、PLANNED、旧绑定或metadata冲突不静默改绿，停止并列明冲突及实际文件，按明确批准的修正范围另行处理。
+| 当前最新记录 | 动作 |
+| --- | --- |
+| 物化及check均有效 | 复用，零写入。 |
+| 物化有效、check确实不存在 | 只补check。 |
+| 物化和check都不存在 | 先补物化，再补check。 |
+| check存在而物化不存在，或最新PLANNED/失败/旧绑定/metadata不符 | 列明冲突并停止，不覆盖成成功。 |
 
-上述新补录使用原bootstrap完整文件audit的日期，其SHA必须仍对应当前文件；合法补数日期先复用CurrentPublication引用的四条真实事件。补数引用已缺失或不能证明当前文件，属于冲突，不拿旧Prod audit给后来新文件补绿，也不反推一份StkFactorProFileAudit。物化/check确实缺失但原bootstrap audit仍有效的日期才进入相应缺项动作。
+**写入、读回与中断后继续。**开发和隔离验收通过后，才进入正式规划；管理员批准具体计划、日期、事件上界及成本后才允许写事件。先按实际获准日期执行小批，读回通过才继续同一计划余量；不新增固定批量配置。执行前核批准计划字节SHA、原引用及所选日期最新原生记录，已有效完成的项复用；出现计划外缺项或新冲突停止。正常完成的事件减少余量，不属于来源变更，不重建批准计划。
 
-**写入及恢复。**管理员审阅具体计划、范围、冲突、逐月事件上界及读取成本后另批。先选该计划中已批准的小批，读回通过后才按同一批准继续余量；小批大小由实际计划日期决定，不另设无依据常量。apply重新核plan字节SHA、原结果引用和唯一写入条件，对当前需要的文件复用有效身份与audit；仅必要事实缺失/实际变更的对象补一次对应核验，不统一重读全部文件；确认所得身份后复用known_records；文件改变或新增未批准应补项即停止。
+当前批次内按日期先Raw、后Silver补缺失物化，使用`DagsterInstance.report_runless_asset_event`。新物化保存后只再读取一次其实际身份，持有结果供后续check绑定；不能把report返回值当持久化编号，也不能伪造run_id或timestamp。随后补缺失check，写完只查询本批最新check并与已持有的物化核对，不再次获取同一批物化。已有有效记录直接参与本批结果，无新物化不做身份读取、无新check不做写后check查询。任一写入、绑定或读回失败即停止，保留已写事件，不继续发送check；本批所选日期的两层物化/check全部有效且缺失/冲突均0，才计为本批通过。
 
-按月先报告本批应补物化，再用上述按分区最新id/确切id读取一次取得真实已保存身份，才报告相应check。使用DagsterInstance.report_runless_asset_event；target_materialization_data的run_id取该实际物化记录（runless也不能杜撰run id），与其storage_id和timestamp一起绑定。report返回值不当作已持久化身份；写入/绑定失败停止，不发送对应绿色check。metadata只来自唯一builder和当前真实文件audit。已有合法check直接复用，无文件的合法空源日期不造事件。
+本批通过后累计已确认/实际新增数量；最后直接汇总这些批次结果，不再按全范围另跑一遍审计。不新增`events/audits`结果文件、checkpoint、进度表、汇总资产或逐月事件副本。工具返回简明结果，正式执行数量、耗时及通过/未通过项写回本原方案和LLD。计划是唯一新增的批准记录；Dagster事件本身是补录成果与续跑依据。
 
-失败保留已写事件，重新进入同一批准计划时先按上述最新记录确认实际余量，同内容已完成项跳过，只继续原计划缺项。原生事件是续跑事实，不新增checkpoint状态表或删除事件来重来；plan内容/文件/依据变更则保存新SHA计划并重新批准，保留旧计划。每月结束批量audit最新物化/check与绑定，全部月份完成后汇总0缺失/0冲突及实际写入计数，成功结果保存在events/audits/<plan文件SHA>.json，固定保存record_version、operation_id、plan_digest、checked_at、逐月读回数量/引用、缺失物化数、缺失check数、冲突数和passed。只有全部月份完整且后三项均0才passed；失败直接报告，不覆写旧的成功时点记录，不回写原导入事实。后续核对仍读当前实际事件，不能只相信成功文件存在。native写入成功而本地报告保存失败时，下次仍从原生记录恢复。
+中断保留已经保存的事件。重新执行同一批准范围时，从当前原生记录确认余量：物化后退出只补check；check已成功而返回结果前退出则不重写；已完成月不重放。跨执行需要读取所选月份当前状态，但不读业务文件、不复查旧审计输入。存在其他写入或来源变更时停止，不能用旧批准补录后来替换的文件。
 
-设本次合法有文件日期数D，初次完全无事件时，两资产各D条物化及D条check，写入上界4D；有合法已有项时精确减去其数量。自然月最多31个日历日，所以K≤31，月初空实例最多4K≤124条事件，此124是2资产×2事件×31日期推导，不是新配置或补录额度。每月apply前最新读取、写物化后的身份读取（至多4次API）和写后audit分别计入；从plan到完成的读取不能只报plan那一轮。源请求和业务文件写入均0。
+**正常、续跑及最后验收的开销。**
 
-一个非空月从首次plan到一次成功apply并完成写后audit，其最新记录读取上界由plan的5次、apply前的5次、物化写后身份的4次、最终audit的5次相加，合计19次逻辑读取；这些次数由上面的2资产及固定查询步骤推导，结果数和内部SQL另外记录。计划期间无物化或apply没有新物化时，相应fetch/身份读取减少。失败后新执行先增加本次必要的最新记录读取，不把重复启动成本藏在该19次内；跨执行最后核验文件SHA的成本也另计。
+- 业务文件内容读取、业务SHA重算、Prod/Tushare请求、业务文件/分区写入、备份/复制均为0。
+- 每次操作原批准、历史验收摘要及必要逐日统计各首次一次；所选日期Raw/Silver的intent/complete最多4份小JSON/日期，共用known_records后不重复。所选两层目标最多2D次存在性查询（D为本次日期数），只读文件属性、不打开内容。规划输出一份批准计划；执行不另存事件状态或结果副本。实际小记录字节/耗时随必要操作记录，不为测速再读一次。
+- 每个非空月规划最多5次逻辑读取；一次执行为写前5次、新物化身份最多4次、写后check最多1次，合计最多10次。规划加一次执行最多15次，由固定两资产/两check及上述步骤逐项相加；复用路径实际更少。最后汇总不再增加一轮读取。中断后新执行增加所选范围必要的当前状态读取，仍遵守相同步骤和界限，不把续跑成本算成0。
+- 对D个批准日期，全部无事件时最多新增4D条（两资产各一物化、一check）；已有有效项从上界精确扣除。每月K≤31来自自然月日历上限，不是新配置；结果量最多4K。当前完整范围D=2,393，全部缺失时最多9,572条事件，来自4×2,393；正式计划以实际缺项为准。
+- 未取得正式事件存储的批量耗时，不承诺分钟数，不乘余量系数。首次必要规划/小批的实际读取及写入耗时直接用于余量评估，不先做另一遍测量或完整审计。
 
-**必须验证的正反例。**同月多日期正常补录/全部已有零写、合法补数事件复用、空源无事件、只缺check、最新PLANNED/失败/旧绑定不找旧绿灯、同日期多次物化仍只选最新、计划后文件/summary修订停止、物化后退出重开只补check、check后报告失败不重复写、跨月中断不重放已完成月、错误run_id/timestamp及缺物化不能绑定。两条查询路径用原生临时实例验证真实存储/解码；正式只读小批确认同版本存储后，再另获事件写入批准。没有这套实现和验收，§10.6不能视为历史事件阶段已可执行。
+**测试和开工验收。**
+
+1. 用真实生产者合同构造小范围原发布记录及已验收摘要；metadata预期用现行字段和值的独立字面样本，证明原日更/历史消费者保持不变，bootstrap未伪造run/阶段。不能用新builder自身生成expected。
+2. 原生临时实例覆盖同月多日、跨月、全部缺失、全部已有、只缺check，以及最新PLANNED/失败/孤立check/旧绑定/同日多物化。核实际storage_id/run_id/timestamp，拒绝找旧成功；既有有效事件即使无本工具标签也复用。
+3. 原Raw完成记录不含当前文件系统身份的正常样本必须通过。将业务文件读取、SHA计算、bootstrap恢复检查、下载/备份入口替换为一调用即失败，证明规划、补录、读回和重开续跑均不触碰它们。缺原完成记录或目标文件、明确后续发布冲突则停，不能转入重审/恢复。
+4. 指定日期子集只读取这些日期的发布/事件记录；空月零查询；latest check查询包含PLANNED且精确限制资产/检查配对。按上述实际步骤断言读取量及批内复用，不把方法调用数等同数据库内部SQL数。
+5. 物化后中断、check后结果返回前中断、跨月重开均由原生事件确定余量，无重复写入；正常进度不要求新计划，计划外缺项/来源变更停止。只生成一份批准计划，没有额外审计/进度/成功事件副本，没有业务文件或分区写入。
+
+本小步开发完成后逐条对账并独立审查；隔离通过只证明工具实现。正式计划、事件写入及sensor启用仍是后续分别授权的步骤，不能从文档修正或开发通过推断已执行。
 
 ### 22.7 启用前核对、启用和首个正式任务
 
-启用前只读核对：本次代码版本与正式code location已装载版本相符，两资产、两check、两job及两sensor确切名称/绑定正确，60/600秒和定义tags正确；原operation物理/当前覆盖/必要历史及指定plan的events/audits引用仍有效，全部应有历史事件与当前文件匹配，无活动补数/repair/发布。已有真实来源交接及§11.1所定隔离链路最小验收继续使用，不为声称“真实验收”制造正式缺口或重写全历史。
+启用前只读核对：本次代码版本与正式code location已装载版本相符，两资产、两check、两job及两sensor确切名称/绑定正确，60/600秒和定义tags正确；原operation物理结论、§22.32历史覆盖引用和批准计划仍有效，§22.6各批写后读回已完成且缺失/冲突均0，无后续冲突发布或活动补数/repair。已有真实来源交接及§11.1所定隔离链路最小验收继续使用，不为声称“真实验收”制造正式缺口或重写全历史。
 
-跨执行已有有效文件身份/audit时同样复用；只因实际变更、必要身份事实缺失或明确冲突才核相应文件一次，按§22.8列明范围/开销并获准，不因切换阶段额外重扫全湖。启用前检查仅涉及本数据集，不顺手启停其他自动化。任一前置失败保留STOPPED并说明具体未完成项。
+复用既有文件验收及事件各批读回结果；启用前只核会变化的装载版本、运行状态及是否发生后续发布，不再次读取业务文件、补文件身份或全范围扫描事件。明确来源变更或冲突时停止并指出对象，不在启用阶段补审计。启用前检查仅涉及本数据集，不顺手启停其他自动化。任一前置失败保留STOPPED并说明具体未完成项。
 
 管理员明确批准后，运营先启用stock_factor_pro_trade_day_sensor，再启用raw_tushare_stk_factor_pro_update_job_sensor；代码定义默认状态仍STOPPED，不以改代码默认RUNNING代替instance操作。source未齐/本地晚就绪/时点不合法时的等待均为原规则，不为了启用立即触发job。正式启用不扩为Prod bootstrap或事件重写授权。
 
@@ -3749,8 +3767,8 @@ plan引用§22.5已通过的物理及覆盖事实，可以先用这些记录制�
 | 临时代表窗口 | 现有5000源批次、DuckDB配置及测试专用小样本，不调用复权历史回刷批次。按实际输入推算批次/日源/两层文件，记录中断后需重读日期和复用源/Raw的数量。临时空间只在本任务/private/tmp；已有有效恢复测试不无理由重复运行。 |
 | 正式bootstrap | 只有§10.2已有业务输入。M个月的批准计数、ceil(n_m/5000)数据批次、EOF、各事务SET及2D正式文件分别报告；来源审计查询为0；空间按现有函数同设备归并，实际来源批次/候选/audit/提升首次一次。恢复再读范围按§22.4实际未完成日期，最后复用逐日audit/小记录，不重新导出Prod全表。 |
 | 初始化补数/历史 | 每个明确T的两列预检一次，日请求及历史请求按§21.14；原T/P及覆盖输入首次准备复用，当前源/最终候选各一次。失败再运行完整失败范围的费用另计，summary无全范围业务文件读取/重新求和。 |
-| 事件计划/写入/读回 | 每月K个合法日期，最多2K物化+2K最新check结果，API/SQL及4D上界见§22.6。复用已对应当前文件的物理audit/身份/来源记录，禁止因为新执行就在全部Raw/Silver上重新SHA或查261字段；只有实际变更/缺必要身份事实/明确冲突的对象才补对应范围一次，实际字节及耗时单列。写后事件audit只核事件与既有事实，不重读全部业务文件。 |
-| 启用及首个任务 | 复用代码/文件/覆盖/事件已有有效结论，必要时只核当前会变化的状态，不请求全历史业务数据。已存在的当前文件身份不重做SHA；确有对象变更/缺失事实才列必要范围和成本。首个自然日更依原T/P及真实历史范围执行，不把Prod未变扩为Tushare无需当日源端探测。 |
+| 事件计划/写入/读回 | 业务内容读取、业务SHA、源请求、业务写入及备份均0。所选日期只读已有验收/发布小记录；每非空月规划最多5次、一次执行最多10次逻辑读取，合计最多15次；2K物化+2K check结果及4D事件上界见§22.6。批内复用物化身份，写后只读新check；最后累加批次结果，不再全范围审计，不另存事件进度或成功结果副本。续跑仅增加所选范围的必要当前事件读取。 |
+| 启用及首个任务 | 复用已有文件/覆盖验收及事件批内读回结论，启用前只核版本、活动任务、后续发布等会变化的状态，不补文件身份或重扫全部文件/事件。首个自然日更依原T/P及真实历史范围执行，不把Prod未变扩为Tushare无需当日源端探测。 |
 
 正式执行前把本次日期/月数、行数、文件数/字节、实际source超时和空间估算填回§22.4，事件阶段填D、逐月K、已有/应补/冲突及对应读写量。来源全局明细与任何必要全范围文件SHA/业务读取均遵守独立全局读取审批，不能以“只读”“计数”或拆月绕过。计数例外只返回计数，不含明细导出或内容SHA。
 
@@ -4441,8 +4459,8 @@ CodeGraph explore/callers/impact的影响面已由当前代码补齐，收尾syn
 | 顺序 | 下一步具体做什么 | 已有内容、缺项及完成条件 |
 | --- | --- | --- |
 | 1. 收尾历史覆盖验收（已完成） | 按§22.32采用DG实际普通日线代码基准，上市首日可选；2,393日、10,320,714项应有股票/日期全部覆盖，缺失/未知0。 | 代码提交e0ea60d6d；真实统计、独立核对及原operation内验收报告保存完成。原导入事实及运行合同不改，技术因子文件实际重读0、bootstrap重跑0。下一项是历史事件工具开发及隔离验收。 |
-| 2. 开发并隔离验收历史事件工具 | 按§22.6实现只读规划、事件补录和读回三个方法，复用原文件审计；将现有发布metadata的构造提成同一方法，供日更和历史补录使用。 | 当前专用stk_factor_pro_bootstrap_events.py及三个方法尚不存在，纯metadata builder也未提取；现有emit_stk_factor_pro_publications依赖真实context.run，不能直接当runless入口。先完成设计对账、代码和隔离验收；物化/check绑定、已有事件复用、中断续跑及零业务文件写入须验证。 |
-| 3. 制定并执行正式历史事件计划 | 取得有效历史覆盖收尾记录后，只读统计当前已有和待补事件，生成具体计划；另获事件写入授权，先小批读回，再按同一批准按月补余量。 | 沿§22.6的明确资产/检查/日期过滤，不深扫事件历史、不重算业务文件。已有合法事件复用；失败保留已写事件，按原生记录核余量续跑。全部物化/check及当前文件绑定读回无遗漏、无冲突后完成。 |
+| 2. 开发并隔离验收历史事件工具 | 按§22.6实现规划、补录两个操作，读回在补录批次内完成；只读已有验收/发布记录，业务文件读取和SHA重算均0；将现有发布metadata的构造提成同一方法，供日更和历史补录使用。 | 当前专用stk_factor_pro_bootstrap_events.py及两个操作尚不存在，纯metadata builder也未提取；现有emit_stk_factor_pro_publications依赖真实context.run，不能直接当runless入口。先完成设计对账、代码和隔离验收；物化/check绑定、已有事件复用、中断续跑、零业务内容读取/写入，以及无额外审计/进度副本须验证。 |
+| 3. 制定并执行正式历史事件计划 | 取得有效历史覆盖收尾记录后，只读统计当前已有和待补事件，生成具体计划；另获事件写入授权，先小批读回，再按同一批准按月补余量。 | 沿§22.6的明确资产/检查/日期过滤，不深扫事件历史、不重算业务文件；每批读回后直接汇总，不另做全范围终审。已有合法事件复用；失败保留已写事件，按原生记录核余量续跑。全部物化/check及当前文件绑定读回无遗漏、无冲突后完成。 |
 | 4. 启用并验收首个实际日更 | 按§22.7核对正式装载版本、覆盖及事件结果、无冲突活动任务；单独获准后先启用分区sensor，再启用日更sensor，跟踪首个实际任务。 | 两条定义默认STOPPED不改。源端两列代码齐备门槛、指定日期补跑和复权因子触发历史回刷均沿现行实现；历史修复只写目标日之前。尚未发生的真实复权变化分支如实保留待验证，不额外制造正式任务。 |
 
 本节11月14日初写时仅记录最终结论、修正文首过期状态并核对后续步骤；随后第1项已按§22.32完成。当前下一小步是第2项历史事件工具开发，专用工具尚未实现，不能直接补录正式历史事件或启用sensor。数据源完整性继续引用Prod既有结论；没有真实缺口，不安排Tushare补数，不恢复已取消的定时任务。
