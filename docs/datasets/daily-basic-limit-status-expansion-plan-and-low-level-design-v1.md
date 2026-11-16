@@ -2,9 +2,9 @@
 
 更新时间：2026-11-16。
 
-本次执行：管理员部署v5后，§28部署审计及APPLY19603均已成功，剩余96日处理完成。固定范围2010-01-04～2026-11-12共4,093日已全部按确认规则处理，每表累计覆盖14,493,888行；本轮每表实际补入526,690行，1,092条B股旧记录原样保留，5,573条已有完整状态跳过，无新增留空或拒绝。DG未动，结果见§28。
+Prod阶段执行记录：管理员部署v5后，§28部署审计及APPLY19603均已成功，剩余96日处理完成。固定范围2010-01-04～2026-11-12共4,093日已全部按确认规则处理，每表累计覆盖14,493,888行；当轮每表实际补入526,690行，1,092条B股旧记录原样保留，5,573条已有完整状态跳过，无新增留空或拒绝。当时DG未动，结果见§28；DG当前结果见§43。
 
-状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG第四、第五阶段开发与隔离验收均已完成，分别见§31、§34；第五阶段采用同一日期合并待完成检查的已确认简化版，原接口问题保留在§33。未执行本次正式DG切换。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
+状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG前期第四、第五阶段开发与隔离验收见§31、§34；第五阶段采用同一日期合并待完成检查的简化版，原接口问题保留在§33。按§40重新安排的四阶段现已完成阶段三：正式文件已补齐并通过物理验收，阶段四事件登记和日更恢复尚未执行。** 当前方向以§39～§43为准：Prod只补新增列；DG保留自身原18字段，仅从冻结Prod来源取新增状态，新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
@@ -12,7 +12,7 @@
 
 2026-11-15的执行前轻量统计见§35；先按管理员要求完成§36的PLAN统计输入修正，再获准按§37正式执行第二项并确认四项上限。单遍导出14,499,459行、构建4,094个候选均成功，完整audit因旧18字段差异停止；有界样本为2026-09-24、000333.SZ的股息率：旧DG4.8356、Prod候选4.8355。第二项尚未全部通过，未替换正式文件或发布事件；本族日更sensor保持STOPPED，详见§37.6～§37.7。
 
-**2026-11-16最新确认：DG正式4,094个文件仍未被替换，正式字段补齐尚未完成。管理员明确要求保留DG原有字段值，仅补收盘涨跌状态；原“全部19字段采用Prod候选并覆盖DG”的执行方向停止，旧全Prod候选不得直接提升。§39记录新要求，§40为剩余四阶段；阶段一设计、开发及隔离验收见§41，已提交62bfaaf2b。阶段二已按§42完成4,094个新候选构建、完整audit和独立复审：原18字段精确保留，新增状态与冻结来源一致；正式文件、事件均未写入，日更继续STOPPED。下一步为阶段三正式文件提升，尚未执行；阶段二通过不等于正式DG字段已补齐。**
+**2026-11-16最新结果：阶段二记录已提交13b8950fb；随后按§43完成阶段三三个文件小样及全范围提升。2010-01-04～2026-11-13全部4,094个正式文件已为19字段，逐文件SHA与通过完整audit的候选一致，原18字段精确保留，新增状态正确对应冻结来源。原全Prod旧候选未使用，原PLAN和audit未改。事件及检查记录仍未更新，日更继续STOPPED；下一步是阶段四事件登记、检查和日更恢复，不能把文件完成当作整个DG切换已完成。**
 
 ## 1. 目标、范围与已确认原则
 
@@ -2393,3 +2393,92 @@ DG旧文件在正式构建和audit期间须按§40保持维护窗口稳定；不
 结论：**§40阶段二已完成，符合§39～§42的已确认要求，未发现阻塞后续阶段的问题。** 本轮正式全范围构建与audit已执行，但正式文件提升、事件登记与日更恢复均未执行；正式DG字段扩充仍须阶段三、四完成。下一步按阶段三单独授权，先用同一audit做小样提升和读回，再完成既定范围，不能直接执行事件发布或扩大日期。
 
 本轮只修改本主文档、staging新候选/构建进度及`/private/tmp/daily-basic-phase2-gV3l2g`内执行报告/日志，没有修改Python或配置、安装依赖、提交或push。有效的原PLAN/export、年度缓存、新候选及该目录build/audit/review报告均保留，供后续正式提升与审计追溯；文档结果不替代实际audit输入文件。
+
+## 43. 阶段三执行LLD与记录：正式每日指标文件增加状态字段（2026-11-16）
+
+### 43.1 目标、授权、范围及执行前审计
+
+管理员要求先提交阶段二记录，再推进§40阶段三。阶段二文档已提交`13b8950fb`，未push；本节在任何正式文件替换前补齐具体步骤。本阶段只把§42已完整审计的新候选提升为正式Raw文件，保留DG原18字段及原有行，仅增加limit_status；范围仍为2010-01-04～2026-11-13、4,094日、14,499,459行，不扩大日期或重新构建。
+
+只复用原history CLI的promote。**不执行事件登记、检查作业、动态分区写入或日更恢复，不访问Prod/Tushare，不新建PLAN，不修改Python/配置/锁或安装依赖，不创建备份或运行Kopia。** §7.7原来交错进行文件/事件小样的步骤，按§40的阶段拆分执行：本阶段只做三个文件小样及全范围提升，三个日期的事件验证留在阶段四，不以原交错步骤扩大本次授权。
+
+执行前已复读当前`promote_daily_basic_history`和CLI：显式替换分支校验原plan/export/新build/audit关联，沿用单批次history锁、单日期锁、候选SHA、目标旧/新SHA、同文件系统复制及os.replace、逐文件checkpoint；不会重新调用全历史audit或读取业务明细，也不连接Dagster实例。锁顺序不改，不新增锁或恢复机制。相关代码与`62bfaaf2b`无差异；当前`dev-interface`，原文档提交后开始本步，不包含其他人的改动。
+
+2026-11-16 13:49（北京时间）执行前只读核验：audit仍passed且指纹关联正确；正式文件日期/大小/mtime统计与阶段二相同，仍4,094文件、772,647,909字节；promote报告不存在。挂载、正式根/staging权限及同文件系统正常，空闲2,805,547,474,944字节；候选共776,758,558字节。本族sensor为STOPPED、无活动run；实例查询事务只读on。三个样本的正式旧SHA及候选新SHA均与audit一致。其他日期的SHA不预先再扫一遍，由原promote在实际处理该文件时核对。
+
+### 43.2 固定输入、三个小样和执行命令
+
+沿用§42原PLAN及指纹`8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2`、冻结export、新build指纹`82a7fc91d0445709c7a766aaf180edd7ebd81e9649022579697f692ae3bd13d2`和audit指纹`01239c31b3f2bf9e401256037751734ac0f54d515c111c6bfc7cd4aa9af7b8da`，不改任何输入报告。audit文件固定为`/private/tmp/daily-basic-phase2-gV3l2g/audit.json`；内部进度仍写原workspace的`promote.json`。本步外部报告/日志仅写`/private/tmp/daily-basic-phase3-YDDeta`，不覆盖阶段二报告。
+
+| 样本日期 | 当前已核实的事实 | audit行数/NULL状态数 |
+| --- | --- | --- |
+| 2010-01-04 | 最早历史日，无旧检查且不在近期窗口 | 1,632 / 0 |
+| 2026-08-18 | 有旧检查，位于最近20日窗口之外 | 5,540 / 0 |
+| 2026-11-13 | 批次最后日期，有旧检查且位于最近窗口 | 5,571 / 0 |
+
+工作目录固定为`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用现有`.venv/bin/python3 -B`。下列前三条逐条执行，每个样本完成后只读核对正式SHA等于该候选、19字段schema、行数/键/日期/状态及NULL统计与audit一致，再进入下一个。三个样本均通过后，才运行第四条；完整命令如下，stdout/stderr分别保存同名log：
+
+```bash
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli promote \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint 8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2 \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json --sample-date 2010-01-04 \
+  --report /private/tmp/daily-basic-phase3-YDDeta/promote-20100104.json \
+  > /private/tmp/daily-basic-phase3-YDDeta/promote-20100104.log 2>&1
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli promote \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint 8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2 \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json --sample-date 2026-08-18 \
+  --report /private/tmp/daily-basic-phase3-YDDeta/promote-20260818.json \
+  > /private/tmp/daily-basic-phase3-YDDeta/promote-20260818.log 2>&1
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli promote \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint 8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2 \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json --sample-date 2026-11-13 \
+  --report /private/tmp/daily-basic-phase3-YDDeta/promote-20261113.json \
+  > /private/tmp/daily-basic-phase3-YDDeta/promote-20261113.log 2>&1
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli promote \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint 8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2 \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json \
+  --report /private/tmp/daily-basic-phase3-YDDeta/promote.json \
+  > /private/tmp/daily-basic-phase3-YDDeta/promote.log 2>&1
+```
+
+### 43.3 开销、失败/续跑和物理验收
+
+读取只为已批准文件提升及身份核验：每次按所选日期读取候选SHA和目标旧/新SHA；需要替换时复制候选、校验临时文件、同文件系统原子替换后再校验正式文件。全部4,094个候选只需各复制一次；完整命令重新核验已提升的3个样本但不复制它们，剩余4,091文件逐个处理。每次内部checkpoint仍重写累计files清单并fsync；三个小样各保存1次，完整循环保存4,094次，共4,097次，不能将它说成常数大小进度写入。该成本来自现有实现，本轮不改进度机制。
+
+最后另做一次正式文件SHA对账，4,094个文件总逻辑输入约776,758,558字节，逐个和audit批准的新SHA及promote记录比较；不再全量读取18字段做业务值对账。SHA核对是文件字节读取，实际物理磁盘I/O受缓存影响，不能将逻辑字节量当成实测磁盘量。另对三个样本做有界schema/计数读回，对2026-09-24、000333.SZ读回已知股息率/状态；全范围内容正确性复用阶段二完整audit和逐文件SHA相等的证据。实例只读统计本族物化/检查记录及维护状态，不执行全量逐分区readiness。
+
+仍使用原PLAN的每次后续阶段1,800秒停止值及4GiB spill上限，不抬高、不添加新限制；promote虽沿用原DuckDB连接配置，但不构建全历史业务关系。耗时没有本批实测前不填估算，不能将阶段二90.58秒套成阶段三保证。中断后已提升文件保留，使用同一PLAN、audit和promote命令续跑：目标是批准新SHA则跳过复制并补回原进度，是批准旧SHA则继续替换，其他SHA按原冲突停止；不回退已完成文件，不删候选或新建备份。续跑仍需重核所选文件及重写累计进度，最后正式SHA验收仍要计入开销。
+
+完成条件：正式文件日期集合等于PLAN，promote累计4,094项且每项旧/新SHA与audit一致，全部正式文件SHA等于批准候选SHA；由此继承阶段二已通过的19字段结构、14,499,459行、1,093个合法NULL及旧18字段精确保留结论。小样和已知差异样本读回正确；原PLAN/export/annual/旧build/新build/audit报告SHA不变、候选保留；本族事件/检查数量未增，日更继续STOPPED且无活动run。后置另做独立复核，记录实际命令耗时和物理结果；阶段四前文件已新、事件仍旧属于当前明确阶段状态，不能称为文件和检查已全部一致或恢复日更。
+
+### 43.4 三个小样、完整提升与独立物理验收结果
+
+§43.2四条promote命令按规定顺序执行，退出码均为0。每个小样提升后均先读回正式文件，确认SHA等于audit候选；19字段schema、行数、键/日期、非空状态合法性及NULL统计全部通过，才进入下一个动作。三次累计进度分别为1、2、3，无进度重置。
+
+| 动作 | 实际结果 | 命令墙钟 |
+| --- | --- | --- |
+| 2010-01-04小样 | 1,632行，NULL状态0；无旧检查的历史日期，文件读回通过 | 1.21秒 |
+| 2026-08-18小样 | 5,540行，NULL状态0；有旧检查的窗口外日期，文件读回通过 | 1.07秒 |
+| 2026-11-13小样 | 5,571行，NULL状态0；近期窗口日期，文件读回通过 | 1.03秒 |
+| 全范围promote | 从confirmed_files=3继续，最终4,094文件；原3个样本按新SHA复核，其余4,091个完成提升；无中断、冲突或超限 | 32.10秒 |
+
+四条promote命令墙钟累计35.41秒，仅表示这些命令的实际执行时间，不含执行前核验、三次样本读回和最后验收，也不是未来批次保证。最终promote指纹为`70c6aab35138db6d30fbdfb05dcc22d0f2ca51de62cc15733241cf74f9ad5500`；外部`/private/tmp/daily-basic-phase3-YDDeta/promote.json`与内部原workspace的`promote.json`完全一致、指纹有效。
+
+完成提升后另做独立只读物理验收，不调用原全历史audit、不重新读取全历史业务列：逐文件读取全部4,094个正式SHA，与audit批准的新SHA及promote每项旧/新SHA核对，**4,094项全部一致、差异0**；本次SHA核验循环实测1.1770秒，未区分缓存命中和实际磁盘读取，不能用它估算冷盘读取能力。正式日期集合与PLAN完全一致，文件总计776,758,558字节；19字段结构、14,499,459行、1,093个合法NULL及原18字段精确保留，依据是阶段二完整audit通过且所有正式字节等于相应候选，未声称本阶段又做了一遍全量业务值对账。
+
+有界读回2026-09-24、000333.SZ：正式股息率仍为DG原值4.8356，新增limit_status为1，与阶段二审计样本一致。原PLAN、冻结export、annual、旧根build、新build和audit六份报告SHA均未改变；全部候选文件保留，无残留.promote临时文件。未创建旧文件备份、修改代码或安装依赖。
+
+### 43.5 阶段三结论与尚未执行项
+
+执行后复读报告及实际文件，核对小样顺序/累计进度、正式文件范围、全部SHA、原输入身份和实例状态；这是独立于promote成功退出的后置复核，未另设审计代理。2026-11-16 13:56（北京时间）读回本族sensor仍STOPPED、无活动run，实例核验事务只读on；本族事件仍为4,094项ASSET_MATERIALIZATION、38项ASSET_MATERIALIZATION_PLANNED、1项FRESHNESS_STATE_CHANGE，检查执行表仍116条，与阶段三开始前一致。
+
+结论：**阶段三完成且符合§40～§43预期，正式每日指标Raw文件已经补齐limit_status。** 当前文件已是新内容，物化和检查仍是原记录；不能使用原绿色记录宣称新文件已经完成检查。因此本族日更继续暂停，下一步只按阶段四批准范围登记新物化、处理58个应检查日期并核对绑定身份，再恢复原日更状态。此次未执行plan-events/register/report-events/audit-events、检查作业、动态分区写入或日更恢复，也未扩大日期、重导出或改写Prod。
+
+阶段二记录已提交`13b8950fb`；本轮新增阶段三LLD和执行结果尚未提交。有效的原PLAN、阶段二audit、新候选、原workspace的promote进度和`/private/tmp/daily-basic-phase3-YDDeta`中的样本/完整promote、读回与review报告保留，供阶段四生成新鲜事件清单和后续追溯；不把这些输入当作无用临时文件删除。
