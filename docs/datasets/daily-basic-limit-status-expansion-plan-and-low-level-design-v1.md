@@ -12,7 +12,7 @@
 
 2026-11-15的执行前轻量统计见§35；先按管理员要求完成§36的PLAN统计输入修正，再获准按§37正式执行第二项并确认四项上限。单遍导出14,499,459行、构建4,094个候选均成功，完整audit因旧18字段差异停止；有界样本为2026-09-24、000333.SZ的股息率：旧DG4.8356、Prod候选4.8355。第二项尚未全部通过，未替换正式文件或发布事件；本族日更sensor保持STOPPED，详见§37.6～§37.7。
 
-**2026-11-16最新确认：DG正式4,094个文件均仍为18字段，正式补齐尚未完成。管理员明确要求保留DG原有字段值，仅补收盘涨跌状态；原“全部19字段采用Prod候选并覆盖DG”的执行方向停止，既有全量Prod候选不得直接提升。§39记录正式状态和新要求，§40为剩余四阶段；阶段一设计、最小开发及隔离验收已完成，代码级LLD与开发后复审见§41。旧数值以哪边为准或设置容差的问题已结束，不再等待此项选择；正式构建、提升和事件发布仍分别按后续阶段执行，本轮没有进行正式数据写入。**
+**2026-11-16最新确认：DG正式4,094个文件仍未被替换，正式字段补齐尚未完成。管理员明确要求保留DG原有字段值，仅补收盘涨跌状态；原“全部19字段采用Prod候选并覆盖DG”的执行方向停止，旧全Prod候选不得直接提升。§39记录新要求，§40为剩余四阶段；阶段一设计、开发及隔离验收见§41，已提交62bfaaf2b。阶段二已按§42完成4,094个新候选构建、完整audit和独立复审：原18字段精确保留，新增状态与冻结来源一致；正式文件、事件均未写入，日更继续STOPPED。下一步为阶段三正式文件提升，尚未执行；阶段二通过不等于正式DG字段已补齐。**
 
 ## 1. 目标、范围与已确认原则
 
@@ -2318,3 +2318,78 @@ DG旧文件在正式构建和audit期间须按§40保持维护窗口稳定；不
 使用CodeGraph做编码前入口/影响分析；开发后执行根索引sync/status，并以query核对新路径函数、impact核对`_history_evidence → plan_daily_basic_events → apply_daily_basic_events`，再手工检查CLI、coverage、检查及readiness真实消费者。影响限于本次每日指标显式字段扩充；正式输入当前是否稳定、日期/挂载和维护状态在阶段二核实，本阶段隔离验收不替代它们。
 
 结论：**阶段一符合§39～§41的已确认要求，未发现阻塞下一阶段的代码或设计问题。** 下一步是§40阶段二：在原批准日期范围和维护窗口内构建新候选并正式audit；本轮没有执行该步，没有替换正式文件或登记事件，也不能把222例隔离回归记作DG正式字段已补齐。
+
+## 42. 阶段二执行LLD与记录：构建保留DG旧值的新候选（2026-11-16）
+
+### 42.1 目标、授权与执行前审计
+
+管理员在阶段一提交和推进条件审计后，明确要求严格按LLD推进阶段二。本步直接复用§40～§41及已提交`62bfaaf2b`，只运行原history CLI的build和audit，不开发新入口。本段在正式构建前补齐本轮执行细节；阶段二的全范围读取已在前次交付中说明，管理员据此批准执行。
+
+范围固定为2010-01-04～2026-11-13、4,094日、17年度、冻结来源14,499,459行。完整读取范围为DG这些日期的原18字段、冻结来源的代码/日期/状态三列及候选；这是构建和完整对账所需，不把一般只读授权用于额外扫库。文件SHA核验仍读取相应文件字节。**不访问Prod或Tushare，不扩大终点，不使用Prod旧数值覆盖DG，不替换正式文件，不写物化/检查事件或动态分区，不恢复日更。** 本轮不改Python、配置、依赖或任务调度。
+
+执行前已阅读当前CLI、build/audit和正式instance工厂：新目录选择、来源投影、精确比较与§41一致，CLI的audit只用`daily_basic_event_instance(writable=false)`，强制只读并禁自动建表。当前仍为`dev-interface`；本次相关代码与`62bfaaf2b`无差异，未提交其他人的改动。
+
+2026-11-16 13:31（北京时间）轻量核验：挂载及staging写权限正常、正式根与staging同文件系统；空闲2,816,081,866,752字节；正式4,094文件、772,647,909字节，日期集合与PLAN一致。原PLAN/导出报告通过指纹校验并正确关联，1,450个chunk和17份年度来源文件存在，原缓存指向同一export。`_validate_plan`只读验证通过；新`field_expansion`及promote报告均不存在。现有正式instance事务只读为on，本族sensor为STOPPED、无活动run；本轮不改变这些状态。
+
+### 42.2 输入、输出与完整命令
+
+原PLAN固定为`/private/tmp/daily-basic-execution-El0Pug/plan.json`，fingerprint为`8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2`；冻结export指纹为`88c57a0f587f7f56ab19903ba2dd319eaa573f6747046fe1af0296891dee39a2`。不生成新PLAN、不重新导出、不改这些指纹。
+
+构建目录为`/Volumes/datasource/data_lake_staging/daily_basic_history/limit_status_20100104_20261113_20261115/field_expansion/`；来源chunk和annual仍在原workspace。外部报告和日志单独保存到`/private/tmp/daily-basic-phase2-gV3l2g`，不覆盖§37的原build报告或旧全Prod候选。audit读取的instance固定为`/Users/congming/.goldenshare/dagster_home`对应正式本机PostgreSQL；不启动网页或服务。工作目录固定为`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用现有项目解释器，不加载根.env、不安装依赖。
+
+以下命令分别顺序执行，仅当前一步成功才继续；不执行plan/export/promote或任何事件阶段：
+
+```bash
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u \
+  -m orchestrator.defs.bootstrap.daily_basic_history_cli build \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --fingerprint 8c83cd0c61cd2783a8a32c7dad155bda34e0985bf7c381ca0260c418335078a2 \
+  --report /private/tmp/daily-basic-phase2-gV3l2g/build.json \
+  > /private/tmp/daily-basic-phase2-gV3l2g/build.log 2>&1
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u \
+  -m orchestrator.defs.bootstrap.daily_basic_history_cli audit \
+  --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --report /private/tmp/daily-basic-phase2-gV3l2g/audit.json \
+  > /private/tmp/daily-basic-phase2-gV3l2g/audit.log 2>&1
+```
+
+### 42.3 失败、续跑、开销及完成条件
+
+沿用原PLAN四项上限：最多15,000,000源行、源阶段10,800秒、各后续阶段1,800秒、构建spill最多4,294,967,296字节；本轮不重新执行源阶段，这些是管理员原执行决定，不能当作实测耗时或内存保证。DuckDB仍16GB/4线程，audit禁spill；不新增测量门禁。构建按年度复用缓存、比键并连接生成4,094个候选；audit装入冻结三列临时表，按年度比较状态、核验候选统计，逐日期精确比较原18字段并冻结旧文件/事件身份。事件身份按原500日期批次读取，不逐日期深扫readiness、不执行检查作业。
+
+构建失败或取消保留已完成年度，复用同一PLAN和新目录checkpoint，以同一build命令继续；只重做未提交年度，不重导出、不删除旧候选。audit失败保留候选并报告原因，不伪造通过报告、不提升文件；中断后按原规则重新audit，额外开销为本地冻结来源/缓存重核及audit内容读取，不追加Prod请求。维护状态始终保持，不能在混合结构或未正式切换时恢复日更。独立复审复用已通过的完整audit及报告指纹，不再全历史重做内容对账。
+
+完成须有新的build及`passed=true`的audit，指纹正确关联；4,094日期、14,499,459行、1,093个合法NULL与冻结来源一致，19字段schema、主键/日期/状态、旧18字段精确比较均通过；audit的old_sha256、旧事件身份和逐字段来源说明齐全。独立复审核对报告/候选集合及少量有界样本，并比较前后正式文件日期/大小/mtime统计、原输入报告SHA及本族事件计数，证明本阶段未进入正式提升或事件发布。样本仅取2026-09-24、000333.SZ：候选旧股息率须保留DG4.8356，状态须等于年度冻结来源的三列投影，不再读取Prod旧数值。结果回填本节；输入和成功audit是后续阶段依据，须保留，不清理为临时废物。
+
+### 42.4 正式构建与完整audit结果
+
+两条§42.2命令依次执行成功、退出码均为0，无中断、续跑、拒绝或超限；未执行其他CLI阶段。
+
+| 项目 | 本批实际结果 |
+| --- | --- |
+| 新build指纹 | `82a7fc91d0445709c7a766aaf180edd7ebd81e9649022579697f692ae3bd13d2` |
+| 新audit指纹 | `01239c31b3f2bf9e401256037751734ac0f54d515c111c6bfc7cd4aa9af7b8da`，`passed=true` |
+| 候选范围 | 2010-01-04～2026-11-13，共17年度、4,094日期/文件，实际路径集合等于新build清单，无日期增减 |
+| 候选行数与NULL | 14,499,459行，`limit_status`合法NULL共1,093；build、audit和原冻结export一致 |
+| 文件结构与内容 | 全部候选完整19字段名称/顺序/类型通过；键、日期、分区、状态合法性及NULL统计通过；原18字段与DG精确双向比较通过，代码/日期/状态与冻结来源精确双向比较通过 |
+| 构建墙钟 | `/usr/bin/time -p`实际21.56秒；完整17年度均提交新目录checkpoint |
+| audit耗时 | 命令墙钟69.02秒；audit函数报告67.0506秒，范围不同，不能混为同一测量；两条命令墙钟累计90.58秒，不含前后核验与人工处理间隔，不作为其他批次耗时保证 |
+| 候选体积 | 776,758,558字节，由4,094个候选文件stat累计；不是峰值内存、spill或整个staging占用，未新增这些峰值测量 |
+| 旧文件及事件身份 | audit保存4,094个old_sha256、4,094个旧物化storage id、116个旧检查event id；按原规则需后续检查的日期并集为58日。本阶段仅冻结身份，没有新物化或检查写入 |
+| 字段来源 | audit的field_sources覆盖19列：原18列data_lake，新增limit_status为prod_raw_db；实际业务SQL未使用Prod旧16个数值列 |
+
+新build外部报告与`field_expansion/build.json`内容和指纹一致，audit正确引用原PLAN、原export及新build。旧根目录全Prod的build和候选未被当作完成进度，也没有被覆盖或删除。§37的旧完整audit失败记录继续保留；本节通过的是按新口径重新构建的候选，不改写旧结果。
+
+### 42.5 执行后独立复审与阶段结论
+
+完整audit结束后另做一遍只读复核，没有再次全历史比较业务字段，也没有把CLI退出成功作为唯一依据。本次仍为同一执行者在执行后的独立步骤复审，未使用外部审计代理。
+
+1. **报告、候选及来源正确关联。** 原PLAN/export及新build/audit报告指纹校验通过；候选实际文件集合、build/audit清单、日期、行数和NULL统计一致，所有日期具备旧SHA，字段来源映射完整。原PLAN、export、annual和旧根build四份输入报告的文件SHA与执行前完全一致；未重新导出或重新生成PLAN。
+2. **实际旧差异已按要求保留。** 有界样本2026-09-24、000333.SZ：DG原股息率4.8356，候选仍4.8356，新增状态为INTEGER值1；状态三列与2026年度冻结来源的同一主键一致。原正式样本仍18列，候选为19列，类型符合原合同。这个样本说明已知问题按保留DG值解决；其他日期的完整内容结论来自已完成的全范围audit，不能由单样本推出。
+3. **正式文件与事件未被本阶段更改。** 前后正式文件日期、大小、mtime统计指纹均为`f1e656f783cdfd222454f11cf4dd9046483decaf154e38c92cfcfdfc4d5d8fd2`，仍4,094文件、772,647,909字节；promote报告仍不存在。本族事件计数前后均为4,094项ASSET_MATERIALIZATION、38项ASSET_MATERIALIZATION_PLANNED及1项FRESHNESS_STATE_CHANGE；检查执行表前后均116条。事件计数与检查表分别核对，未将物化计数误当成检查计数。完整audit通过只读instance完成，没有执行检查作业、注册分区或写入正式事件。
+4. **维护与后续边界保持。** 2026-11-16 13:37（北京时间）读回实例事务仍只读on，本族sensor仍STOPPED、无活动run。本轮未启停服务或sensor，未更改cursor，不因候选和audit完成恢复日更。源文件SHA已在build/audit原流程核验；独立复审只复用该证据、核对报告及必要样本，不增加一次全历史重扫。
+
+结论：**§40阶段二已完成，符合§39～§42的已确认要求，未发现阻塞后续阶段的问题。** 本轮正式全范围构建与audit已执行，但正式文件提升、事件登记与日更恢复均未执行；正式DG字段扩充仍须阶段三、四完成。下一步按阶段三单独授权，先用同一audit做小样提升和读回，再完成既定范围，不能直接执行事件发布或扩大日期。
+
+本轮只修改本主文档、staging新候选/构建进度及`/private/tmp/daily-basic-phase2-gV3l2g`内执行报告/日志，没有修改Python或配置、安装依赖、提交或push。有效的原PLAN/export、年度缓存、新候选及该目录build/audit/review报告均保留，供后续正式提升与审计追溯；文档结果不替代实际audit输入文件。
