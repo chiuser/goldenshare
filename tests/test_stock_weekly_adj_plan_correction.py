@@ -435,123 +435,23 @@ def test_later_trading_day_outside_cutoff_is_ignored(db):
         assert load_weekly_factor_targets(s, [CODE], WEEK)[CODE] == (WEEK, Decimal("2"))
 
 
-def test_cli_readonly_audit_atomic_file_and_explicit_apply(db, monkeypatch, tmp_path):
-    import json
-    from src.cli_parts.ingestion_handlers import run_weekly_adj_plan_correction
-    from src.ops.models.ops.task_run import TaskRun
-    from src.foundation.ingestion.source_client import DatasetSourceClient
-    from sqlalchemy import event
 
-    definition, req, _, approved, _ = broken_batch(db, monkeypatch)
-
-    # This isolated SQLite DB has no Ops schema until the real producer model is attached.
-    @event.listens_for(db, "connect")
-    def attach_ops(conn, record):
-        conn.execute(f"ATTACH DATABASE '{tmp_path}/ops.db' AS ops")
-
-    db.dispose()
-    TaskRun.__table__.create(db)
-    with Session(db) as s:
-        s.add(
-            TaskRun(
-                id=17596,
-                task_type="dataset_action",
-                resource_key=definition.dataset_key,
-                action="maintain",
-                title="test weekly",
-                trigger_source="scheduled",
-                status="failed",
-                requested_at=datetime(2026, 10, 10, tzinfo=UTC),
-                request_payload_json={"execution_context": req.execution_context},
-            )
-        )
-        s.commit()
-    monkeypatch.setattr(
-        "src.foundation.datasets.registry.get_dataset_definition", lambda _: definition
-    )
-    expected = evidence(definition)
-    # Only the external source is replaced. Builder, capture, normalize, DB audit are real.
-    monkeypatch.setattr(
-        DatasetSourceClient,
-        "iter_weekly_adj_pages",
-        staticmethod(
-            fake_pages(
-                lambda u: [
-                    dict(r)
-                    for r in expected["rows"]
-                    if r["trade_date"] == u.request_params["trade_date"]
-                ]
-            )
-        ),
-    )
-    statements = []
-
-    def track(conn, cursor, statement, parameters, context, many):
-        statements.append(statement.lstrip().split()[0].upper())
-
-    event.listen(db, "before_cursor_execute", track)
-    output = tmp_path / "approval.json"
-    try:
-        plan = run_weekly_adj_plan_correction(
-            session_local=lambda: Session(db),
-            task_run_id=17596,
-            output=output,
-            echo_fn=lambda _: None,
-        )
-        assert output.is_file() and json.loads(output.read_text()) == plan
-        assert not {"INSERT", "UPDATE", "DELETE"}.intersection(statements)
-    finally:
-        event.remove(db, "before_cursor_execute", track)
-    assert plan["changes"][0]["new_factor_target"] == "2.00000000"
-    with pytest.raises(WeeklyAdjContractError, match="显式apply"):
-        run_weekly_adj_plan_correction(
-            session_local=lambda: pytest.fail("should not connect"),
-            task_run_id=17596,
-            output=output,
-            approved_plan=output,
-        )
-    revision = run_weekly_adj_plan_correction(
-        session_local=lambda: Session(db),
-        task_run_id=17596,
-        apply=True,
-        approved_plan=output,
-        expected_digest=digest(plan),
-        approval_ref="CLI-reviewed",
-        echo_fn=lambda _: None,
-    )
-    assert isinstance(revision, int)
-    with Session(db) as s:
-        assert s.get(TaskRun, 17596).status == "failed"
-        assert (
-            len(
-                receipt_headers(
-                    s, plan["batch_id"], definition.planning.weekly_adj_policy
-                )
-            )
-            == 1
-        )
-
-
-def test_cli_entry_keeps_default_readonly(monkeypatch, tmp_path):
+def test_retired_weekly_correction_command_is_not_executable():
     from typer.testing import CliRunner
     import src.cli as cli
+    from src.cli_parts import ingestion_handlers
 
-    calls = []
-    monkeypatch.setattr(
-        cli, "_run_weekly_adj_plan_correction_impl", lambda **kw: calls.append(kw)
-    )
-    result = CliRunner().invoke(
-        cli.app,
-        [
-            "weekly-adj-plan-correction",
-            "--task-run-id",
-            "17596",
-            "--output",
-            str(tmp_path / "audit.json"),
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert calls[0]["apply"] is False and calls[0]["task_run_id"] == 17596
+    runner = CliRunner()
+    help_result = runner.invoke(cli.app, ["--help"])
+    assert help_result.exit_code == 0
+    assert "weekly-adj-plan-correction" not in help_result.output
+    result = runner.invoke(cli.app, ["weekly-adj-plan-correction", "--task-run-id", "17596"])
+    assert result.exit_code != 0 and "No such command" in result.output
+    assert not hasattr(ingestion_handlers, "run_weekly_adj_plan_correction")
+    resources = runner.invoke(cli.app, ["list-resources"])
+    assert resources.exit_code == 0
+    assert "stk_period_bar_adj_week" in resources.output
+    assert "stk_period_bar_adj_month" in resources.output
 
 
 @pytest.mark.parametrize("value", ["0", "-1"])

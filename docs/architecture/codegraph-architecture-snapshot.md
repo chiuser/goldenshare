@@ -18,6 +18,8 @@
 
 2026-11-16 Prod股票复权周/月线阶段2源码：两条Definition启用共同`stock_period_adj_policy`；`DatasetActionRequest`增加处理用途及独立业务交易日输入，resolver归一化D→P。原Ops探针/TaskRun/OperationsWorker进入Foundation的planning→capture→delivery，逐单元同事务提交Raw、整行选择后的Serving及业务完成事实；Ops观察使用独立连接。人工Serving发布也从Raw候选重选并共用本频事务锁。Quote继续直接读唯一周期Serving；周期日期审计和freshness按自然周期归属，当期完成日另从业务事实显示。CodeGraph search/impact（DatasetActionRequest、builder、freshness）及sync/status与直接源码核对入口、跨层方向和消费者；没有Foundation反向依赖，也没有新worker/服务。阶段2PG18及接口/浏览器验收证据、管理员忽略16/18差异且不重复测试的决定见[原LLD13.28](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#1328-阶段2开发与独立复核记录)；生产未切换。阶段3已扩展同一具名合同：人工股票历史、准确撤回及组合维护使用无日期和明确范围；自动历史按相邻交易日复权因子，在原业务表分别保存草稿、同事务冻结两份分频计划，之后独立执行和恢复。原自动任务绑定当期/历史两个从属Probe，按用途和业务日防重；新增source历史参数仍只在request builder生成，纯撤回不下载。验收及独立审计见[原LLD13.29](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#1329-阶段3开发约束与验收记录)，未新增表、worker或服务，未改变依赖方向。
 
+2026-11-16阶段4清退旧`weekly-adj-plan-correction`命令及其CLI包装/实现，原周线更正事实、DAO和历史恢复合同保留；新合同使用原维护API和OperationsWorker。失联任务收尾覆盖本功能生成计划期间的现有节点键、冻结合同及进度记录，使TaskRun和活动节点同步终态。正式API→真实客户端/分页→隔离PostgreSQL→Quote的串联、取消/真实进程退出/续跑和双Probe验收见[原LLD13.30](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#1330-阶段4串联验收设计与记录)。CodeGraph callers/impact/explore及sync/status与直接引用补核CLI、调度、Foundation和Quote；无依赖方向变化，生产切换仍未执行。
+
 ### 独立产品域：`qtf/`
 
 QTF 已进入受控 Python 包发现；只依赖自身与 Foundation，由 App 装配，Ops 不导入 QTF。当前入口：

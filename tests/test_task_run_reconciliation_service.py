@@ -60,6 +60,28 @@ def build_task_run(**overrides) -> TaskRun:  # type: ignore[no-untyped-def]
     return TaskRun(**values)
 
 
+@pytest.mark.parametrize('marker',['task_progress','node_progress','frozen_contract','planning_node'])
+@pytest.mark.parametrize('stale',[False,True])
+def test_stock_period_reconciliation_closes_active_node_only_after_timeout(db_session,marker,stale):
+    now=datetime(2026,11,16,12,tzinfo=timezone.utc)
+    # Existing ten-minute boundary; exactly at it remains healthy.
+    activity=now-timedelta(minutes=10,seconds=1 if stale else 0)
+    task=build_task_run(resource_key='stk_period_bar_adj_month',started_at=activity,updated_at=activity)
+    if marker=='task_progress': task.ingestion_diagnostics_json={'stock_period_adj':{'unit_done':1}}
+    if marker=='frozen_contract': task.request_payload_json={'execution_context':{'contract_kind':'stock_period_adj/v1'}}
+    db_session.add(task); db_session.flush()
+    node=TaskRunNode(task_run_id=task.id,node_key='period',node_type='dataset_plan',sequence_no=1,
+        title='复权月线',status='running',time_input_json={},context_json={},started_at=activity)
+    if marker=='planning_node': node.node_key=f'stock_period_adj:{task.id}'
+    if marker=='node_progress': node.ingestion_diagnostics_json={'stock_period_adj':{'unit_done':1}}
+    db_session.add(node); db_session.flush(); task.current_node_id=node.id; db_session.commit()
+    result=OperationsTaskRunReconciliationService().reconcile_stale_task_runs(db_session,now=now)
+    assert task.status==node.status==('failed' if stale else 'running')
+    assert len(result)==int(stale)
+    assert (node.ended_at is not None)==stale
+    if stale: assert node.issue_id==task.primary_issue_id
+
+
 def test_preview_stale_task_runs_returns_only_stale_open_items(db_session: Session) -> None:
     now = datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc)
 

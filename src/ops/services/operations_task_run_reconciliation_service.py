@@ -122,10 +122,13 @@ class OperationsTaskRunReconciliationService:
             if task_run.current_node_id is not None:
                 node = session.get(TaskRunNode, task_run.current_node_id)
                 if node is not None and node.task_run_id == task_run.id and node.status == "running" and (
-                    {"index_period_raw", "index_period_serving"}.intersection(
+                    {"index_period_raw", "index_period_serving", "stock_period_adj"}.intersection(
                         (task_run.ingestion_diagnostics_json or {}),
                     )
                     or "index_period_raw" in (node.ingestion_diagnostics_json or {})
+                    or "stock_period_adj" in (node.ingestion_diagnostics_json or {})
+                    or node.node_key == f"stock_period_adj:{task_run.id}"
+                    or ((task_run.request_payload_json or {}).get("execution_context") or {}).get("contract_kind") == "stock_period_adj/v1"
                 ):
                     node.status = "failed"
                     node.issue_id = issue.id

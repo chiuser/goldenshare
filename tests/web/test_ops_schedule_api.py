@@ -2736,11 +2736,16 @@ def test_stock_adjusted_period_schedule_fixed_probe_and_pause(app_client,user_fa
     created=response.json(); config=created['probe_config']
     assert (config['window_start'],config['window_end'],config['probe_interval_seconds'],config['max_triggers_per_day'])==('20:00','00:00',60,1)
     rules=app_client.get(f"/api/v1/ops/probes?schedule_id={created['id']}",headers=headers).json()['items']
-    assert len(rules)==1 and rules[0]['source_key']=='tushare'
-    assert rules[0]['on_success_action_json']['action_key']==body['target_key']
+    expected_conditions={'stock_period_adj_current_ready','stock_period_adj_factor_history_ready'}
+    assert len(rules)==2 and {r['probe_condition_json']['type'] for r in rules}==expected_conditions
+    assert all(r['source_key']=='tushare' and r['on_success_action_json']['action_key']==body['target_key'] for r in rules)
+    assert all((r['window_start'],r['window_end'],r['probe_interval_seconds'],r['max_triggers_per_day'])==('20:00','00:00',60,1) for r in rules)
     assert app_client.post(f"/api/v1/ops/schedules/{created['id']}/pause",headers=headers).status_code==200
     rules=app_client.get(f"/api/v1/ops/probes?schedule_id={created['id']}",headers=headers).json()['items']
-    assert all(rule['status']=='paused' for rule in rules)
+    assert rules==[]
+    assert app_client.post(f"/api/v1/ops/schedules/{created['id']}/resume",headers=headers).status_code==200
+    restored=app_client.get(f"/api/v1/ops/probes?schedule_id={created['id']}",headers=headers).json()['items']
+    assert len(restored)==2 and {r['probe_condition_json']['type'] for r in restored}==expected_conditions
     for bad in [{'params_json':{'time_input':{'mode':'point','business_date':'2026-11-13'}}},
                 {'params_json':{'time_input':{'mode':'point'},'filters':{'ts_code':'000001.SZ'}}},
                 {'probe_config':{'condition_kind':'stock_period_adj_current_ready','window_end':'17:00'}}]:
