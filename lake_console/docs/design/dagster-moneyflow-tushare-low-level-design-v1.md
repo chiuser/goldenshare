@@ -1,5 +1,7 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
+> 2026-11-16第一步准备完成：11月4、5、6、9日正式补数的执行、继续和验收已补齐，数据、代码及上游准备通过，见[第82.31节](#moneyflow-ths-four-day-recovery)。本机DG当前停止，下一步须恢复现有整套服务；daemon恢复后会继续评估原保存RUNNING的125个sensor及2个schedule，不能当成只重载同花顺。本步未启动服务或提交任务，四日尚未补好；以下运行和发布状态保留各自时间边界。
+
 > 2026-11-16新增确认及开发完成：同花顺个股资金流向按目标日沪深A股范围忽略多余股票，不因多余代码整日失败；Sensor、Raw和两轮稳定性统一处理，见[第82.30节](#moneyflow-ths-extra-code-filter)。已先改文档，再完成开发、930项测试及独立审计，本轮改动随本次提交归档，未推送；本轮未执行正式重载或四日补数。第82.29节的失败记录保持，此前“仅过滤明确未上市股票、其它额外代码继续失败”的建议已被本次决定替代。
 
 > 2026-11-16收尾进展：原七个资金流数据集P5三日自动功能验收及现行运行说明已完成，见[第74.9节](#moneyflow-p5-closeout-20261116)。另行执行的此前历史业务缺口补数中，11月11～13日Raw及自动Silver已成功，11月4、5、6、9日当时因来源多出未上市股票而失败；部分日期仍有缺码/NULL，不宣告历史数据全部补齐。失败及补数记录见[第82.29节](#moneyflow-ths-history-backfill-20261116)，后续确认的新规则及开发结果见第82.30节。24项仅为历史内存峰值未记录，与业务数据缺口无关；以下11月15日及更早状态保留为历史。
@@ -7439,3 +7441,134 @@ Start的selector固定repositoryLocationName=orchestrator、repositoryName=__rep
 **退出及范围。**本步开发与隔离验收完成，独立审计未发现剩余阻断。原文档完整性三组、13个变更Python默认Ruff、全src/tests致命规则和限定差异检查通过；CodeGraph explore/impact覆盖builder、预检/合并、共享校验和历史消费者，sync/status确认仓库索引最新。影响局限DG，未改变Prod、Web/API或前端依赖，无需人工补认接口边界。14个Python/JSON文件按orchestrator相对路径排序，将路径＋制表符＋SHA256＋换行拼接后取摘要为86fc6cb6af650338eb9c4377244f7841aaf7e9b1f276f5d77e8d8fd88b9acb12；原两个文档及其它线程既有改动分别保留。结果随本次提交归档，未推送；未执行正式代码重载、启停、job/sensor、分区/cursor/事件或正式Lake写入；11月4、5、6、9日依旧尚未正式重跑。本次/tmp产物及从本轮治理日志确认归属的15个临时目录在有效结果回填后清理，不触碰其它线程或原失败staging。
 
 最终收尾：14个实现/测试/夹具文件摘要与上述值一致，930项最新结果无剩余失败；限定Ruff、文档完整性及空白检查通过。已实际删除本任务临时目录和从本轮日志逐一确认的15个治理临时目录，清理2.062162秒。原正式数据、失败staging、运行中的DG和其它线程文件均保留，暂存区为空，开发结果随本次提交归档，未推送。
+
+<a id="moneyflow-ths-four-day-recovery"></a>
+
+### 82.31 同花顺个股资金流向四日补数正式执行说明（2026-11-16，第一步准备完成，尚未正式执行）
+
+#### 82.31.1 本次目标、授权和当前结论
+
+管理员本轮只要求执行下一步计划中的第一步：补齐四日正式执行说明，审计DG运行状态、待加载代码和上游依赖，然后汇报。本轮只读审计与文档修改，不启动/停止/重载服务，不提交job、执行sensor/check、注册分区、写cursor/event或正式Lake，不访问Tushare。以下第2～4步为后续具体执行依据，须按相应阶段明确授权推进，不能因本节写完整便执行。
+
+目标只有2026-11-04、11-05、11-06、11-09同花顺个股资金流向moneyflow_ths的原Raw及自动Silver，正常共4个原Raw人工提交、4个自动Silver，最多新增8份正式文件。不重采11月10～13日，不改变其它数据集、源接口13字段、原20点/小于25/NULL和旧值保护/600秒接续/人工失败处理/成功分页清理；多余股票按已提交64822ee77、第82.30节忽略。原7日批次4个失败run及42次来源请求保留，不将新的4日重跑当旧目录续传。
+
+**第一步结论。**数据、代码和依赖准备通过，但实际DG webserver、daemon、code server均已停止，3000端口无监听。故后续第2步应为“恢复现有整套DG并核实加载”，当前不能只发reload。PG持久状态有125个sensor和2个schedule为RUNNING、另9个sensor为STOPPED；恢复daemon会恢复这些原自动化评估，并可能产生其它数据集任务。本次第一步授权不包含这一整套服务恢复，也不允许为只跑本数据集而擅自停用其它自动化、建新实例或绕过原队列。
+
+#### 82.31.2 正式起点及上游核对
+
+2026-11-16 10:45～11:09（上海时间）只读固定DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home、goldenshare_dagster。QueuedRunCoordinator、concurrency.runs.max_concurrent_runs=1及pool run粒度保持；两次活动任务统计均0。四日已登记在cn_a_moneyflow_ths_trade_days，无需新增分区；最新Raw仍是第82.29节的33d40b8d、b4e53285、9f389b59、d4fdf424四个FAILURE，四日没有Silver运行，两层8个目标文件均不存在。此处短ID仅便于阅读，完整ID沿第82.29节，不据短ID提交操作。
+
+SSE交易日历逐日各一条且均is_open=true。当前silver_stock_lifecycle最新物化8056736，来自92dea638-0b26-45a6-878c-a1e877fae5da，上海11月13日，满足四个目标日新鲜度；5,923行/10字段。四日silver_stock_suspend_daily分别8、7、7、6行/4字段，物化7873555、7898336、7922953、7964257。五组共15项最新检查均SUCCEEDED/passed/blocking，storage_id/run_id/timestamp完整绑定各自最新物化；对应文件存在、字段/类型与当前asset_column_schemas一致、行数与原物化一致。没有重新执行这些检查，不以只有文件存在或数量相同替代原检查。
+
+同一个moneyflow_ths_universe_sql只做目标日计数，未返回全市场代码明细：
+
+| 目标交易日 | 应交易沪深A股数 | 合法全日停牌数 | 当前目标状态 |
+| --- | ---: | ---: | --- |
+| 2026-11-04 | 5218 | 6 | 已登记；Raw/Silver均缺文件 |
+| 2026-11-05 | 5217 | 7 | 已登记；Raw/Silver均缺文件 |
+| 2026-11-06 | 5218 | 6 | 已登记；Raw/Silver均缺文件 |
+| 2026-11-09 | 5218 | 6 | 已登记；Raw/Silver均缺文件 |
+
+生命周期/最终停牌取目标日含义，上市日包含、退市日排除；实际完整Raw仍执行原上游就绪及集合读取，本步不替代任务自身输入验证。旧失败run的4份小收据仍raw_candidate_ready，8份完整来源Parquet共2,675,670字节，逐份SHA与各自原receipt一致；仅核必要来源身份，不再次全字段比较或请求源。旧诊断缺码1/0/0/0、额外股票均688827.SH沿第82.29节引用，新正式结果仍以实际新请求为准。
+
+两个正式根/Volumes/datasource/data_lake与/Volumes/datasource/data_lake_staging同设备16777244，可用空间实测2,816,235,188,224字节，高于原64GiB门槛。本机权限核对均可写，未创建写探针；受限只读进程曾返回os.access=false，不能据此判断磁盘只读，已用本机只读权限核实。正式数据仍限原raw/silver，staging仍在原根，不能使用旧湖、备份或Kopia。
+
+四个THS sensor均保存RUNNING，两个成功事件游标为合法RunStatusSensorCursor；原登记/Raw为原schema_version=1。末次只读复核四状态和游标摘要与初审一致，本步未写入。后续不清空/覆盖游标，允许daemon正常推进，不能把正常推进误当本步篡改。
+
+| sensor | 保存状态 | cursor字节 | 本次只读SHA256 |
+| --- | --- | ---: | --- |
+| cn_a_moneyflow_ths_trade_day_sensor | RUNNING | 776 | a94ae813f985e6d9922559b153227a00264bbf4fb34a0601809a4b493c4934cc |
+| raw_tushare_moneyflow_ths_page_cleanup_sensor | RUNNING | 142 | 97e12f19842da5c64b623bc70ec65ef77948677c3c0e257e8342f95506412966 |
+| raw_tushare_moneyflow_ths_update_job_sensor | RUNNING | 1150 | d243c7ecc3d392f97a2a8f36ab9328090664d7e1466f492e2f64bcce570cad23 |
+| silver_moneyflow_ths_update_job_sensor | RUNNING | 142 | 97e12f19842da5c64b623bc70ec65ef77948677c3c0e257e8342f95506412966 |
+
+#### 82.31.3 本次待加载代码范围和证据
+
+64822ee77的8个实现、5个测试和1个缓存样本共14文件与提交逐字节一致，组合SHA仍86fc6cb6af650338eb9c4377244f7841aaf7e9b1f276f5d77e8d8fd88b9acb12；第82.30.1节930项及独立审计适用，本轮未重跑。CodeGraph explore及实际调用核对确认股票技术因子专业版的新上游读取只由该数据集sensor/assets调用，不进入THS采集/比较链。
+
+相对上次阶段6归档c210c18f3，当前HEAD生产差异10份：本次8份与ab3019634的股票周/月线原日补跑2份。后两份只将源日期等于原日改为不得早于原日，并传已有expected_dates/上海实际执行日上限；其原LLD第13.10节有63项及其余周月线最终501项适用回归记录，不把这些历史结果说成本轮新跑。未修改周月线代码或执行其任务。
+
+初审另有11份已存在的未提交源码，本次不并入、不撤销：6份其它资金流sensor只有description变化、catalog完整AST与HEAD一致；4份逻辑是股票技术因子专业版专属，具体如下。bootstrap三份沿其原LLD第22.24～22.26节已验收的超时/续跑窗口处理；readiness沿第22.35节修复Raw上游检查无分区的真实合同，对应原94项及受保护Definitions单项结果已有记录，本次只核源码、合同和直接消费者，不宣称重新运行。收尾复核又纳入下表最后两份每日指标历史导入代码，当前未提交源码合计13份。
+
+| 当前文件（orchestrator/src/orchestrator相对） | 已核实差异 | 当前SHA256 |
+| --- | --- | --- |
+| defs/asset_guards/stk_factor_pro_readiness.py | 股票技术因子专业版专属逻辑 | 505f56247d25d77baa987bcc5b2ba19cbe973a87f91fee3cd7a212cce86e5487 |
+| defs/bootstrap/stk_factor_pro_bootstrap_source.py | 股票技术因子专业版专属逻辑 | 20b54b845febef3d8f1cdb3e820b3ad37edd6c0e2f03a3325f268d3f4d25e117 |
+| defs/bootstrap/stk_factor_pro_history.py | 股票技术因子专业版专属逻辑 | 80e1a60ad2193c9ae7b7cd33d9fa9bb759b277e50d66faad755ff84c529924f8 |
+| defs/catalog/lake_assets.py | 仅格式，AST一致 | fdb42f5c93bdd0d02c1815fd0ab201231940853c544a176a4c00b1003ea1972f |
+| defs/run_contracts/stk_factor_pro.py | 股票技术因子专业版专属逻辑 | bf51abaa3dc348db003de1324f828bf487059958cdf9e660cab3b69478e2209f |
+| defs/sensors/moneyflow_cnt_ths_sensor.py | 仅description/说明，剔除说明后AST一致 | 5c5995af3b671093196934a218da1c45254a401a1b59cb1a3018d188bde4067a |
+| defs/sensors/moneyflow_dc_sensor.py | 仅description/说明，剔除说明后AST一致 | b402b0c627dd4275e1f296ae1a97483278f83d1526dfee1733a8626c636bbe91 |
+| defs/sensors/moneyflow_ind_dc_sensor.py | 仅description/说明，剔除说明后AST一致 | 57f0f234e44fdfb59867f2a5687a74bf9e860739c55d3e1d9a7812aa127b0d8c |
+| defs/sensors/moneyflow_ind_ths_sensor.py | 仅description/说明，剔除说明后AST一致 | 34c3fe10fabf5996bd309931329192a35a65adf3fcc07e2d324664f276e1c12f |
+| defs/sensors/moneyflow_mkt_dc_sensor.py | 仅description/说明，剔除说明后AST一致 | 3ec156a98612e6ff1cabfe231e4390e9cc4fbd5a76d01f821c8c38003834161c |
+| defs/sensors/moneyflow_sensor.py | 仅description/说明，剔除说明后AST一致 | 193d0b7ab5f86799dbbca56e61daf7db9fc0a4a858bc6cfcfb5a04a55c246c36 |
+| defs/bootstrap/daily_basic_events.py | 每日指标显式字段扩充，交付记录注明各字段来源 | ee1ee51551b6896e4d148661dd188759b609a1219ca0ae60e11f962f2b4db0c4 |
+| defs/bootstrap/daily_basic_history.py | 每日指标显式字段扩充，保留原18字段、仅补收盘涨跌状态 | ee30f777c9919a060824b96d625ee5fd0497f23f2cceafbdd7be12350ac1c963 |
+
+初审11份组合摘要ac9e58679e1786deb66a6a11ea4e0ca570f74b25b2ef5e4a9988042bfd0004fd保持；当前13份按仓库相对路径排序，以路径＋制表符＋SHA＋换行拼接，组合摘要59395c0d7621ad2970a8c42d1619dc625dca53e11703297482d0bf8beea7d281。合并已提交10份为本次23份发布差异，组合摘要fafe75b3d5c5d43c5345a3d636cbc7ffbcb3847029ab2d34aeec02dd80bbab11。后两份沿每日指标扩充原方案/LLD第41节，CodeGraph explore及真实调用核对只有原历史导入CLI和事件计划使用；新分支只在replace_existing显式启用，不进入同花顺链或普通日更，原专项222项隔离验收已有记录，本轮未重跑或正式执行。后续启动前核这组身份及新增变化，不因文件仍脏就认定资金流不能推进。股票技术因子专业版两sensor在PG没有持久状态记录，源码默认STOPPED，也不在125条保存RUNNING名单中；本次不启用它们或运行其manual_date/bootstrap。不能把“没有记录”误写成读到了两条STOPPED记录，启动后仅读回其有效状态。
+
+正式入口仍orchestrator/definitions.py的load_from_defs_folder、当前dev-interface原工作区；不另建分支/worktree，不复制少数文件制造单独代码位置。DG停服期间无法核实实时workspace，不能将离线schema验证写成正式Definitions已加载；恢复后必须确认orchestrator/__repository__、原两job/两check/四sensor存在且正常加载。
+
+#### 82.31.4 后续第2步：恢复现有DG并核对加载
+
+所有后续命令工作目录固定/Users/congming/github/goldenshare/lake_console/orchestrator，沿现有.venv/正式DAGSTER_HOME及登录环境；不输出token或PG URL、不读仓库根.env、不安装/同步依赖、不初始化/迁移数据库。只读入口已核代码并实际执行一次：
+
+```bash
+bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start --check-only
+```
+
+PG localhost:5432、本机CH 127.0.0.1:9000、既有Prod CH隧道127.0.0.1:19000均真实查询就绪，命令返回0且明确未启动DG/修改服务。探测只用PG标量/表存在及CH SELECT 1，不读取Prod业务表。原入口不会安装/initdb；健康依赖复用，缺失或查询不通过沿原失败逻辑报告，不擅自重建。
+
+管理员明确批准恢复整套DG后，先刷新端口/活动任务和上述代码身份，再沿唯一入口：
+
+```bash
+bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start
+```
+
+原入口进入.venv/bin/dg dev，启动网页和daemon；以工具原生会话保持服务，不另造nohup/后台入口。本阶段恢复会让保存RUNNING的125个sensor及2个schedule继续评估；不能承诺整套平台仅产生本次8个任务，也不取消/改优先级腾空队列。四个THS开关及全部cursor保留，不重复阶段6旧游标初始化或删除。数据生产仍按原规则，启动不直接等同四日补成。
+
+服务恢复后用原只读Workspace查询确认orchestrator/__repository__和加载状态，再读原两job/四sensor及状态；确认新代码范围/THS正式股票范围说明已加载、无PythonError。此为恢复成功退出条件，不在本阶段提交四日Raw。若执行前服务已由管理员恢复，不重复启动，按实际workspace状态判断是否需一次原reload_repository_location('orchestrator')；该操作会重载整个代码位置，不是只刷新THS。依据当前已安装1.13.26 SDK及官方文档，成功应为WorkspaceLocationEntry内RepositoryLocation/SDK SUCCESS；PythonError、ReloadNotSupported或RepositoryLocationNotFound均失败，不能继续提交。只在已有服务上使用该分支，本轮没有调用它。
+
+启动中断保留已就绪PG/CH/隧道及已有自动化状态；先核现有服务，不能重复启动或清库/清游标恢复。代码加载失败保留错误，不用新实例或旧湖绕过，不继续发Raw。单纯基础设施问题沿原入口及人工处置，不新增通用恢复机制。
+
+#### 82.31.5 后续第3步：四日原Raw及自动Silver
+
+按阶段授权，在第2步退出条件完成后，只对上述4个日期各提交一次原raw_tushare_moneyflow_ths_update_job。复用第82.27.6节原Launch GraphQL/curl入口，selector固定orchestrator/__repository__/原job，runConfigData={}，executionMetadata只有原dagster/partition=所选YYYY-MM-DD和dagster/partition_set=raw_tushare_moneyflow_ths_update_job_partition_set。不新增日期配置、代码参数、标签或来源入口。第1日模板已以本机安装schema离线校验，另三日仅替换分区值：
+
+```json
+{"executionParams":{"selector":{"repositoryLocationName":"orchestrator","repositoryName":"__repository__","pipelineName":"raw_tushare_moneyflow_ths_update_job"},"runConfigData":{},"executionMetadata":{"tags":[{"key":"dagster/partition","value":"2026-11-04"},{"key":"dagster/partition_set","value":"raw_tushare_moneyflow_ths_update_job_partition_set"}]}}}
+```
+
+正式POST仍用http://127.0.0.1:3000/graphql、Content-Type:application/json、原curl --data-binary @请求文件/-o响应文件及--max-time 300；该300是已有管理客户端时限，不是整个补数完成保证。请求/响应和只读审计只保存于该次独立/private/tmp，不保存凭据。每次成功回执固定run_id；回执不明先核原job/分区/提交时刻的原记录，不盲发第二次。同日已有活动运行则继续观察原run；已出现完整成功则复用结果，不能重采11月10～13日或修改既有失败历史。
+
+四个Raw仍使用完整13字段两轮、真实分页与请求预算；同一目标日保留集合内稳定、小于25覆盖后合并/过滤，两个名单按实际最终Raw保存。只有原任务连同blocking check完整SUCCESS，原silver_moneyflow_ths_update_job_sensor才按日期＋最终Raw摘要自动接续原Silver，源请求0；清理sensor独立清理各成功Raw分页，不等Silver。不触发sensor preview/evaluation替代daemon，不改600秒、不手动Silver冒充正常自动验收，不新增已成功Raw欠缺循环补采。
+
+Raw新失败/取消保留原因、已用请求和分页，不在本批自动整日重采；其它独立日期沿本批一次范围处理。Silver失败/取消保留成功Raw，按既有管理员手动同日Silver处理，不重采Raw强迫再次接续、不自动重试。中断后按已保存run_id/原生记录继续，已提交/已成功日不重复Launch；每次新的Raw仍是新的两轮请求，不宣称继承旧失败候选免费续传。
+
+#### 82.31.6 后续第4步：原生和物理验收
+
+仅核本次4日8个明确run：SUCCESS、自动Silver标签/run key、物化和原blocking check storage_id/run_id/timestamp完整关联；Raw两个JsonMetadataValue、最终行数/摘要、Silver实际输入Raw摘要正确。按原合同核13字段、Raw字符串日期/Silver DATE、计数及000001.SZ/000002.SZ/600000.SH最多三代码样本；若源端合法缺失其中某码，不要求硬凑三条，已存在行必须Raw/Silver对应。把688827.SH的出现数合入两层计数查询，四日正式数据应为0；其它范围行为由已通过测试和实际生产筛选承担，不重跑全日数值/NULL扫描或旧历史接续工具。
+
+成功清理按各自run目录两轮scope-1的page-*.json消失及receipt、来源Parquet、发布记录保留核实；tick只取原清理selector及本次Raw成功之后的相关小记录，不能用一条泛化skip结果冒称四日均清理。原4个失败目录及旧收据/事件不删除。独立新进程再次只读本次文件/摘要/样本及原生身份，不导入待验转换函数生成expected。各日缺记录和NULL名单、请求/耗时/已用成本如实回填本节和原方案；有文件、任务成功不等于源端100%无缺码/NULL。只有四日8个完整成功、检查/文件/自动接续及成功清理均通过才记整日缺口恢复；实际源欠缺继续明确列出。
+
+#### 82.31.7 数量、成本及继续时的边界
+
+- 本次第一步：30条明确只读DG PG查询（初审27＋末次3），原check-only另1条PG标量/存在查询及2条CH SELECT 1；0个Tushare请求、0个DG GraphQL HTTP、0个job/check/sensor执行及正式写入。文件审计最终12条业务SQL；初次11条成功后有1条day保留字别名语法失败，纠正后12条重做，共24条尝试，未写数据。8份旧来源候选只核SHA、小收据至多4×64KiB，Parquet为5上游＋1日历＋8旧来源共14个固定文件；8个目标仅stat缺失，不做历史通配或全市场明细导出。
+- 后续恢复入口正常一次；当前3依赖健康，原脚本复用。原StartupPolicy 10秒单次查询/30秒就绪/40秒启动不改；代码加载、队列及全平台自动化任务不假造固定总时限。若服务已恢复才走一次原reload分支，不能同时无条件重做两条路径。
+- 本批4次Raw Launch，正常4个自动Silver；不额外做两字段预检。每Raw N1/N2≤20000、页长2000，无重试成功请求floor(N1/2000)+floor(N2/2000)+2≤22，四日≤88；原每Raw64总尝试/300秒/单次30秒/768MiB及至少60秒间隔不变。旧四日每次6请求，所以预计4×6=24次只是同源历史样本推导，不要求恰好原5219行；失败后的新整日请求另计，不能抹去原批已用42次。全平台其它自动化请求不在本批这些上限内。
+- 当前8个正式目标均缺。每Raw为11P+40、首次Silver40，加主审2层计数/2样本4条和独立2层样本2条，共11P+86；两轮非空页P=6样本为152条/日、4日608条。这是按第82.30节已实测模型推导，不称正式全链插桩实测。已有目标的新人工Raw为11P+44，Silver沿已有41/44模型；同run已有来源时不重复生成时2条保留行数count，新run仍完整重新取。
+- 最终主审按已知run状态一组1条、8份物化/检查各1条共16条、四清理结果各1条、四sensor状态一组1条，完整一次模型22条PG；追加只读观察按实际R累加。独立沿原每run状态/物化/check各一条，共8×3=24条PG。原生框架内部读取和启动正常tick另记，不说成只有这些SQL，也不把R预填0。中断复核只继续已知run和未完成项，不重下已成功源/重跑原正式check。
+- 主审与独立各只对8个正式文件读摘要，既有每份4MiB合同下集合≤32MiB；行数与最多三代码样本按上述24条业务SQL总计（4日×6）处理，不称24次磁盘I/O或24只独立股票。DuckDB仍512MB/1线程/no-spill；同设备逐文件os.replace、原checkpoint和64GiB空间要求保持。run staging和正式文件不当备份重复计价，不新增来源追踪、状态表或恢复入口。
+
+#### 82.31.8 第一步实际记录和退出状态
+
+第一步已完成：本机PG明确transaction_read_only=on，27条初审0.174351秒、3条末次0.073964秒；末次运行状态为上海11:08:52，DG三类进程均无、3000无监听、活动任务0。原--check-only0.951秒通过PG/CH/隧道，不启动DG、不创建锁或实例。文件最终审计0.234018秒、12条SQL，五份上游合同/数量和四日日历通过、8目标仍缺、8份旧来源SHA一致；没有重新执行15项已通过检查。
+
+静态发布审计确认本次14文件摘要与64822ee77相同，当前13份既有变化按上述分类冻结；周/月线、股票技术因子及每日指标专属证据分别回原专项核对，未做无关开发/安装或重跑已有测试。6个管理GraphQL文档（Workspace/Job/Sensor/Run/Launch/原SDK Reload）及原Launch变量通过已安装dagster/dagster-graphql/dg-cli1.13.26的离线schema验证，HTTP0。真实workspace/加载仍须留给第2步，不能用离线验证冒称服务已恢复。
+
+临时查询第一次以day作列别名导致只读语法错误；已改target_date并保留24次尝试成本。代码清单一次因从orchestrator工作目录使用仓库根相对pathspec得到空集合而被断言中止；改为显式仓库根后初审确认已提交10＋既有11=21，收尾纳入两份每日指标并行修改后为23，未误判为无变化。这些是本次审计脚本错误，不是数据/产品缺陷，均未写正式对象。
+
+开发准备完成后的第二遍独立进程审计通过：重新对照已取得的原生记录、文件统计和摘要，核验15项上游检查绑定、四日缺口、四sensor状态与cursor、当前23份源码及本次14文件身份，复算本节请求/查询模型，并核新增小节链接。不追加真实数据读取或正式执行。仓库文档完整性三项检查及本次两份文档diff空白检查通过；新增Lake文档链接由上述独立审计单独核实，不能把只扫描根docs/的检查扩大解释。
+
+本轮只修改原方案及本LLD；临时审计和配置/协议验证只在/private/tmp/moneyflow-ths-preflight-0z5ueijn，有效结果已回填并于收尾清理该目录，保留原失败现场及其它任务目录。第一步数据/代码/依赖准备通过；下一步须以恢复现有整套DG、保留127项保存RUNNING自动化的真实影响为范围推进，不能直接执行原假设的单纯reload。本步没有启动/重载、手动提交、源请求或业务文件/状态写入，四日仍未补好。
