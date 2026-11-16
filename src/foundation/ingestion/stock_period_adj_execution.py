@@ -50,6 +50,14 @@ def capture(executor, definition, unit, control, *, readiness=False):
     current_period = unit.progress_context['purpose'] == 'current_period'
     if not current_period:
         normalized = list({(row['ts_code'], row['trade_date']): row for row in normalized}.values())
+    if unit.progress_context['purpose'] in {'factor_history','stock_history','stock_history_and_remove'}:
+        code = unit.progress_context['ts_code']
+        for row in normalized:
+            control.poll()
+            if row['ts_code'] != code or row['end_date'] > today():
+                raise StockPeriodAdjContractError(f'{code}完整历史返回其他股票或未来截至日期', 'source_scope_invalid')
+        return normalized, {'source_received':len(rows), 'source_unique':len(normalized), 'admitted':len(normalized),
+            'excluded_not_admitted':0, 'pages':pages, 'terminal_short_page':True, 'admission_excluded_reasons':{}}
     seen = set()
     eligible = set(unit.progress_context['eligible_codes'])
     required = unit.progress_context['required_dates']
@@ -123,9 +131,18 @@ def run_stock_period_adj(executor, *, request, definition, units, cancel_checker
 
     try:
         check(True)
+        if context.get('zero_history'):
+            emit('复权因子比较结果为0，无历史回刷')
+            return IngestionRunSummary(dataset_key=definition.dataset_key, run_profile=request.run_profile,
+                unit_total=0, unit_done=0, unit_failed=0, rows_fetched=0, rows_written=0, rows_committed=0,
+                rows_rejected=0, rows_deduplicated=0, rejected_reason_counts={}, rejected_reason_samples={},
+                ingestion_diagnostics={'stock_period_adj':context['zero_history']}, result_date=None,
+                message='复权因子比较结果为0，无历史回刷', error_counts={})
         with Session(engine) as business:
             header = StockPeriodAdjDeliveryDAO(business).get(context['batch_id'], 'plan_frozen', 'plan_frozen')
         if header is None:
+            if context['purpose'] == 'factor_history':
+                raise StockPeriodAdjContractError('自动历史必须先共同冻结两频计划', 'resume_contract_mismatch')
             freeze_plan(engine, context, units, policy, lambda: check(True))
         with Session(engine) as business:
             if tuple(units) != restore_units(business, definition, context):
@@ -139,9 +156,14 @@ def run_stock_period_adj(executor, *, request, definition, units, cancel_checker
             with Session(engine) as business:
                 if StockPeriodAdjDeliveryDAO(business).get(context['batch_id'], 'unit', unit.unit_id) is not None:
                     continue
-            current.update(period_date=unit.trade_date.isoformat(), ts_code=unit.request_params.get('ts_code'))
+            current.update(period_date=unit.trade_date.isoformat() if unit.trade_date else None,
+                ts_code=unit.progress_context.get('ts_code') or unit.request_params.get('ts_code'))
             control = PeriodControl(lambda: check(True), emit, check)
-            rows, counts = capture(executor, definition, unit, control)
+            if unit.progress_context.get('has_source', True):
+                rows, counts = capture(executor, definition, unit, control)
+            else:
+                rows, counts = [], {'source_received':0, 'source_unique':0, 'admitted':0,
+                    'pages':0, 'terminal_short_page':False, 'excluded_not_admitted':0, 'admission_excluded_reasons':{}}
             check(True)
             emit('提交Raw、Serving及业务完成记录')
             with Session(engine) as business:

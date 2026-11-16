@@ -3,13 +3,14 @@
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 
 from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjContractError, digest, period_start
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving_light.bse_mapping import BseMappingLight
 from src.foundation.models.raw.raw_stock_basic import RawStockBasic
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 
 
 def today():
@@ -19,6 +20,56 @@ def today():
 def open_days(session, start, end):
     return list(session.scalars(select(TradeCalendar.trade_date).where(TradeCalendar.exchange == 'SSE',
         TradeCalendar.is_open.is_(True), TradeCalendar.trade_date.between(start, end)).order_by(TradeCalendar.trade_date)))
+
+
+def confirmed_history_codes(session, codes):
+    """Resolve only requested identities, including delisted stocks' history."""
+    if not codes:
+        return {}
+    mappings = {}
+    for old, new in session.execute(select(BseMappingLight.o_code, BseMappingLight.n_code).where(
+            or_(BseMappingLight.o_code.in_(codes), BseMappingLight.n_code.in_(codes)))):
+        if old in mappings and mappings[old] != new:
+            raise StockPeriodAdjContractError(f'{old}存在多个确认股票代码', 'input_changed')
+        mappings[old] = new
+    identities = set(codes) | set(mappings) | set(mappings.values())
+    master = set(session.scalars(select(RawStockBasic.ts_code).where(
+        RawStockBasic.curr_type == 'CNY', RawStockBasic.ts_code.in_(identities))))
+    confirmed = master | {new for old, new in mappings.items() if old in master}
+    return {code: mappings.get(code, code) for code in codes if mappings.get(code, code) in confirmed}
+
+
+def factor_changes(session, day, *, check=lambda: None):
+    """Compare adjacent open dates; zero business rows mean a zero result."""
+    check()
+    if not open_days(session, day, day):
+        raise StockPeriodAdjContractError(f'{day}不是已有日历中的开市日', 'input_not_ready')
+    previous = session.scalar(select(func.max(TradeCalendar.trade_date)).where(
+        TradeCalendar.exchange == 'SSE', TradeCalendar.is_open.is_(True), TradeCalendar.trade_date < day))
+    rows = session.execute(select(EquityAdjFactor.trade_date, EquityAdjFactor.ts_code, EquityAdjFactor.adj_factor)
+        .where(EquityAdjFactor.trade_date.in_([previous, day]))
+        .order_by(EquityAdjFactor.trade_date, EquityAdjFactor.ts_code)).all()
+    check()
+    before = {code: value for stamp, code, value in rows if stamp == previous}
+    after = {code: value for stamp, code, value in rows if stamp == day}
+    comparable = sorted(before.keys() & after.keys())
+    identities = confirmed_history_codes(session, comparable)
+    check()
+    changed = set()
+    compared = 0
+    for code in comparable:
+        if code not in identities:
+            continue
+        if before[code] is None or after[code] is None or before[code] <= 0 or after[code] <= 0:
+            raise StockPeriodAdjContractError(f'{code}相邻交易日复权因子无效', 'input_changed')
+        compared += 1
+        if before[code] != after[code]:
+            changed.add(identities[code])
+    check()
+    return {'business_date': day.isoformat(), 'previous_business_date': previous.isoformat() if previous else None,
+        'factor_rows_previous': len(before), 'factor_rows_current': len(after), 'compared_stocks': compared,
+        'changed_codes': sorted(changed), 'changed_count': len(changed),
+        'input_digest': digest({'factors': [tuple(row) for row in rows], 'identities': identities})}
 
 
 def period_inputs(session, *, day, freq, selected_code=None, closed_period=False):

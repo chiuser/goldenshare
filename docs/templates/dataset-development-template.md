@@ -94,6 +94,8 @@
 
 分别填写各用途的时间输入、对象范围、执行单元及观测含义，不能覆盖原用途。股票复权周线/月线的`stock_period_adj_policy`实例：`period`保留周五/月末point/range；`current_period`只接收`business_date`交易日，resolver归一化为源周期日期，request builder生成源参数。两者不可混传，其他数据集不接收该意图。
 
+股票复权周线/月线阶段3另有`stock_history/remove_keys/stock_history_and_remove`，均为无日期、明确股票数组或完整原始键；能力响应以`input_fields`声明所需范围，前端不按数据集名称猜测。内部`factor_history`按原业务日比较相邻复权因子，首次规划共同冻结两频计划，不公开给手动选择。源历史只传股票和频率，纯撤回没有源请求；按一股本频提交和恢复，完整设计与验收见[原LLD13.29](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#1329-阶段3开发约束与验收记录)。
+
 具名policy是页/行/载荷/计划/超时限制的唯一来源，Definition规划值从它投影；冻结计划保存原值及摘要，恢复不得改范围或按新限值重推。原D、源周期日期、源计算截至日期、周期freshness/audit和本次完整交付分别说明。手动API、TaskRun、workflow/排程转发、Probe、前端表单及读取消费者必须同时对账；观察状态不替代业务提交事实。新增事实表/索引应注明迁移与启用阶段，隔离测试通过不代表生产已切换。
 
 #### 0.3.2 DatasetDefinition 消费者审计表
@@ -562,7 +564,9 @@
 - `chunk_size`：
 - `max_units_per_execution`：
 - `unit_builder_key`：如需自定义，必须在 `src/foundation/ingestion/unit_planner.py` 有清晰实现和测试。
-- `weekly_adj_policy`：仅复权周线使用`WeeklyAdjExecutionPolicy`，builder将dict转换为具名类型。须与三列主键、freq=week、单并发、分页/行数/计划预算、unit提交及拒绝策略整体校验；不得挪用公告合同。当前源码注册定义已绑定，实施与未验边界见[周线LLD §13](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p2-implementation)。
+- `weekly_adj_policy`：仅复权周线使用`WeeklyAdjExecutionPolicy`，builder将dict转换为具名类型。须与三列主键、freq=week、单并发、分页/行数/计划预算、unit提交及拒绝策略整体校验；不得挪用公告合同。该旧合同保留历史实现/读取语义，活动两频定义已使用下面的stock_period_adj_policy；切换与未验边界见[周线LLD §13](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p2-implementation)。
+
+- `stock_period_adj_policy`：活动股票复权周线/月线共用`StockPeriodAdjExecutionPolicy`；维护动作时间模式是各用途的并集，默认period不能因增加none模式而省略日期/范围。规划值、维护输入能力、原冻结预算和恢复范围由该合同及原业务记录统一提供；阶段2/3代码、测试与生产未切换边界见原LLD13.28—13.29。旧weekly合同不承接新用途。
 - `fetch_concurrency`：当前允许范围以 linter 为准；必须评估配额、连接数、worker 占用和稳定排序。
 - `page_processing_mode`：当前只允许 `buffer_all` / `staged_stream` / `announcement_stream`。公告具名策略使用 `announcement_stream + raw_only_reconcile + commit_policy=batch`，必须冻结独立业务完成凭证与请求预算、单并发、有界分页和批提交；不作为其他数据集通用默认。长分页任务优先评估 `staged_stream`；选用时必须同时满足对应 write path、stage 表、单并发与 `commit_policy=unit` 的 linter 合同。
 
@@ -867,7 +871,7 @@
 
 ### 7.3 TaskRun 观测
 
-若数据集有具名执行合同，说明`DatasetExecutionPlan.trigger_source`（当前触发）和`execution_context`（原冻结意图/预算/token）的区别，不能用人工重试覆盖原自动意图。resolver/preflight只读，不持久化业务plan；受理只保存意图，执行器获取发布锁后才追加业务完成事实。具名合同由`ingestion.execution_scope`分派；普通None、公告合同和周线合同各自提取合法观测timeout，不按公告字段猜测其他合同。
+若数据集有具名执行合同，说明`DatasetExecutionPlan.trigger_source`（当前触发）和`execution_context`（原冻结意图/预算/token）的区别，不能用人工重试覆盖原自动意图。受理/preflight只读且只保存意图；股票复权周线/月线的长计划由worker调用resolver并显式传入persist_plan，逐单元保存不可执行草稿，完整核对后冻结，冻结前不写行情。执行器获取发布锁后才追加单元业务完成事实。具名合同由`ingestion.execution_scope`分派；普通None、公告合同和周线合同各自提取合法观测timeout，不按公告字段猜测其他合同。
 
 参考：[Ops TaskRun 执行观测模型重设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md)
 

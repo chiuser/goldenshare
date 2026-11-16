@@ -19,6 +19,11 @@ class StockPeriodAdjDeliveryDAO:
     def frozen_intent(self, intent_key):
         return self.session.scalar(select(Delivery).where(Delivery.intent_key == intent_key, Delivery.record_kind == 'plan_frozen'))
 
+    def frozen_history_pair(self, business_date):
+        return {row.freq: row for row in self.session.scalars(select(Delivery).where(
+            Delivery.purpose == 'factor_history', Delivery.business_date == business_date,
+            Delivery.record_kind == 'plan_frozen'))}
+
     def append(self, values, policy):
         values = {**values, 'batch_id': UUID(str(values['batch_id']))}
         check_size(values['payload'], policy.max_plan_bytes if values['record_kind'] in {'plan_unit', 'plan_frozen'} else policy.max_payload_bytes,

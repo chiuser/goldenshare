@@ -36,7 +36,9 @@ TIME_PARAM_KEYS = {
     "ann_date",
 }
 INTERNAL_PARAM_KEYS = {"offset", "limit"}
-PERIOD_MAINTENANCE_INTENT_LABELS = {'period': '指定周期维护', 'current_period': '当前周期更新'}
+PERIOD_MAINTENANCE_INTENT_LABELS = {'period': '指定周期维护', 'current_period': '当前周期更新',
+    'stock_history': '股票完整历史', 'remove_keys': '准确撤回', 'stock_history_and_remove': '股票历史与准确撤回',
+    'factor_history': '复权因子变化历史回刷'}
 SCOPED_REPAIR_TIME_RULES = {
     "existing_point_bucket_only": (("point",), "股票代码补录仅支持一个已存在日期桶。"),
     "existing_observed_point_scope_only": (("point",), "单基金补录只适用于已有报告期。"),
@@ -103,6 +105,8 @@ class ManualActionQueryService:
         )
         action = definition.capabilities.get_action("maintain")
         supported_modes = tuple(action.supported_time_modes if action else ())
+        if definition.planning.stock_period_adj_policy is not None:
+            supported_modes = tuple(mode for mode in supported_modes if mode != 'none')
         time_form = self._time_form_from_date_model(
             date_model,
             supported_time_modes=supported_modes,
@@ -120,6 +124,16 @@ class ManualActionQueryService:
                         description='更新该交易日所在周期，接受达到目标日的较新源记录。', control='trade_date',
                         selection_rule='trading_day_only', date_field='business_date')])),
             }
+            descriptions = {'stock_history': '下载明确股票的完整源历史，不限制历史起始日期。',
+                'remove_keys': '仅撤回列出的股票、源日期和频率，重新选择受影响周期行情。',
+                'stock_history_and_remove': '按股票合并完整历史并撤回列出的原始键；撤回优先。'}
+            policy = definition.planning.stock_period_adj_policy
+            for kind, description in descriptions.items():
+                available[kind] = ManualActionMaintenanceIntentResponse(kind=kind,
+                    display_name=PERIOD_MAINTENANCE_INTENT_LABELS[kind], description=description,
+                    input_fields=list(policy.maintenance_input_fields[kind]),
+                    time_form=self._time_form([ManualActionTimeModeResponse(mode='none',label='不限定日期',
+                        description='仅按明确股票或原始键处理。',control='none',selection_rule='none')]))
             intents = tuple(available[kind] for kind in definition.planning.stock_period_adj_policy.maintenance_intents)
         return ManualActionRoute(
             action_key=action_key,

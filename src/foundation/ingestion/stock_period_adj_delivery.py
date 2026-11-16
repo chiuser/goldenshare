@@ -10,7 +10,7 @@ from sqlalchemy.exc import DBAPIError
 
 from src.foundation.dao.stock_period_adj_delivery_dao import StockPeriodAdjDeliveryDAO
 from src.foundation.datasets.stock_period_adj_contracts import (
-    SOURCE_FIELDS, ROW_BLOCK_SIZE, StockPeriodAdjContractError, check_size, digest, period_start, select_serving,
+    SOURCE_FIELDS, ROW_BLOCK_SIZE, StockPeriodAdjContractError, check_size, digest, parse_day, period_start, select_serving,
 )
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj as Raw
 from src.foundation.models.core_serving.stk_period_bar_adj import StkPeriodBarAdj as Serving
@@ -118,6 +118,18 @@ def publish_unit(session, *, context, unit, rows, counts, policy, check):
             return old.payload
         if dao.get(context['batch_id'], 'plan_frozen', 'plan_frozen') is None:
             raise StockPeriodAdjContractError('行情写入前必须有完整冻结计划', 'resume_contract_mismatch')
+        removals = [(key['ts_code'], parse_day(key['trade_date']), key['freq'])
+                    for key in unit.progress_context.get('remove_keys', [])]
+        source_digest = digest(rows)
+        removed_set = set(removals)
+        merge_rows = [row for row in rows if (row['ts_code'], row['trade_date'], row['freq']) not in removed_set]
+        excluded_withdrawal = len(rows) - len(merge_rows)
+        rows = merge_rows
+        deleted = []
+        for start in range(0, len(removals), ROW_BLOCK_SIZE):
+            check()
+            deleted.extend(session.execute(delete(Raw).where(tuple_(Raw.ts_code, Raw.trade_date, Raw.freq)
+                .in_(removals[start:start + ROW_BLOCK_SIZE])).returning(Raw.ts_code, Raw.trade_date, Raw.freq)).all())
         written = 0
         for start in range(0, len(rows), ROW_BLOCK_SIZE):
             check()
@@ -128,7 +140,8 @@ def publish_unit(session, *, context, unit, rows, counts, policy, check):
                      {'fetched_at': stmt.excluded.fetched_at, 'api_name': stmt.excluded.api_name},
                 where=or_(Raw.end_date.is_(None), stmt.excluded.end_date >= Raw.end_date)).returning(Raw.ts_code)
             written += len(session.scalars(stmt).all())
-        groups = sorted({(row['ts_code'], period_start(row['trade_date'], context['freq'])) for row in rows})
+        groups = sorted({(row['ts_code'], period_start(row['trade_date'], context['freq'])) for row in rows} |
+                        {(code, period_start(stamp, freq)) for code, stamp, freq in removals})
         serving, candidates = republish_groups(session, groups, context['freq'], policy, check)
         raw_after = []
         for start in range(0, len(rows), ROW_BLOCK_SIZE):
@@ -140,13 +153,18 @@ def publish_unit(session, *, context, unit, rows, counts, policy, check):
             actual = by_key[(incoming['ts_code'], incoming['trade_date'], incoming['freq'])]
             if actual['end_date'] < incoming['end_date'] or (actual['end_date'] == incoming['end_date'] and actual != incoming):
                 raise StockPeriodAdjContractError('Raw读回不符合较新保护及整行写入', 'source_key_conflict')
-        payload = {**counts, 'raw_written': written, 'raw_protected': len(rows) - written,
+        for start in range(0, len(removals), ROW_BLOCK_SIZE):
+            if session.scalar(select(Raw.ts_code).where(tuple_(Raw.ts_code, Raw.trade_date, Raw.freq)
+                    .in_(removals[start:start + ROW_BLOCK_SIZE])).limit(1)) is not None:
+                raise StockPeriodAdjContractError('指定撤回键读回仍存在', 'source_key_conflict')
+        payload = {**counts, 'admitted':len(rows), 'withdrawal_excluded':excluded_withdrawal,
+            'raw_deleted':len(deleted), 'raw_written': written, 'raw_protected': len(rows) - written,
             'serving_written': len(serving), 'candidate_rows': candidates,
-            'source_digest': digest(rows), 'result_digest': digest({'raw': sorted(raw_after, key=lambda r: (r['ts_code'],r['trade_date'])),
-                                                                    'serving': serving}),
-            'period_date': unit.trade_date.isoformat(), 'scope_digest': context['scope_digest']}
+            'source_digest': source_digest, 'result_digest': digest({'raw': sorted(raw_after, key=lambda r: (r['ts_code'],r['trade_date'])),
+                'serving': serving, 'deleted':sorted(tuple(key) for key in deleted)}),
+            'period_date': unit.trade_date.isoformat() if unit.trade_date else None, 'scope_digest': context['scope_digest']}
         dao.append(record(context, 'unit', unit.unit_id, payload, period=unit.trade_date,
-                          code=unit.request_params.get('ts_code')), policy)
+                          code=unit.progress_context.get('ts_code') or unit.request_params.get('ts_code')), policy)
         check()
         session.commit()
     return payload

@@ -34,6 +34,7 @@ import { MonthField } from "../shared/ui/month-field";
 import { OpsEnumMultiSelect } from "../shared/ui/ops-enum-multi-select";
 import { SectionCard } from "../shared/ui/section-card";
 import { TradeDateField, type TradeDateSelectionRule } from "../shared/ui/trade-date-field";
+import { StockPeriodMaintenanceFields, stockPeriodMaintenanceIntent } from './ops-stock-period-maintenance-fields';
 
 type ManualActionGroup = OpsManualActionsResponse["groups"][number];
 type ManualActionApiItem = ManualActionGroup["actions"][number];
@@ -64,6 +65,8 @@ function buildEmptyDraft() {
   return {
     action_id: "",
     maintenance_kind: 'period',
+    maintenance_stock_codes: '',
+    maintenance_remove_keys: '',
     time_mode: "none" as ManualActionTimeMode,
     selected_date: "",
     start_date: "",
@@ -384,6 +387,9 @@ function buildDraftFromParams(
     time_mode: timeMode,
     selected_date: businessDate || tradeDate || annDate || current.selected_date,
     maintenance_kind: isRecord(params.maintenance_intent) && typeof params.maintenance_intent.kind === 'string' ? params.maintenance_intent.kind : 'period',
+    maintenance_stock_codes: isRecord(params.maintenance_intent) && Array.isArray(params.maintenance_intent.stock_codes) ? params.maintenance_intent.stock_codes.join('\n') : '',
+    maintenance_remove_keys: isRecord(params.maintenance_intent) && Array.isArray(params.maintenance_intent.remove_keys)
+      ? params.maintenance_intent.remove_keys.map(key => `${key.ts_code},${key.trade_date},${key.freq}`).join('\n') : '',
     start_date: startDate,
     end_date: endDate,
     selected_month: month || current.selected_month,
@@ -510,9 +516,9 @@ function normalizeFilterValue(param: ManualActionFilter, rawValue: string | stri
 
 function buildManualActionRequest(action: ManualAction, draft: ManualDraft): OpsManualActionTaskRunRequest {
   const request = buildManualActionTimeRequest(action, draft);
-  return action.maintenance_intents.length
-    ? { ...request, maintenance_intent: { kind: draft.maintenance_kind || action.maintenance_intents[0].kind } }
-    : request;
+  const intent = action.maintenance_intents.find(item => item.kind === (draft.maintenance_kind || action.maintenance_intents[0]?.kind));
+  return intent ? { ...request, maintenance_intent: stockPeriodMaintenanceIntent(intent.kind, intent.input_fields,
+    draft.maintenance_stock_codes || '', draft.maintenance_remove_keys || '') } : request;
 }
 
 function buildManualActionTimeRequest(action: ManualAction, draft: ManualDraft): OpsManualActionTaskRunRequest {
@@ -664,7 +670,7 @@ export function OpsManualTaskTab() {
     const intent = baseSelectedAction.maintenance_intents.find((item) => item.kind === (draft.maintenance_kind || 'period'));
     if (!intent) return null;
     return { ...baseSelectedAction, time_form: intent.time_form,
-      filters: intent.kind === 'current_period' ? [] : baseSelectedAction.filters };
+      filters: intent.kind === 'period' ? baseSelectedAction.filters : [] };
   }, [baseSelectedAction, draft.maintenance_kind]);
   const periodResume = Boolean(selectedAction?.maintenance_intents.length && typeof resumeFromTaskRunId === 'number');
   const effectiveFieldValues = useMemo(
@@ -946,6 +952,11 @@ export function OpsManualTaskTab() {
                           maintenance_kind: intent.kind, time_mode: intent.time_form.default_mode });
                       }} />
                   ) : null}
+                  {!periodResume && selectedAction.maintenance_intents.length ? <StockPeriodMaintenanceFields
+                    fields={selectedAction.maintenance_intents.find(item => item.kind === draft.maintenance_kind)?.input_fields || []}
+                    codes={draft.maintenance_stock_codes || ''} keys={draft.maintenance_remove_keys || ''}
+                    onCodes={value => setDraft(current => ({ ...current, maintenance_stock_codes: value }))}
+                    onKeys={value => setDraft(current => ({ ...current, maintenance_remove_keys: value }))} /> : null}
                   {periodResume ? <AlertBar title="按原任务续跑">仅使用原任务保存的日期、股票和未提交单元。</AlertBar> : null}
 
                   {actionGuidance ? (

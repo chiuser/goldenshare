@@ -65,3 +65,43 @@ test('股票复权月线自动任务使用后端固定探针配置',async ({page
   expect(submitted).toMatchObject({target_key:'stk_period_bar_adj_month.maintain',trigger_mode:'probe',timezone:'Asia/Shanghai',cron_expr:null,
     probe_config:{condition_kind:'stock_period_adj_current_ready',window_start:'20:00',window_end:'00:00',probe_interval_seconds:60,max_triggers_per_day:1}});
 });
+
+test('股票历史与准确撤回显示完整范围并提交对应意图',async ({page})=>{
+  const errors: string[]=[]; page.on('pageerror',error=>errors.push(error.message));
+  const failed: string[]=[]; page.on('requestfailed',request=>failed.push(request.url()));
+  await setAdminSession(page); await installApiMocks(page,'task-center');
+  await page.route('**/api/v1/ops/manual-actions',route=>route.fulfill({json:catalog}));
+  const bodies: unknown[]=[];
+  await page.route('**/api/v1/ops/manual-actions/stk_period_bar_adj_month.maintain/task-runs',route=>{
+    bodies.push(route.request().postDataJSON()); return route.fulfill({status:422,json:{code:'isolated_test',message:'仅核对明确维护范围'}});
+  });
+  await page.addInitScript(()=>localStorage.setItem('goldenshare.frontend.ops.task-center.manual.draft',JSON.stringify({
+    action_id:'stk_period_bar_adj_month.maintain',maintenance_kind:'stock_history',time_mode:'none',field_values:{},selected_date:''})));
+  await page.goto('/app/ops/v21/datasets/tasks?tab=manual');
+  await expect(page.getByLabel('完整历史股票代码',{exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'选择日期',exact:true})).toHaveCount(0);
+  await page.getByLabel('完整历史股票代码',{exact:true}).fill('000001.SZ\n600000.SH');
+  await page.getByRole('button',{name:'提交维护任务',exact:true}).click();
+  await expect.poll(()=>bodies.length).toBe(1);
+  expect(bodies[0]).toEqual({time_input:{mode:'none'},filters:{},maintenance_intent:{kind:'stock_history',stock_codes:['000001.SZ','600000.SH']}});
+  await page.getByRole('textbox',{name:'处理用途',exact:true}).click();
+  await page.getByRole('option',{name:'股票历史与准确撤回',exact:true}).click();
+  await expect(page.getByLabel('完整历史股票代码',{exact:true})).toHaveValue('');
+  await page.getByLabel('完整历史股票代码',{exact:true}).fill('000001.SZ');
+  await page.getByLabel('撤回原始记录',{exact:true}).fill('600000.SH,2020-02-29,month');
+  await page.getByRole('button',{name:'提交维护任务',exact:true}).click();
+  await expect.poll(()=>bodies.length).toBe(2);
+  expect(bodies[1]).toEqual({time_input:{mode:'none'},filters:{},maintenance_intent:{kind:'stock_history_and_remove',stock_codes:['000001.SZ'],
+    remove_keys:[{ts_code:'600000.SH',trade_date:'2020-02-29',freq:'month'}]}});
+  await page.getByRole('textbox',{name:'处理用途',exact:true}).click();
+  await page.getByRole('option',{name:'准确撤回',exact:true}).click();
+  await expect(page.getByLabel('完整历史股票代码',{exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('撤回原始记录',{exact:true})).toHaveValue('');
+  await page.getByLabel('撤回原始记录',{exact:true}).fill('000001.SZ,2020-02-28,month');
+  await page.getByRole('button',{name:'提交维护任务',exact:true}).click();
+  await expect.poll(()=>bodies.length).toBe(3);
+  expect(bodies[2]).toEqual({time_input:{mode:'none'},filters:{},maintenance_intent:{kind:'remove_keys',
+    remove_keys:[{ts_code:'000001.SZ',trade_date:'2020-02-28',freq:'month'}]}});
+  expect(errors).toEqual([]); expect(failed).toEqual([]);
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});

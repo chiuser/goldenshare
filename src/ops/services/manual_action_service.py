@@ -169,7 +169,7 @@ class ManualActionTaskRunResolver:
             intent = next((item for item in self.route.maintenance_intents if item.kind == kind), None)
             if intent is None:
                 raise WebAppError(status_code=422, code='validation_error', message='该维护用途尚未开放')
-            if kind == 'current_period':
+            if kind != 'period':
                 return ResolvedManualTaskRun(task_type='dataset_action', resource_key=self.route.resource_key,
                     action='maintain', time_input=body.time_input.model_dump(mode='json', exclude_none=True), filters=dict(body.filters),
                     request_payload={'maintenance_intent': dict(body.maintenance_intent)})

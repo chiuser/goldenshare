@@ -91,7 +91,8 @@
                   }
                 ],
                 "max_units_per_execution": 1000
-              }
+              },
+              "input_fields": []
             },
             {
               "kind": "current_period",
@@ -110,7 +111,75 @@
                   }
                 ],
                 "max_units_per_execution": null
-              }
+              },
+              "input_fields": []
+            },
+            {
+              "kind": "stock_history",
+              "display_name": "股票完整历史",
+              "description": "下载明确股票的完整源历史，不限制历史起始日期。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "stock_codes"
+              ]
+            },
+            {
+              "kind": "remove_keys",
+              "display_name": "准确撤回",
+              "description": "仅撤回列出的股票、源日期和频率，重新选择受影响周期行情。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "remove_keys"
+              ]
+            },
+            {
+              "kind": "stock_history_and_remove",
+              "display_name": "股票历史与准确撤回",
+              "description": "按股票合并完整历史并撤回列出的原始键；撤回优先。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "stock_codes",
+                "remove_keys"
+              ]
             }
           ]
         },
@@ -200,7 +269,8 @@
                   }
                 ],
                 "max_units_per_execution": 1000
-              }
+              },
+              "input_fields": []
             },
             {
               "kind": "current_period",
@@ -219,7 +289,75 @@
                   }
                 ],
                 "max_units_per_execution": null
-              }
+              },
+              "input_fields": []
+            },
+            {
+              "kind": "stock_history",
+              "display_name": "股票完整历史",
+              "description": "下载明确股票的完整源历史，不限制历史起始日期。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "stock_codes"
+              ]
+            },
+            {
+              "kind": "remove_keys",
+              "display_name": "准确撤回",
+              "description": "仅撤回列出的股票、源日期和频率，重新选择受影响周期行情。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "remove_keys"
+              ]
+            },
+            {
+              "kind": "stock_history_and_remove",
+              "display_name": "股票历史与准确撤回",
+              "description": "按股票合并完整历史并撤回列出的原始键；撤回优先。",
+              "time_form": {
+                "default_mode": "none",
+                "modes": [
+                  {
+                    "mode": "none",
+                    "label": "不限定日期",
+                    "description": "仅按明确股票或原始键处理。",
+                    "control": "none",
+                    "selection_rule": "none",
+                    "date_field": null
+                  }
+                ],
+                "max_units_per_execution": null
+              },
+              "input_fields": [
+                "stock_codes",
+                "remove_keys"
+              ]
             }
           ]
         }

@@ -605,7 +605,7 @@ class ScheduleAutomationCapabilityResolver:
             return None
         if definition.planning.stock_period_adj_policy is not None:
             condition = ProbeConditionCapability(kind=STOCK_PERIOD_CURRENT_CONDITION, label='股票复权周/月线当期齐备',
-                description='当期源覆盖及计算截至日期齐备后更新本频行情。', allowed_trigger_modes=('probe',),
+                description='当期齐备后更新本频行情；同日两频当期完成后检查复权因子变化并独立回刷历史。', allowed_trigger_modes=('probe',),
                 calendar_policy='forbidden', time_input='forbidden', filters=FilterCapability(mode='forbidden'),
                 probe=_operator_probe_config(fixed_window=STOCK_PERIOD_WINDOW, fixed_interval=STOCK_PERIOD_INTERVAL,
                                              fixed_max_triggers=STOCK_PERIOD_MAX_TRIGGERS))

@@ -58,3 +58,32 @@ it('恢复只提交原任务ID，隐藏新范围输入', async () => {
   fireEvent.click(screen.getByRole('button',{name:'提交维护任务'}));
   await waitFor(()=>expect(apiRequest).toHaveBeenCalledWith(submit,{method:'POST',body:{resume_from_task_run_id:123}}));
 });
+
+it('股票完整历史不显示日期或原单股过滤，提交明确股票数组', async () => {
+  page('stock_history');
+  const codes=await screen.findByLabelText('完整历史股票代码');
+  expect(screen.queryByLabelText('证券代码')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'选择日期'})).not.toBeInTheDocument();
+  fireEvent.change(codes,{target:{value:'000001.SZ\n600000.SH'}});
+  fireEvent.click(screen.getByRole('button',{name:'提交维护任务'}));
+  await waitFor(()=>expect(apiRequest).toHaveBeenCalledWith(submit,{method:'POST',body:{
+    time_input:{mode:'none'},filters:{},maintenance_intent:{kind:'stock_history',stock_codes:['000001.SZ','600000.SH']}}}));
+});
+
+it('组合维护显示并提交完整撤回键；切换纯撤回清除下载范围', async () => {
+  page('stock_history_and_remove');
+  fireEvent.change(await screen.findByLabelText('完整历史股票代码'),{target:{value:'000001.SZ'}});
+  fireEvent.change(screen.getByLabelText('撤回原始记录'),{target:{value:'600000.SH,2020-02-29,month\n000001.SZ,2020-02-28,month'}});
+  fireEvent.click(screen.getByRole('button',{name:'提交维护任务'}));
+  await waitFor(()=>expect(apiRequest).toHaveBeenCalledWith(submit,{method:'POST',body:{
+    time_input:{mode:'none'},filters:{},maintenance_intent:{kind:'stock_history_and_remove',stock_codes:['000001.SZ'],remove_keys:[
+      {ts_code:'600000.SH',trade_date:'2020-02-29',freq:'month'},{ts_code:'000001.SZ',trade_date:'2020-02-28',freq:'month'}]}}}));
+  fireEvent.click(screen.getByRole('textbox',{name:'处理用途'}));
+  fireEvent.click(await screen.findByRole('option',{name:/^准确撤回$/}));
+  expect(screen.queryByLabelText('完整历史股票代码')).not.toBeInTheDocument();
+  expect(screen.getByLabelText('撤回原始记录')).toHaveValue('');
+  fireEvent.change(screen.getByLabelText('撤回原始记录'),{target:{value:'600000.SH,2020-02-29,month'}});
+  fireEvent.click(screen.getByRole('button',{name:'提交维护任务'}));
+  await waitFor(()=>expect(apiRequest).toHaveBeenCalledWith(submit,{method:'POST',body:{time_input:{mode:'none'},filters:{},
+    maintenance_intent:{kind:'remove_keys',remove_keys:[{ts_code:'600000.SH',trade_date:'2020-02-29',freq:'month'}]}}}));
+});

@@ -1107,11 +1107,15 @@ def _stk_period_bar_month_params(request, anchor_date: date | None, enum_values:
 
 
 def _stk_period_bar_adj_week_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if request.run_profile == 'snapshot_refresh':
+        return {'freq': 'week', 'ts_code': request.params['ts_code']}
     return _stk_period_bar_week_params(request, anchor_date, enum_values)
 
 
 def _stk_period_bar_adj_month_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
-    return _stk_period_bar_month_params(request, anchor_date, enum_values)
+    params = _stk_period_bar_adj_week_params(request, anchor_date, enum_values)
+    params['freq'] = 'month'
+    return params
 
 
 def _moneyflow_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]

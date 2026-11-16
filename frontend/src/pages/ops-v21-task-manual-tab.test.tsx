@@ -805,6 +805,8 @@ describe("手动任务页", () => {
       {
         action_id: "daily.maintain",
         maintenance_kind: "period",
+        maintenance_stock_codes: '',
+        maintenance_remove_keys: '',
         time_mode: "point",
         selected_date: "",
         start_date: "",

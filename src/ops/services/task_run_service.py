@@ -314,11 +314,13 @@ class TaskRunCommandService:
         time = dict(context.time_input)
         try:
             request = DatasetActionRequest(dataset_key=context.resource_key, action=context.action,
+                trigger_source=context.trigger_source,
                 time_input=DatasetTimeInput(**{key: TaskRunCommandService._optional_date(value)
                     if key in {'trade_date','business_date','ann_date','start_date','end_date'} else value for key,value in time.items()}),
-                filters=dict(context.filters), maintenance_intent=context.request_payload.get('maintenance_intent'))
+                filters=dict(context.filters), maintenance_intent=context.request_payload.get('maintenance_intent'),
+                execution_context=context.request_payload.get('execution_context'))
             kind = validate_intent(request, get_dataset_definition(context.resource_key))
-            if kind == 'current_period' and not open_days(session, request.time_input.business_date, request.time_input.business_date):
+            if kind in {'current_period','factor_history'} and not open_days(session, request.time_input.business_date, request.time_input.business_date):
                 raise StockPeriodAdjContractError('业务日期不是已有日历中的开市日', 'source_scope_invalid')
         except StockPeriodAdjContractError as exc:
             raise WebAppError(status_code=422, code=exc.code, message=str(exc)) from exc
@@ -338,7 +340,7 @@ class TaskRunCommandService:
         payload = dict(source.request_payload_json or {})
         kind = (payload.get('maintenance_intent') or {}).get('kind', 'period')
         freq = frequency(get_dataset_definition(context.resource_key))
-        identity = source.time_input_json.get('business_date') if source.trigger_source in {'probe','schedule','scheduled'} and kind == 'current_period' else str(source.id)
+        identity = source.time_input_json.get('business_date') if source.trigger_source in {'probe','schedule','scheduled'} and kind in {'current_period','factor_history'} else str(source.id)
         original_key = (payload.get('execution_context') or {}).get('stock_period_adj_original_intent_key') or f'{kind}:{freq}:{identity}'
         previous = (payload.get('execution_context') or {}).get('stock_period_adj')
         if previous:

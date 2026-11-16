@@ -44,7 +44,12 @@ class StockPeriodAdjExecutionPolicy:
 
     @property
     def maintenance_intents(self):
-        return ('period', 'current_period')
+        return ('period', 'current_period', 'stock_history', 'remove_keys', 'stock_history_and_remove')
+
+    @property
+    def maintenance_input_fields(self):
+        return {'period': (), 'current_period': (), 'stock_history': ('stock_codes',),
+            'remove_keys': ('remove_keys',), 'stock_history_and_remove': ('stock_codes', 'remove_keys')}
 
 
 def json_value(value):

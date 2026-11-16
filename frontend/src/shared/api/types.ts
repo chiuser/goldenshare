@@ -441,7 +441,7 @@ export interface TaskRunViewResponse {
     schedule_display_name: string | null;
     time_input: Record<string, unknown>;
     filters: Record<string, unknown>;
-    maintenance_intent: { kind: string } | null;
+    maintenance_intent: OpsStockPeriodMaintenanceIntent | null;
     maintenance_intent_label: string | null;
     execution_policy_label: string | null;
     time_scope: TaskRunTimeScope | null;
@@ -765,6 +765,7 @@ export interface OpsManualActionsResponse {
         display_name: string;
         description: string;
         time_form: OpsManualActionsResponse['groups'][number]['actions'][number]['time_form'];
+        input_fields: Array<'stock_codes' | 'remove_keys'>;
       }>;
       filters: Array<{
         key: string;
@@ -784,6 +785,12 @@ export interface OpsManualActionsResponse {
   }>;
 }
 
+export interface OpsStockPeriodMaintenanceIntent {
+  kind: string;
+  stock_codes?: string[];
+  remove_keys?: Array<{ ts_code: string; trade_date: string; freq: string }>;
+}
+
 export interface OpsManualActionTaskRunRequest {
   time_input: {
     mode: "point" | "range" | "none";
@@ -799,7 +806,7 @@ export interface OpsManualActionTaskRunRequest {
   };
   filters: Record<string, unknown>;
   resume_from_task_run_id?: number;
-  maintenance_intent?: { kind: string };
+  maintenance_intent?: OpsStockPeriodMaintenanceIntent;
 }
 
 export interface IngestionCodebookItem {

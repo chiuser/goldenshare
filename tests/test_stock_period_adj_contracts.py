@@ -123,7 +123,7 @@ def test_definitions_share_the_named_contract_but_keep_original_time_buckets(key
     assert definition.planning.max_source_rows_per_unit == 12000
     assert definition.planning.max_units_per_execution == 1000
     assert definition.date_model.bucket_rule == ('week_friday' if key.endswith('week') else 'month_last_calendar_day')
-    assert policy.maintenance_intents == ('period','current_period')
+    assert policy.maintenance_intents == ('period','current_period','stock_history','remove_keys','stock_history_and_remove')
     assert not hasattr(policy,'memory_target_bytes')
 
 
@@ -178,7 +178,23 @@ def test_frontend_fixture_is_the_actual_manual_action_contract():
     for group in fixture['groups']:
         for action in group['actions']:
             assert action==expected[action['action_key']]
-            assert [i['kind'] for i in action['maintenance_intents']]==['period','current_period']
+            assert [i['kind'] for i in action['maintenance_intents']]==['period','current_period','stock_history','remove_keys','stock_history_and_remove']
+
+
+def test_workflow_copy_preserves_explicit_history_scope_and_does_not_inject_a_date():
+    from datetime import datetime, UTC
+    from src.ops.models.ops.task_run import TaskRun
+    from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
+    intent={'kind':'stock_history_and_remove','stock_codes':['000001.SZ'],
+        'remove_keys':[{'ts_code':'600000.SH','trade_date':'2020-02-28','freq':'month'}]}
+    parent=TaskRun(id=1,task_type='workflow',title='明确的股票维护',action='maintain',trigger_source='manual',
+        status='running',requested_at=datetime.now(UTC),time_input_json={},filters_json={})
+    copied=TaskRunDispatcher._step_task_run(parent,'stk_period_bar_adj_month.maintain','stk_period_bar_adj_month',
+        {'time_input':{'mode':'none'},'filters':{},'maintenance_intent':intent})
+    dispatcher=TaskRunDispatcher()
+    request=dispatcher._prepare_dataset_action_request(None,dispatcher._build_dataset_action_request(copied))
+    assert request.maintenance_intent==intent and request.time_input.mode=='none'
+    assert request.time_input.trade_date is request.time_input.business_date is None
 
 
 @pytest.mark.parametrize('readiness',[False,True])

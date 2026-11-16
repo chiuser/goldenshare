@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
@@ -31,7 +31,7 @@ class ProbeRuleTemplate:
 
 
 class ScheduleProbeBindingService:
-    """Persist at most one dataset probe rule from a validated automation intent."""
+    """Persist subordinate rules in the existing parent schedule transaction."""
 
     def __init__(self) -> None:
         self.capability_resolver = ScheduleAutomationCapabilityResolver()
@@ -49,31 +49,38 @@ class ScheduleProbeBindingService:
         if template is None:
             return
 
+        templates = [template]
+        from src.ops.services.stock_period_adj_probe_service import CURRENT_CONDITION, HISTORY_CONDITION
+        if intent.condition.kind == CURRENT_CONDITION:
+            templates.append(replace(template, probe_condition_json={'type':HISTORY_CONDITION}))
+
         is_serving = intent.condition.kind == INDEX_PERIOD_SERVING_PROBE_CONDITION
         definition = (get_biz_dataset_definition(template.dataset_key) if is_serving
                       else get_dataset_definition(template.dataset_key))
-        session.add(
-            ProbeRule(
-                schedule_id=schedule.id,
-                name=f"{schedule.display_name} / {definition.display_name}",
-                dataset_key=template.dataset_key,
-                trigger_mode="task_run",
-                workflow_key=None,
-                step_key=None,
-                source_key=template.source_key,
-                status="active",
-                window_start=template.window_start,
-                window_end=template.window_end,
-                probe_interval_seconds=template.probe_interval_seconds,
-                probe_condition_json=template.probe_condition_json,
-                on_success_action_json=template.on_success_action_json,
-                max_triggers_per_day=template.max_triggers_per_day,
-                timezone_name=template.timezone_name,
-                rule_version=1,
-                created_by_user_id=actor_user_id,
-                updated_by_user_id=actor_user_id,
+        for template in templates:
+            suffix = (' / 历史回刷' if template.probe_condition_json['type'] == HISTORY_CONDITION else ' / 当期更新') if intent.condition.kind == CURRENT_CONDITION else ''
+            session.add(
+                ProbeRule(
+                    schedule_id=schedule.id,
+                    name=f"{schedule.display_name} / {definition.display_name}{suffix}",
+                    dataset_key=template.dataset_key,
+                    trigger_mode="task_run",
+                    workflow_key=None,
+                    step_key=None,
+                    source_key=template.source_key,
+                    status="active",
+                    window_start=template.window_start,
+                    window_end=template.window_end,
+                    probe_interval_seconds=template.probe_interval_seconds,
+                    probe_condition_json=template.probe_condition_json,
+                    on_success_action_json=template.on_success_action_json,
+                    max_triggers_per_day=template.max_triggers_per_day,
+                    timezone_name=template.timezone_name,
+                    rule_version=1,
+                    created_by_user_id=actor_user_id,
+                    updated_by_user_id=actor_user_id,
+                )
             )
-        )
 
     @staticmethod
     def build_template(intent: ValidatedAutomationIntent) -> ProbeRuleTemplate | None:

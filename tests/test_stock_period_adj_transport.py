@@ -25,10 +25,11 @@ def period_http():
         '['+','.join(lexeme(row[key]) for key in fields)+']' for row in sample['rows'])+']}}'
     class Handler(BaseHTTPRequestHandler):
         hits=0
+        requests=[]
         def log_message(self,*args): pass
         def do_POST(self):
             Handler.hits+=1
-            self.rfile.read(int(self.headers['Content-Length']))
+            Handler.requests.append(json.loads(self.rfile.read(int(self.headers['Content-Length']))))
             self.send_response(302 if self.path=='/redirect' else 200)
             if self.path=='/redirect': self.send_header('Location','/formal')
             self.end_headers()
@@ -79,3 +80,17 @@ def test_real_deadline_and_cancel_clean_child_without_retry(period_http):
         if time.monotonic()-started>.5: raise IngestionCanceledError('deliberate transport cancel')
     with pytest.raises(IngestionCanceledError): call(url+'/slow',check=cancel)
     assert handler.hits==2 and {p.pid for p in multiprocessing.active_children()}==baseline
+
+
+def test_history_builder_sends_only_stock_frequency_and_complete_fields_over_http(period_http):
+    from types import SimpleNamespace
+    from src.foundation.datasets.stock_period_adj_contracts import SOURCE_FIELDS
+    from src.foundation.ingestion.request_builders import _stk_period_bar_adj_month_params
+    url,handler=period_http
+    params=_stk_period_bar_adj_month_params(SimpleNamespace(run_profile='snapshot_refresh',params={'ts_code':'000001.SZ'}),None,{})
+    kind,rows=call_bounded(base_url=url+'/formal',payload={'api_name':'stk_week_month_adj','token':'test-placeholder',
+        'params':{**params,'limit':6000,'offset':0},'fields':','.join(SOURCE_FIELDS)},maximum=8*1024*1024,timeout=20,
+        check=lambda:None,tick=lambda:None,response_contract='stock_period_adj/v1')
+    assert kind=='rows' and len(rows)==2
+    assert handler.requests[0]['params']=={'ts_code':'000001.SZ','freq':'month','limit':6000,'offset':0}
+    assert handler.requests[0]['fields'].split(',')==list(SOURCE_FIELDS)

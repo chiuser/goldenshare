@@ -51,12 +51,12 @@ def migrate(engine, revision):
 
 @pytest.fixture
 def pg():
-    value = os.environ.get('STOCK_PERIOD_P2_DATABASE_URL')
+    value = os.environ.get('STOCK_PERIOD_P3_DATABASE_URL') or os.environ.get('STOCK_PERIOD_P2_DATABASE_URL')
     if not value:
         pytest.skip('explicit task-owned PostgreSQL socket required')
     url = make_url(value)
     assert url.drivername == 'postgresql+psycopg' and url.host is None and url.password is None
-    assert url.database == 'postgres' and url.query['host'].startswith('/private/tmp/stock-period-p2-')
+    assert url.database == 'postgres' and url.query['host'].startswith(('/private/tmp/stock-period-p2-', '/private/tmp/stock-period-p3-'))
     admin = create_engine(url, isolation_level='AUTOCOMMIT')
     name = 'stock_period_p2_'+uuid4().hex[:12]
     with admin.connect() as conn:

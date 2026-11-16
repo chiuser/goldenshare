@@ -1208,7 +1208,31 @@ def test_stock_adjusted_period_manual_current_intent_is_kept_without_planning(ap
     {'maintenance_intent':{'kind':'period'},'time_input':{'mode':'point','business_date':'2026-11-13'}},
     {'resume_from_task_run_id':123,'time_input':{'mode':'point','trade_date':'2026-11-13'}},
 ])
-def test_stock_adjusted_period_manual_rejects_mixed_intent_and_unimplemented_scope(app_client,user_factory,body):
+def test_stock_adjusted_period_manual_rejects_mixed_intent_and_incomplete_scope(app_client,user_factory,body):
     headers=_admin_headers(app_client,user_factory)
     response=app_client.post('/api/v1/ops/manual-actions/stk_period_bar_adj_month.maintain/task-runs',headers=headers,json=body)
+    assert response.status_code==422,response.json()
+
+
+@pytest.mark.parametrize('intent',[
+    {'kind':'stock_history','stock_codes':['000001.SZ']},
+    {'kind':'remove_keys','remove_keys':[{'ts_code':'000001.SZ','trade_date':'2020-02-28','freq':'month'}]},
+    {'kind':'stock_history_and_remove','stock_codes':['000001.SZ'],'remove_keys':[{'ts_code':'600000.SH','trade_date':'2020-02-28','freq':'month'}]},
+])
+def test_stock_period_history_intake_preserves_exact_operator_scope_without_planning(app_client,user_factory,db_session,monkeypatch,intent):
+    from src.foundation.ingestion.resolver import DatasetActionResolver
+    headers=_admin_headers(app_client,user_factory)
+    monkeypatch.setattr(DatasetActionResolver,'build_plan',lambda *a,**kw:pytest.fail('HTTP intake cannot generate long history plan'))
+    response=app_client.post('/api/v1/ops/manual-actions/stk_period_bar_adj_month.maintain/task-runs',headers=headers,
+        json={'maintenance_intent':intent,'time_input':{'mode':'none'},'filters':{}})
+    assert response.status_code==200,response.json()
+    run=response.json()['run']
+    assert run['maintenance_intent']==intent and run['time_input']=={'mode':'none'}
+    assert db_session.get(TaskRun,run['id']).request_payload_json['maintenance_intent']==intent
+
+
+def test_stock_period_internal_history_is_not_a_manual_choice(app_client,user_factory):
+    headers=_admin_headers(app_client,user_factory)
+    response=app_client.post('/api/v1/ops/manual-actions/stk_period_bar_adj_month.maintain/task-runs',headers=headers,
+        json={'maintenance_intent':{'kind':'factor_history'},'time_input':{'mode':'point','business_date':'2026-11-13'}})
     assert response.status_code==422,response.json()

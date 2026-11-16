@@ -72,6 +72,7 @@ class ManualActionMaintenanceIntentResponse(BaseModel):
     display_name: str
     description: str
     time_form: ManualActionTimeFormResponse
+    input_fields: list[Literal['stock_codes', 'remove_keys']] = Field(default_factory=list)
 
 
 class ManualActionItemResponse(BaseModel):

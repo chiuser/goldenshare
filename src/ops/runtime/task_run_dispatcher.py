@@ -122,8 +122,9 @@ class TaskRunDispatcher:
                 raise IngestionCanceledError('生成计划已取消；未冻结草稿不可执行')
 
         def planning_report(current, total):
+            current_object = current if isinstance(current, dict) else {'entity': {'name': task_run.title}, 'time': {'trade_date': current}}
             observer.update_progress(run_id=task_run.id, unit_done=0, unit_failed=0, total=total,
-                message='生成计划；ETA暂无法估算', current_object={'entity': {'name': task_run.title}, 'time': {'trade_date': current},
+                message='生成计划；ETA暂无法估算', current_object={**current_object,
                 'attributes': {'stage': '生成计划', 'eta': '暂无法估算', 'updated_at': datetime.now(timezone.utc).isoformat()}})
 
         try:
