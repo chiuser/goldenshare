@@ -268,6 +268,12 @@ def test_three_samples_then_remaining_keep_identity_and_one_run_per_date(
         latest = events._latest_materializations(s.instance, s.days)
         for day in s.days:
             assert latest[day].storage_id != s.original[day].storage_id
+            metadata = delivery_metadata(latest[day])
+            assert metadata["delivery_method"] == "prod_history"
+            assert metadata["field_sources"] == {
+                **{name: "data_lake" for name in DAILY_BASIC_FIELDS[:-1]},
+                "limit_status": "prod_raw_db",
+            }
             assert delivery_metadata(latest[day])["observed_columns"] == list(
                 DAILY_BASIC_FIELDS
             )
@@ -641,8 +647,10 @@ def test_execution_adapter_constructs_a_persistent_instance_for_native_checks(
 
 
 def test_default_import_stays_runless_and_sample_limit_unchanged(publication):
+    assert "field_sources" not in publication[1]
     with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
         approved = events.plan_daily_basic_events(instance, connection, *publication)
+        assert all("field_sources" not in f["evidence"] for f in approved["files"])
         events.apply_daily_basic_events(
             instance, connection, *publication, approved, stage="register", apply=True
         )

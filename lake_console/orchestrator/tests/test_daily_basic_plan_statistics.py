@@ -11,8 +11,10 @@ import pytest
 from orchestrator.defs.bootstrap import daily_basic_history as history
 from orchestrator.defs.bootstrap import daily_basic_history_cli as cli
 from orchestrator.defs.daily_basic_contract import DailyBasicValidationError
-from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.daily_basic_raw_io import file_sha256
+from orchestrator.defs.paths import raw_daily_basic_path, silver_trade_calendar_path
 from tests.test_daily_basic_history import DAYS, Source
+from tests.test_daily_basic_limit_status import _seed_file
 
 # LLD35: actual aggregate count and observation date; no performance measurements.
 STATISTICS = {
@@ -138,6 +140,16 @@ def test_cli_plan_export_build_with_original_limits(
     cli_workspace, tmp_path, monkeypatch, evidence, replace
 ):
     lake, staging, source = cli_workspace
+    original = {}
+    if replace:
+        # LLD41: replacement now reads the real old18 input, unlike ordinary import.
+        for day in DAYS:
+            path = raw_daily_basic_path(lake, day)
+            _seed_file(
+                path, [r[:-1] for r in source.values if r[1] == day.replace("-", "")],
+                include_status=False,
+            )
+            original[path] = file_sha256(path)
     plan, plan_path, cost_path = make_cli_plan(
         tmp_path, evidence, limits=LIMITS, replace=replace
     )
@@ -188,7 +200,10 @@ def test_cli_plan_export_build_with_original_limits(
                 "FROM read_parquet(?, hive_partitioning=false)",
                 [str(path)],
             ).fetchall() == [("000001.SZ", item["date"].replace("-", ""), 1, "INTEGER")]
-    assert not (lake / "raw").exists()
+    if replace:
+        assert {p: file_sha256(p) for p in original} == original
+    else:
+        assert not (lake / "raw").exists()
 
 
 @pytest.mark.parametrize("evidence", [STATISTICS, LEGACY_P0], ids=["statistics", "p0"])

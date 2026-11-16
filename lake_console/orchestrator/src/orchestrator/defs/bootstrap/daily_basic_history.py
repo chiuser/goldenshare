@@ -38,6 +38,8 @@ from orchestrator.defs.paths import raw_daily_basic_path
 from orchestrator.defs.prod_db.daily_basic import HISTORY_BATCH_SIZE
 
 COLUMNS = ", ".join(f'"{name}"' for name in DAILY_BASIC_FIELDS)
+STATUS_FIELDS = ("ts_code", "trade_date", "limit_status")
+STATUS_COLUMNS = ", ".join(f'"{name}"' for name in STATUS_FIELDS)
 SOURCE_POLICY = "operator_confirmed_stable_single_pass"
 LIMIT_NAMES = (
     "max_source_rows",
@@ -256,6 +258,11 @@ def _validate_plan(plan, *, apply=False):
 
 def _workspace(plan):
     return Path(plan["staging_root"]) / "daily_basic_history" / plan["batch_id"]
+
+
+def _build_workspace(plan):
+    workspace = _workspace(plan)
+    return workspace / "field_expansion" if plan.get("replace_existing") else workspace
 
 
 @contextmanager
@@ -486,12 +493,12 @@ def _chunk_relation(state):
     return _parquet_files([Path(c["path"]) for c in state["chunks"]])
 
 
-def _schema_and_counts(connection, relation, *, null_stats=None):
+def _schema_and_counts(connection, relation, *, null_stats=None, fields=DAILY_BASIC_FIELDS):
     schema = [
         (r[0], r[1])
         for r in connection.execute(f"DESCRIBE SELECT * FROM {relation}").fetchall()
     ]
-    if schema != list(DAILY_BASIC_TYPES.items()):
+    if schema != [(name, DAILY_BASIC_TYPES[name]) for name in fields]:
         raise DailyBasicValidationError("history_schema")
     counts = connection.execute(
         f"SELECT trade_date, count(*), count(DISTINCT ts_code), "
@@ -541,13 +548,21 @@ def build_daily_basic_history(plan, *, apply=False):
         if not state["frozen"]:
             raise DailyBasicValidationError("history_source_not_frozen")
         relation = _chunk_relation(state)
+        replacing = plan.get("replace_existing", False)
+        source_columns = STATUS_COLUMNS if replacing else COLUMNS
+        if replacing:
+            relation = f"(SELECT {source_columns} FROM {relation})"
         null_stats = {}
-        counts = _schema_and_counts(connection, relation, null_stats=null_stats)
+        counts = _schema_and_counts(
+            connection, relation, null_stats=null_stats,
+            fields=STATUS_FIELDS if replacing else DAILY_BASIC_FIELDS,
+        )
         if set(counts) != {d.replace("-", "") for d in plan["dates"]}:
             raise DailyBasicValidationError("history_calendar_source_difference")
         years = sorted({d[:4] for d in counts})
         annual = workspace / f"annual_{uuid4().hex}"
-        manifest_path = workspace / "build.json"
+        build_workspace = _build_workspace(plan)
+        manifest_path = build_workspace / "build.json"
         annual_state = workspace / "annual.json"
         if annual_state.exists():
             annual_report = load_history_report(annual_state)
@@ -559,7 +574,7 @@ def build_daily_basic_history(plan, *, apply=False):
             annual = Path(annual_report["root"])
         else:
             connection.execute(
-                f"COPY (SELECT {COLUMNS}, substr(trade_date,1,4) AS history_year FROM {relation}) "
+                f"COPY (SELECT {source_columns}, substr(trade_date,1,4) AS history_year FROM {relation}) "
                 "TO ? (FORMAT PARQUET, COMPRESSION ZSTD, PARTITION_BY(history_year))",
                 [str(annual)],
             )
@@ -593,12 +608,29 @@ def build_daily_basic_history(plan, *, apply=False):
             if year in completed["completed_years"]:
                 continue
             inputs = sorted((annual / f"history_year={year}").glob("*.parquet"))
-            output = workspace / "by_date" / year / uuid4().hex
+            output = build_workspace / "by_date" / year / uuid4().hex
             output.parent.mkdir(parents=True, exist_ok=True)
             annual_relation = _parquet_files(inputs)
+            candidate_relation = annual_relation
+            if replacing:
+                annual_relation = f"(SELECT {STATUS_COLUMNS} FROM {annual_relation})"
+                originals = _parquet_files([
+                    raw_daily_basic_path(Path(plan["lake_root"]), day)
+                    for day in plan["dates"] if day.startswith(year)
+                ])
+                if not _equal_rows(
+                    connection, originals, annual_relation,
+                    columns='"ts_code", "trade_date"',
+                ):
+                    raise DailyBasicValidationError("history_source_keys_difference")
+                old_columns = ", ".join(f'dg."{name}"' for name in DAILY_BASIC_FIELDS[:-1])
+                candidate_relation = (
+                    f"(SELECT {old_columns}, source.limit_status FROM {originals} dg "
+                    f"JOIN {annual_relation} source USING (ts_code, trade_date))"
+                )
             connection.execute(
                 f"COPY (SELECT {COLUMNS}, substr(trade_date,1,4)||'-'||substr(trade_date,5,2)||'-'||substr(trade_date,7,2) AS partition_date "
-                f"FROM {annual_relation} ORDER BY trade_date, ts_code) "
+                f"FROM {candidate_relation} ORDER BY trade_date, ts_code) "
                 "TO ? (FORMAT PARQUET, COMPRESSION ZSTD, PARTITION_BY(partition_date), FILENAME_PATTERN 'part-{i}')",
                 [str(output)],
             )
@@ -640,7 +672,8 @@ def audit_daily_basic_history(plan, *, instance=None):
     _validate_plan(plan, apply=True)
     workspace = _workspace(plan)
     state = load_history_report(workspace / "export.json")
-    build = load_history_report(workspace / "build.json")
+    build_workspace = _build_workspace(plan)
+    build = load_history_report(build_workspace / "build.json")
     _validate_chunks(plan, state)
     if not state["frozen"] or build["export_fingerprint"] != state["fingerprint"]:
         raise DailyBasicValidationError("history_audit_version")
@@ -648,18 +681,19 @@ def audit_daily_basic_history(plan, *, instance=None):
         raise DailyBasicValidationError("history_build_dates")
     started = monotonic()
     files = [dict(item) for item in build["files"]]
+    source_columns = STATUS_COLUMNS if plan.get("replace_existing") else COLUMNS
     with _connection(plan, readonly=True) as connection:
         source = _chunk_relation(state)
         # Single scan into a bounded DuckDB temporary table, not one source scan per date/year.
         connection.execute(
-            f"CREATE TEMP TABLE history_frozen AS SELECT {COLUMNS} FROM {source} ORDER BY trade_date, ts_code"
+            f"CREATE TEMP TABLE history_frozen AS SELECT {source_columns} FROM {source} ORDER BY trade_date, ts_code"
         )
         for year in sorted({d[:4] for d in plan["dates"]}):
             annual_files = [f for f in files if f["date"].startswith(year)]
             for item in annual_files:
                 expected = _safe_root(item["path"])
                 if (
-                    not expected.is_relative_to(workspace / "by_date" / year)
+                    not expected.is_relative_to(build_workspace / "by_date" / year)
                     or expected.name != "part-000.parquet"
                     or expected.parent.name != f"partition_date={item['date']}"
                     or file_sha256(expected) != item["sha256"]
@@ -688,8 +722,9 @@ def audit_daily_basic_history(plan, *, instance=None):
                 raise DailyBasicValidationError("history_file_partition_alignment")
             if not _equal_rows(
                 connection,
-                f"(SELECT {COLUMNS} FROM history_frozen WHERE trade_date BETWEEN '{year}0101' AND '{year}1231')",
+                f"(SELECT {source_columns} FROM history_frozen WHERE trade_date BETWEEN '{year}0101' AND '{year}1231')",
                 target,
+                columns=source_columns,
             ):
                 raise DailyBasicValidationError("history_value_difference")
             for item in annual_files:
@@ -721,7 +756,13 @@ def audit_daily_basic_history(plan, *, instance=None):
         from orchestrator.defs.bootstrap.daily_basic_events import (
             freeze_daily_basic_replacement,
         )
-        replacement = {"replacement": freeze_daily_basic_replacement(instance, plan, files)}
+        replacement = {
+            "replacement": freeze_daily_basic_replacement(instance, plan, files),
+            "field_sources": {
+                **{name: "data_lake" for name in DAILY_BASIC_FIELDS[:-1]},
+                "limit_status": "prod_raw_db",
+            },
+        }
         _deadline(started, plan["limits"]["max_stage_seconds"])
     return seal_history_report(
         {
@@ -750,7 +791,7 @@ def promote_daily_basic_history(plan, audit, *, apply=False, sample_date=None):
     with _history_lock(plan) as workspace:
         if replacing:
             state = load_history_report(workspace / "export.json")
-            build = load_history_report(workspace / "build.json")
+            build = load_history_report(_build_workspace(plan) / "build.json")
             if (
                 audit.get("stage") != "audit" or audit.get("passed") is not True
                 or audit.get("plan_fingerprint") != plan["fingerprint"]

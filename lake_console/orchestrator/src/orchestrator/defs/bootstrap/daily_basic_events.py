@@ -108,7 +108,7 @@ def _latest_materializations(instance, dates):
 
 
 def _history_evidence(plan, audit, item):
-    return {
+    evidence = {
         "delivery_method": "prod_history",
         "source_system": "prod_raw_db",
         "trade_date": item["date"],
@@ -119,6 +119,9 @@ def _history_evidence(plan, audit, item):
         "history_export_fingerprint": audit["export_fingerprint"],
         "history_audit_fingerprint": audit["fingerprint"],
     }
+    if plan.get("replace_existing"):
+        evidence["field_sources"] = audit["field_sources"]
+    return evidence
 
 
 def _check_identity(check, record):
