@@ -112,8 +112,8 @@ def _history_complete(instance, prior, known_pg):
         phase="history",
         known_pg=known_pg,
     )
-    return (
-        values["result"] in ("completed", "no_action")
+    return values["result"] == "completed" or (
+        values["result"] == "no_action"
         and R.read_stk_factor_pro_run(
             instance, prior.history_result_ref.run_id, known_pg=known_pg
         ).status

@@ -506,10 +506,7 @@ def read_stk_factor_pro_recorded_results(
             producer = read_stk_factor_pro_run(
                 instance, history_values["producer_run_id"], known_pg=known_pg
             )
-            if (
-                history_values["result"] == "completed"
-                and producer.status == dg.DagsterRunStatus.SUCCESS
-            ):
+            if history_values["result"] == "completed":
                 completed = C.RecordRef(
                     producer.run_id,
                     "publication/history/publication-complete.json",
@@ -586,13 +583,12 @@ def read_stk_factor_pro_recorded_results(
         recovered = (
             recovery is not None
             and recovery["result"] == "completed"
-            and recovery["recovery_of_run_id"] == latest.run_id
             and (
-                not is_history_failure
-                or read_stk_factor_pro_run(
-                    instance, recovery["producer_run_id"], known_pg=known_pg
-                ).status
-                == dg.DagsterRunStatus.SUCCESS
+                recovery["recovery_of_run_id"] == latest.run_id
+                or (
+                    is_history_failure
+                    and recovery["producer_run_id"] == latest.run_id
+                )
             )
         )
         if not recovered:
@@ -613,10 +609,52 @@ def read_stk_factor_pro_recorded_results(
     return result
 
 
+def _stk_factor_pro_unpartitioned_upstream_checks(
+    instance, *, spec, partition, material, known_pg
+):
+    """Raw producers bind checks to a materialization, without a check partition."""
+    if material is None:
+        return {}
+    key = ("upstream_bound_checks", spec.asset_key, partition, material.storage_id)
+    if key not in known_pg:
+        import dagster as dg
+        import sqlalchemy as sa
+        from dagster._core.storage.asset_check_execution_record import (
+            AssetCheckExecutionRecord,
+        )
+        from dagster._core.storage.event_log.schema import AssetCheckExecutionsTable
+
+        table = AssetCheckExecutionsTable
+        latest = (
+            sa.select(sa.func.max(table.c.id))
+            .where(
+                table.c.asset_key == spec.asset_key.to_string(),
+                table.c.check_name.in_(spec.blocking_check_names),
+                sa.or_(
+                    table.c.materialization_event_storage_id == material.storage_id,
+                    table.c.run_id == material.event_log_entry.run_id,
+                    table.c.partition == partition,
+                ),
+            )
+            .group_by(table.c.check_name)
+        )
+        with instance.event_log_storage.index_connection() as connection:
+            rows = connection.execute(
+                sa.select(table).where(table.c.id.in_(latest))
+            ).mappings().all()
+        known_pg[key] = {
+            row["check_name"]: AssetCheckExecutionRecord.from_db_row(
+                row, key=dg.AssetCheckKey(spec.asset_key, row["check_name"])
+            )
+            for row in rows
+        }
+    return known_pg[key]
+
+
 def read_stk_factor_pro_upstream_status(
     instance, *, target_trade_date, previous_trade_date, known_pg
 ):
-    """Read only the latest checks for this task's two explicit partitions."""
+    """Read T/P materializations and the checks in each producer's real format."""
     from dataclasses import replace
 
     import dagster as dg
@@ -624,6 +662,10 @@ def read_stk_factor_pro_upstream_status(
 
     from orchestrator.defs.sensors import readiness as upstream
 
+    unpartitioned_raw = {
+        upstream.RAW_ADJ_FACTOR_READINESS_SPEC.asset_key,
+        upstream.RAW_SUSPEND_D_READINESS_SPEC.asset_key,
+    }
     key = ("stk_factor_pro_upstream_status", target_trade_date, previous_trade_date)
     if key in known_pg:
         return known_pg[key]
@@ -656,10 +698,11 @@ def read_stk_factor_pro_upstream_status(
         keys = tuple(
             dg.AssetCheckKey(spec.asset_key, name)
             for spec in specs
+            if spec.asset_key not in unpartitioned_raw
             for name in spec.blocking_check_names
         )
         checks_key = ("upstream_checks", partition, keys)
-        if checks_key not in known_pg:
+        if keys and checks_key not in known_pg:
             known_pg[checks_key] = (
                 instance.event_log_storage.get_latest_asset_check_execution_by_key(
                     keys, partition_filter=PartitionKeyFilter(key=partition)
@@ -667,9 +710,21 @@ def read_stk_factor_pro_upstream_status(
             )
         for spec in specs:
             material = materials[(spec.asset_key, partition)]
+            raw_check = spec.asset_key in unpartitioned_raw
+            bound_checks = (
+                _stk_factor_pro_unpartitioned_upstream_checks(
+                    instance, spec=spec, partition=partition,
+                    material=material, known_pg=known_pg,
+                )
+                if raw_check else None
+            )
+            check_partition = None if raw_check else partition
             results = {}
             for name in spec.blocking_check_names:
-                check = known_pg[checks_key].get(dg.AssetCheckKey(spec.asset_key, name))
+                check = (
+                    bound_checks.get(name) if raw_check
+                    else known_pg[checks_key].get(dg.AssetCheckKey(spec.asset_key, name))
+                )
                 evaluation = (
                     check.event.dagster_event.event_specific_data
                     if check is not None
@@ -682,14 +737,15 @@ def read_stk_factor_pro_upstream_status(
                     if evaluation is not None
                     else None
                 )
-                results[name] = (
+                results[name] = None if check is None else (
                     material is not None
                     and evaluation is not None
                     and evaluation.passed
                     and evaluation.blocking
                     and evaluation.asset_key == spec.asset_key
                     and evaluation.check_name == name
-                    and evaluation.partition == partition
+                    and check.partition == check_partition
+                    and evaluation.partition == check_partition
                     and target is not None
                     and (target.storage_id, target.run_id, target.timestamp)
                     == (

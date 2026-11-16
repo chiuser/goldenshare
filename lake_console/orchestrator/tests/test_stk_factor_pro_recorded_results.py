@@ -235,7 +235,10 @@ def test_no_parent_has_no_reexecution_authority(tmp_path):
         )
 
 
-def test_history_completion_requires_final_success_and_keeps_day_failure(tmp_path):
+@pytest.mark.parametrize("terminal", ["FAILURE", "CANCELED"])
+def test_complete_history_survives_later_run_failure_or_cancellation(
+    tmp_path, terminal
+):
     # These literal file IDs describe the metadata boundary only; file readiness
     # and publication are verified by the later actual writer/check tests.
     coverage = C.StkFactorProRawCoverage(
@@ -272,12 +275,25 @@ def test_history_completion_requires_final_success_and_keeps_day_failure(tmp_pat
                 "publication_complete_digest": "f" * 64,
             },
         )
+        if terminal == "CANCELED":
+            # This test reads native stored terminal states; signal delivery is
+            # outside its boundary. The completed business observation is real.
+            instance.report_run_canceled(instance.get_run_by_id(failed.run_id))
         state = read_stk_factor_pro_recorded_results(
             instance, target_trade_date=T, known_pg={}
         )
-        assert state.successful_publication_refs == ()
-        assert any(p.creator_run_id == failed.run_id for p in state.pending_plan_refs)
-        assert state.unresolved_history_failure_run_id == failed.run_id
+        first_completed = C.RecordRef(
+            failed.run_id, "publication/history/publication-complete.json", "f" * 64
+        )
+        assert state.successful_publication_refs == (first_completed,)
+        assert state.pending_plan_refs == ()
+        assert state.unresolved_history_failure_run_id is None
+        assert instance.get_run_by_id(failed.run_id).status.value == terminal
+        from orchestrator.defs.sensors.raw_tushare_stk_factor_pro_update_job_sensor import (
+            _history_complete,
+        )
+
+        assert _history_complete(instance, state, {})
         repaired, _ = run_observations(
             instance,
             ["history"],
@@ -294,6 +310,7 @@ def test_history_completion_requires_final_success_and_keeps_day_failure(tmp_pat
             instance, target_trade_date=T, known_pg={}
         )
         assert result.successful_publication_refs == (
+            first_completed,
             C.RecordRef(
                 repaired.run_id,
                 "publication/history/publication-complete.json",
@@ -301,6 +318,64 @@ def test_history_completion_requires_final_success_and_keeps_day_failure(tmp_pat
             ),
         )
         assert result.unresolved_history_failure_run_id is None
+        # A genuinely newer failed attempt still wins over the old completion.
+        newer, _ = run_observations(
+            instance, ["history"], previous=result, fail=("history", False)
+        )
+        newest = read_stk_factor_pro_recorded_results(
+            instance, target_trade_date=T, known_pg={}
+        )
+        assert newest.unresolved_history_failure_run_id == newer.run_id
+        assert any(p.creator_run_id == newer.run_id for p in newest.pending_plan_refs)
+
+
+def test_completed_history_without_publication_digest_is_rejected(tmp_path):
+    coverage = C.StkFactorProRawCoverage(
+        T,
+        True,
+        True,
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+        "d" * 64,
+        1,
+        1,
+        0,
+        0,
+        "1",
+        (),
+        "完整",
+        1,
+        2,
+        None,
+    )
+    silver = C.StkFactorProTargetSilver(
+        T, True, "e" * 64, "a" * 64, "a" * 64, 3, 4, "通过"
+    )
+    with _isolated_instance(tmp_path) as instance:
+        result, _ = run_observations(
+            instance,
+            ["history"],
+            options={
+                "result": "completed",
+                "raw_coverage": coverage,
+                "target_silver": silver,
+                "publication_complete_digest": "f" * 64,
+            },
+        )
+        record = instance.get_records_for_run(
+            result.run_id, of_type=dg.DagsterEventType.ASSET_OBSERVATION, limit=1
+        ).records[0]
+        metadata = dict(
+            record.event_log_entry.dagster_event.asset_observation_data.asset_observation.metadata
+        )
+        assert (
+            C.parse_stk_factor_pro_observation_metadata(metadata)["result"]
+            == "completed"
+        )
+        metadata["publication_complete_digest"] = dg.MetadataValue.null()
+        with pytest.raises(ValueError):
+            C.parse_stk_factor_pro_observation_metadata(metadata)
 
 
 def test_no_action_does_not_clear_failed_day(tmp_path):

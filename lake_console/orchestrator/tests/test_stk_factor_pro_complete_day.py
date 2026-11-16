@@ -345,7 +345,7 @@ def test_reference_checks_bind_native_latest_events_and_cache_bounded_reads(
             previous_trade_date=PREVIOUS,
             known_pg=known,
         ).ready
-    assert reads == [1] * 6 and batches == [5, 8, 3]
+    assert reads == [1] * 6 and batches == [5, 3]
     # A genuinely newer producer event must invalidate the older check binding.
     instance.report_runless_asset_event(
         dg.AssetMaterialization(

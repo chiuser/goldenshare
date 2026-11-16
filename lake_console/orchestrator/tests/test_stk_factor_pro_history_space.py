@@ -5,10 +5,13 @@ file, record and device estimates. Capacity is injected; no source request,
 formal resource, large file or memory pressure is used.
 """
 
+import json
 import os
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
+from hashlib import sha256
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import dagster as dg
 import pytest
@@ -271,6 +274,195 @@ def test_final_statistics_does_not_read_spill_again(space_inputs, monkeypatch):
     assert (
         sum("duckdb_temporary_files()" in query for query in observed.queries) == count
     )
+
+
+def test_saved_record_version_is_deducted_once(space_inputs, monkeypatch):
+    conn, inputs = space_inputs
+    monkeypatch.setattr(
+        history.shutil, "disk_usage", lambda _: SimpleNamespace(free=10_000_000_000)
+    )
+    check = history.build_stk_factor_pro_history_space_check(conn, **inputs)
+    path = inputs["staging_root"] / "record.json"
+    assert check("保存前", path=path).record_bytes == 10_485_760
+    # Metadata callback only: injected saved versions, no real file publication.
+    inputs["known_records"][path] = (None, "a" * 64, None)
+    assert check("保存后", path=path, event="record_saved").record_bytes == 9_437_184
+    assert check("重复通知", path=path, event="record_saved").record_bytes == 9_437_184
+    inputs["known_records"][path] = (None, "b" * 64, None)
+    assert check("新版本", path=path, event="record_saved").record_bytes == 8_388_608
+
+
+@pytest.mark.parametrize(
+    "event, actual_size",
+    [("source_saved", 4_211_017), ("candidate_verified", 4_206_839)],
+)
+def test_source_and_candidate_size_checks_are_still_enforced(
+    space_inputs, monkeypatch, event, actual_size
+):
+    conn, inputs = space_inputs
+    monkeypatch.setattr(
+        history.shutil, "disk_usage", lambda _: SimpleNamespace(free=10_000_000_000)
+    )
+    check = history.build_stk_factor_pro_history_space_check(conn, **inputs)
+    root = history.stk_factor_pro_run_staging_root(
+        inputs["staging_root"], "run-space", "2026-11-02"
+    )
+    relative = (
+        f"source/history/units/{history.stk_factor_pro_unit_key(inputs['expected_units'][0])}.parquet"
+        if event == "source_saved"
+        else "candidates/history/2026-10-30/raw/data.parquet"
+    )
+    path = root / relative
+    # Report an actual size one byte above P(4) / P(3), without large files.
+    inputs["known_records"][path] = (None, "a" * 64, (0, 0, actual_size, 0))
+    with pytest.raises(dg.Failure, match="历史文件实际大小超过估算"):
+        check("文件已保存", path=path, event=event)
+
+
+@pytest.mark.parametrize("short_by_one_byte", [False, True])
+def test_large_complete_record_uses_actual_bytes_before_one_atomic_write(
+    tmp_path, monkeypatch, short_by_one_byte
+):
+    from tests.stk_factor_pro_history_test_support import connection, contract, roots
+
+    # Volume matches the real incident (2,393 dates / 4,786 targets). Dates here
+    # are synthetic weekdays, not an SSE calendar or a claim about real files.
+    dates = []
+    day = date(2017, 1, 3)
+    while len(dates) < 2393:
+        if day.weekday() < 5:
+            dates.append(day)
+        day += timedelta(days=1)
+    identity = contracts.RunIdentity(
+        "run-large",
+        None,
+        date(2026, 11, 2),
+        date(2026, 11, 2),
+        date(2026, 10, 30),
+        "today",
+        0,
+    )
+    targets = tuple(
+        contracts.PublishedTarget(
+            day,
+            layer,
+            False,
+            "a" * 64,
+            1,
+            contracts.RecordRef(
+                "run-large",
+                f"publication/history/{day}/{layer}/complete.json",
+                "b" * 64,
+            ),
+            0,
+            1,
+            "c" * 64,
+            1,
+        )
+        for day in dates
+        for layer in ("raw", "silver")
+    )
+    record = contracts.PublicationCompleteRecord(
+        1,
+        identity,
+        "history",
+        contract(),
+        "a" * 64,
+        "b" * 64,
+        "c" * 64,
+        "d" * 64,
+        contracts.RecordRef(
+            "run-large", "source/history/source-complete.json", "e" * 64
+        ),
+        None,
+        "f" * 64,
+        targets,
+        datetime(2026, 11, 2, tzinfo=timezone(timedelta(hours=8))),
+    )
+    expected = json.dumps(
+        contracts.stk_factor_pro_record_to_dict(record),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
+    ).encode("utf-8")
+    assert len(expected) > 1_048_576
+    lake, staging = roots(tmp_path)
+    root = history.stk_factor_pro_run_staging_root(
+        staging, "run-large", str(identity.target_trade_date)
+    )
+    relative = "publication/history/publication-complete.json"
+    path = root / relative
+    known = {}
+    # Exactly n + the existing 16MiB margin; no guessed multiplier or allowance.
+    available = len(expected) + 16_777_216 - int(short_by_one_byte)
+    monkeypatch.setattr(
+        history.shutil,
+        "disk_usage",
+        lambda _: SimpleNamespace(
+            free=available - (path.stat().st_size if path.exists() else 0)
+        ),
+    )
+    with connection(tmp_path) as conn:
+        check = history.build_stk_factor_pro_history_space_check(
+            conn,
+            identity=identity,
+            expected_units=(
+                contracts.UnitProjection(
+                    5, "000001.SZ", None, dates[0], identity.target_trade_date
+                ),
+            ),
+            publication_dates=tuple(dates),
+            lake_root=lake,
+            staging_root=staging,
+            known_records=known,
+            basis_row_counts=(1, 1),
+        )
+        check("最后统计", path=root, event="final_statistics")
+        with (
+            patch.object(history.json, "dumps", wraps=json.dumps) as serialize,
+            patch.object(history.os, "replace", wraps=os.replace) as promote,
+        ):
+            if short_by_one_byte:
+                with pytest.raises(dg.Failure, match="空间不足") as caught:
+                    history._json_write(
+                        root,
+                        identity,
+                        relative,
+                        record,
+                        known_records=known,
+                        check_space=check,
+                    )
+                assert (
+                    caught.value.metadata["required_bytes"].value
+                    == len(expected) + 16_777_216
+                )
+                assert not path.exists() and not known
+                assert promote.call_count == 0
+            else:
+                reference = history._json_write(
+                    root,
+                    identity,
+                    relative,
+                    record,
+                    known_records=known,
+                    check_space=check,
+                )
+                assert reference.file_sha256 == sha256(expected).hexdigest()
+                assert path.read_bytes() == expected
+                saved = json.loads(expected)
+                assert len(saved["targets"]) == 4786
+                assert saved["targets"][0]["trade_date"] == "2017-01-03"
+                assert saved["targets"][0]["file_rows"] == 1
+                assert promote.call_count == 1
+                # The duplicate callback cannot deduct the same record twice.
+                assert (
+                    check("重复保存通知", path=path, event="record_saved").record_bytes
+                    == 0
+                )
+            assert serialize.call_count == 1
+    assert not tuple(lake.rglob("*.parquet"))
+    assert not tuple(staging.rglob("*.parquet"))
 
 
 def test_forty_five_dates_plan_twenty_day_work_without_creating_business_files(

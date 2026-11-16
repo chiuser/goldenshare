@@ -99,7 +99,9 @@ def _extra_upstream_events(instance):
                 yield AssetCheckEvaluation(
                     asset_key=spec.asset_key,
                     check_name=name,
-                    partition=str(day),
+                    partition=str(day)
+                    if spec.asset_key.to_user_string() == "silver_stock_suspend_daily"
+                    else None,
                     passed=True,
                     blocking=True,
                     target_materialization_data=AssetCheckEvaluationTargetMaterializationData(

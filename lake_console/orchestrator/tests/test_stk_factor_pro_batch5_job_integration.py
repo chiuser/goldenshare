@@ -57,21 +57,34 @@ DAYS = tuple(date(2026, 10, n) for n in range(12, 17))
 
 
 def seed_upstream_events(instance):
-    """Seed real bound upstream events for independent producer-shaped fixture files."""
+    """Real storage; check shapes match upstream definitions and verified PG samples.
 
-    @dg.op(out={})
+    Raw adj_factor/suspend_d checks have no partitions_def, hence NULL check
+    partitions. Each date has its own producing run, as their actual jobs do.
+    Silver suspend checks explicitly declare partitions_def.
+    """
+
+    @dg.op(out={}, config_schema={"scope": str})
     def published_upstream(context):
+        selected = context.op_config["scope"]
         checks = [
             (spec, day)
             for specs, days in (
-                ((RAW_ADJ_FACTOR_READINESS_SPEC,), (PREVIOUS, DAY)),
-                (SUSPEND_D_READINESS_SPECS, (DAY,)),
+                (
+                    (RAW_ADJ_FACTOR_READINESS_SPEC,),
+                    (PREVIOUS,)
+                    if selected == "P"
+                    else (DAY,)
+                    if selected == "T"
+                    else (),
+                ),
+                (SUSPEND_D_READINESS_SPECS, (DAY,) if selected == "T" else ()),
                 (
                     (
                         RAW_STOCK_BASIC_READINESS_SPEC,
                         SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
                     ),
-                    (None,),
+                    (None,) if selected == "snapshot" else (),
                 ),
             )
             for spec in specs
@@ -96,7 +109,9 @@ def seed_upstream_events(instance):
                     asset_key=asset_key,
                     check_name=name,
                     passed=True,
-                    partition=None if day is None else str(day),
+                    partition=str(day)
+                    if asset_key.to_user_string() == "silver_stock_suspend_daily"
+                    else None,
                     blocking=True,
                     target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
                         storage_id=materialization.storage_id,
@@ -109,7 +124,12 @@ def seed_upstream_events(instance):
     def upstream_job():
         published_upstream()
 
-    assert upstream_job.execute_in_process(instance=instance).success
+    for scope, day in (("snapshot", None), ("P", PREVIOUS), ("T", DAY)):
+        assert upstream_job.execute_in_process(
+            instance=instance,
+            run_config={"ops": {"published_upstream": {"config": {"scope": scope}}}},
+            tags={} if day is None else {"dagster/partition": str(day)},
+        ).success
 
 
 def offline_source(rows, requests):

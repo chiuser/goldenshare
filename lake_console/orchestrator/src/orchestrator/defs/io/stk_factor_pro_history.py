@@ -261,8 +261,6 @@ def _json_write(
     check_space: Callable | None,
 ):
     path = _path(root, identity, relative)
-    if check_space is not None:
-        check_space("历史记录保存前", path=path)
     payload = json.dumps(
         stk_factor_pro_record_to_dict(record),
         sort_keys=True,
@@ -272,6 +270,8 @@ def _json_write(
     )
     payload = payload.encode("utf-8")
     digest = sha256(payload).hexdigest()
+    if check_space is not None:
+        check_space("历史记录保存前", path=path, record_size_bytes=len(payload))
     temporary = _prepare(path)
     with temporary.open("xb") as stream:
         stream.write(payload)
@@ -2029,7 +2029,14 @@ def build_stk_factor_pro_history_space_check(
         seen_records, completed_dates = set(), set()
 
         def check_space(
-            stage, *, path, rows=None, trade_date=None, layer=None, event=None
+            stage,
+            *,
+            path,
+            rows=None,
+            trade_date=None,
+            layer=None,
+            event=None,
+            record_size_bytes=None,
         ):
             with _history_space_metadata_errors(
                 identity.creator_run_id, stage, identity.target_trade_date
@@ -2061,15 +2068,6 @@ def build_stk_factor_pro_history_space_check(
                         totals[3] = max(
                             0, totals[3] - C.STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES
                         )
-                        size = (
-                            registered[2] if registered else factor_file_identity(path)
-                        )[2]
-                        if size > C.STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES:
-                            raise _history_space_failure(
-                                identity.creator_run_id,
-                                stage,
-                                f"历史记录实际大小超过估算：{path}，请调整后重新执行",
-                            )
                 elif event == "date_completed" and trade_date not in completed_dates:
                     completed_dates.add(trade_date)
                     for name in ("raw", "silver"):
@@ -2088,9 +2086,14 @@ def build_stk_factor_pro_history_space_check(
                         if Path(file).is_relative_to(temporary):
                             spill += size
                 current = C.BootstrapSpaceEstimate(*totals)
+                record_bytes = totals[3]
+                if record_size_bytes is not None:
+                    record_bytes += (
+                        record_size_bytes - C.STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES
+                    )
                 require_stk_factor_pro_history_space(
                     required_by_path=(
-                        (root, totals[0] + totals[1] + totals[3]),
+                        (root, totals[0] + totals[1] + record_bytes),
                         (temporary, max(totals[2] - spill, 0)),
                     ),
                     run_id=identity.creator_run_id,

@@ -51,10 +51,25 @@ def read(instance, known=None):
 
 
 def latest(instance, spec, partition):
-    key = dg.AssetCheckKey(spec.asset_key, spec.blocking_check_names[0])
-    return instance.event_log_storage.get_latest_asset_check_execution_by_key(
-        (key,), partition_filter=PartitionKeyFilter(key=partition)
-    )[key].event.dagster_event.event_specific_data
+    material = instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=spec.asset_key, asset_partitions=[partition]),
+        limit=1,
+    ).records[0]
+    # Independent of the reader under test: this fixture's producer has at
+    # most eight checks per run (T: 3 Raw adj + 2 Raw suspend + 3 Silver suspend).
+    records = instance.get_records_for_run(
+        material.event_log_entry.run_id,
+        of_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+        limit=8,
+    ).records
+    return next(
+        r.event_log_entry.dagster_event.event_specific_data
+        for r in records
+        if r.event_log_entry.dagster_event.event_specific_data.asset_key
+        == spec.asset_key
+        and r.event_log_entry.dagster_event.event_specific_data.check_name
+        == spec.blocking_check_names[0]
+    )
 
 
 def test_exact_partition_groups_latest_only_and_zero_repeat(
@@ -113,7 +128,11 @@ def test_exact_partition_groups_latest_only_and_zero_repeat(
         ("silver_stock_suspend_daily", [str(DAY)], 1),
         ("raw_tushare_adj_factor", [str(PREVIOUS)], 1),
     ]
-    assert batches == [(None, 5), (str(DAY), 8), (str(PREVIOUS), 3)]
+    assert batches == [(None, 5), (str(DAY), 3)]
+    assert sum(
+        "asset_check_executions.materialization_event_storage_id =" in sql
+        for sql in statements
+    ) == 3
     assert len(result.statuses) == 6
     assert known[("suspend_readiness", DAY)].ready
     assert len(known[("suspend_readiness", DAY)].statuses) == 2
@@ -121,28 +140,33 @@ def test_exact_partition_groups_latest_only_and_zero_repeat(
 
 @pytest.mark.parametrize("day", [DAY, PREVIOUS], ids=["T", "P"])
 @pytest.mark.parametrize(
-    "bad", ["failed", "unbound", "wrong_run", "wrong_timestamp", "nonblocking"]
+    "bad", ["failed", "unbound", "wrong_storage", "wrong_run", "wrong_timestamp", "nonblocking", "partition"]
 )
 def test_new_bad_check_cannot_reuse_older_success_or_other_partition(native, day, bad):
     spec = upstream.RAW_ADJ_FACTOR_READINESS_SPEC
     evaluation = latest(native, spec, str(day))
     target = evaluation.target_materialization_data
     target = AssetCheckEvaluationTargetMaterializationData(
-        storage_id=target.storage_id,
+        storage_id=target.storage_id + int(bad == "wrong_storage"),
         run_id="wrong-producer" if bad == "wrong_run" else target.run_id,
         timestamp=target.timestamp + 1
         if bad == "wrong_timestamp"
         else target.timestamp,
     )
-    native.report_runless_asset_event(
-        AssetCheckEvaluation(
-            asset_key=spec.asset_key,
-            check_name=evaluation.check_name,
-            passed=bad != "failed",
-            blocking=bad != "nonblocking",
-            partition=str(day),
-            target_materialization_data=None if bad == "unbound" else target,
-        )
+    native.report_dagster_event(
+        dg.DagsterEvent(
+            event_type_value="ASSET_CHECK_EVALUATION",
+            job_name="upstream_job",
+            event_specific_data=AssetCheckEvaluation(
+                asset_key=spec.asset_key,
+                check_name=evaluation.check_name,
+                passed=bad != "failed",
+                blocking=bad != "nonblocking",
+                partition=str(day) if bad == "partition" else None,
+                target_materialization_data=None if bad == "unbound" else target,
+            ),
+        ),
+        run_id=evaluation.target_materialization_data.run_id,
     )
     result = read(native)
     assert not result.ready
@@ -209,6 +233,79 @@ def test_empty_instance_is_not_ready_and_no_history_scan(tmp_path, monkeypatch):
         )
         result = read(instance)
         assert not result.ready and all(not s.materialized for s in result.statuses)
+
+
+def test_fixture_matches_actual_check_definitions_and_native_records(native):
+    from orchestrator.defs.checks.adj_factor_checks import raw_adj_factor_contract_check
+    from orchestrator.defs.checks.suspend_d_checks import (
+        raw_suspend_d_contract_check,
+        silver_suspend_d_key_integrity_check,
+    )
+
+    assert next(iter(raw_adj_factor_contract_check.check_specs)).partitions_def is None
+    assert next(iter(raw_suspend_d_contract_check.check_specs)).partitions_def is None
+    assert (
+        next(iter(silver_suspend_d_key_integrity_check.check_specs)).partitions_def
+        is not None
+    )
+    for day in (DAY, PREVIOUS):
+        evaluation = latest(native, upstream.RAW_ADJ_FACTOR_READINESS_SPEC, str(day))
+        assert evaluation.partition is None
+    raw_key = dg.AssetCheckKey(
+        upstream.RAW_ADJ_FACTOR_READINESS_SPEC.asset_key,
+        "raw_adj_factor_contract_check",
+    )
+    wrong_scope = native.event_log_storage.get_latest_asset_check_execution_by_key(
+        (raw_key,),
+        partition_filter=PartitionKeyFilter(key=str(DAY)),
+    )
+    assert not wrong_scope  # The former reader queried this empty date scope.
+    assert read(native).ready
+
+
+@pytest.mark.parametrize("passed", [True, False])
+def test_later_check_only_run_for_current_materialization_is_not_ignored(
+    native, passed
+):
+    spec = upstream.RAW_ADJ_FACTOR_READINESS_SPEC
+    old = latest(native, spec, str(DAY))
+    native.report_runless_asset_event(
+        AssetCheckEvaluation(
+            asset_key=spec.asset_key,
+            check_name=old.check_name,
+            partition=None,
+            passed=passed,
+            blocking=True,
+            target_materialization_data=old.target_materialization_data,
+        )
+    )
+    result = read(native)
+    statuses = {
+        s.partition_key: s
+        for s in result.statuses
+        if s.asset_key == spec.asset_key.to_user_string()
+    }
+    assert statuses[str(DAY)].ready is passed
+    assert statuses[str(PREVIOUS)].ready
+
+
+def test_new_raw_materialization_with_planned_check_cannot_use_previous_green(native):
+    spec = upstream.RAW_ADJ_FACTOR_READINESS_SPEC
+    old = latest(native, spec, str(DAY))
+    native.report_runless_asset_event(
+        dg.AssetMaterialization(spec.asset_key, partition=str(DAY))
+    )
+    native.report_dagster_event(
+        dg.DagsterEvent(
+            event_type_value="ASSET_CHECK_EVALUATION_PLANNED",
+            job_name="check_in_progress",
+            event_specific_data=AssetCheckEvaluationPlanned(
+                asset_key=spec.asset_key, check_name=old.check_name
+            ),
+        ),
+        run_id="",
+    )
+    assert not read(native).ready
 
 
 def test_actual_job_reuses_T_suspend_status_without_generic_deep_reads(

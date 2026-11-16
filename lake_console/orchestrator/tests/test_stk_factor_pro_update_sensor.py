@@ -334,6 +334,28 @@ def test_valid_day_no_action_skips_source_but_factor_revision_submits(
     assert len(evaluate(environment).run_requests) == 1 and calls == [DAY]
 
 
+def test_history_no_action_still_requires_successful_producer(environment):
+    env, _, _, _ = environment
+    env[2]((row(A), row(B)))
+    completed = env[1].execute_in_process(
+        instance=env[0], partition_key=str(DAY), run_config=config(),
+        raise_on_error=False,
+    )
+    assert completed.success
+    prior = sensor.R.read_stk_factor_pro_recorded_results(
+        env[0], target_trade_date=DAY, known_pg={}
+    )
+    values = sensor.R._stk_factor_pro_exact_observation(
+        env[0], prior.history_result_ref, target=DAY, phase="history", known_pg={}
+    )
+    assert values["result"] == "no_action"
+    assert sensor._history_complete(env[0], prior, {})
+    # A no-action observation proves no complete publication. Keep its original
+    # terminal-status condition even though completed publications are usable.
+    env[0].report_run_failed(env[0].get_run_by_id(completed.run_id))
+    assert not sensor._history_complete(env[0], prior, {})
+
+
 def test_permanent_day_failure_does_not_start_another_job(environment):
     env, _, _, calls = environment
     env[2]((row(A), row(A)))
@@ -600,7 +622,7 @@ def test_evaluation_read_costs(
     assert source_calls == ([] if completed else [DAY])
     assert apis.count("fetch_materializations") == (8 if completed else 6)
     assert apis.count("get_run_records") == 4  # exact slot, two writers, latest T
-    assert batches == [(None, 5), (str(DAY), 8), (str(PREVIOUS), 3)] + (
+    assert batches == [(None, 5), (str(DAY), 3)] + (
         [(str(DAY), 2)] if completed else []
     )
     assert opens.count("history-plan.json") == int(completed)
