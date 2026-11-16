@@ -52,6 +52,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_WRITER_POOL,
     assert_moneyflow_memory_budget,
 )
+from orchestrator.defs.source_readiness.moneyflow_ths import moneyflow_ths_universe_sql
 from orchestrator.moneyflow_continuation.contract import (
     ACTIVE,
     CONTRACTS,
@@ -969,17 +970,24 @@ class NativeBackend:
                         and file_hash(verification) == proof.get("verification_sha256"),
                         "source_verification",
                     )
+                    verification_count = audit_daily_moneyflow_file(
+                        connection, verification, day, dataset=dataset
+                    )
                     require(
-                        audit_daily_moneyflow_file(
-                            connection, verification, day, dataset=dataset
-                        )
-                        == (proof.get("row_count") if dataset == "moneyflow_ths" else count)
+                        (dataset == "moneyflow_ths" or verification_count == count)
                         and daily_file_scope_counts(connection, source, dataset=dataset)
                         == proof.get("scope_row_counts"),
                         "source_scope_counts",
                     )
+                    codes = None
+                    if dataset == "moneyflow_ths":
+                        codes = {
+                            row[0] for row in connection.execute(
+                                moneyflow_ths_universe_sql(self.lake, day)
+                            ).fetchall()
+                        }
                     audit_daily_moneyflow_equality(
-                        connection, source, verification, dataset=dataset
+                        connection, source, verification, dataset=dataset, ts_codes=codes,
                     )
         return {
             "run_id": delivery.record.event_log_entry.run_id,

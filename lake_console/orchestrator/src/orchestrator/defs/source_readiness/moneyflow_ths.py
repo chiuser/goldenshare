@@ -72,6 +72,19 @@ def moneyflow_ths_connection(deadline, *, clock=perf_counter):
             timer.join()
 
 
+def moneyflow_ths_universe_sql(root, trade_date):
+    ctes = stock_trading_universe_ctes(
+        trade_date=trade_date,
+        lifecycle_sql=silver_cny_stock_lifecycle_select(silver_stock_lifecycle_path(root)),
+        suspend_path=silver_stock_suspend_daily_path(root, trade_date),
+        listed_filter="ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ')",
+    )
+    return (
+        f"WITH {ctes} SELECT ts_code, false FROM expected "
+        "UNION ALL SELECT ts_code, true FROM full_day_suspended"
+    )
+
+
 def load_moneyflow_ths_universe(instance, root, trade_date, *, deadline, clock=perf_counter):
     check_moneyflow_ths_deadline(deadline, clock=clock)
     lifecycle = silver_stock_lifecycle_ready_for_trade_date(instance, trade_date)
@@ -85,17 +98,8 @@ def load_moneyflow_ths_universe(instance, root, trade_date, *, deadline, clock=p
     check_moneyflow_ths_deadline(deadline, clock=clock)
     if not suspension.ready:
         raise MoneyflowContractError("source_suspend_not_ready")
-    ctes = stock_trading_universe_ctes(
-        trade_date=trade_date,
-        lifecycle_sql=silver_cny_stock_lifecycle_select(silver_stock_lifecycle_path(root)),
-        suspend_path=silver_stock_suspend_daily_path(root, trade_date),
-        listed_filter="ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ')",
-    )
     with moneyflow_ths_connection(deadline, clock=clock) as connection:
-        rows = connection.execute(
-            f"WITH {ctes} SELECT ts_code, false FROM expected "
-            "UNION ALL SELECT ts_code, true FROM full_day_suspended"
-        ).fetchall()
+        rows = connection.execute(moneyflow_ths_universe_sql(root, trade_date)).fetchall()
     expected = frozenset(code for code, suspended in rows if not suspended)
     full_day_suspended = frozenset(code for code, suspended in rows if suspended)
     if not expected:
@@ -146,10 +150,8 @@ def check_moneyflow_ths_source_ready(context, trade_date, *, deadline, clock=per
                 raise MoneyflowContractError("source_row_budget")
             if len(response.rows) < MONEYFLOW_PAGE_SIZE:
                 break
-        if not seen:
+        if not seen & (expected | suspended):
             raise MoneyflowContractError("source_empty")
-        if seen - expected - suspended:
-            raise MoneyflowContractError("source_extra_codes")
         missing = len(expected - seen)
         check_moneyflow_ths_deadline(source_deadline, clock=clock)
         return MoneyflowThsSourceReadiness(

@@ -181,8 +181,9 @@ def test_http_precheck_raw_merge_and_native_silver(market, monkeypatch, ths_prob
             cycles.append({"cycle": cycle, "source_rows": 2, "final_rows": len(expected), "missing_record_codes": missing, "null_value_codes": ["000001.SZ"], "receipt": str(receipt_path), "raw_run_id": raw_result.run_id, "silver_run_id": silver_result.run_id, "raw_sha256": digest, "silver_sha256": candidates.candidate_file_hash(silver), "run_key": run_request.run_key, "stability_gap_seconds": receipt["stability_gap_seconds"]})
     names = ("precheck", "raw1", "silver1", "readback1", "raw2", "silver2", "readback2", "callback")
     counts = {name: sum(p == name for p, _ in sql) for name in names}
-    assert counts == {"precheck": 2, "raw1": 60, "silver1": 40, "readback1": 2, "raw2": 64, "silver2": 44, "readback2": 2, "callback": 0}
-    assert sum(counts.values()) == 214
+    # LLD 82.30 adds one retained-row count per source round, two per Raw run.
+    assert counts == {"precheck": 2, "raw1": 62, "silver1": 40, "readback1": 2, "raw2": 66, "silver2": 44, "readback2": 2, "callback": 0}
+    assert sum(counts.values()) == 218
     assert len(ths_probe.owned) == 5 and candidates.candidate_file_hash(raw) == cycles[1]["raw_sha256"]
     assert cycles[0]["raw_sha256"] != cycles[1]["raw_sha256"]
     assert [r[1]["fields"] for r in received] == ["ts_code,trade_date", *([",".join(FIELDS)] * 4)]

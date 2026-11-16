@@ -92,6 +92,7 @@ def collect_daily_moneyflow(
 
     first_end = None
     first_count = None
+    first_comparison_count = None
     first_scope_counts = None
     gap = 0
     for round_number in (1, 2):
@@ -150,13 +151,16 @@ def collect_daily_moneyflow(
                     f"source_pending:{content_type or 'all'}", retryable=True
                 )
             scope_counts.append(scope_count[0])
-        complete_round(round_number, round_count[0])
+        comparison_count = complete_round(round_number, round_count[0])
+        if comparison_count is None:
+            comparison_count = round_count[0]
         guard()
         if round_number == 1:
             first_end = clock()
             first_count = round_count[0]
+            first_comparison_count = comparison_count
             first_scope_counts = tuple(scope_counts)
-        elif round_count[0] != first_count:
+        elif comparison_count != first_comparison_count:
             raise MoneyflowContractError("source_unstable", retryable=True)
     return DailyMoneyflowCollection(
         first_count,

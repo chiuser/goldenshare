@@ -152,6 +152,7 @@ def build_daily_moneyflow_raw_candidate(
     staging_root: Path,
     operation_id: str,
     trade_date: str,
+    allowed_codes=None,
     **collection_options,
 ) -> Path:
     daily_schema(dataset)
@@ -209,7 +210,8 @@ def build_daily_moneyflow_raw_candidate(
             else:
                 try:
                     audit_daily_moneyflow_equality(
-                        connection, raw, verification, dataset=dataset
+                        connection, raw, verification, dataset=dataset,
+                        ts_codes=allowed_codes,
                     )
                 except MoneyflowContractError as error:
                     if str(error) == "source_unstable":
@@ -217,6 +219,13 @@ def build_daily_moneyflow_raw_candidate(
                             "source_unstable", retryable=True
                         ) from error
                     raise
+            if allowed_codes is not None:
+                return connection.execute(
+                    "SELECT count(*) FROM read_parquet($target,hive_partitioning=false) "
+                    "WHERE ts_code IN (SELECT unnest($codes))",
+                    {"target": str(target), "codes": sorted(allowed_codes)},
+                ).fetchone()[0]
+            return count
 
         collected = collect_daily_moneyflow(
             tushare=tushare,

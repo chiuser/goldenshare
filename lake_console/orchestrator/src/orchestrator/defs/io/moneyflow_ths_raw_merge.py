@@ -44,16 +44,13 @@ def assert_moneyflow_ths_file_budget(path):
         raise MoneyflowContractError("file_hash_budget")
 
 
-def assert_moneyflow_ths_source_coverage(connection, raw, expected, suspended):
-    missing, extra = connection.execute(
+def assert_moneyflow_ths_source_coverage(connection, raw, expected):
+    missing = connection.execute(
         "WITH actual AS MATERIALIZED (SELECT ts_code FROM read_parquet($raw,hive_partitioning=false)), "
         "expected AS (SELECT unnest($expected) AS ts_code) "
-        "SELECT (SELECT count(*) FROM expected ANTI JOIN actual USING(ts_code)), "
-        "(SELECT count(*) FROM actual WHERE ts_code NOT IN (SELECT unnest($allowed)))",
-        {"raw": str(raw), "expected": sorted(expected), "allowed": sorted(expected | suspended)},
-    ).fetchone()
-    if extra:
-        raise MoneyflowContractError("source_extra_codes")
+        "SELECT count(*) FROM expected ANTI JOIN actual USING(ts_code)",
+        {"raw": str(raw), "expected": sorted(expected)},
+    ).fetchone()[0]
     if missing >= STOCK_THS_MONEYFLOW_AUTOMATION.missing_record_limit:
         raise MoneyflowContractError("source_missing_codes", retryable=True)
 
@@ -74,8 +71,11 @@ def _moneyflow_ths_merge_query(raw, target):
     )
 
 
-def merge_moneyflow_ths_raw_candidate(connection, raw, target, candidate):
+def merge_moneyflow_ths_raw_candidate(connection, raw, target, candidate, *, allowed_codes=None):
     query, params = _moneyflow_ths_merge_query(raw, target)
+    if allowed_codes is not None:
+        query = f"SELECT * FROM ({query}) WHERE ts_code IN (SELECT unnest($allowed))"
+        params["allowed"] = sorted(allowed_codes)
     if candidate.exists():
         difference = connection.execute(
             f"WITH merged AS ({query}) SELECT count(*) FROM "

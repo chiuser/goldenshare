@@ -463,11 +463,16 @@ def test_registration_does_not_admit_dates_before_daily_start(env, monkeypatch):
     "second",
     [
         support.sample(amount="1", day=DAY),
-        [*support.sample(day=DAY), row(code="000003.SZ", name="额外个股", day=DAY)],
+        [*support.sample(day=DAY), row(code="000003.SZ", name="新增应交易股票", day=DAY)],
     ],
 )
 def test_unstable_source_failing_job_is_explicitly_retryable(env, second):
     ctx = context(env)
+    from .moneyflow_ths_upstream_support import DEFAULT_CODES, seed_market
+
+    # A newly returned row is unstable only when it belongs to the independent
+    # target-day universe. Outside rows are deliberately ignored by LLD 82.30.
+    seed_market(env.instance, env.lake, env.staging, (DAY,), codes=(*DEFAULT_CODES, "000003.SZ"))
     support.set_rows(env, support.sample(day=DAY), second)
     failed = run(env, sensors.RAW_JOB, day=DAY, raise_on_error=False)
     assert not failed.success

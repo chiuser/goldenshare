@@ -1127,7 +1127,7 @@ SILVER_MONEYFLOW_CNT_THS_SCHEMA = tuple(
 
 RAW_TUSHARE_MONEYFLOW_THS_SCHEMA = (
     ColumnContract("trade_date", "VARCHAR", "源交易日YYYYMMDD，不得为空"),
-    ColumnContract("ts_code", "VARCHAR", "源股票代码，不得为空，与交易日组成唯一键，不裁剪证券范围"),
+    ColumnContract("ts_code", "VARCHAR", "源股票代码，不得为空，与交易日组成唯一键；正式数据只保留目标日上市期间沪深A股，含源返回的合法全日停牌股票"),
     ColumnContract("name", "VARCHAR", "源股票名称，允许NULL，不作为唯一键"),
     ColumnContract("pct_change", "DECIMAL(10,4)", "涨跌幅（%），允许NULL，保留源值"),
     ColumnContract("latest", "DECIMAL(18,4)", "源最新价（元），允许NULL，保留字段名和源值"),

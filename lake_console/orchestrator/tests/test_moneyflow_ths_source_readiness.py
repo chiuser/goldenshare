@@ -174,9 +174,31 @@ def test_equal_counts_do_not_mask_one_missing_with_legal_suspension(market, monk
 
 
 @pytest.mark.parametrize("extra", ["000003.SZ", "000005.SZ", "200008.SZ", "920009.BJ", "999999.SH"])
-def test_extra_codes_are_not_silently_dropped(market, monkeypatch, extra):
+def test_outside_target_range_is_ignored(market, monkeypatch, extra):
     result, _ = check(market, monkeypatch, [response(sorted(EXPECTED | {extra}))])
-    assert not result.ready and result.reason == "source_extra_codes"
+    assert result.ready and result.missing_count == 0
+    assert result.source_count == len(EXPECTED) + 1
+
+
+@pytest.mark.parametrize("missing,ready", [(24, True), (25, False)])
+def test_outside_codes_do_not_replace_missing_target_stocks(market, monkeypatch, missing, ready):
+    inputs(market.root, market.tmp, capacity=30)
+    codes = [f"{i:06d}.SZ" for i in range(missing + 1, 31)] + ["999999.SH"]
+    result, _ = check(market, monkeypatch, [response(codes)])
+    assert result.ready is ready and result.missing_count == missing
+    assert result.source_count == 31 - missing
+
+
+def test_only_outside_codes_are_empty_source(market, monkeypatch):
+    result, _ = check(market, monkeypatch, [response(["999999.SH"])])
+    assert not result.ready and result.reason == "source_empty"
+
+
+def test_full_page_of_outside_codes_still_fetches_next_page(market, monkeypatch):
+    outside = [f"{i:06d}.SH" for i in range(900000, 902000)]
+    result, calls = check(market, monkeypatch, [response(outside), response(sorted(EXPECTED))])
+    assert result.ready and result.missing_count == 0 and result.source_count == 2005
+    assert [args[2]["offset"] for args, _ in calls] == [0, 2000]
 
 
 @pytest.mark.parametrize("spec,partition,bad,reason", [

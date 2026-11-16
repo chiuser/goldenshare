@@ -117,6 +117,7 @@ def update_daily_moneyflow_raw(
                 staging_root=staging_root,
                 operation_id=operation_id,
                 trade_date=trade_date,
+                allowed_codes=expected | suspended if ths else None,
                 check_cancel=check_cancel,
                 raw_deadline=started + MONEYFLOW_MAX_ELAPSED_SECONDS,
                 **collection_options,
@@ -163,7 +164,7 @@ def update_daily_moneyflow_raw(
             count = audit_file(connection, proof_file, trade_date)
             if (
                 count != receipt["row_count"]
-                or audit_file(connection, verification, trade_date) != count
+                or (audit_file(connection, verification, trade_date) != count and not ths)
             ):
                 raise MoneyflowContractError("raw_source_count")
             if receipt.get("scope_row_counts") != daily_file_scope_counts(
@@ -171,14 +172,15 @@ def update_daily_moneyflow_raw(
             ):
                 raise MoneyflowContractError("raw_source_scope_count")
             audit_daily_moneyflow_equality(
-                connection, proof_file, verification, dataset=dataset
+                connection, proof_file, verification, dataset=dataset,
+                ts_codes=expected | suspended if ths else None,
             )
             final_metadata = {}
             candidate = raw
             if ths:
                 check_budget()
                 assert_moneyflow_ths_source_coverage(
-                    connection, raw, expected, suspended
+                    connection, raw, expected
                 )
                 check_budget()
                 candidate = directory / "raw-merged.parquet"
@@ -191,7 +193,9 @@ def update_daily_moneyflow_raw(
                         else candidate
                     )
                 else:
-                    merge_moneyflow_ths_raw_candidate(connection, raw, target, candidate)
+                    merge_moneyflow_ths_raw_candidate(
+                        connection, raw, target, candidate, allowed_codes=expected | suspended,
+                    )
                     final = candidate
                 check_budget()
                 assert_moneyflow_ths_file_budget(final)

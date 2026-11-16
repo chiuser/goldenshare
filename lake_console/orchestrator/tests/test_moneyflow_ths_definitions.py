@@ -277,11 +277,11 @@ def test_independent_definitions_catalog_schema_and_selections(env):
 
 
 def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
-    # The source's SH/SZ coverage does not change the valid historical BJ row contract.
+    # LLD 82.30 keeps missing old SH/SZ records and removes old outside rows.
     from .moneyflow_baseline_support import seed_moneyflow_baseline
 
     seed_moneyflow_baseline(instance=env.instance, lake=env.lake, staging=env.staging,
-                           dataset="moneyflow_ths", rows=[row("920305.BJ", "同名股票")], day=DAY)
+                           dataset="moneyflow_ths", rows=[row("000002.SZ", "同名股票"), row("920305.BJ", "同名股票")], day=DAY)
     set_rows(env, sample()[:2])
     first = run(env, "raw_tushare_moneyflow_ths_update_job")
     second = run(env, "silver_moneyflow_ths_update_job")
@@ -299,7 +299,7 @@ def test_partitioned_jobs_preserve_latest_d5_nullable_values_and_wan(env):
             [str(silver_moneyflow_path(env.lake, "moneyflow_ths", DAY))],
         ).fetchall()
     assert len(values) == 3 and values[0][2] is None
-    assert {v[1].split(".")[1] for v in values} == {"SH", "SZ", "BJ"}
+    assert {v[1] for v in values} == {"000001.SZ", "000002.SZ", "600000.SH"}
     assert all(
         v[0] == date.fromisoformat(DAY)
         and v[3] == Decimal("30.6700")

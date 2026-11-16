@@ -71,7 +71,8 @@ def audit_daily_moneyflow_file(
 
 
 def audit_daily_moneyflow_equality(
-    connection, first: Path, second: Path, *, dataset: str, second_silver=False
+    connection, first: Path, second: Path, *, dataset: str, second_silver=False,
+    ts_codes=None,
 ) -> None:
     for path, silver in ((first, False), (second, second_silver)):
         schema = daily_schema(dataset, silver=silver)
@@ -86,12 +87,16 @@ def audit_daily_moneyflow_equality(
         if second_silver
         else "*"
     )
+    params = {"first": str(first), "second": str(second)}
+    predicate = ""
+    if ts_codes is not None:
+        predicate = " WHERE ts_code IN (SELECT unnest($codes))"
+        params["codes"] = sorted(ts_codes)
+    first_query = f"SELECT * FROM read_parquet($first,hive_partitioning=false){predicate}"
+    second_query = f"SELECT {second_projection} FROM read_parquet($second,hive_partitioning=false){predicate}"
     difference = connection.execute(
-        "SELECT count(*) FROM ((SELECT * FROM read_parquet($first,hive_partitioning=false) EXCEPT "
-        f"SELECT {second_projection} FROM read_parquet($second,hive_partitioning=false)) UNION ALL "
-        f"(SELECT {second_projection} FROM read_parquet($second,hive_partitioning=false) EXCEPT "
-        "SELECT * FROM read_parquet($first,hive_partitioning=false)))",
-        {"first": str(first), "second": str(second)},
+        f"SELECT count(*) FROM (({first_query} EXCEPT {second_query}) "
+        f"UNION ALL ({second_query} EXCEPT {first_query}))", params,
     ).fetchone()[0]
     if difference:
         raise MoneyflowContractError(

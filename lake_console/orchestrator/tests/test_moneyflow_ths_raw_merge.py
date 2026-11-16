@@ -277,20 +277,167 @@ def test_extra_suspended_row_does_not_reduce_missing_count(tmp_path, missing):
     raw = raw_file(tmp_path, "new", rows)
     with moneyflow_candidate_connection(tmp_path) as connection:
         if missing == 24:
-            merge.assert_moneyflow_ths_source_coverage(connection, raw, expected, {"000099.SZ"})
+            merge.assert_moneyflow_ths_source_coverage(connection, raw, expected)
         else:
             with pytest.raises(MoneyflowContractError, match="source_missing_codes") as error:
-                merge.assert_moneyflow_ths_source_coverage(connection, raw, expected, {"000099.SZ"})
+                merge.assert_moneyflow_ths_source_coverage(connection, raw, expected)
             assert error.value.retryable
 
 
-def test_unknown_extra_code_is_not_dropped(tmp_path):
+def test_unknown_extra_code_is_ignored_before_publication(tmp_path):
     raw = raw_file(tmp_path, "new", [record(A), record("999999.SH")])
-    with (
-        moneyflow_candidate_connection(tmp_path) as connection,
-        pytest.raises(MoneyflowContractError, match="source_extra_codes"),
-    ):
-        merge.assert_moneyflow_ths_source_coverage(connection, raw, {A}, set())
+    final = tmp_path / "raw-merged.parquet"
+    with moneyflow_candidate_connection(tmp_path) as connection:
+        merge.assert_moneyflow_ths_source_coverage(connection, raw, {A})
+        merge.merge_moneyflow_ths_raw_candidate(connection, raw, tmp_path / "absent", final, allowed_codes={A})
+    assert [r[1] for r in read_rows(final, tmp_path)] == [A]
+
+
+@pytest.mark.parametrize("change", ["value", "added", "removed"])
+def test_outside_range_changes_do_not_block_raw_silver_or_history(env, change):
+    first = [record(A, "100", name=None), record(B, "200"), record(C, "300"), record("688827.SH", None, name=None)]
+    second = [dict(r) for r in first]
+    if change == "value":
+        second[-1]["net_amount"] = "999"
+    elif change == "added":
+        second.append(record("920009.BJ"))
+    else:
+        second.pop()
+    definitions.set_rows(env, first, second)
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job")
+    assert result.success
+    md = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+    receipt_path = Path(md["goldenshare/source_proof_path"].value)
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt["row_count"] == 4 and receipt["scope_row_counts"] == {"all": 4}
+    assert len(env.source.calls) == 2
+    assert md["dagster/row_count"].value == 3
+    assert md["goldenshare/missing_record_codes"].value == []
+    assert md["goldenshare/null_value_codes"].value == [A]
+    assert receipt["raw_sha256"] != md["goldenshare/file_sha256"].value
+    final = raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
+    assert [(r[1], r[5]) for r in read_rows(final, env.staging)] == [(A, Decimal(100)), (C, Decimal(300)), (B, Decimal(200))]
+    assert len(read_rows(receipt_path.parent / "raw.parquet", env.staging)) == 4
+    assert len(read_rows(receipt_path.parent / "verification.parquet", env.staging)) == (5 if change == "added" else 3 if change == "removed" else 4)
+    backend = NativeBackend(env.instance)
+    backend.lake, backend.staging = env.lake, env.staging
+    delivery = batch_stock_moneyflow_ths_readiness(env.instance, env.lake, (DAY,), layers=("raw",))["raw"][DAY]
+    assert backend.audit({"dataset": "moneyflow_ths", "trade_date": DAY}, "raw", delivery)["rows"] == 3
+    assert definitions.run(env, "silver_moneyflow_ths_update_job").success
+    assert len(env.source.calls) == 2
+
+
+def test_full_outside_page_preserves_real_pagination_and_source_receipt(env):
+    normal = [record(A), record(B), record(C)]
+    first = [record(f"{i:06d}.SH") for i in range(900000, 902000)] + normal
+    definitions.set_rows(env, first, normal)
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job")
+    assert result.success
+    assert [params["offset"] for _, params, _ in env.source.calls] == [0, 2000, 0]
+    md = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+    receipt = json.loads(Path(md["goldenshare/source_proof_path"].value).read_text())
+    assert receipt["row_count"] == 2003 and receipt["request_count"] == 3
+    assert md["dagster/row_count"].value == 3
+
+
+def test_merge_filters_outside_old_rows_and_keeps_valid_old_values(env):
+    old_target(env, [record(A, "100", name=None), record(B, "200"), record("999999.SH", "999")])
+    definitions.set_rows(env, [record(B, None), record(C, "300"), record("688827.SH")])
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job")
+    assert result.success
+    final = raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
+    assert [(r[1], r[5]) for r in read_rows(final, env.staging)] == [(A, Decimal(100)), (C, Decimal(300)), (B, Decimal(200))]
+
+
+@pytest.mark.parametrize("returned", [True, False])
+def test_legal_full_day_suspended_row_is_optional_and_preserved(env, returned):
+    seed_market(env.instance, env.lake, env.staging, (DAY,), suspended=(C,))
+    definitions.set_rows(env, [record(A), record(B)] + ([record(C)] if returned else []) + [record("688827.SH")])
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job")
+    assert result.success
+    md = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+    assert md["goldenshare/missing_record_codes"].value == []
+    final = raw_moneyflow_path(env.lake, "moneyflow_ths", DAY)
+    assert {r[1] for r in read_rows(final, env.staging)} == ({A, B, C} if returned else {A, B})
+
+
+def test_in_range_change_still_fails_when_outside_rows_disappear(env):
+    definitions.set_rows(env, [record(A), record(B), record("688827.SH")], [record(A, "2"), record(B)])
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job", raise_on_error=False)
+    assert not result.success and not result.get_asset_materialization_events()
+    failure = next(e.step_failure_data for e in result.all_events if e.event_type == dg.DagsterEventType.STEP_FAILURE)
+    assert failure.user_failure_data.metadata["goldenshare/reason_code"].value == "source_unstable"
+    assert failure.user_failure_data.metadata["goldenshare/retryable"].value is True
+
+
+def test_duplicate_outside_row_is_still_a_contract_error(env):
+    definitions.set_rows(env, [record(A), record("688827.SH"), record("688827.SH")])
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job", raise_on_error=False)
+    assert not result.success and not result.get_asset_materialization_events()
+    failure = next(e.step_failure_data for e in result.all_events if e.event_type == dg.DagsterEventType.STEP_FAILURE)
+    reason = failure.user_failure_data.metadata["goldenshare/reason_code"].value
+    assert reason.startswith("source_duplicate_key:") and "('20261008', '688827.SH', 2)" in reason
+
+
+def test_real_two_code_source_http_job_ignores_prelisting(env, monkeypatch, ths_probe):
+    from orchestrator.defs.partitions import cn_a_moneyflow_ths_trade_days
+    from orchestrator.defs.paths import silver_moneyflow_path
+    from orchestrator.defs.source_readiness import moneyflow_daily, moneyflow_transport
+
+    fixture = json.loads((Path(__file__).parent / "fixtures/moneyflow_ths_prelisting_20261104.json").read_text())
+    assert tuple(fixture["fields"]) == FIELDS
+    assert fixture["source_trade_date"] == "2026-11-04" and fixture["prelisting_list_date"] == "2026-11-10"
+    day = "2026-11-04"
+    env.instance.add_dynamic_partitions(cn_a_moneyflow_ths_trade_days.name, [day])
+    seed_market(env.instance, env.lake, env.staging, (day,), codes=(A,))
+    rows = [{k: Decimal(v) if k in FIELDS[3:] and v is not None else v for k, v in row.items()} for row in fixture["records"]]
+    monkeypatch.setattr(env.source, "token", TOKEN, raising=False)
+    # As in the existing HTTP acceptance below, the real worker's deadline
+    # must use a real monotonic clock, not env's synthetic zero-based clock.
+    monkeypatch.setattr(update, "build_daily_moneyflow_raw_candidate", build_daily_moneyflow_raw_candidate)
+    monkeypatch.setattr(moneyflow_daily, "call_moneyflow_source", lambda *a, **kw: moneyflow_transport.call_moneyflow_source(*a, **kw, _command=ths_probe.command))
+    # The retained row is real cached source data; removal of the extra row in
+    # round two deliberately tests the new stability rule using real HTTP.
+    with localhost_source(lambda _, n: Reply(200, source_body(FIELDS, rows if n == 1 else rows[:1]))) as (url, received):
+        monkeypatch.setenv("TUSHARE_BASE_URL", url)
+        result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job", day=day)
+    assert result.success and len(received) == 2 and len(ths_probe.owned) == 2
+    assert all(req[1]["params"] == {"trade_date": "20261104", "limit": 2000, "offset": 0} for req in received)
+    assert all(req[1]["fields"] == ",".join(FIELDS) for req in received)
+    md = result.get_asset_materialization_events()[0].event_specific_data.materialization.metadata
+    receipt_path = Path(md["goldenshare/source_proof_path"].value)
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt["row_count"] == 2 and receipt["request_count"] == 2
+    assert md["dagster/row_count"].value == 1
+    assert md["goldenshare/missing_record_codes"].value == md["goldenshare/null_value_codes"].value == []
+    assert len(read_rows(receipt_path.parent / "raw.parquet", env.staging)) == 2
+    assert len(read_rows(receipt_path.parent / "verification.parquet", env.staging)) == 1
+    assert definitions.run(env, "silver_moneyflow_ths_update_job", day=day).success
+    actual = read_rows(raw_moneyflow_path(env.lake, "moneyflow_ths", day), env.staging)
+    assert actual == [("20261104", "000001.SZ", "平安银行", Decimal("-0.2500"), Decimal("11.7400"), Decimal("1120.4400"), Decimal("13323.5200"), Decimal("-5768.8200"), Decimal("-3.4200"), Decimal("-2469.4300"), Decimal("-1.4600"), Decimal("9358.6900"), Decimal("5.5400"))]
+    silver = read_rows(silver_moneyflow_path(env.lake, "moneyflow_ths", day), env.staging)
+    assert silver[0][0].isoformat() == day and silver[0][1:] == actual[0][1:]
+    assert all(e.passed for e in result.get_asset_check_evaluations())
+
+
+def test_outside_codes_still_count_toward_download_row_limit(env):
+    rows = [record(A)] + [record(f"{i:06d}.SH") for i in range(900000, 920000)]
+    definitions.set_rows(env, rows)
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job", raise_on_error=False)
+    assert not result.success and not result.get_asset_materialization_events()
+    failure = next(e.step_failure_data for e in result.all_events if e.event_type == dg.DagsterEventType.STEP_FAILURE)
+    assert failure.user_failure_data.metadata["goldenshare/reason_code"].value == "source_row_budget"
+
+
+@pytest.mark.parametrize("field,value,reason", [("trade_date", "20261110", "source_partition_or_key"), ("net_amount", "NaN", "source_numeric_contract")])
+def test_outside_rows_still_obey_source_contract(env, field, value, reason):
+    extra = record("688827.SH")
+    extra[field] = value
+    definitions.set_rows(env, [record(A), extra])
+    result = definitions.run(env, "raw_tushare_moneyflow_ths_update_job", raise_on_error=False)
+    assert not result.success and not result.get_asset_materialization_events()
+    failure = next(e.step_failure_data for e in result.all_events if e.event_type == dg.DagsterEventType.STEP_FAILURE)
+    assert reason in failure.user_failure_data.metadata["goldenshare/reason_code"].value
 
 
 def test_capacity_twenty_thousand_and_union_overflow(tmp_path, record_property):
@@ -307,7 +454,7 @@ def test_capacity_twenty_thousand_and_union_overflow(tmp_path, record_property):
     expected = {f"{i:06d}.SZ" for i in range(20000)}
     started = perf_counter()
     with moneyflow_candidate_connection(tmp_path) as connection:
-        merge.merge_moneyflow_ths_raw_candidate(connection, source, tmp_path / "absent", final)
+        merge.merge_moneyflow_ths_raw_candidate(connection, source, tmp_path / "absent", final, allowed_codes=expected)
         md = merge.moneyflow_ths_raw_metadata(connection, final, expected)
         assert md["row_count"] == 20000 and md["missing_record_codes"] == []
         assert md["null_value_codes"] == [f"{i:06d}.SZ" for i in range(20000)]
@@ -449,6 +596,6 @@ def test_real_http_worker_raw_job_merge_metadata_and_check(env, monkeypatch, ths
     assert result.get_asset_check_evaluations()[0].passed
     receipt = json.loads(Path(md["goldenshare/source_proof_path"].value).read_text())
     assert receipt["row_count"] == 2 and receipt["stability_gap_seconds"] >= 60
-    # P=2 nonempty pages, existing target changes: LLD 11P+42=64 business SQL.
-    assert len(sql) == 64 and len(connections) == 4
+    # LLD 82.30: original 11P+42 plus one retained count per round, P=2.
+    assert len(sql) == 66 and len(connections) == 4
     record_property("ths_stage3_http_raw", json.dumps({"seconds": elapsed, "requests": 2, "workers": 2, "source_rows": 2, "final_rows": 3, "business_sql": len(sql), "connections": len(connections), "loopback_only": True}))

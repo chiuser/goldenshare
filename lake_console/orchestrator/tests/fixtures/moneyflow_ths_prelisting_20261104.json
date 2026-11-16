@@ -1,0 +1,55 @@
+{
+  "source": "Tushare moneyflow_ths, doc348; previously downloaded failed run; bounded two-code sample",
+  "source_run_id": "33d40b8d-1353-4b34-b32f-9ffd8bcf2d51",
+  "source_trade_date": "2026-11-04",
+  "source_path": "/Volumes/datasource/data_lake_staging/moneyflow/33d40b8d-1353-4b34-b32f-9ffd8bcf2d51/moneyflow_ths/2026-11-04/raw.parquet",
+  "prelisting_code": "688827.SH",
+  "prelisting_list_date": "2026-11-10",
+  "fields": [
+    "trade_date",
+    "ts_code",
+    "name",
+    "pct_change",
+    "latest",
+    "net_amount",
+    "net_d5_amount",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate"
+  ],
+  "records": [
+    {
+      "trade_date": "20261104",
+      "ts_code": "000001.SZ",
+      "name": "平安银行",
+      "pct_change": "-0.2500",
+      "latest": "11.7400",
+      "net_amount": "1120.4400",
+      "net_d5_amount": "13323.5200",
+      "buy_lg_amount": "-5768.8200",
+      "buy_lg_amount_rate": "-3.4200",
+      "buy_md_amount": "-2469.4300",
+      "buy_md_amount_rate": "-1.4600",
+      "buy_sm_amount": "9358.6900",
+      "buy_sm_amount_rate": "5.5400"
+    },
+    {
+      "trade_date": "20261104",
+      "ts_code": "688827.SH",
+      "name": "钶锐锶",
+      "pct_change": "0.0000",
+      "latest": "0.0000",
+      "net_amount": "0.0000",
+      "net_d5_amount": "0.0000",
+      "buy_lg_amount": "0.0000",
+      "buy_lg_amount_rate": "0.0000",
+      "buy_md_amount": "0.0000",
+      "buy_md_amount_rate": "0.0000",
+      "buy_sm_amount": "0.0000",
+      "buy_sm_amount_rate": "0.0000"
+    }
+  ]
+}
