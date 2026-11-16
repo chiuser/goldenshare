@@ -16,6 +16,7 @@ class DatasetTimeInput:
     start_month: str | None = None
     end_month: str | None = None
     date_field: str | None = None
+    business_date: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +31,7 @@ class DatasetActionRequest:
     workflow_key: str | None = None
     run_id: int | None = None
     execution_context: dict[str, Any] | None = None
+    maintenance_intent: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)

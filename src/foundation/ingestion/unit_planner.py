@@ -2094,7 +2094,13 @@ def _build_stock_weekly_adj_units(planner, request, definition):
             phase='planner', message=str(exc), retryable=False)) from exc
 
 
+def _build_stock_period_adj_units(planner, request, definition):
+    from src.foundation.ingestion.stock_period_adj_planning import restore_units
+    return list(restore_units(planner.session, definition, request.execution_context['stock_period_adj']))
+
+
 _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetActionRequest, DatasetDefinition], list[PlanUnitSnapshot]]] = {
+    'stock_period_adj': _build_stock_period_adj_units,
     "stock_weekly_adj_refresh": _build_stock_weekly_adj_units,
     "build_announcement_units": _build_announcement_units,
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,

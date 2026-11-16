@@ -5,6 +5,7 @@ Deprecated as global model loader:
 - This module is kept as a compatibility shell for foundation model imports only.
 """
 
+from src.foundation.models.core.stock_period_adj_delivery import StockPeriodAdjDelivery
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
 from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen

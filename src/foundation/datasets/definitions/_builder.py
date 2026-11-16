@@ -7,6 +7,7 @@ from typing import Any
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.freshness_policies import get_freshness_policy
 from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjExecutionPolicy, weekly_definition_issues
+from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjExecutionPolicy, definition_issues as period_definition_issues
 from src.foundation.datasets.models import (
     AnnouncementExecutionPolicy,
     DatasetActionCapability,
@@ -112,6 +113,11 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         planning_row["index_period_raw_policy"] = IndexPeriodRawPolicy(**planning_row["index_period_raw_policy"])
     if planning_row.get("weekly_adj_policy") is not None:
         planning_row["weekly_adj_policy"] = WeeklyAdjExecutionPolicy(**planning_row["weekly_adj_policy"])
+    if planning_row.get("stock_period_adj_policy") is not None:
+        period_policy = StockPeriodAdjExecutionPolicy(**planning_row["stock_period_adj_policy"])
+        planning_row.update(stock_period_adj_policy=period_policy, page_limit=period_policy.page_limit,
+                            max_source_rows_per_unit=period_policy.max_rows_per_unit,
+                            max_units_per_execution=period_policy.max_units)
     planning = DatasetPlanningDefinition(**planning_row)
     _validate_source_fetch_safety(
         dataset_key=identity.dataset_key,
@@ -158,7 +164,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         transaction=DatasetTransactionDefinition(**transaction_row),
         completeness=completeness,
     )
-    issues = weekly_definition_issues(definition)
+    issues = period_definition_issues(definition) if planning.stock_period_adj_policy else weekly_definition_issues(definition)
     if issues:
         raise ValueError(f"数据集定义 {identity.dataset_key}：{issues[0][1]}")
     return definition

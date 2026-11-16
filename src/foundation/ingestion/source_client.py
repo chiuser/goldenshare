@@ -61,6 +61,38 @@ class DatasetSourceClient:
         self.error_mapper = error_mapper or IngestionErrorMapper()
         self.logger = logging.getLogger(self.__class__.__name__)
 
+    def iter_stock_period_adj_pages(self, *, definition, unit, control, readiness=False):
+        from src.foundation.datasets.stock_period_adj_contracts import READINESS_FIELDS, StockPeriodAdjContractError
+        from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+        policy = definition.planning.stock_period_adj_policy
+        connector = create_source_connector(unit.source_key)
+        count = 0
+        offset = 0
+        for page_number in range(1, policy.max_pages + 1):
+            control.check()
+            control.fetching(page_number, offset)
+            started = perf_counter()
+            try:
+                rows = connector.call_bounded(api_name=definition.source.api_name,
+                    params={**unit.request_params, 'limit': policy.page_limit, 'offset': offset},
+                    fields=READINESS_FIELDS if readiness else definition.source.source_fields,
+                    maximum=policy.max_payload_bytes, timeout=policy.source_timeout_seconds,
+                    check=control.poll, tick=control.tick, before_request=control.check,
+                    response_contract='stock_period_adj_readiness/v1' if readiness else 'stock_period_adj/v1')
+            except BoundedTushareError as exc:
+                raise StockPeriodAdjContractError(str(exc), exc.code if exc.code.startswith('stock_period_adj.') else 'source_schema_invalid') from exc
+            count += len(rows)
+            if len(rows) > policy.page_limit or count > policy.max_rows_per_unit:
+                raise StockPeriodAdjContractError('源分页超过单元行数限制', 'row_budget_exceeded')
+            short = len(rows) < policy.page_limit
+            yield SourcePageResult(unit_id=unit.unit_id, page_number=page_number, offset=offset, rows_raw=rows,
+                retry_count=0, latency_ms=int((perf_counter()-started)*1000), is_short_page=short)
+            control.check()
+            if short:
+                return
+            offset += policy.page_limit
+        raise StockPeriodAdjContractError('源分页未在声明页数内到达末页', 'row_budget_exceeded')
+
     def iter_weekly_adj_pages(self, *, definition, unit, control):
         """One bounded attempt per page. Failure remains pending for the original batch."""
         from src.foundation.clients.bounded_tushare_call import BoundedTushareError, request_diagnostics

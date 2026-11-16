@@ -369,7 +369,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
         if (view?.run.status === "canceling") {
           return <Text size="sm">停止中</Text>;
         }
-        if (view?.progress.announcement_progress || view?.progress.weekly_adj_progress
+        if (view?.run.maintenance_intent || view?.progress.announcement_progress || view?.progress.weekly_adj_progress
           || view?.progress.paged_unit_progress?.active?.time.field === "trade_date") {
           return <Text size="sm">暂无法估算</Text>;
         }
@@ -432,6 +432,8 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
             <AlertBar tone={headline.color} title={headline.title}>
               {headline.description}
             </AlertBar>
+            {view.run.maintenance_intent_label ? <Text size="sm">处理用途：{view.run.maintenance_intent_label}</Text> : null}
+            {view.run.execution_policy_label ? <details><summary>本次执行限制</summary><Text size="sm">{view.run.execution_policy_label}</Text></details> : null}
             <SimpleGrid cols={{ base: 1, sm: 2, xl: view.run.time_scope_label ? 5 : 4 }} spacing="md" verticalSpacing="md">
               <MetricPanel label="当前状态">
                 <StatusBadge value={view.run.status} size="lg" />

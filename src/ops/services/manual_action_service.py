@@ -50,8 +50,8 @@ class ManualActionCommandService:
         if route is None:
             raise WebAppError(status_code=404, code="not_found", message="手动任务不存在")
         resolved = ManualActionTaskRunResolver(route).resolve(body)
-        if body.resume_from_task_run_id is not None and (resolved.task_type != 'dataset_action' or resolved.resource_key != 'anns_d'):
-            raise WebAppError(status_code=422,code='validation_error',message='仅公告维护支持恢复任务')
+        if body.resume_from_task_run_id is not None and (resolved.task_type != 'dataset_action' or not (resolved.resource_key == 'anns_d' or route.maintenance_intents)):
+            raise WebAppError(status_code=422,code='validation_error',message='该维护动作不支持恢复任务')
         if resolved.task_type == "workflow":
             if not resolved.target_type or not resolved.target_key:
                 raise WebAppError(status_code=422, code="validation_error", message="手动工作流路由未配置")
@@ -76,7 +76,7 @@ class ManualActionCommandService:
                 requested_by_user_id=user.id,
             )
             return task_run.id
-        if resolved.task_type == "dataset_action":
+        if resolved.task_type == "dataset_action" and body.resume_from_task_run_id is None:
             self._preflight_dataset_action(session, user=user, resolved=resolved)
         task_run = self.task_run_service.create_task_run(
             session,
@@ -117,12 +117,18 @@ class ManualActionCommandService:
                 start_month=ManualActionCommandService._optional_text(time_input.get("start_month")),
                 end_month=ManualActionCommandService._optional_text(time_input.get("end_month")),
                 date_field=ManualActionCommandService._optional_text(time_input.get("date_field")),
+                business_date=ManualActionCommandService._optional_date(time_input.get('business_date')),
             ),
             filters=dict(resolved.filters),
             trigger_source="manual",
             requested_by_user_id=user.id,
+            maintenance_intent=resolved.request_payload.get('maintenance_intent'),
         )
         try:
+            from src.foundation.datasets.registry import get_dataset_definition
+            if get_dataset_definition(resolved.resource_key).planning.stock_period_adj_policy is not None:
+                # TaskRun intake validates this intent once; long planning belongs to the worker.
+                return
             DatasetActionResolver(session).build_plan(request)
         except IngestionError as exc:
             presentation = present_ingestion_error(exc.structured_error)
@@ -153,6 +159,22 @@ class ManualActionTaskRunResolver:
         self.route = route
 
     def resolve(self, body: ManualActionTaskRunCreateRequest) -> ResolvedManualTaskRun:
+        if self.route.maintenance_intents:
+            if body.resume_from_task_run_id is not None:
+                if body.model_fields_set - {'resume_from_task_run_id'}:
+                    raise WebAppError(status_code=422, code='validation_error', message='恢复只接受原任务ID，不能另传处理范围')
+                return ResolvedManualTaskRun(task_type='dataset_action', resource_key=self.route.resource_key,
+                    action='maintain', time_input={}, filters={}, request_payload={})
+            kind = (body.maintenance_intent or {}).get('kind', 'period')
+            intent = next((item for item in self.route.maintenance_intents if item.kind == kind), None)
+            if intent is None:
+                raise WebAppError(status_code=422, code='validation_error', message='该维护用途尚未开放')
+            if kind == 'current_period':
+                return ResolvedManualTaskRun(task_type='dataset_action', resource_key=self.route.resource_key,
+                    action='maintain', time_input=body.time_input.model_dump(mode='json', exclude_none=True), filters=dict(body.filters),
+                    request_payload={'maintenance_intent': dict(body.maintenance_intent)})
+        elif body.maintenance_intent is not None or body.time_input.business_date is not None:
+            raise WebAppError(status_code=422, code='validation_error', message='该动作不支持股票周期线维护用途')
         filters = self._normalize_filters(body.filters)
         filters = self._apply_default_filters(filters)
         self._validate_required_filters(filters)
@@ -173,7 +195,7 @@ class ManualActionTaskRunResolver:
                 action="maintain",
                 time_input=self._dataset_time_input_payload(mode_config=mode_config, time_params=time_params),
                 filters=filters,
-                request_payload={},
+                request_payload={'maintenance_intent': body.maintenance_intent} if body.maintenance_intent is not None else {},
             )
 
         if self.route.action_type == "workflow":

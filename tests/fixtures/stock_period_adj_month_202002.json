@@ -1,0 +1,13 @@
+{
+  "provenance": {
+    "captured_on": "2026-11-16",
+    "source": "tushareMcp.stk_week_month_adj flattened business rows; numeric lexemes retained",
+    "source_doc": "docs/sources/tushare/股票数据/行情数据/0365_股票周_月线行情(复权--每日更新).md",
+    "request": {"ts_code": "000001.SZ", "freq": "month", "start_date": "20200201", "end_date": "20200229"},
+    "fields": ["ts_code","trade_date","end_date","freq","open","high","low","close","pre_close","open_qfq","high_qfq","low_qfq","close_qfq","open_hfq","high_hfq","low_hfq","close_hfq","vol","amount","change","pct_chg"]
+  },
+  "rows": [
+    {"ts_code":"000001.SZ","trade_date":"20200229","end_date":"20261113","freq":"month","open":13.99,"high":15.72,"low":13.99,"close":14.5,"pre_close":15.54,"open_qfq":10.75,"high_qfq":12.08,"low_qfq":10.75,"close_qfq":11.14,"open_hfq":1527.27,"high_hfq":1716.14,"low_hfq":1527.27,"close_hfq":1582.95,"vol":25321376.36,"amount":37501098.78,"change":-1.04,"pct_chg":-6.69},
+    {"ts_code":"000001.SZ","trade_date":"20200228","end_date":"20250910","freq":"month","open":13.99,"high":15.72,"low":13.99,"close":14.5,"pre_close":15.54,"open_qfq":11.59,"high_qfq":13.02,"low_qfq":11.59,"close_qfq":12.01,"open_hfq":1527.28,"high_hfq":1716.14,"low_hfq":1527.28,"close_hfq":1582.96,"vol":25321376.36,"amount":37501098.78,"change":-1.04,"pct_chg":-6.69}
+  ]
+}

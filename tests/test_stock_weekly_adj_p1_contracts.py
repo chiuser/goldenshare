@@ -33,6 +33,7 @@ from src.foundation.models.core.stock_weekly_adj_delivery import StockWeeklyAdjD
 
 
 def weekly_definition():
+    """Explicit historical v1 fixture; current registry binds the new two-frequency contract."""
     definition = get_dataset_definition("stk_period_bar_adj_week")
     return replace(
         definition,
@@ -46,6 +47,7 @@ def weekly_definition():
         ),
         planning=replace(
             definition.planning,
+            stock_period_adj_policy=None,
             weekly_adj_policy=WeeklyAdjExecutionPolicy(),
             unit_builder_key="stock_weekly_adj_refresh",
             max_source_rows_per_unit=12000,
@@ -226,12 +228,12 @@ def test_binding_rejects_orphans_and_month_and_concurrent():
         replace(d, planning=replace(d.planning, weekly_adj_policy=None))
     )
     assert (
-        get_dataset_definition("stk_period_bar_adj_week").planning.weekly_adj_policy
+        get_dataset_definition("stk_period_bar_adj_week").planning.stock_period_adj_policy
         is not None
     )
     assert (
         get_dataset_definition("stk_period_bar_adj_month").storage.delivery_table
-        is None
+        == "core.stock_period_adj_delivery"
     )
 
 

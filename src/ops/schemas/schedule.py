@@ -21,6 +21,13 @@ class ScheduleProbeConfig(BaseModel):
     def reject_operator_owned_fields(cls, value: Any) -> Any:
         if not isinstance(value, dict):
             return value
+        from src.ops.services.stock_period_adj_probe_service import CURRENT_CONDITION, PROBE_WINDOW, PROBE_INTERVAL_SECONDS, MAX_TRIGGERS_PER_DAY
+        if value.get('condition_kind') == CURRENT_CONDITION:
+            value = dict(value)
+            for key, default in {'window_start': PROBE_WINDOW[0], 'window_end': PROBE_WINDOW[1],
+                    'probe_interval_seconds': PROBE_INTERVAL_SECONDS, 'max_triggers_per_day': MAX_TRIGGERS_PER_DAY}.items():
+                if value.get(key) is None:
+                    value[key] = default
         if "source_key" in value:
             raise PydanticCustomError(
                 "source_key.operator_forbidden",

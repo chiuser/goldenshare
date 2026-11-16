@@ -79,7 +79,7 @@ def create_ops_task_run(
         task_type=body.task_type,
         resource_key=body.resource_key,
         action=body.action,
-        time_input=body.time_input.model_dump(exclude_none=True),
+        time_input=body.time_input.model_dump(mode='json', exclude_none=True),
         filters=body.filters,
         request_payload=body.request_payload,
         resume_from_task_run_id=body.resume_from_task_run_id,

@@ -748,3 +748,14 @@ def test_announcement_progress_survives_large_sample_compaction():
     projection=TaskRunQueryService._announcement_progress(result)
     assert projection.unit_done==1 and projection.counters['processed']==500
     assert TaskRunQueryService._announcement_progress({'runtime':None}) is None
+
+
+def test_period_adjusted_task_rejects_client_supplied_execution_plan(app_client,user_factory):
+    user_factory(username='admin',password='secret',is_admin=True)
+    token=app_client.post('/api/v1/auth/login',json={'username':'admin','password':'secret'}).json()['token']
+    response=app_client.post('/api/v1/ops/task-runs',headers={'Authorization':f'Bearer {token}'},json={
+        'task_type':'dataset_action','resource_key':'stk_period_bar_adj_month','action':'maintain',
+        'time_input':{'mode':'point','business_date':'2026-11-13'},'filters':{},
+        'request_payload':{'maintenance_intent':{'kind':'current_period'},'execution_context':{'contract_kind':'stock_period_adj/v1'}}})
+    assert response.status_code==422,response.json()
+    assert response.json()['code']=='stock_period_adj.resume_contract_mismatch'

@@ -44,6 +44,26 @@ from src.ops.schemas.task_run import (
 
 
 class TaskRunQueryService:
+    @staticmethod
+    def _execution_policy_label(task_run):
+        context = (task_run.request_payload_json or {}).get('execution_context') or {}
+        if context.get('contract_kind') != 'stock_period_adj/v1':
+            return None
+        policy = context['stock_period_adj']['policy']
+        return (f"每页{policy['page_limit']}行，每单元最多{policy['max_pages']}页、{policy['max_rows_per_unit']}行；"
+            f"响应/单元载荷{policy['max_payload_bytes']}字节，计划最多{policy['max_units']}单元、{policy['max_plan_bytes']}字节；"
+            f"每次源调用{policy['source_timeout_seconds']}秒，单元业务事务累计{policy['db_statement_timeout_seconds']}秒，"
+            f"锁等待{policy['lock_timeout_seconds']}秒；取消轮询{policy['cancel_poll_seconds']}秒，"
+            f"进度间隔{policy['progress_interval_seconds']}秒，观察写入{policy['observation_timeout_seconds']}秒。")
+
+    @staticmethod
+    def _maintenance_intent_label(task_run):
+        intent = (task_run.request_payload_json or {}).get('maintenance_intent')
+        if intent is None:
+            return None
+        from src.ops.queries.manual_action_query_service import PERIOD_MAINTENANCE_INTENT_LABELS
+        return PERIOD_MAINTENANCE_INTENT_LABELS.get(intent['kind'])
+
     MAX_VIEW_NODES = 200
     MAX_PAGED_UNIT_RESULTS = 16
 
@@ -205,6 +225,9 @@ class TaskRunQueryService:
                 schedule_display_name=schedule_display_name,
                 time_input=dict(task_run.time_input_json or {}),
                 filters=dict(task_run.filters_json or {}),
+                maintenance_intent=(task_run.request_payload_json or {}).get('maintenance_intent'),
+                maintenance_intent_label=self._maintenance_intent_label(task_run),
+                execution_policy_label=self._execution_policy_label(task_run),
                 time_scope=time_scope,
                 time_scope_label=time_scope.label if time_scope else None,
                 requested_at=task_run.requested_at,
@@ -618,6 +641,14 @@ class TaskRunQueryService:
             description_parts.append(f"处理范围：{time_label}")
         if freq:
             description_parts.append(f"频率：{freq}")
+        if attributes.get('stage'):
+            description_parts.append(f"阶段：{attributes['stage']}")
+            if time.get('business_date'):
+                description_parts.append(f"业务交易日：{time['business_date']}")
+            if attributes.get('updated_at'):
+                description_parts.append(f"最近更新：{attributes['updated_at']}")
+            if attributes.get('eta'):
+                description_parts.append(f"预计完成：{attributes['eta']}")
         return TaskRunDisplayObject(
             title=f"{prefix}：{title_value}",
             description="；".join(description_parts) or None,
@@ -823,7 +854,7 @@ class TaskRunQueryService:
     @staticmethod
     def _time_scope(time_input: dict) -> TaskRunTimeScope | None:
         mode = str(time_input.get("mode") or "none")
-        trade_date = TaskRunQueryService._text(time_input.get("trade_date") or time_input.get("ann_date"))
+        trade_date = TaskRunQueryService._text(time_input.get('business_date') or time_input.get("trade_date") or time_input.get("ann_date"))
         if trade_date:
             return TaskRunTimeScope(kind="point", start=trade_date, end=trade_date, label=trade_date)
         start_date = TaskRunQueryService._text(time_input.get("start_date"))

@@ -36,6 +36,7 @@ TIME_PARAM_KEYS = {
     "ann_date",
 }
 INTERNAL_PARAM_KEYS = {"offset", "limit"}
+PERIOD_MAINTENANCE_INTENT_LABELS = {'period': '指定周期维护', 'current_period': '当前周期更新'}
 SCOPED_REPAIR_TIME_RULES = {
     "existing_point_bucket_only": (("point",), "股票代码补录仅支持一个已存在日期桶。"),
     "existing_observed_point_scope_only": (("point",), "单基金补录只适用于已有报告期。"),
@@ -58,6 +59,7 @@ class ManualActionRoute:
     filters: tuple[ActionParameter, ...]
     conditional_time_rules: tuple[ManualActionConditionalTimeRuleResponse, ...] = ()
     workflow: WorkflowDefinition | None = None
+    maintenance_intents: tuple = ()
 
 
 class ManualActionQueryService:
@@ -106,6 +108,19 @@ class ManualActionQueryService:
             supported_time_modes=supported_modes,
             max_units_per_execution=definition.planning.max_units_per_execution,
         )
+        intents = ()
+        if definition.planning.stock_period_adj_policy is not None:
+            from src.ops.schemas.manual_action import ManualActionMaintenanceIntentResponse
+            available = {
+                'period': ManualActionMaintenanceIntentResponse(kind='period', display_name=PERIOD_MAINTENANCE_INTENT_LABELS['period'],
+                    description='按原周五或自然月末日期维护行情。', time_form=time_form),
+                'current_period': ManualActionMaintenanceIntentResponse(kind='current_period', display_name=PERIOD_MAINTENANCE_INTENT_LABELS['current_period'],
+                    description='按业务交易日更新正在形成的当周或当月行情。',
+                    time_form=self._time_form([ManualActionTimeModeResponse(mode='point', label='业务交易日',
+                        description='更新该交易日所在周期，接受达到目标日的较新源记录。', control='trade_date',
+                        selection_rule='trading_day_only', date_field='business_date')])),
+            }
+            intents = tuple(available[kind] for kind in definition.planning.stock_period_adj_policy.maintenance_intents)
         return ManualActionRoute(
             action_key=action_key,
             action_type="dataset_action",
@@ -121,6 +136,7 @@ class ManualActionQueryService:
             time_form=time_form,
             filters=filters,
             conditional_time_rules=self._conditional_time_rules(definition.input_model.filters),
+            maintenance_intents=intents,
         )
 
     def _build_workflow_route(self, workflow: WorkflowDefinition) -> ManualActionRoute:
@@ -501,4 +517,5 @@ class ManualActionQueryService:
             filters=[self._to_param_response(param) for param in route.filters],
             search_keywords=list(dict.fromkeys(keywords)),
             action_order=route.action_order,
+            maintenance_intents=list(route.maintenance_intents),
         )

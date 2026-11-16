@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from src.foundation.datasets.stock_weekly_adj_contracts import weekly_definition_issues
+from src.foundation.datasets.stock_period_adj_contracts import definition_issues as period_definition_issues
 
 from dataclasses import dataclass
 
@@ -36,7 +37,8 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
     definition_keys: set[str] = set()
     for definition in list_dataset_definitions():
         dataset_key = definition.dataset_key
-        for code, message in weekly_definition_issues(definition):
+        binding_issues = period_definition_issues(definition) if definition.planning.stock_period_adj_policy else weekly_definition_issues(definition)
+        for code, message in binding_issues:
             issues.append(IngestionLintIssue(dataset_key, code, message))
         definition_keys.add(dataset_key)
         if not definition.identity.display_name.strip():

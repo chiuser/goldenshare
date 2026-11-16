@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Literal
+from datetime import date
 
 from pydantic import BaseModel, Field
 
@@ -66,6 +67,13 @@ class ManualActionConditionalTimeRuleResponse(BaseModel):
     help_text: str
 
 
+class ManualActionMaintenanceIntentResponse(BaseModel):
+    kind: str
+    display_name: str
+    description: str
+    time_form: ManualActionTimeFormResponse
+
+
 class ManualActionItemResponse(BaseModel):
     action_key: str
     action_type: str
@@ -79,6 +87,7 @@ class ManualActionItemResponse(BaseModel):
     filters: list[ActionParameterResponse]
     search_keywords: list[str]
     action_order: int
+    maintenance_intents: list[ManualActionMaintenanceIntentResponse] = Field(default_factory=list)
 
 
 class ManualActionGroupResponse(BaseModel):
@@ -102,9 +111,11 @@ class ManualActionTimeInput(BaseModel):
     end_month: str | None = None
     ann_date: str | None = None
     date_field: str | None = None
+    business_date: date | None = None
 
 
 class ManualActionTaskRunCreateRequest(BaseModel):
     time_input: ManualActionTimeInput = Field(default_factory=ManualActionTimeInput)
     filters: dict[str, Any] = Field(default_factory=dict)
     resume_from_task_run_id: int | None = Field(default=None, gt=0, strict=True)
+    maintenance_intent: dict[str, Any] | None = None

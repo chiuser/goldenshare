@@ -381,7 +381,13 @@ class ActualBucketReader:
         start_date: date,
         end_date: date,
         row_identity_filters: dict | None = None,
+        period_frequency: str | None = None,
     ) -> set[date]:
+        original_start, original_end = start_date, end_date
+        if period_frequency:
+            from src.foundation.datasets.stock_period_adj_contracts import period_start, period_date
+            start_date = period_start(start_date, period_frequency)
+            end_date = period_start(end_date, period_frequency) + timedelta(days=6) if period_frequency == 'week' else period_date(end_date, period_frequency)
         table_sql = self._sql_table_identifier(target_table)
         field_sql = self._sql_column_identifier(observed_field)
         filter_sql, filter_params = self._row_identity_filter_clause(row_identity_filters or {})
@@ -415,6 +421,9 @@ class ActualBucketReader:
             {"start_date": start_date, "end_date": end_date, **filter_params},
         ).all()
         values = {self._value_to_date(row.bucket_value) for row in rows if row.bucket_value is not None}
+        if period_frequency:
+            from src.foundation.datasets.stock_period_adj_contracts import period_date
+            return {point for value in values if original_start <= (point := period_date(value, period_frequency)) <= original_end}
         if date_axis == "month_window":
             return {date(value.year, value.month, 1) for value in values}
         return values
@@ -657,9 +666,15 @@ class SubjectCompletenessMatrixExecutor:
             from checked
             order by subject_key asc
         """
+        policy = get_dataset_definition(run.dataset_key).planning.stock_period_adj_policy
+        period_frequency = (run.row_identity_filters_json or {}).get('freq') if policy else None
+        if period_frequency:
+            bucket_sql = bucket_sql.replace(f'{observed_field} = :bucket_value',
+                f'{observed_field} between :bucket_start and :bucket_end')
         return {
             "bucket_sql": bucket_sql,
             "params": {**status_params, **filter_params},
+            'period_frequency': period_frequency,
         }
 
     def _build_ops_index_series_active_bucket_context(
@@ -730,9 +745,15 @@ class SubjectCompletenessMatrixExecutor:
         detail_remaining: int,
     ) -> SubjectCompletenessBucketResult:
         self._set_local_statement_timeout(session)
+        period_params = {}
+        if context.get('period_frequency'):
+            from src.foundation.datasets.stock_period_adj_contracts import period_start, period_date
+            freq = context['period_frequency']
+            start = period_start(bucket.value, freq)
+            period_params = {'bucket_start': start, 'bucket_end': start + timedelta(days=6) if freq == 'week' else period_date(start, freq)}
         rows = session.execute(
             text(str(context["bucket_sql"])),
-            {**dict(context["params"]), "bucket_value": bucket.value},
+            {**dict(context["params"]), "bucket_value": bucket.value, **period_params},
         ).all()
         expected_cell_count = len(rows)
         missing_rows = [row for row in rows if row.actual_subject_key is None]
@@ -959,6 +980,8 @@ class DateCompletenessAuditExecutor:
                 start_date=run.start_date,
                 end_date=run.end_date,
                 row_identity_filters=run.row_identity_filters_json,
+                period_frequency=(run.row_identity_filters_json or {}).get('freq')
+                    if get_dataset_definition(run.dataset_key).planning.stock_period_adj_policy else None,
             )
             gaps = GapDetector().detect(expected_buckets=expected, actual_bucket_values=actual)
             self._mark_succeeded(session, run, expected=expected, actual=actual, gaps=gaps, excluded=excluded)

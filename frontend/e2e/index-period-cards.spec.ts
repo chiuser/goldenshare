@@ -50,6 +50,7 @@ test.beforeEach(async ({ page }) => {
       action_key: `maintenance.update_index_${frequency}_serving`, action_type: "maintenance_action",
       display_name: `更新指数${frequency === "weekly" ? "周" : "月"}线 Serving`, description: "指定交易日更新指数 Serving。",
       resource_key: null, resource_display_name: null, date_model: null,
+      maintenance_intents: [],
       time_form: { default_mode: "point", modes: [{ mode: "point", label: "只处理一天", description: "指定目标交易日。",
         control: "trade_date", selection_rule: "trading_day_only", date_field: "trade_date" }], max_units_per_execution: null },
       conditional_time_rules: [], filters: [], search_keywords: [], action_order: 10,

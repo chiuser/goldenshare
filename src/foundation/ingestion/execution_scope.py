@@ -42,7 +42,9 @@ def execution_observation_timeout(execution_context):
     if execution_context is None:
         return None
     try:
-        if execution_context.get("contract_kind") == "stock_weekly_adj/v1":
+        if execution_context.get('contract_kind') == 'stock_period_adj/v1':
+            timeout = execution_context['stock_period_adj']['policy']['observation_timeout_seconds']
+        elif execution_context.get("contract_kind") == "stock_weekly_adj/v1":
             timeout = execution_context["policy_snapshot"]["policy"][
                 "observation_timeout_seconds"
             ]

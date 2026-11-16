@@ -154,6 +154,7 @@ const mockManualActions = {
             audit_applicable: false,
             not_applicable_reason: "snapshot/master dataset",
           },
+          maintenance_intents: [],
           time_form: noneTimeForm,
           filters: [
             {
@@ -191,6 +192,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: tradeDatePointRangeForm,
           filters: [],
           search_keywords: ["daily", "维护股票日线"],
@@ -212,6 +214,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: calendarDateNonePointRangeForm,
           filters: [
             {
@@ -242,6 +245,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: tradeDatePointRangeForm,
           filters: [
             {
@@ -271,6 +275,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: tradeDatePointRangeForm,
           filters: [
             {
@@ -316,6 +321,7 @@ const mockManualActions = {
             audit_applicable: false,
             not_applicable_reason: "snapshot/master dataset",
           },
+          maintenance_intents: [],
           time_form: noneTimeForm,
           filters: [
             {
@@ -359,6 +365,7 @@ const mockManualActions = {
             audit_applicable: false,
             not_applicable_reason: "分钟完整性审计需要交易时段分钟网格。",
           },
+          maintenance_intents: [],
           time_form: tradeDatePointRangeForm,
           filters: [
             {
@@ -406,6 +413,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: tradeDatePointRangeForm,
           filters: [
             {
@@ -457,6 +465,7 @@ const mockManualActions = {
             audit_applicable: true,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: monthPointRangeForm,
           filters: [],
           search_keywords: ["broker_recommend", "维护券商每月荐股"],
@@ -485,6 +494,7 @@ const mockManualActions = {
             audit_applicable: false,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: quarterPointRangeForm,
           filters: [],
           search_keywords: ["fund_portfolio", "维护基金持仓"],
@@ -513,6 +523,7 @@ const mockManualActions = {
             audit_applicable: false,
             not_applicable_reason: null,
           },
+          maintenance_intents: [],
           time_form: buildTimeForm("range", [
             {
               mode: "range",
@@ -793,6 +804,7 @@ describe("手动任务页", () => {
     const next = resolveDraftOnDomainChange(
       {
         action_id: "daily.maintain",
+        maintenance_kind: "period",
         time_mode: "point",
         selected_date: "",
         start_date: "",

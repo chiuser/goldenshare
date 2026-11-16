@@ -1181,3 +1181,34 @@ def test_retired_announcement_identity_action_is_not_offered(app_client, user_fa
     catalog = app_client.get('/api/v1/ops/manual-actions', headers=headers).json()
     actions = {a['action_key'] for g in catalog['groups'] for a in g['actions']}
     assert 'maintenance.migrate_announcement_identity' not in actions
+
+
+def test_stock_adjusted_period_manual_current_intent_is_kept_without_planning(app_client,user_factory,db_session,monkeypatch):
+    from src.foundation.models.core.trade_calendar import TradeCalendar
+    from src.foundation.ingestion.resolver import DatasetActionResolver
+    headers=_admin_headers(app_client,user_factory)
+    db_session.add(TradeCalendar(exchange='SSE',trade_date=date(2026,11,13),is_open=True));db_session.commit()
+    def no_plan(*args,**kwargs): pytest.fail('HTTP intake must not run long planning')
+    monkeypatch.setattr(DatasetActionResolver,'build_plan',no_plan)
+    for freq in ['week','month']:
+        response=app_client.post(f'/api/v1/ops/manual-actions/stk_period_bar_adj_{freq}.maintain/task-runs',headers=headers,
+            json={'maintenance_intent':{'kind':'current_period'},'time_input':{'mode':'point','business_date':'2026-11-13'},'filters':{}})
+        assert response.status_code==200,response.json()
+        run=response.json()['run']
+        assert run['time_input']['business_date']=='2026-11-13'
+        assert run['maintenance_intent']=={'kind':'current_period'} and run['maintenance_intent_label']=='当前周期更新'
+        stored=db_session.get(TaskRun,run['id'])
+        assert not stored.request_payload_json.get('execution_context')
+
+
+@pytest.mark.parametrize('body',[
+    {'maintenance_intent':{'kind':'current_period'},'time_input':{'mode':'point','trade_date':'2026-11-13'}},
+    {'maintenance_intent':{'kind':'current_period'},'time_input':{'mode':'point','business_date':'2026-11-13'},'filters':{'ts_code':'000001.SZ'}},
+    {'maintenance_intent':{'kind':'stock_history'},'time_input':{'mode':'none'}},
+    {'maintenance_intent':{'kind':'period'},'time_input':{'mode':'point','business_date':'2026-11-13'}},
+    {'resume_from_task_run_id':123,'time_input':{'mode':'point','trade_date':'2026-11-13'}},
+])
+def test_stock_adjusted_period_manual_rejects_mixed_intent_and_unimplemented_scope(app_client,user_factory,body):
+    headers=_admin_headers(app_client,user_factory)
+    response=app_client.post('/api/v1/ops/manual-actions/stk_period_bar_adj_month.maintain/task-runs',headers=headers,json=body)
+    assert response.status_code==422,response.json()

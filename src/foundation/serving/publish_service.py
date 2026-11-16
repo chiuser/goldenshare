@@ -35,6 +35,7 @@ class ServingPublishPlan:
     rows: list[dict[str, Any]]
     policy: ResolutionPolicy
     resolved_count: int
+    period_groups: tuple = ()
 
 
 class ServingPublishService:
@@ -94,6 +95,18 @@ class ServingPublishService:
             version=1,
             enabled=True,
         )
+        from src.foundation.datasets.registry import get_dataset_definition
+        definition = get_dataset_definition(dataset_key)
+        if definition.planning.stock_period_adj_policy is not None:
+            from src.foundation.datasets.stock_period_adj_contracts import frequency, period_start
+            from src.foundation.ingestion.stock_period_adj_delivery import bounded_transaction, select_groups
+            freq = frequency(definition)
+            groups = sorted({(row['ts_code'], period_start(row['trade_date'], freq))
+                for rows in std_rows_by_source.values() for row in rows})
+            with bounded_transaction(self.dao.session, definition.planning.stock_period_adj_policy, lambda: None):
+                rows, _ = select_groups(self.dao.session, groups, freq, definition.planning.stock_period_adj_policy, lambda: None)
+            return ServingPublishPlan(dataset_key=dataset_key, target_dao_attr=resolved_target_dao_attr,
+                rows=rows, policy=policy, resolved_count=len(rows), period_groups=tuple(groups))
         active_sources = self._policy_store.get_active_sources(self.dao.session, dataset_key)
         target_columns = {
             column.name
@@ -129,6 +142,21 @@ class ServingPublishService:
                 policy=plan.policy,
                 resolved_count=plan.resolved_count,
             )
+        from src.foundation.datasets.registry import get_dataset_definition
+        definition = get_dataset_definition(plan.dataset_key)
+        if definition.planning.stock_period_adj_policy is not None:
+            from sqlalchemy.orm import Session
+            from src.foundation.datasets.stock_period_adj_contracts import frequency, period_start
+            from src.foundation.ingestion.stock_period_adj_delivery import bounded_transaction, acquire_writer, republish_groups
+            freq = frequency(definition)
+            groups = list(plan.period_groups)
+            policy = definition.planning.stock_period_adj_policy
+            with Session(self.dao.session.get_bind()) as business:
+                with bounded_transaction(business, policy, lambda: None):
+                    acquire_writer(business, freq)
+                    rows, _ = republish_groups(business, groups, freq, policy, lambda: None)
+                    business.commit()
+            return ServingPublishResult(written=len(rows), policy=plan.policy, resolved_count=len(rows))
         target_dao = getattr(self.dao, plan.target_dao_attr, None)
         if target_dao is None:
             raise ValueError(f"DAOFactory has no target DAO attr: {plan.target_dao_attr}")

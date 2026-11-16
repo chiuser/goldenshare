@@ -91,6 +91,7 @@ beforeEach(() => {
                   audit_applicable: true,
                   not_applicable_reason: null,
                 },
+                maintenance_intents: [],
                 time_form: {
                   default_mode: "point",
                   modes: [

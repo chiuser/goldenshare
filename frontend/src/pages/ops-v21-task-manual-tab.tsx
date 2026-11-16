@@ -63,6 +63,7 @@ const MANUAL_RECENT_ACTIONS_STORAGE_KEY = "goldenshare.frontend.ops.task-center.
 function buildEmptyDraft() {
   return {
     action_id: "",
+    maintenance_kind: 'period',
     time_mode: "none" as ManualActionTimeMode,
     selected_date: "",
     start_date: "",
@@ -362,6 +363,7 @@ function buildDraftFromParams(
   const fieldValues = buildFieldValues(paramsJson);
   const tradeDate = typeof params.trade_date === "string" ? params.trade_date : "";
   const annDate = typeof params.ann_date === "string" ? params.ann_date : "";
+  const businessDate = typeof params.business_date === 'string' ? params.business_date : '';
   const startDate = typeof params.start_date === "string" ? params.start_date : "";
   const endDate = typeof params.end_date === "string" ? params.end_date : "";
   const month = typeof params.month === "string" ? params.month : "";
@@ -371,7 +373,7 @@ function buildDraftFromParams(
   const timeMode: ManualActionTimeMode =
     explicitMode === "point" || explicitMode === "range" || explicitMode === "none"
       ? explicitMode
-      : (tradeDate || annDate || month)
+      : (businessDate || tradeDate || annDate || month)
         ? "point"
         : (startDate || endDate || startMonth || endMonth)
           ? "range"
@@ -380,7 +382,8 @@ function buildDraftFromParams(
     ...current,
     action_id: action.action_key,
     time_mode: timeMode,
-    selected_date: tradeDate || annDate || current.selected_date,
+    selected_date: businessDate || tradeDate || annDate || current.selected_date,
+    maintenance_kind: isRecord(params.maintenance_intent) && typeof params.maintenance_intent.kind === 'string' ? params.maintenance_intent.kind : 'period',
     start_date: startDate,
     end_date: endDate,
     selected_month: month || current.selected_month,
@@ -400,6 +403,7 @@ function buildPrefillParamsFromTaskRun(view: TaskRunViewResponse): Record<string
     action: view.run.action,
     time_input: timeInput,
     filters,
+    maintenance_intent: view.run.maintenance_intent,
   };
 }
 
@@ -505,6 +509,13 @@ function normalizeFilterValue(param: ManualActionFilter, rawValue: string | stri
 }
 
 function buildManualActionRequest(action: ManualAction, draft: ManualDraft): OpsManualActionTaskRunRequest {
+  const request = buildManualActionTimeRequest(action, draft);
+  return action.maintenance_intents.length
+    ? { ...request, maintenance_intent: { kind: draft.maintenance_kind || action.maintenance_intents[0].kind } }
+    : request;
+}
+
+function buildManualActionTimeRequest(action: ManualAction, draft: ManualDraft): OpsManualActionTaskRunRequest {
   const filters: Record<string, unknown> = {};
   const fieldValues = mergeDefaultFieldValues(action, draft.field_values);
   for (const param of action.filters) {
@@ -541,6 +552,9 @@ function buildManualActionRequest(action: ManualAction, draft: ManualDraft): Ops
     }
     if (modeConfig.date_field === "ann_date") {
       return { time_input: { mode: "point", ann_date: draft.selected_date }, filters };
+    }
+    if (modeConfig.date_field === 'business_date') {
+      return { time_input: { mode: 'point', business_date: draft.selected_date }, filters: {} };
     }
     return { time_input: { mode: "point", trade_date: draft.selected_date }, filters };
   }
@@ -641,10 +655,18 @@ export function OpsManualTaskTab() {
     [manualActions, recentActionIds],
   );
 
-  const selectedAction = useMemo(
+  const baseSelectedAction = useMemo(
     () => findManualAction(manualActions, draft.action_id),
     [draft.action_id, manualActions],
   );
+  const selectedAction = useMemo(() => {
+    if (!baseSelectedAction || !baseSelectedAction.maintenance_intents.length) return baseSelectedAction;
+    const intent = baseSelectedAction.maintenance_intents.find((item) => item.kind === (draft.maintenance_kind || 'period'));
+    if (!intent) return null;
+    return { ...baseSelectedAction, time_form: intent.time_form,
+      filters: intent.kind === 'current_period' ? [] : baseSelectedAction.filters };
+  }, [baseSelectedAction, draft.maintenance_kind]);
+  const periodResume = Boolean(selectedAction?.maintenance_intents.length && typeof resumeFromTaskRunId === 'number');
   const effectiveFieldValues = useMemo(
     () => selectedAction ? mergeDefaultFieldValues(selectedAction, draft.field_values) : draft.field_values,
     [draft.field_values, selectedAction],
@@ -778,7 +800,7 @@ export function OpsManualTaskTab() {
       }
       return apiRequest<TaskRunViewResponse>(`/api/v1/ops/manual-actions/${encodeURIComponent(selectedAction.action_key)}/task-runs`, {
         method: "POST",
-        body: { ...buildManualActionRequest(selectedAction, draft),
+        body: periodResume ? { resume_from_task_run_id: resumeFromTaskRunId } : { ...buildManualActionRequest(selectedAction, draft),
           ...(selectedAction.resource_key === "anns_d" && typeof resumeFromTaskRunId === "number" ? { resume_from_task_run_id: resumeFromTaskRunId } : {}),
         },
       });
@@ -915,6 +937,17 @@ export function OpsManualTaskTab() {
                     </Stack>
                   </AlertBar>
 
+                  {selectedAction.maintenance_intents.length && !periodResume ? (
+                    <Select label="处理用途" value={draft.maintenance_kind || 'period'}
+                      data={selectedAction.maintenance_intents.map((item) => ({ value: item.kind, label: item.display_name }))}
+                      onChange={(kind) => {
+                        const intent = selectedAction.maintenance_intents.find((item) => item.kind === kind);
+                        if (intent) setDraft({ ...buildEmptyDraft(), action_id: selectedAction.action_key,
+                          maintenance_kind: intent.kind, time_mode: intent.time_form.default_mode });
+                      }} />
+                  ) : null}
+                  {periodResume ? <AlertBar title="按原任务续跑">仅使用原任务保存的日期、股票和未提交单元。</AlertBar> : null}
+
                   {actionGuidance ? (
                     <AlertBar title={actionGuidance.title}>
                       <Stack gap={4}>
@@ -927,7 +960,7 @@ export function OpsManualTaskTab() {
                     </AlertBar>
                   ) : null}
 
-                  {showTimeSection ? (
+                  {showTimeSection && !periodResume ? (
                     <Stack gap="xs">
                       <Text fw={700}>第二步：选择时间范围</Text>
 
@@ -1088,7 +1121,7 @@ export function OpsManualTaskTab() {
                     </Stack>
                   ) : null}
 
-                  {selectedAction.filters.length ? (
+                  {selectedAction.filters.length && !periodResume ? (
                     <Stack gap="xs">
                       <Text fw={700}>{showTimeSection ? "第三步：其他输入条件" : "第二步：其他输入条件"}</Text>
                       <Grid>
@@ -1190,7 +1223,7 @@ export function OpsManualTaskTab() {
                     </Stack>
                   ) : null}
 
-                  {selectedAction.resource_key === "anns_d" ? <NumberInput label="续跑来源任务 ID（可选）" description="仅支持已停止的公告任务，日期范围和过滤必须一致；留空发起新观察。" min={1} allowDecimal={false} value={resumeFromTaskRunId} onChange={setResumeFromTaskRunId} /> : null}
+                  {selectedAction.resource_key === 'anns_d' || selectedAction.maintenance_intents.length ? <NumberInput label="续跑来源任务 ID（可选）" description={selectedAction.maintenance_intents.length ? '只接受已停止的同数据集任务；填写后使用原范围，不另传日期或股票。' : '仅支持已停止的公告任务，日期范围和过滤必须一致；留空发起新观察。'} min={1} allowDecimal={false} value={resumeFromTaskRunId} onChange={setResumeFromTaskRunId} /> : null}
 
                   <Stack gap="md">
                     <Group justify="flex-end" align="center">

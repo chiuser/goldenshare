@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -16,6 +16,7 @@ class TaskRunTimeInput(BaseModel):
     start_month: str | None = None
     end_month: str | None = None
     date_field: str | None = None
+    business_date: date | None = None
 
 
 class CreateTaskRunRequest(BaseModel):
@@ -104,6 +105,9 @@ class TaskRunInfo(BaseModel):
     schedule_display_name: str | None = None
     time_input: dict[str, Any]
     filters: dict[str, Any]
+    maintenance_intent: dict[str, Any] | None = None
+    maintenance_intent_label: str | None = None
+    execution_policy_label: str | None = None
     time_scope: TaskRunTimeScope | None = None
     time_scope_label: str | None = None
     requested_at: datetime

@@ -66,9 +66,11 @@ REMOTE_SOURCE_PROBE_CONDITIONS = frozenset(
     }
 )
 SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, INDEX_PERIOD_SERVING_PROBE_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
+from src.ops.services.stock_period_adj_probe_service import CURRENT_CONDITION as STOCK_PERIOD_CURRENT_CONDITION, PROBE_WINDOW as STOCK_PERIOD_WINDOW, PROBE_INTERVAL_SECONDS as STOCK_PERIOD_INTERVAL, MAX_TRIGGERS_PER_DAY as STOCK_PERIOD_MAX_TRIGGERS
+SUPPORTED_PROBE_CONDITIONS = SUPPORTED_PROBE_CONDITIONS | {STOCK_PERIOD_CURRENT_CONDITION}
 DEFAULT_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron", "once")
 PURE_PROBE_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron",)
-TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
+TIME_PARAM_KEYS = {"trade_date", "business_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
 PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters", "schedule_policy_params"}
 DEFAULT_PROBE_WINDOW_START = "15:30"
 DEFAULT_PROBE_WINDOW_END = "17:00"
@@ -280,6 +282,8 @@ class ScheduleAutomationCapabilityResolver:
         if condition_kind == INDEX_PERIOD_SERVING_PROBE_CONDITION:
             return None
         definition = get_dataset_definition(dataset_key)
+        if condition_kind == STOCK_PERIOD_CURRENT_CONDITION and definition.planning.stock_period_adj_policy is None:
+            raise ValueError('股票复权周期线探测条件不适用于该数据集')
         if condition_kind not in SUPPORTED_PROBE_CONDITIONS:
             raise ValueError(f"不支持的探测条件：{condition_kind}")
         if condition_kind in REMOTE_SOURCE_PROBE_CONDITIONS:
@@ -354,6 +358,10 @@ class ScheduleAutomationCapabilityResolver:
         condition = next((item for item in capability.probe_conditions if item.kind == condition_kind), None)
         if condition is None:
             raise WebAppError(status_code=422, code="condition.unsupported", message="该自动任务目标不支持所选探测条件")
+        if condition_kind == STOCK_PERIOD_CURRENT_CONDITION:
+            from src.ops.services.stock_period_adj_probe_service import PROBE_TIMEZONE
+            if str(config.get('timezone_name') or schedule.timezone or PROBE_TIMEZONE) != PROBE_TIMEZONE:
+                raise WebAppError(status_code=422, code='timezone.forbidden', message='股票复权周期线探针使用上海时区')
         if trigger_mode not in condition.allowed_trigger_modes:
             raise WebAppError(status_code=422, code="trigger_mode.forbidden", message="探测条件不支持所选触发方式")
 
@@ -595,6 +603,15 @@ class ScheduleAutomationCapabilityResolver:
             return None
         if action != "maintain" or not action_is_schedulable("dataset_action", target_key):
             return None
+        if definition.planning.stock_period_adj_policy is not None:
+            condition = ProbeConditionCapability(kind=STOCK_PERIOD_CURRENT_CONDITION, label='股票复权周/月线当期齐备',
+                description='当期源覆盖及计算截至日期齐备后更新本频行情。', allowed_trigger_modes=('probe',),
+                calendar_policy='forbidden', time_input='forbidden', filters=FilterCapability(mode='forbidden'),
+                probe=_operator_probe_config(fixed_window=STOCK_PERIOD_WINDOW, fixed_interval=STOCK_PERIOD_INTERVAL,
+                                             fixed_max_triggers=STOCK_PERIOD_MAX_TRIGGERS))
+            return AutomationCapability(version=1, default_trigger_mode='probe',
+                trigger_options=(TriggerModeCapability(mode='probe', allowed_schedule_types=('cron',)),),
+                probe_conditions=(condition,), calendar_policy_rules=())
         calendar_policy_rules = DatasetScheduleTimePolicyResolver().resolve(
             definition=definition,
             action=action,

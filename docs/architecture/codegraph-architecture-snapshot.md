@@ -16,6 +16,8 @@
 4. `src/app/**`：组合根。`src/app/api/v1/router.py` 聚合 auth、Ops、Biz、Wealth 与 QTF API；`src/app/web/app.py` 是 Web 应用装配入口。
 5. `src/platform/**`、`src/operations/**`：legacy 冻结目录，不承接新主实现。
 
+2026-11-16 Prod股票复权周/月线阶段2源码：两条Definition启用共同`stock_period_adj_policy`；`DatasetActionRequest`增加处理用途及独立业务交易日输入，resolver归一化D→P。原Ops探针/TaskRun/OperationsWorker进入Foundation的planning→capture→delivery，逐单元同事务提交Raw、整行选择后的Serving及业务完成事实；Ops观察使用独立连接。人工Serving发布也从Raw候选重选并共用本频事务锁。Quote继续直接读唯一周期Serving；周期日期审计和freshness按自然周期归属，当期完成日另从业务事实显示。CodeGraph search/impact（DatasetActionRequest、builder、freshness）及sync/status与直接源码核对入口、跨层方向和消费者；没有Foundation反向依赖，也没有新worker/服务。阶段2PG18及接口/浏览器验收证据、管理员忽略16/18差异且不重复测试的决定见[原LLD13.28](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#1328-阶段2开发与独立复核记录)；生产未切换，阶段3用途未开放。
+
 ### 独立产品域：`qtf/`
 
 QTF 已进入受控 Python 包发现；只依赖自身与 Foundation，由 App 装配，Ops 不导入 QTF。当前入口：

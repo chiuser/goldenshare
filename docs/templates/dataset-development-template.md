@@ -90,6 +90,12 @@
 3. 若 `bucket_rule=not_applicable`，必须额外说明：这是“仅退出 freshness/audit”，还是“连时间输入也不支持”。
 4. `date_axis/window_mode/input_shape/supported_time_modes` 必须能从 0.3.0 的源接口真实行为验证表推导出来，不能从字段名、历史习惯或个人判断推导。
 
+#### 0.3.1a 一个数据集有不同处理用途时
+
+分别填写各用途的时间输入、对象范围、执行单元及观测含义，不能覆盖原用途。股票复权周线/月线的`stock_period_adj_policy`实例：`period`保留周五/月末point/range；`current_period`只接收`business_date`交易日，resolver归一化为源周期日期，request builder生成源参数。两者不可混传，其他数据集不接收该意图。
+
+具名policy是页/行/载荷/计划/超时限制的唯一来源，Definition规划值从它投影；冻结计划保存原值及摘要，恢复不得改范围或按新限值重推。原D、源周期日期、源计算截至日期、周期freshness/audit和本次完整交付分别说明。手动API、TaskRun、workflow/排程转发、Probe、前端表单及读取消费者必须同时对账；观察状态不替代业务提交事实。新增事实表/索引应注明迁移与启用阶段，隔离测试通过不代表生产已切换。
+
 #### 0.3.2 DatasetDefinition 消费者审计表
 
 修改 `DatasetDefinition` 事实源前，必须按下面清单逐项审计真实代码消费方。任何一项未确认，都不能动手改定义。

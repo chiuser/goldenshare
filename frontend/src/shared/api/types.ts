@@ -441,6 +441,9 @@ export interface TaskRunViewResponse {
     schedule_display_name: string | null;
     time_input: Record<string, unknown>;
     filters: Record<string, unknown>;
+    maintenance_intent: { kind: string } | null;
+    maintenance_intent_label: string | null;
+    execution_policy_label: string | null;
     time_scope: TaskRunTimeScope | null;
     time_scope_label: string | null;
     requested_at: string;
@@ -757,6 +760,12 @@ export interface OpsManualActionsResponse {
         allowed_time_modes: Array<"point" | "range" | "none">;
         help_text: string;
       }>;
+      maintenance_intents: Array<{
+        kind: string;
+        display_name: string;
+        description: string;
+        time_form: OpsManualActionsResponse['groups'][number]['actions'][number]['time_form'];
+      }>;
       filters: Array<{
         key: string;
         display_name: string;
@@ -786,9 +795,11 @@ export interface OpsManualActionTaskRunRequest {
     end_month?: string;
     ann_date?: string;
     date_field?: string;
+    business_date?: string;
   };
   filters: Record<string, unknown>;
   resume_from_task_run_id?: number;
+  maintenance_intent?: { kind: string };
 }
 
 export interface IngestionCodebookItem {

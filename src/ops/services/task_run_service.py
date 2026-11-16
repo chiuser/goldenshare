@@ -230,6 +230,9 @@ class TaskRunCommandService:
         prepared_request_payload: dict[str, Any] | None = None,
     ) -> TaskRun:
         """Build and flush a TaskRun in the caller's transaction without committing."""
+        if context.task_type == 'dataset_action' and context.resource_key and context.resume_from_task_run_id is not None:
+            if get_dataset_definition(context.resource_key).planning.stock_period_adj_policy is not None:
+                context = self._restore_period_context(session, context)
         self._validate_context(context)
         self._ensure_etf_basic_not_running(session, context)
         now = task_frozen_at or datetime.now(timezone.utc)
@@ -293,9 +296,60 @@ class TaskRunCommandService:
     def _freeze_dataset_execution_payload(self, session, context, payload):
         if context.task_type == 'dataset_action' and context.action == 'maintain':
             definition = get_dataset_definition(context.resource_key)
+            if definition.planning.stock_period_adj_policy is not None:
+                if context.trigger_source == 'manual' and context.resume_from_task_run_id is None and 'execution_context' in context.request_payload:
+                    raise WebAppError(status_code=422, code='stock_period_adj.resume_contract_mismatch',
+                        message='执行计划只能由后台生成；恢复请提交原任务ID')
+                self._validate_period_intent(session, context)
+                return {**payload, 'maintenance_intent': payload.get('maintenance_intent') or {'kind': 'period'}}
             if definition.planning.weekly_adj_policy is not None:
                 return self._freeze_weekly_payload(session, context, payload)
         return self._freeze_announcement_payload(session, context, payload)
+
+    @staticmethod
+    def _validate_period_intent(session, context):
+        from src.foundation.ingestion.stock_period_adj_planning import validate_intent
+        from src.foundation.ingestion.stock_period_adj_inputs import open_days
+        from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjContractError
+        time = dict(context.time_input)
+        try:
+            request = DatasetActionRequest(dataset_key=context.resource_key, action=context.action,
+                time_input=DatasetTimeInput(**{key: TaskRunCommandService._optional_date(value)
+                    if key in {'trade_date','business_date','ann_date','start_date','end_date'} else value for key,value in time.items()}),
+                filters=dict(context.filters), maintenance_intent=context.request_payload.get('maintenance_intent'))
+            kind = validate_intent(request, get_dataset_definition(context.resource_key))
+            if kind == 'current_period' and not open_days(session, request.time_input.business_date, request.time_input.business_date):
+                raise StockPeriodAdjContractError('业务日期不是已有日历中的开市日', 'source_scope_invalid')
+        except StockPeriodAdjContractError as exc:
+            raise WebAppError(status_code=422, code=exc.code, message=str(exc)) from exc
+
+    @staticmethod
+    def _restore_period_context(session, context):
+        from dataclasses import replace
+        from src.foundation.dao.stock_period_adj_delivery_dao import StockPeriodAdjDeliveryDAO
+        from src.foundation.datasets.stock_period_adj_contracts import frequency
+        if context.trigger_source != 'manual' or context.requested_by_user_id is None:
+            raise WebAppError(status_code=422, code='validation_error', message='恢复须由运营显式提交原任务ID')
+        if context.time_input or context.filters or context.request_payload:
+            raise WebAppError(status_code=422, code='validation_error', message='恢复只接受原任务ID，不能另传范围')
+        source = session.get(TaskRun, context.resume_from_task_run_id)
+        if source is None or source.task_type != 'dataset_action' or source.resource_key != context.resource_key or source.action != 'maintain' or source.status not in {'success','failed','partial_success','canceled'}:
+            raise WebAppError(status_code=409, code='conflict', message='恢复来源必须是已停止的同数据集维护任务')
+        payload = dict(source.request_payload_json or {})
+        kind = (payload.get('maintenance_intent') or {}).get('kind', 'period')
+        freq = frequency(get_dataset_definition(context.resource_key))
+        identity = source.time_input_json.get('business_date') if source.trigger_source in {'probe','schedule','scheduled'} and kind == 'current_period' else str(source.id)
+        original_key = (payload.get('execution_context') or {}).get('stock_period_adj_original_intent_key') or f'{kind}:{freq}:{identity}'
+        previous = (payload.get('execution_context') or {}).get('stock_period_adj')
+        if previous:
+            frozen = StockPeriodAdjDeliveryDAO(session).get(previous['batch_id'], 'plan_frozen', 'plan_frozen')
+        else:
+            frozen = StockPeriodAdjDeliveryDAO(session).frozen_intent(original_key)
+        if frozen and (frozen.freq != freq or frozen.contract_version != get_dataset_definition(context.resource_key).planning.stock_period_adj_policy.contract_version):
+            raise WebAppError(status_code=422, code='stock_period_adj.resume_contract_mismatch', message='恢复来源的频率或合同版本不匹配')
+        payload['execution_context'] = {'contract_kind': 'stock_period_adj/v1', 'stock_period_adj': frozen.payload['context']} if frozen else {'stock_period_adj_original_intent_key': original_key}
+        payload['resume_from_task_run_id'] = source.id
+        return replace(context, time_input=dict(source.time_input_json), filters=dict(source.filters_json or {}), request_payload=payload)
 
     @staticmethod
     def _freeze_weekly_payload(session, context, payload):
@@ -416,6 +470,10 @@ class TaskRunCommandService:
     @staticmethod
     def preflight_dataset_context(session: Session, *, context: TaskRunCreateContext) -> None:
         if context.task_type != "dataset_action" or context.resource_key is None:
+            return
+        if get_dataset_definition(context.resource_key).planning.stock_period_adj_policy is not None:
+            if context.resume_from_task_run_id is None:
+                TaskRunCommandService._validate_period_intent(session, context)
             return
         time_input = dict(context.time_input or {})
         request = DatasetActionRequest(
@@ -855,6 +913,8 @@ class TaskRunCommandService:
         explicit = params_json.get("time_input")
         if isinstance(explicit, dict):
             return dict(explicit)
+        if params_json.get('business_date') not in (None, ''):
+            return {'mode':'point','business_date':params_json['business_date']}
         if params_json.get("trade_date") not in (None, ""):
             return {"mode": "point", "trade_date": params_json["trade_date"]}
         if params_json.get("ann_date") not in (None, ""):
@@ -1166,6 +1226,8 @@ class TaskRunCommandService:
             return dict(explicit)
         reserved = {
             "execution_context",
+            'maintenance_intent',
+            'business_date',
             "resume_from_task_run_id",
             "action",
             "dataset_key",

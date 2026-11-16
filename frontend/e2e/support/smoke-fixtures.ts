@@ -407,6 +407,7 @@ function mockTaskManual(route: Route, pathname: string) {
                 audit_applicable: true,
                 not_applicable_reason: null,
               },
+              maintenance_intents: [],
               time_form: {
                 default_mode: "point",
                 modes: [
@@ -496,6 +497,7 @@ function mockTaskManualSw2021(route: Route, pathname: string) {
             audit_applicable: false,
             not_applicable_reason: "当前快照不按连续业务日期审计。",
           },
+    maintenance_intents: [],
     time_form:
       action.resource_key === "sw_daily"
         ? {

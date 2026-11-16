@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Index, Numeric, String
+from sqlalchemy import Date, Index, Numeric, String, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -14,6 +14,12 @@ class StkPeriodBarAdj(TimestampMixin, Base):
     __table_args__ = (
         Index("idx_stk_period_bar_adj_freq_trade_date", "freq", "trade_date"),
         Index("idx_stk_period_bar_adj_trade_date", "trade_date"),
+        Index("uq_stk_period_adj_serving_week", "ts_code",
+              text("(trade_date - (EXTRACT(ISODOW FROM trade_date)::integer - 1))"),
+              unique=True, postgresql_where=text("freq='week'")).ddl_if(dialect="postgresql"),
+        Index("uq_stk_period_adj_serving_month", "ts_code",
+              text("(trade_date - (EXTRACT(DAY FROM trade_date)::integer - 1))"),
+              unique=True, postgresql_where=text("freq='month'")).ddl_if(dialect="postgresql"),
         {"schema": "core_serving"},
     )
 

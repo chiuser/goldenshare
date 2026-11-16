@@ -2721,3 +2721,28 @@ def test_schedule_automation_capability_keeps_public_fund_snapshots_schedule_onl
     schedule.probe_config_json = {"condition_kind": "remote_margin_ready"}
     with pytest.raises(WebAppError, match="不支持所选触发方式"):
         resolver.validate_schedule(schedule)
+
+
+@pytest.mark.parametrize('freq',['week','month'])
+def test_stock_adjusted_period_schedule_fixed_probe_and_pause(app_client,user_factory,freq):
+    user_factory(username='admin',password='secret',is_admin=True)
+    token=app_client.post('/api/v1/auth/login',json={'username':'admin','password':'secret'}).json()['token']
+    headers={'Authorization':f'Bearer {token}'}
+    body={'target_type':'dataset_action','target_key':f'stk_period_bar_adj_{freq}.maintain','display_name':'复权周期日更测试',
+        'schedule_type':'cron','trigger_mode':'probe','cron_expr':None,'timezone':'Asia/Shanghai',
+        'probe_config':{'condition_kind':'stock_period_adj_current_ready'},'params_json':{'time_input':{'mode':'point'},'filters':{}}}
+    response=app_client.post('/api/v1/ops/schedules',headers=headers,json=body)
+    assert response.status_code==200,response.json()
+    created=response.json(); config=created['probe_config']
+    assert (config['window_start'],config['window_end'],config['probe_interval_seconds'],config['max_triggers_per_day'])==('20:00','00:00',60,1)
+    rules=app_client.get(f"/api/v1/ops/probes?schedule_id={created['id']}",headers=headers).json()['items']
+    assert len(rules)==1 and rules[0]['source_key']=='tushare'
+    assert rules[0]['on_success_action_json']['action_key']==body['target_key']
+    assert app_client.post(f"/api/v1/ops/schedules/{created['id']}/pause",headers=headers).status_code==200
+    rules=app_client.get(f"/api/v1/ops/probes?schedule_id={created['id']}",headers=headers).json()['items']
+    assert all(rule['status']=='paused' for rule in rules)
+    for bad in [{'params_json':{'time_input':{'mode':'point','business_date':'2026-11-13'}}},
+                {'params_json':{'time_input':{'mode':'point'},'filters':{'ts_code':'000001.SZ'}}},
+                {'probe_config':{'condition_kind':'stock_period_adj_current_ready','window_end':'17:00'}}]:
+        rejected=app_client.post('/api/v1/ops/schedules',headers=headers,json={**body,**bad})
+        assert rejected.status_code==422,rejected.json()

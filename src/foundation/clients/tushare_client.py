@@ -130,6 +130,11 @@ class TushareHttpClient:
             fields = tuple(fields)
             if api_name != 'daily_basic' or fields not in (DAILY_BASIC_SOURCE_FIELDS, DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS):
                 raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标只支持完整19字段或收盘涨跌状态补录三字段')
+        elif response_contract in {'stock_period_adj/v1', 'stock_period_adj_readiness/v1'}:
+            from src.foundation.datasets.stock_period_adj_contracts import SOURCE_FIELDS, READINESS_FIELDS
+            expected = READINESS_FIELDS if response_contract == 'stock_period_adj_readiness/v1' else SOURCE_FIELDS
+            if api_name != 'stk_week_month_adj' or params.get('freq') not in {'week', 'month'} or tuple(fields) != expected:
+                raise BoundedTushareError('stock_period_adj.source_schema_invalid', '股票复权周/月线接口、频率或字段合同不符')
         elif response_contract is not None:
             from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
             fields = tuple(fields)

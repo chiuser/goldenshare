@@ -106,16 +106,43 @@ class TaskRunDispatcher:
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
+        node = None
+        period_policy = get_dataset_definition(task_run.resource_key).planning.stock_period_adj_policy
+        observer = None
+        if period_policy is not None:
+            node = self._create_node(session, task_run_id=task_run.id, node_key=f'stock_period_adj:{task_run.id}',
+                node_type='dataset_plan', sequence_no=1, title=f'维护 {task_run.title}', resource_key=task_run.resource_key,
+                time_input=dict(task_run.time_input_json or {}), context={'stage': '生成计划'})
+            task_run.current_node_id = node.id
+            session.commit()
+            observer = TaskRunIngestionContext(session, independent_cancel=True, timeout_seconds=period_policy.observation_timeout_seconds)
+
+        def planning_check():
+            if observer and observer.is_cancel_requested(run_id=task_run.id):
+                raise IngestionCanceledError('生成计划已取消；未冻结草稿不可执行')
+
+        def planning_report(current, total):
+            observer.update_progress(run_id=task_run.id, unit_done=0, unit_failed=0, total=total,
+                message='生成计划；ETA暂无法估算', current_object={'entity': {'name': task_run.title}, 'time': {'trade_date': current},
+                'attributes': {'stage': '生成计划', 'eta': '暂无法估算', 'updated_at': datetime.now(timezone.utc).isoformat()}})
+
         try:
             action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(task_run))
-            plan = DatasetActionResolver(session).build_plan(action_request)
+            plan = DatasetActionResolver(session).build_plan(action_request, planning_check=planning_check,
+                planning_report=planning_report if observer else lambda current, total: None, persist_plan=period_policy is not None)
+        except IngestionCanceledError:
+            session.rollback()
+            if node is not None:
+                self._finish_node(node, status='canceled')
+                session.commit()
+            return TaskRunDispatchOutcome(status='canceled', summary_message='生成计划已取消')
         except IngestionError as exc:
             session.rollback()
             presentation = present_ingestion_error(exc.structured_error)
             issue = self._record_issue(
                 session,
                 task_run=task_run,
-                node_id=None,
+                node_id=node.id if node is not None else None,
                 code=exc.structured_error.error_code,
                 title=presentation.title,
                 operator_message=presentation.operator_message,
@@ -125,6 +152,9 @@ class TaskRunDispatcher:
                 severity="error",
                 technical_payload={"structured_error": structured_error_payload(exc.structured_error)},
             )
+            if node is not None:
+                node.issue_id = issue.id
+                self._finish_node(node, status='failed')
             session.commit()
             return TaskRunDispatchOutcome(
                 status="failed",
@@ -132,7 +162,14 @@ class TaskRunDispatcher:
                 issue_id=issue.id,
                 status_reason_code=issue.code,
             )
-        node = self._create_node(
+        except Exception:
+            if node is not None:
+                session.rollback()
+                self._finish_node(node, status='failed')
+                session.commit()
+            raise
+        if node is None:
+            node = self._create_node(
             session,
             task_run_id=task_run.id,
             node_key=plan.plan_id,
@@ -146,6 +183,10 @@ class TaskRunDispatcher:
         task_run.current_node_id = node.id
         task_run.unit_total = int(plan.planning.unit_count or len(plan.units))
         task_run.plan_snapshot_json = self._plan_snapshot(plan)
+        if period_policy is not None:
+            task_run.request_payload_json = {**dict(task_run.request_payload_json or {}), 'execution_context': plan.execution_context}
+            node.node_key = plan.plan_id
+            node.context_json = {'run_profile': plan.run_profile}
         if get_dataset_definition(plan.dataset_key).planning.index_period_raw_policy is not None:
             task_run.ingestion_diagnostics_json = {"index_period_raw": {}}
         session.commit()
@@ -214,6 +255,9 @@ class TaskRunDispatcher:
             node = session.get(TaskRunNode, node.id)
             if node is not None:
                 node.issue_id = issue.id
+                if getattr(exc, 'stock_period_adj_progress', None) is not None:
+                    node.rows_fetched, node.rows_saved, node.rows_rejected = task_run.rows_fetched, task_run.rows_saved, task_run.rows_rejected
+                    node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})
                 self._finish_node(node, status="canceled")
             session.commit()
             return TaskRunDispatchOutcome(status="canceled", summary_message=issue.operator_message, issue_id=issue.id)
@@ -222,6 +266,11 @@ class TaskRunDispatcher:
             validation_message = self._source_validation_error_message(session, exc)
             progress = exc.structured_error.details["committed_progress"] if validation_message else {}
             self._restore_index_period_raw_progress(task_run, exc)
+            if getattr(exc, 'stock_period_adj_progress', None) is not None:
+                progress = {'rows_fetched': task_run.rows_fetched, 'rows_committed': task_run.rows_saved,
+                    'rows_rejected': task_run.rows_rejected, 'rows_deduplicated': 0,
+                    'ingestion_diagnostics': dict(task_run.ingestion_diagnostics_json or {}),
+                    'unit_done': task_run.unit_done, 'unit_total': task_run.unit_total}
             period_message = self._index_period_raw_error_message(exc)
             issue = self._record_issue(
                 session,
@@ -250,8 +299,9 @@ class TaskRunDispatcher:
             if progress:
                 task_run.unit_done = max(task_run.unit_done, progress["unit_done"])
                 task_run.unit_failed = 1
-                task_run.progress_percent = max(task_run.progress_percent or 0,
-                    int((task_run.unit_done + 1) / task_run.unit_total * 100))
+                task_run.progress_percent = (int(task_run.unit_done / task_run.unit_total * 100)
+                    if getattr(exc, 'stock_period_adj_progress', None) is not None else max(task_run.progress_percent or 0,
+                    int((task_run.unit_done + 1) / task_run.unit_total * 100)))
             session.commit()
             return TaskRunDispatchOutcome(
                 status="failed",
@@ -1162,7 +1212,7 @@ class TaskRunDispatcher:
         filters = dict(action_request.filters or {})
         time_input = action_request.time_input
         parsed_trade_date: date | None = None
-        if plan.run_profile == "point_incremental":
+        if plan.run_profile == "point_incremental" and definition.planning.stock_period_adj_policy is None:
             parsed_trade_date = time_input.trade_date or self._resolve_default_trade_date(session)
             if parsed_trade_date is None:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
@@ -1183,6 +1233,7 @@ class TaskRunDispatcher:
                 schedule_id=action_request.schedule_id,
                 workflow_key=action_request.workflow_key,
                 run_id=task_run.id,
+                maintenance_intent=action_request.maintenance_intent,
             )
         result = service.maintain(
             default_time_mode=None,
@@ -1248,6 +1299,14 @@ class TaskRunDispatcher:
 
     @staticmethod
     def _restore_index_period_raw_progress(task_run, exc):
+        period = getattr(exc, 'stock_period_adj_progress', None)
+        if period is not None:
+            for name in ('rows_fetched','rows_saved','rows_rejected','unit_done','unit_failed','unit_total'):
+                setattr(task_run, name, period[name])
+            task_run.ingestion_diagnostics_json = period['ingestion_diagnostics']
+            if task_run.unit_total:
+                task_run.progress_percent = int(100 * task_run.unit_done / task_run.unit_total)
+            return
         progress = getattr(exc, "index_period_raw_progress", None)
         if progress is None:
             return
@@ -1259,6 +1318,8 @@ class TaskRunDispatcher:
 
     @staticmethod
     def _index_period_raw_error_message(exc):
+        if getattr(exc, 'stock_period_adj_progress', None) is not None and isinstance(exc, IngestionError):
+            return exc.structured_error.message
         if not getattr(exc, "index_period_raw_progress", None) or not isinstance(exc, IngestionError):
             return None
         error = exc.structured_error
@@ -1298,6 +1359,7 @@ class TaskRunDispatcher:
                 start_month=self._optional_text(time_payload.get("start_month")),
                 end_month=self._optional_text(time_payload.get("end_month")),
                 date_field=self._optional_text(time_payload.get("date_field")),
+                business_date=self._optional_date(time_payload.get('business_date')),
             ),
             filters=filters,
             trigger_source=dataset_action_trigger_source(resource_key, task_run.trigger_source),
@@ -1305,13 +1367,14 @@ class TaskRunDispatcher:
             schedule_id=task_run.schedule_id,
             run_id=task_run.id,
             execution_context=(task_run.request_payload_json or {}).get('execution_context'),
+            maintenance_intent=(task_run.request_payload_json or {}).get('maintenance_intent'),
         )
 
     def _prepare_dataset_action_request(self, session: Session, request: DatasetActionRequest) -> DatasetActionRequest:
         time_input = request.time_input
         if time_input.mode == "point" and time_input.trade_date is None and time_input.ann_date is not None:
             return replace(request, time_input=replace(time_input, trade_date=time_input.ann_date, date_field="ann_date"))
-        if time_input.mode != "point" or time_input.trade_date is not None or time_input.month:
+        if time_input.mode != "point" or time_input.trade_date is not None or time_input.month or time_input.business_date is not None:
             return request
         trade_date = self._resolve_default_trade_date(session)
         if trade_date is None:
@@ -1321,7 +1384,7 @@ class TaskRunDispatcher:
     @staticmethod
     def _dataset_time_input_payload(time_input: DatasetTimeInput) -> dict[str, Any]:
         payload: dict[str, Any] = {"mode": time_input.mode}
-        for key in ("trade_date", "ann_date", "start_date", "end_date"):
+        for key in ("trade_date", "business_date", "ann_date", "start_date", "end_date"):
             value = getattr(time_input, key)
             if value is not None:
                 payload[key] = value.isoformat()
@@ -1334,6 +1397,7 @@ class TaskRunDispatcher:
     @staticmethod
     def _plan_snapshot(plan) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         units = list(plan.units or ())
+        period = (plan.execution_context or {}).get('contract_kind') == 'stock_period_adj/v1'
         return {
             "plan_id": plan.plan_id,
             "dataset_key": plan.dataset_key,
@@ -1346,7 +1410,9 @@ class TaskRunDispatcher:
                     "source_key": unit.source_key,
                     "trade_date": unit.trade_date.isoformat() if unit.trade_date else None,
                     "request_params": dict(unit.request_params or {}),
-                    "operator_object": dict(unit.progress_context or {}),
+                    "operator_object": ({key: value for key, value in unit.progress_context.items()
+                                         if key in {'purpose','business_date','period_date','ts_code'}}
+                                        if period else dict(unit.progress_context or {})),
                 }
                 for unit in units[:20]
             ],

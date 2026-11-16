@@ -201,8 +201,9 @@ class OperationsWorker:
             "index_period_serving" in (task_run.ingestion_diagnostics_json or {})
             or "index_period_serving" in (outcome.ingestion_diagnostics or {})
         )
+        stock_period_adj = isinstance(execution_context, dict) and execution_context.get('contract_kind') == 'stock_period_adj/v1'
         preserve_business_progress = (
-            announcement or weekly_adj or index_period_raw
+            announcement or weekly_adj or index_period_raw or stock_period_adj
             or (index_period_serving and outcome.ingestion_diagnostics is None)
         )
         maintenance_incomplete = task_run.task_type == "maintenance_action" and final_status in {"failed", "canceled"}

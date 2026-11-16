@@ -34,6 +34,7 @@ test("公告进度、取消和显式续跑意图", async ({ page }) => {
       action_key: "anns_d.maintain", action_type: "dataset_action", display_name: "维护上市公司公告",
       resource_key: "anns_d", resource_display_name: "上市公司公告", description: "按自然日维护公告", action_order: 1,
       date_model: { date_axis: "calendar_day", bucket_rule: "not_applicable", window_mode: "point_or_range", input_shape: "ann_date_or_start_end", observed_field: "ann_date", audit_applicable: false, not_applicable_reason: "公告不每日保证" },
+      maintenance_intents: [],
       time_form: { default_mode: "point", modes: [{ mode: "point", label: "一天", description: "自然日", control: "calendar_date", selection_rule: "calendar_day", date_field: "ann_date" }] },
       filters: [], route_keys: ["anns_d.maintain"], search_keywords: ["公告"],
     }],

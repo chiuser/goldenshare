@@ -14,6 +14,7 @@ from src.foundation.ingestion.execution_plan import (
     DatasetActionRequest,
     DatasetExecutionPlan,
     DatasetTimeInput,
+    ValidatedDatasetActionRequest,
     ExecutionTimeScope,
     PlanObservability,
     PlanPlanning,
@@ -34,7 +35,8 @@ class DatasetActionResolver:
         self.validator = DatasetRequestValidator()
         self.unit_planner = DatasetUnitPlanner(session)
 
-    def build_plan(self, request: DatasetActionRequest) -> DatasetExecutionPlan:
+    def build_plan(self, request: DatasetActionRequest, *, planning_check=lambda: None,
+                   planning_report=lambda current, total: None, persist_plan=False) -> DatasetExecutionPlan:
         if request.action != "maintain":
             raise ValueError(f"不支持的数据集操作：{request.action}")
         definition = get_dataset_definition(request.dataset_key)
@@ -42,49 +44,71 @@ class DatasetActionResolver:
         if action is None:
             raise ValueError(f"{definition.display_name} 不支持该操作：{request.action}")
 
-        if definition.planning.weekly_adj_policy is not None and request.trigger_source == 'schedule':
-            from src.foundation.ingestion.stock_weekly_adj_planning import restore_scheduled_request
-            from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+        if definition.planning.stock_period_adj_policy is not None:
+            from src.foundation.ingestion.stock_period_adj_planning import resolve_units
+            from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjContractError
             from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
             try:
-                request = restore_scheduled_request(self.session, request)
-            except WeeklyAdjContractError as exc:
+                request, units, context = resolve_units(self.session, request, definition,
+                    check=planning_check, report=planning_report, persist=persist_plan)
+            except StockPeriodAdjContractError as exc:
                 raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
                     phase='resolver', message=str(exc), retryable=False)) from exc
-
-        normalized_time = self._normalize_time_input(request.time_input, definition.date_model.input_shape)
-        run_profile = self._resolve_run_profile(normalized_time)
-        normalized_request = replace(request, time_input=normalized_time)
-        validated = self.validator.validate(
-            request=normalized_request,
-            definition=definition,
-            run_profile=run_profile,
-            strict=self.strict_contract,
-        )
-        frozen_execution = freeze_execution(definition,
-            scope=self._jsonable({"mode": normalized_time.mode, "start": self._time_scope(normalized_time).start,
-                                  "end": self._time_scope(normalized_time).end}),
-            filters=self._jsonable(validated.params), previous=request.execution_context,
-            trigger_source=validated.trigger_source)
-        validated = replace(validated, execution_context=frozen_execution)
-        if definition.planning.weekly_adj_policy is not None:
-            from src.foundation.ingestion.stock_weekly_adj_planning import resolve_weekly_adj_units
-            from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
-            from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
-            try:
-                validated, _ = resolve_weekly_adj_units(self.session, validated, definition)
-                units = self.unit_planner.plan(validated, definition)
-            except WeeklyAdjContractError as exc:
-                raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
-                    phase='resolver', message=str(exc), retryable=exc.code in {'weekly_adj.source_not_ready', 'weekly_adj.factor_coverage_missing'})) from exc
-            frozen_execution = validated.execution_context
-            normalized_time = DatasetTimeInput(
-                mode='point' if validated.run_profile == 'point_incremental' else 'range',
-                trade_date=validated.trade_date, start_date=validated.start_date, end_date=validated.end_date)
-            run_profile = validated.run_profile
+            normalized_time = request.time_input
+            run_profile = self._resolve_run_profile(normalized_time)
+            frozen_execution = {'contract_kind': 'stock_period_adj/v1', 'stock_period_adj': context}
+            validated = ValidatedDatasetActionRequest(request_id=context['batch_id'], dataset_key=request.dataset_key,
+                action=request.action, run_profile=run_profile, trigger_source=request.trigger_source,
+                params=dict(request.filters), source_key=definition.source.source_key_default,
+                trade_date=normalized_time.trade_date, start_date=normalized_time.start_date,
+                end_date=normalized_time.end_date, run_id=request.run_id, execution_context=frozen_execution)
         else:
-            units = self.unit_planner.plan(validated, definition)
+            if request.maintenance_intent is not None or request.time_input.business_date is not None:
+                from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
+                raise IngestionPlanningError(StructuredError(error_code='stock_period_adj.source_scope_invalid',
+                    error_type='planning', phase='resolver', message='该数据集不支持股票周期线维护意图', retryable=False))
+            if definition.planning.weekly_adj_policy is not None and request.trigger_source == 'schedule':
+                from src.foundation.ingestion.stock_weekly_adj_planning import restore_scheduled_request
+                from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+                from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
+                try:
+                    request = restore_scheduled_request(self.session, request)
+                except WeeklyAdjContractError as exc:
+                    raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
+                        phase='resolver', message=str(exc), retryable=False)) from exc
 
+            normalized_time = self._normalize_time_input(request.time_input, definition.date_model.input_shape)
+            run_profile = self._resolve_run_profile(normalized_time)
+            normalized_request = replace(request, time_input=normalized_time)
+            validated = self.validator.validate(
+                request=normalized_request,
+                definition=definition,
+                run_profile=run_profile,
+                strict=self.strict_contract,
+            )
+            frozen_execution = freeze_execution(definition,
+                scope=self._jsonable({"mode": normalized_time.mode, "start": self._time_scope(normalized_time).start,
+                                      "end": self._time_scope(normalized_time).end}),
+                filters=self._jsonable(validated.params), previous=request.execution_context,
+                trigger_source=validated.trigger_source)
+            validated = replace(validated, execution_context=frozen_execution)
+            if definition.planning.weekly_adj_policy is not None:
+                from src.foundation.ingestion.stock_weekly_adj_planning import resolve_weekly_adj_units
+                from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjContractError
+                from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
+                try:
+                    validated, _ = resolve_weekly_adj_units(self.session, validated, definition)
+                    units = self.unit_planner.plan(validated, definition)
+                except WeeklyAdjContractError as exc:
+                    raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
+                        phase='resolver', message=str(exc), retryable=exc.code in {'weekly_adj.source_not_ready', 'weekly_adj.factor_coverage_missing'})) from exc
+                frozen_execution = validated.execution_context
+                normalized_time = DatasetTimeInput(
+                    mode='point' if validated.run_profile == 'point_incremental' else 'range',
+                    trade_date=validated.trade_date, start_date=validated.start_date, end_date=validated.end_date)
+                run_profile = validated.run_profile
+            else:
+                units = self.unit_planner.plan(validated, definition)
         plan_id = self._plan_id(
             dataset_key=request.dataset_key,
             action=request.action,
@@ -201,7 +225,7 @@ class DatasetActionResolver:
     @staticmethod
     def _time_scope(time_input: DatasetTimeInput) -> ExecutionTimeScope:
         if time_input.mode == "point":
-            value = time_input.month or time_input.trade_date
+            value = time_input.business_date or time_input.month or time_input.trade_date
             return ExecutionTimeScope(mode="point", start=value, end=value, label=str(value or ""))
         if time_input.mode == "range":
             start = time_input.start_month or time_input.start_date

@@ -20,10 +20,24 @@ class IngestionCodebookEntry:
         }
 
 
-INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
-INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
+INGESTION_CODEBOOK_VERSION: Final[str] = "2026-11-16.v3"
+INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-11-16T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry('stock_period_adj.input_not_ready', '股票周期线日历输入不可用', 'planner', '核对现有日历结果；0行股票等输入仍按0使用'),
+    IngestionCodebookEntry('stock_period_adj.source_not_ready', '股票周期线源尚未齐备', 'source', '等待原业务日要求的源覆盖和计算截至日期'),
+    IngestionCodebookEntry('stock_period_adj.input_changed', '股票周期线原输入范围不一致', 'planner', '核对原业务计划，不重筛人工范围'),
+    IngestionCodebookEntry('stock_period_adj.source_schema_invalid', '股票周期线源字段或数值合同不符', 'source', '核对具体字段、原业务日和源响应'),
+    IngestionCodebookEntry('stock_period_adj.source_key_conflict', '股票周期线同次源键重复或异值', 'source', '核对具体股票和周期，不能用后页覆盖冲突'),
+    IngestionCodebookEntry('stock_period_adj.source_scope_invalid', '股票周期线请求或源范围不符', 'planner/source', '核对原日期、频率和明确股票范围'),
+    IngestionCodebookEntry('stock_period_adj.latest_version_conflict', '股票周期线最新完整记录冲突', 'writer', '核对同周期最大计算截至日期的完整业务行'),
+    IngestionCodebookEntry('stock_period_adj.writer_busy', '本频率已有股票周期线发布事务', 'writer', '本单元未提交，按原计划稍后恢复'),
+    IngestionCodebookEntry('stock_period_adj.source_deadline_exceeded', '股票周期线源调用超过期限', 'source', '核对源站后恢复原未提交单元，不自动提高期限'),
+    IngestionCodebookEntry('stock_period_adj.response_size_exceeded', '股票周期线源响应超过字节限制', 'source', '核对响应规模，不截断后发布'),
+    IngestionCodebookEntry('stock_period_adj.business_deadline_exceeded', '股票周期线业务事务超过期限', 'writer', '当前单元回滚，核对耗时后按原范围恢复'),
+    IngestionCodebookEntry('stock_period_adj.row_budget_exceeded', '股票周期线单元行数或载荷超限', 'source/writer', '核对实际规模，不截断或扩大限值'),
+    IngestionCodebookEntry('stock_period_adj.plan_budget_exceeded', '股票周期线计划描述超限', 'planner', '未冻结草稿不可执行，核对明确范围'),
+    IngestionCodebookEntry('stock_period_adj.resume_contract_mismatch', '股票周期线原计划恢复合同不符', 'planner/writer', '仅从已停止的同数据集原任务恢复，不另传范围'),
     IngestionCodebookEntry("daily_basic.delivery_contract_mismatch", "每日指标响应合同不一致", "source", "核对接口及该动作支持的请求字段"),
     IngestionCodebookEntry("daily_basic.source_payload_invalid", "每日指标源响应结构错误", "source", "核对源端字段与JSON结构"),
     IngestionCodebookEntry("daily_basic.source_deadline_exceeded", "每日指标源调用超过期限", "source", "核对源站后按原计划重试"),
@@ -226,6 +240,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
 )
 
 INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry('stock_period_adj.not_admitted', '源记录不在原计划确认的人民币股票范围', 'source', '保留原范围及排除计数，不向其他股票扩展'),
     IngestionCodebookEntry("normalize.unit_date_mismatch", "源数据日期与执行日期不符", "normalize", "核对源日期与冻结日期，当前日期不提交"),
     IngestionCodebookEntry("normalize.batch_unique_key_duplicate", "源数据主键重复", "normalize", "核对源分页是否重叠，当前日期不提交"),
     IngestionCodebookEntry("normalize.daily_basic_limit_status_invalid", "每日指标收盘涨跌状态不是 0～6 的原生整数", "normalize", "核对错误样本中的原始值和类型，不得补 0 或取整"),

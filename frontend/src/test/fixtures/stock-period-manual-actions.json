@@ -1,0 +1,229 @@
+{
+  "groups": [
+    {
+      "group_key": "equity_market",
+      "group_label": "A股行情",
+      "group_order": 2,
+      "actions": [
+        {
+          "action_key": "stk_period_bar_adj_week.maintain",
+          "action_type": "dataset_action",
+          "display_name": "维护股票周线行情（复权）",
+          "description": "更新完整周行情，并刷新复权因子变化股票的已有周线历史。",
+          "resource_key": "stk_period_bar_adj_week",
+          "resource_display_name": "股票周线行情（复权）",
+          "date_model": {
+            "date_axis": "natural_day",
+            "bucket_rule": "week_friday",
+            "window_mode": "point_or_range",
+            "input_shape": "trade_date_or_start_end",
+            "observed_field": "trade_date",
+            "audit_applicable": true,
+            "not_applicable_reason": null
+          },
+          "time_form": {
+            "default_mode": "point",
+            "modes": [
+              {
+                "mode": "point",
+                "label": "只处理一天",
+                "description": "指定单个日期。",
+                "control": "calendar_date",
+                "selection_rule": "week_friday",
+                "date_field": "trade_date"
+              },
+              {
+                "mode": "range",
+                "label": "处理一个时间区间",
+                "description": "指定开始日期和结束日期。",
+                "control": "calendar_date_range",
+                "selection_rule": "week_friday",
+                "date_field": "trade_date"
+              }
+            ],
+            "max_units_per_execution": 1000
+          },
+          "conditional_time_rules": [],
+          "filters": [
+            {
+              "key": "ts_code",
+              "display_name": "证券代码",
+              "param_type": "string",
+              "description": "股票代码",
+              "required": false,
+              "options": [],
+              "multi_value": false,
+              "default_value": null,
+              "option_labels": {},
+              "select_all_enabled": false
+            }
+          ],
+          "search_keywords": [
+            "stk_period_bar_adj_week.maintain",
+            "维护股票周线行情（复权）",
+            "stk_period_bar_adj_week",
+            "股票周线行情（复权）"
+          ],
+          "action_order": 70,
+          "maintenance_intents": [
+            {
+              "kind": "period",
+              "display_name": "指定周期维护",
+              "description": "按原周五或自然月末日期维护行情。",
+              "time_form": {
+                "default_mode": "point",
+                "modes": [
+                  {
+                    "mode": "point",
+                    "label": "只处理一天",
+                    "description": "指定单个日期。",
+                    "control": "calendar_date",
+                    "selection_rule": "week_friday",
+                    "date_field": "trade_date"
+                  },
+                  {
+                    "mode": "range",
+                    "label": "处理一个时间区间",
+                    "description": "指定开始日期和结束日期。",
+                    "control": "calendar_date_range",
+                    "selection_rule": "week_friday",
+                    "date_field": "trade_date"
+                  }
+                ],
+                "max_units_per_execution": 1000
+              }
+            },
+            {
+              "kind": "current_period",
+              "display_name": "当前周期更新",
+              "description": "按业务交易日更新正在形成的当周或当月行情。",
+              "time_form": {
+                "default_mode": "point",
+                "modes": [
+                  {
+                    "mode": "point",
+                    "label": "业务交易日",
+                    "description": "更新该交易日所在周期，接受达到目标日的较新源记录。",
+                    "control": "trade_date",
+                    "selection_rule": "trading_day_only",
+                    "date_field": "business_date"
+                  }
+                ],
+                "max_units_per_execution": null
+              }
+            }
+          ]
+        },
+        {
+          "action_key": "stk_period_bar_adj_month.maintain",
+          "action_type": "dataset_action",
+          "display_name": "维护股票月线行情（复权）",
+          "description": "维护股票月线行情（复权）数据。",
+          "resource_key": "stk_period_bar_adj_month",
+          "resource_display_name": "股票月线行情（复权）",
+          "date_model": {
+            "date_axis": "natural_day",
+            "bucket_rule": "month_last_calendar_day",
+            "window_mode": "point_or_range",
+            "input_shape": "trade_date_or_start_end",
+            "observed_field": "trade_date",
+            "audit_applicable": true,
+            "not_applicable_reason": null
+          },
+          "time_form": {
+            "default_mode": "point",
+            "modes": [
+              {
+                "mode": "point",
+                "label": "只处理一天",
+                "description": "指定单个日期。",
+                "control": "calendar_date",
+                "selection_rule": "month_end",
+                "date_field": "trade_date"
+              },
+              {
+                "mode": "range",
+                "label": "处理一个时间区间",
+                "description": "指定开始日期和结束日期。",
+                "control": "calendar_date_range",
+                "selection_rule": "month_end",
+                "date_field": "trade_date"
+              }
+            ],
+            "max_units_per_execution": 1000
+          },
+          "conditional_time_rules": [],
+          "filters": [
+            {
+              "key": "ts_code",
+              "display_name": "证券代码",
+              "param_type": "string",
+              "description": "股票代码",
+              "required": false,
+              "options": [],
+              "multi_value": false,
+              "default_value": null,
+              "option_labels": {},
+              "select_all_enabled": false
+            }
+          ],
+          "search_keywords": [
+            "stk_period_bar_adj_month.maintain",
+            "维护股票月线行情（复权）",
+            "stk_period_bar_adj_month",
+            "股票月线行情（复权）"
+          ],
+          "action_order": 100,
+          "maintenance_intents": [
+            {
+              "kind": "period",
+              "display_name": "指定周期维护",
+              "description": "按原周五或自然月末日期维护行情。",
+              "time_form": {
+                "default_mode": "point",
+                "modes": [
+                  {
+                    "mode": "point",
+                    "label": "只处理一天",
+                    "description": "指定单个日期。",
+                    "control": "calendar_date",
+                    "selection_rule": "month_end",
+                    "date_field": "trade_date"
+                  },
+                  {
+                    "mode": "range",
+                    "label": "处理一个时间区间",
+                    "description": "指定开始日期和结束日期。",
+                    "control": "calendar_date_range",
+                    "selection_rule": "month_end",
+                    "date_field": "trade_date"
+                  }
+                ],
+                "max_units_per_execution": 1000
+              }
+            },
+            {
+              "kind": "current_period",
+              "display_name": "当前周期更新",
+              "description": "按业务交易日更新正在形成的当周或当月行情。",
+              "time_form": {
+                "default_mode": "point",
+                "modes": [
+                  {
+                    "mode": "point",
+                    "label": "业务交易日",
+                    "description": "更新该交易日所在周期，接受达到目标日的较新源记录。",
+                    "control": "trade_date",
+                    "selection_rule": "trading_day_only",
+                    "date_field": "business_date"
+                  }
+                ],
+                "max_units_per_execution": null
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

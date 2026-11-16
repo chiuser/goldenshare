@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.foundation.datasets.stock_weekly_adj_contracts import WeeklyAdjExecutionPolicy
+from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjExecutionPolicy
 
 
 @dataclass(frozen=True, slots=True)
@@ -224,6 +225,7 @@ class DatasetPlanningDefinition:
     page_processing_mode: str = "buffer_all"
     announcement_policy: AnnouncementExecutionPolicy | None = None
     weekly_adj_policy: WeeklyAdjExecutionPolicy | None = None
+    stock_period_adj_policy: StockPeriodAdjExecutionPolicy | None = None
     index_period_raw_policy: IndexPeriodRawPolicy | None = None
 
 

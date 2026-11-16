@@ -65,6 +65,7 @@ from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
+from src.foundation.models.core.stock_period_adj_delivery import StockPeriodAdjDelivery
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.app.auth.password_service import PasswordService
 from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
@@ -139,6 +140,7 @@ def web_engine(configured_web_env) -> Generator:
         OpsSchedule.__table__.create(connection)
         TaskRun.__table__.create(connection)
         TaskRunNode.__table__.create(connection)
+        StockPeriodAdjDelivery.__table__.create(connection)
         TaskRunIssue.__table__.create(connection)
         EtfRealtimeMonitorPool.__table__.create(connection)
         EtfRealtimeMonitorRule.__table__.create(connection)

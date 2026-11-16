@@ -111,7 +111,10 @@ class DatasetMaintainService:
             filters=self._build_request_params(kwargs),
             trigger_source=str(kwargs.get("trigger_source") or "manual"),
         )
-        plan = kwargs.pop("_plan", None) or self.resolver.build_plan(request)
+        plan = kwargs.pop("_plan", None) or self.resolver.build_plan(request,
+            planning_check=lambda: self.ensure_not_canceled(run_id),
+            planning_report=lambda current, total: self._report_period_planning(run_id, current, total),
+            persist_plan=self.definition.planning.stock_period_adj_policy is not None)
         validated = self._validated_request_from_plan(request=request, plan=plan)
         run_handle = self._start_run_handle(run_mode=run_mode, run_id=run_id)
         self.ensure_not_canceled(run_id)
@@ -227,6 +230,13 @@ class DatasetMaintainService:
             run_id=request.run_id,
             execution_context=plan.execution_context,
         )
+
+    def _report_period_planning(self, run_id, current, total):
+        from src.foundation.ingestion.progress import ProgressSnapshot
+        self._progress_reporter(ProgressSnapshot(run_id=run_id, dataset_key=self.dataset_key,
+            unit_total=total, unit_done=0, unit_failed=0, rows_fetched=0, rows_written=0,
+            current_object={'entity': {'period': current}, 'attributes': {'stage': '生成计划', 'eta': '暂无法估算'}}),
+            '生成计划；ETA暂无法估算')
 
     def _start_run_handle(self, *, run_mode: str, run_id: int | None) -> object:
         try:

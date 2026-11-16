@@ -125,12 +125,18 @@ class OpsFreshnessQueryService:
         observed_business_ranges, observed_sync_dates, observed_at_ranges = self._observed_dataset_snapshots(
             session,
             list(projections),
-            open_trade_dates=open_trade_dates,
+            open_trade_dates=open_trade_dates, reference_date=reference_date,
         )
 
         items: list[DatasetFreshnessItem] = []
         period_calendar = {}
         for projection in projections:
+            definition = get_dataset_definition(projection.resource_key) if self._date_model_for_projection(projection) else None
+            if definition is not None and definition.planning.stock_period_adj_policy is not None:
+                from src.foundation.dao.stock_period_adj_delivery_dao import StockPeriodAdjDeliveryDAO
+                from src.foundation.datasets.stock_period_adj_contracts import frequency
+                complete = StockPeriodAdjDeliveryDAO(session).latest_complete_date(frequency(definition), reference_date)
+                quality_notes_by_resource[projection.resource_key] = f'当期更新已完成至业务交易日{complete.isoformat()}' if complete else '尚无当期更新完整交付记录'
             expected_target = self._expected_business_date_target_for_projection(
                 projection,
                 session=session, calendar_cache=period_calendar,
@@ -771,6 +777,7 @@ class OpsFreshnessQueryService:
         session: Session,
         projections: list[DatasetFreshnessProjection],
         open_trade_dates: list[date] | None = None,
+        reference_date: date | None = None,
     ) -> tuple[
         dict[str, tuple[date | None, date | None]],
         dict[str, date | None],
@@ -804,7 +811,18 @@ class OpsFreshnessQueryService:
                     if base_filters:
                         earliest_query = earliest_query.where(*base_filters)
                         latest_query = latest_query.where(*base_filters)
-                    bucket_dates = self._actual_bucket_dates_for_observation(date_model, open_trade_dates)
+                    definition = get_dataset_definition(projection.resource_key) if date_model else None
+                    period_policy = definition.planning.stock_period_adj_policy if definition else None
+                    if period_policy is not None:
+                        from src.foundation.datasets.stock_period_adj_contracts import frequency, period_date, period_start
+                        freq = frequency(definition)
+                        current = reference_date or datetime.now(BUSINESS_TIMEZONE).date()
+                        closed = period_date(current, freq)
+                        if closed > current:
+                            closed = period_date(period_start(current, freq) - timedelta(days=1), freq)
+                        earliest_query = earliest_query.where(column <= closed)
+                        latest_query = latest_query.where(column <= closed)
+                    bucket_dates = None if period_policy is not None else self._actual_bucket_dates_for_observation(date_model, open_trade_dates)
                     if bucket_dates is not None:
                         if not bucket_dates:
                             observed_ranges[projection.dataset_key] = (None, None)
@@ -816,6 +834,9 @@ class OpsFreshnessQueryService:
                     latest_raw = session.scalar(latest_query)
                     normalized_earliest = OpsFreshnessQueryService._normalize_observed_date(earliest_raw)
                     normalized_latest = OpsFreshnessQueryService._normalize_observed_date(latest_raw)
+                    if period_policy is not None:
+                        normalized_earliest = period_date(normalized_earliest, freq) if normalized_earliest else None
+                        normalized_latest = period_date(normalized_latest, freq) if normalized_latest else None
                     observed_ranges[projection.dataset_key] = (normalized_earliest, normalized_latest)
                     observed_sync_dates[projection.dataset_key] = normalized_latest
                     observed_at_ranges[projection.dataset_key] = (

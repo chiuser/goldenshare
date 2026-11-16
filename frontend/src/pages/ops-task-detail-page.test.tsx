@@ -619,3 +619,17 @@ describe("任务详情页", () => {
     expect(await screen.findByText(/完全重复去重 67/)).toBeInTheDocument();
   });
 });
+
+it('股票复权周期任务显示后端用途、阶段、更新时间与执行限制',async()=>{
+  const base=createTaskRunView('running');
+  const view={...base,run:{...base.run,resource_key:'stk_period_bar_adj_month',title:'股票月线行情（复权）',
+    maintenance_intent:{kind:'current_period'},maintenance_intent_label:'当前周期更新',execution_policy_label:'每页6000行；每次源调用20秒，单元业务事务累计20秒。'},
+    progress:{...base.progress,current_object:{title:'正在处理：全市场',description:'阶段：下载源行情；业务交易日：2026-11-13；最近更新：2026-11-13T12:00:05+00:00；预计完成：暂无法估算',fields:[]}}};
+  apiRequest.mockImplementation(async(path:string)=>{if(path==='/api/v1/ops/task-runs/1/view')return view;throw new Error(path);});
+  renderPage();
+  expect(await screen.findByText('处理用途：当前周期更新')).toBeInTheDocument();
+  expect(await screen.findByText(/阶段：下载源行情；业务交易日：2026-11-13/)).toBeInTheDocument();
+  const user=userEvent.setup();await user.click(screen.getByText('本次执行限制'));
+  expect(screen.getByText('每页6000行；每次源调用20秒，单元业务事务累计20秒。')).toBeVisible();
+  expect((await screen.findAllByText('暂无法估算')).length).toBeGreaterThan(0);
+});

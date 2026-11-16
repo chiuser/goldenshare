@@ -97,7 +97,7 @@ class BoundedTushareError(RuntimeError):
 
 
 def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
-    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
+    prefix = {'stock_period_adj/v1': 'stock_period_adj', 'stock_period_adj_readiness/v1': 'stock_period_adj', 'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
     started, stage, status = time.monotonic(), 'request', None
     try:
         with requests.Session() as session:
@@ -126,6 +126,8 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                     stage = 'validate'
                     envelope = TushareEnvelope.model_validate(original)
                 except (ValueError, TypeError):
+                    if response_contract in {'stock_period_adj/v1','stock_period_adj_readiness/v1'}:
+                        raise BoundedTushareError('stock_period_adj.source_schema_invalid', '股票复权周/月线源JSON或结构错误') from None
                     if response_contract == 'stock_weekly_adj/v1':
                         raise BoundedTushareError('weekly_adj.source_payload_invalid', '周线响应JSON或数据结构无效') from None
                     if response_contract == 'daily_basic/v1':
@@ -136,6 +138,15 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                     limited = '频率超限' in message or '次/分钟' in message
                     send.send(('rate_limit' if limited else 'api_error', envelope.code, message))
                 else:
+                    if response_contract in {'stock_period_adj/v1', 'stock_period_adj_readiness/v1'}:
+                        from src.foundation.datasets.stock_period_adj_contracts import validate_response, StockPeriodAdjContractError
+                        try:
+                            rows = validate_response(original, freq=payload['params']['freq'],
+                                readiness=response_contract == 'stock_period_adj_readiness/v1')
+                        except StockPeriodAdjContractError as exc:
+                            raise BoundedTushareError(exc.code, str(exc)) from None
+                        send.send(('rows', rows))
+                        return
                     if response_contract == 'stock_weekly_adj/v1':
                         try:
                             rows = validate_weekly_response(original)
@@ -163,7 +174,7 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
 
 def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_contract=None,
                  child_pid_changed=None):
-    if response_contract not in (None, 'stock_weekly_adj/v1', 'index_period_raw/v1', 'daily_basic/v1'):
+    if response_contract not in (None, 'stock_weekly_adj/v1', 'stock_period_adj/v1', 'stock_period_adj_readiness/v1', 'index_period_raw/v1', 'daily_basic/v1'):
         raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '未知有界响应合同')
     if response_contract == 'daily_basic/v1':
         from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
@@ -171,7 +182,7 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_c
         if payload.get('api_name') != 'daily_basic' or payload.get('fields') not in (
                 ','.join(DAILY_BASIC_SOURCE_FIELDS), ','.join(DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS)):
             raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标只支持完整19字段或收盘涨跌状态补录三字段')
-    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
+    prefix = {'stock_period_adj/v1': 'stock_period_adj', 'stock_period_adj_readiness/v1': 'stock_period_adj', 'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
     ctx = multiprocessing.get_context('spawn')
     receive, send = ctx.Pipe(duplex=False)
     worker = ctx.Process(target=_attempt, args=(send,base_url,payload,maximum,timeout,response_contract), daemon=True)
