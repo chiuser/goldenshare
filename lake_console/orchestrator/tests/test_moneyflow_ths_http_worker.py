@@ -435,6 +435,42 @@ def test_valid_empty_ths_page_is_distinct_from_no_valid_response(ths_probe):
     assert result.metadata["row_count"] == 0 and len(received) == 1
 
 
+@pytest.mark.parametrize("observation", ["current", "peak"])
+@pytest.mark.parametrize("projection", [True, False])
+def test_precheck_memory_excludes_shared_parent(ths_probe, monkeypatch, observation, projection):
+    # The approved 768 MiB limit is independent of the production checker.
+    # Only OS memory observations are synthetic; HTTP and the worker are real.
+    limit = 768 * 1024 * 1024
+    samples = []
+
+    def observed_rss(command, **kwargs):
+        assert command[:4] == ["/bin/ps", "-o", "pid=,rss=", "-p"]
+        pids = [int(value) for value in command[4].split(",")]
+        samples.append(pids)
+        rows = [
+            f"{pid} {limit // 1024 + 1 if observation == 'current' and pid == os.getpid() else 1}"
+            for pid in pids
+        ]
+        return SimpleNamespace(stdout="\n".join(rows))
+
+    monkeypatch.setattr(parent.subprocess, "run", observed_rss)
+    monkeypatch.setattr(parent, "moneyflow_peak_rss_bytes", lambda: limit + 1 if observation == "peak" else 1)
+    fields = PROJECTION if projection else FIELDS
+    with localhost_source(lambda *_: Reply(200, source_body(fields, DATA["golden_records"][:1]))) as (url, received):
+        if projection:
+            result = call_ths(url, fields=fields, command=ths_probe.command)
+            assert result.columns == ("ts_code", "trade_date")
+            assert result.rows == [{"ts_code": "000001.SZ", "trade_date": "20261110"}]
+            assert all(os.getpid() not in pids for pids in samples)
+        else:
+            with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
+                call_ths(url, fields=fields, command=ths_probe.command)
+            assert any(os.getpid() in pids for pids in samples)
+        assert samples
+        assert len(received) == (0 if not projection and observation == "current" else 1)
+    assert len(ths_probe.owned) == 1
+
+
 def test_local_memory_error_uses_fatal_exit(monkeypatch):
     def exhausted(*args, **kwargs):
         raise MemoryError

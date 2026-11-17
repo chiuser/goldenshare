@@ -19,7 +19,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
+from orchestrator.defs.run_contracts.moneyflow import (
+    MONEYFLOW_MKT_DC_FIELDS,
+    MoneyflowContractError,
+)
+from orchestrator.defs.run_contracts.moneyflow_daily import daily_fields
 from orchestrator.defs.source_readiness import moneyflow_transport as transport
 from orchestrator.defs.tushare_request_policy import classify_tushare_error
 from tests.test_moneyflow_moneyflow import FIELDS, row
@@ -239,12 +243,120 @@ def test_installed_sdk_single_page_capacity_cost(workers, caplog, record_propert
 
 
 def test_rss_observation_failure_ends_owned_request(workers, monkeypatch):
-    def unavailable(_):
+    def unavailable(_, *, include_parent):
+        assert include_parent
         raise MoneyflowContractError("source_worker_rss_unavailable")
 
-    monkeypatch.setattr(transport, "_pair_rss", unavailable)
+    monkeypatch.setattr(transport, "_check_request_rss", unavailable)
     with pytest.raises(MoneyflowContractError, match="rss_unavailable"):
         call([sys.executable, "-B", "-c", "import time;time.sleep(10)"])
+
+
+@pytest.mark.parametrize("include_parent,parent_kib,child_kib,accepted", [
+    (False, 786433, 1, True),
+    (False, 1, 786432, True),
+    (False, 1, 786433, False),
+    (True, 1, 786431, True),
+    (True, 1, 786432, False),
+    (True, 786433, 1, False),
+])
+def test_request_rss_checks_only_owned_processes(monkeypatch, include_parent, parent_kib, child_kib, accepted):
+    # /bin/ps reports KiB: 768 MiB is 786432 KiB, independently confirmed.
+    process = SimpleNamespace(pid=999999, poll=lambda: None)
+    observed = []
+
+    def rss(command, **kwargs):
+        pids = [int(value) for value in command[4].split(",")]
+        observed.append(pids)
+        values = {os.getpid(): parent_kib, process.pid: child_kib}
+        return SimpleNamespace(stdout="\n".join(f"{pid} {values[pid]}" for pid in pids))
+
+    monkeypatch.setattr(transport.subprocess, "run", rss)
+    if accepted:
+        transport._check_request_rss(process, include_parent=include_parent)
+    else:
+        with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
+            transport._check_request_rss(process, include_parent=include_parent)
+    assert observed == [[os.getpid(), 999999] if include_parent else [999999]]
+
+
+@pytest.mark.parametrize("projection", [True, False])
+def test_child_current_rss_over_limit_ends_request(workers, monkeypatch, projection):
+    def rss(command, **kwargs):
+        pids = [int(value) for value in command[4].split(",")]
+        return SimpleNamespace(stdout="\n".join(
+            f"{pid} {1 if pid == os.getpid() else 786433}" for pid in pids
+        ))
+
+    monkeypatch.setattr(transport.subprocess, "run", rss)
+    fields = ("ts_code", "trade_date") if projection else FIELDS
+    with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
+        transport.call_moneyflow_source(
+            SimpleNamespace(token=TOKEN), "moneyflow_ths" if projection else "moneyflow",
+            PARAMS, fields, deadline=time.perf_counter() + 300,
+            _command=[sys.executable, "-B", "-c", "import sys;sys.stdin.buffer.readline()"],
+        )
+
+
+def memory_result_command(peak):
+    # IPC fixture only: the peak is a deliberately injected observation.
+    code = (
+        "import json,struct,sys;value=json.loads(sys.stdin.buffer.readline());"
+        "body=json.dumps({'ok':True,'columns':value['fields'],'rows':[],'metadata':{}}).encode();"
+        f"sys.stdout.buffer.write(struct.pack('!Q',len(body))+body+struct.pack('!Q',{peak}));"
+        "sys.stdout.buffer.flush()"
+    )
+    return [sys.executable, "-B", "-c", code]
+
+
+@pytest.mark.parametrize("projection,peak,accepted", [
+    (True, 0, False),
+    (True, 805306368, True),
+    (True, 805306369, False),
+    (False, 805306367, True),
+    (False, 805306368, False),
+])
+def test_returned_peak_preserves_exact_limit(workers, monkeypatch, projection, peak, accepted):
+    monkeypatch.setattr(transport, "moneyflow_peak_rss_bytes", lambda: 1)
+    fields = ("ts_code", "trade_date") if projection else FIELDS
+
+    def request():
+        return transport.call_moneyflow_source(
+            SimpleNamespace(token=TOKEN), "moneyflow_ths" if projection else "moneyflow",
+            PARAMS, fields, deadline=time.perf_counter() + 300,
+            _command=memory_result_command(peak),
+        )
+
+    if accepted:
+        assert request().rows == []
+    else:
+        with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
+            request()
+
+
+@pytest.mark.parametrize("dataset", [
+    "moneyflow", "moneyflow_mkt_dc", "moneyflow_ths", "moneyflow_dc",
+    "moneyflow_ind_ths", "moneyflow_cnt_ths", "moneyflow_ind_dc",
+])
+@pytest.mark.parametrize("observation", ["current", "peak"])
+def test_all_full_field_downloads_keep_parent_limit(workers, monkeypatch, dataset, observation):
+    def rss(command, **kwargs):
+        pids = [int(value) for value in command[4].split(",")]
+        assert os.getpid() in pids
+        return SimpleNamespace(stdout="\n".join(
+            f"{pid} {786433 if observation == 'current' and pid == os.getpid() else 1}"
+            for pid in pids
+        ))
+
+    monkeypatch.setattr(transport.subprocess, "run", rss)
+    monkeypatch.setattr(transport, "moneyflow_peak_rss_bytes", lambda: 805306369 if observation == "peak" else 1)
+    fields = MONEYFLOW_MKT_DC_FIELDS if dataset == "moneyflow_mkt_dc" else daily_fields(dataset)
+    params = {**PARAMS, **({"content_type": "行业"} if dataset == "moneyflow_ind_dc" else {})}
+    with pytest.raises(MoneyflowContractError, match="memory_budget_exceeded"):
+        transport.call_moneyflow_source(
+            SimpleNamespace(token=TOKEN), dataset, params, fields,
+            deadline=time.perf_counter() + 300, _command=memory_result_command(1),
+        )
 
 
 def test_parent_death_closes_real_inflight_sdk_request():

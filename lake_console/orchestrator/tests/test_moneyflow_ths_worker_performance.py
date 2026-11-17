@@ -55,13 +55,14 @@ def assert_page(rows, offset, *, projection=False):
             )
 
 
-def record_page_cost(probe, timing_path, finished, caplog):
+def record_page_cost(probe, timing_path, finished, caplog, *, projection=False):
     _, started = probe.owned[-1]
     times = json.loads(timing_path.read_text())
     t1, t2, t3 = (times[k] for k in ("t1", "t2", "t3"))
     assert started <= t1 <= t2 <= t3 <= finished
     metric = next(r.args for r in reversed(caplog.records) if r.name == parent.__name__)
-    assert 0 < metric[2] < metric[3] <= 768 * 1024 * 1024
+    assert 0 < metric[2] < metric[3]
+    assert (metric[2] if projection else metric[3]) <= 768 * 1024 * 1024
     return {
         "launch_seconds": t1 - started,
         "initialization_seconds": t2 - t1,
@@ -126,7 +127,7 @@ def test_ths_projection_shared_deadline(ths_probe, tmp_path, caplog, record_prop
             for offset in (0, 2000, 4000):
                 path = tmp_path / f"keys-{offset}.json"
                 result = call_ths(url, fields=PROJECTION, offset=offset, deadline=deadline, command=lambda d, path=path: ths_probe.command(d, path))
-                costs.append(record_page_cost(ths_probe, path, time.perf_counter(), caplog))
+                costs.append(record_page_cost(ths_probe, path, time.perf_counter(), caplog, projection=True))
                 assert result.columns == PROJECTION
                 assert_page(result.rows, offset, projection=True)
                 row_count += len(result.rows)

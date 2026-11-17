@@ -116,10 +116,11 @@ def _environment():
     return {key: value for key, value in os.environ.items() if key in names}
 
 
-def _pair_rss(process):
+def _check_request_rss(process, *, include_parent):
+    pids = (os.getpid(), process.pid) if include_parent else (process.pid,)
     try:
         result = subprocess.run(
-            ["/bin/ps", "-o", "pid=,rss=", "-p", f"{os.getpid()},{process.pid}"],
+            ["/bin/ps", "-o", "pid=,rss=", "-p", ",".join(map(str, pids))],
             capture_output=True,
             timeout=MONEYFLOW_WORKER_POLL_SECONDS,
             check=True,
@@ -130,7 +131,7 @@ def _pair_rss(process):
         }
         if process.poll() is not None:
             return  # The complete frame's peak is required before accepting a page.
-        if set(values) != {os.getpid(), process.pid} or min(values.values()) <= 0:
+        if set(values) != set(pids) or min(values.values()) <= 0:
             raise ValueError("missing_pid")
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         raise MoneyflowContractError("source_worker_rss_unavailable") from error
@@ -246,7 +247,8 @@ def call_moneyflow_source(
                 if now >= work_deadline:
                     raise MoneyflowContractError("source_total_deadline")
                 if now - last_rss >= MONEYFLOW_WORKER_RSS_SAMPLE_SECONDS:
-                    _pair_rss(process)
+                    # The two-field probe runs in the shared Dagster code process.
+                    _check_request_rss(process, include_parent=not projection)
                     last_rss = now
                     check_cancel()
                 status = process.poll()
@@ -295,9 +297,10 @@ def call_moneyflow_source(
         if expected is None or len(data) != expected:
             raise MoneyflowContractError("source_worker_result_frame")
         peak = struct.unpack("!Q", data[-8:])[0]
+        pair_peak = peak + moneyflow_peak_rss_bytes()
         if (
             not 0 < peak <= MONEYFLOW_MAX_RSS_BYTES
-            or peak + moneyflow_peak_rss_bytes() > MONEYFLOW_MAX_RSS_BYTES
+            or (not projection and pair_peak > MONEYFLOW_MAX_RSS_BYTES)
         ):
             raise MoneyflowContractError("memory_budget_exceeded")
         value = json.loads(data[8:-8])
@@ -308,7 +311,7 @@ def call_moneyflow_source(
             api_name,
             (perf_counter() - started) * 1000,
             peak,
-            peak + moneyflow_peak_rss_bytes(),
+            pair_peak,
         )
         if not value["ok"]:
             raise source_error(value)
