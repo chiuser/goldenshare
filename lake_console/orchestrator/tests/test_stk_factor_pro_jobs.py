@@ -337,6 +337,20 @@ def test_actual_job_no_start_lookup_without_changes(
     tmp_path, monkeypatch, actual_job, rows, ready, success, expected_events
 ):
     instance, job, set_source, lake, _, counts = actual_job
+    cache_states = []
+    published_day = asset._published_day
+
+    def observed_day(conn, *args, **kwargs):
+        try:
+            return (yield from published_day(conn, *args, **kwargs))
+        finally:
+            cache_states.append(
+                conn.execute(
+                    "SELECT current_setting('enable_external_file_cache')"
+                ).fetchone()[0]
+            )
+
+    monkeypatch.setattr(asset, "_published_day", observed_day)
     input_files(tmp_path, lake, changed=())
     monkeypatch.setattr(
         asset.readiness,
@@ -356,6 +370,7 @@ def test_actual_job_no_start_lookup_without_changes(
     assert len(downloader.calls) == int(ready)
     assert len(completed.get_asset_materialization_events()) == expected_events
     assert len(completed.get_asset_check_evaluations()) == expected_events
+    assert cache_states == ([True] if ready else [])
     assert counts == {"dates": [], "types": [], "aggregate": [], "initialization": []}
     if not success:
         failure = completed.failure_data_for_node("stk_factor_pro").user_failure_data
@@ -384,6 +399,39 @@ def test_actual_daily_job_publishes_history_using_first_start_query(
     tmp_path, monkeypatch, actual_job
 ):
     instance, job, set_source, lake, staging, counts = actual_job
+    cache_states = []
+    published_day = asset._published_day
+    download_history = asset.download.download_stk_factor_pro_history
+
+    def setting(conn):
+        return conn.execute(
+            "SELECT current_setting('enable_external_file_cache')"
+        ).fetchone()[0]
+
+    def observed_day(conn, *args, **kwargs):
+        cache_states.append(("day_before", setting(conn)))
+        result = yield from published_day(conn, *args, **kwargs)
+        cache_states.append(("day_after", setting(conn)))
+        return result
+
+    def observed_history(conn, **kwargs):
+        cache_states.append(("history_before_source", setting(conn)))
+        before = conn.execute(
+            "SELECT current_setting('memory_limit'),current_setting('threads')"
+        ).fetchone()
+        with connection(tmp_path) as other:
+            assert setting(other) is True
+            assert other.execute(
+                "SELECT current_setting('memory_limit'),current_setting('threads')"
+            ).fetchone() == before
+        source = download_history(conn, **kwargs)
+        cache_states.append(("history_after_source", setting(conn)))
+        return source
+
+    monkeypatch.setattr(asset, "_published_day", observed_day)
+    monkeypatch.setattr(
+        asset.download, "download_stk_factor_pro_history", observed_history
+    )
     input_files(tmp_path, lake, changed=(A,), codes=(A,))
     replay = saved_real_rows()
     remote = HistoryDownloader({A: replay[1:]})
@@ -407,6 +455,14 @@ def test_actual_daily_job_publishes_history_using_first_start_query(
     ).error.to_string()
     assert tuple(len(counts[k]) for k in ("dates", "types", "aggregate")) == (1, 1, 1)
     assert len(day_source.calls) == len(remote.calls) == 1
+    assert cache_states == [
+        ("day_before", True),
+        ("day_after", True),
+        ("history_before_source", False),
+        ("history_after_source", False),
+    ]
+    with connection(tmp_path) as other:
+        assert setting(other) is True
     assert [session.rows for session in remote.sessions] == [4]
     assert remote.calls[0][0].object_ranges[0].time_range.start == str(FIRST)
     for day in (FIRST, UNMATERIALIZED, PREVIOUS, DAY):

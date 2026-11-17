@@ -32,7 +32,6 @@ from orchestrator.defs.paths import (
     DEFAULT_LAKE_STAGING_ROOT,
     raw_adj_factor_path,
     raw_stk_factor_pro_path,
-    silver_stock_factor_pro_path,
     silver_stock_lifecycle_path,
     stk_factor_pro_record_path,
     stk_factor_pro_run_staging_root,
@@ -1892,36 +1891,16 @@ def require_stk_factor_pro_history_space(*, required_by_path, run_id, stage):
                 )
 
 
-def build_stk_factor_pro_history_space_check(
-    connection,
-    *,
-    identity,
-    expected_units,
-    publication_dates,
-    lake_root,
-    staging_root,
-    known_records,
-    basis_row_counts,
-    operation_dates=(),
+def read_stk_factor_pro_history_raw_rows(
+    connection, *, identity, publication_dates, lake_root, known_records
 ):
-    """Bind a single budget and update only the saved artifact's contribution."""
+    """Obtain Raw footer counts once for both capacity and daily merge checks."""
     with _history_space_metadata_errors(
         identity.creator_run_id, "历史容量准备", identity.target_trade_date
     ):
-        if not expected_units:
-            raise ValueError("无历史unit，不创建容量回调")
-        root = stk_factor_pro_run_staging_root(
-            staging_root,
-            identity.creator_run_id,
-            identity.target_trade_date.isoformat(),
-        )
         target_paths = {
-            (day, layer): getter(lake_root, day.isoformat())
+            day: raw_stk_factor_pro_path(lake_root, day.isoformat())
             for day in publication_dates
-            for layer, getter in (
-                ("raw", raw_stk_factor_pro_path),
-                ("silver", silver_stock_factor_pro_path),
-            )
         }
         target_rows, missing_metadata = {}, []
         for key, path in target_paths.items():
@@ -1943,6 +1922,33 @@ def build_stk_factor_pro_history_space_check(
             for key, path in target_paths.items():
                 if key not in target_rows:
                     target_rows[key] = counts[str(path)]
+        return target_rows
+
+
+def build_stk_factor_pro_history_space_check(
+    connection,
+    *,
+    identity,
+    expected_units,
+    publication_dates,
+    lake_root,
+    staging_root,
+    known_records,
+    basis_row_counts,
+    prior_raw_row_counts,
+    operation_dates=(),
+):
+    """Bind a single budget and update only the saved artifact's contribution."""
+    with _history_space_metadata_errors(
+        identity.creator_run_id, "历史容量准备", identity.target_trade_date
+    ):
+        if not expected_units:
+            raise ValueError("无历史unit，不创建容量回调")
+        root = stk_factor_pro_run_staging_root(
+            staging_root,
+            identity.creator_run_id,
+            identity.target_trade_date.isoformat(),
+        )
         h = tuple((unit.end_date - unit.start_date).days + 1 for unit in expected_units)
         per_date = {
             day: sum(unit.start_date <= day <= unit.end_date for unit in expected_units)
@@ -1967,9 +1973,8 @@ def build_stk_factor_pro_history_space_check(
                 4
                 * (
                     basis_bytes
-                    + _history_file_bytes(target_rows[day, "raw"])
-                    + _history_file_bytes(target_rows[day, "silver"])
-                    + 2 * _history_file_bytes(target_rows[day, "raw"] + per_date[day])
+                    + _history_file_bytes(prior_raw_row_counts[day])
+                    + 2 * _history_file_bytes(prior_raw_row_counts[day] + per_date[day])
                 )
                 for day in publication_dates
             ),
@@ -1978,7 +1983,7 @@ def build_stk_factor_pro_history_space_check(
         layers = {
             root
             / f"candidates/history/{day}/{layer}/data.parquet": _history_file_bytes(
-                target_rows[day, "raw"] + per_date[day]
+                prior_raw_row_counts[day] + per_date[day]
             )
             for day in publication_dates
             for layer in ("raw", "silver")
@@ -2004,7 +2009,7 @@ def build_stk_factor_pro_history_space_check(
             unit_row_bounds=h,
             max_batch_rows=max_batch_rows,
             remaining_layer_row_bounds=tuple(
-                target_rows[day, "raw"] + per_date[day]
+                prior_raw_row_counts[day] + per_date[day]
                 for day in publication_dates
                 for _ in range(2)
             ),

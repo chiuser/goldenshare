@@ -712,7 +712,7 @@ def build_stk_factor_pro_run_control(
         return cancelled
 
     def check_cancel():
-        if read(force=True):
+        if read(force=phase == "day"):
             raise dg.Failure(
                 "技术因子任务已取消。",
                 allow_retries=False,

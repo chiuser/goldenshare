@@ -26,6 +26,7 @@ from tests.stk_factor_pro_history_test_support import (
     contract,
     eligibility,
     identity,
+    prior_raw_counts,
     roots,
     row,
     write_factor_file,
@@ -206,6 +207,7 @@ def source_and_publish(conn, download_args, publish_args, *, known_records):
         source=source,
         **publish_args,
         known_records=known_records,
+        prior_raw_row_counts=prior_raw_counts(conn, publish_args, known_records),
     )
 
 

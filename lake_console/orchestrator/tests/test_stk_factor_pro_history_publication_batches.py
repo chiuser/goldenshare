@@ -31,6 +31,7 @@ from tests.stk_factor_pro_history_test_support import (
     contract,
     eligibility,
     identity,
+    prior_raw_counts,
     roots,
     row,
     write_factor_file,
@@ -43,7 +44,7 @@ BATCH = "stk_factor_pro_history_batch_source"
 
 def trading_dates(count):
     dates = []
-    current = date(2026, 8, 1)
+    current = date(2026, 7, 1)
     holidays = {date(2026, 10, day) for day in range(1, 8)}
     while current <= P:
         if current.weekday() < 5 and current not in holidays:
@@ -84,7 +85,16 @@ def write_rows(conn, path, rows, *, layer):
         conn.unregister("test_history_publication_input")
 
 
-def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_records):
+def setup(
+    conn,
+    tmp_path,
+    count,
+    *,
+    missing_dates=(),
+    unrelated=False,
+    changed_codes=(A,),
+    known_records,
+):
     lake, staging = roots(tmp_path)
     dates = trading_dates(count)
     raw_t = raw_stk_factor_pro_path(lake, T.isoformat())
@@ -94,8 +104,12 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_rec
     write_rows(conn, silver_t, (sentinel,), layer="silver")
     t_hashes = factor_file_sha(raw_t), factor_file_sha(silver_t)
     refs = (
-        write_factor_file(conn, lake, T, ((A, 2.0), (B, 1.0))),
-        write_factor_file(conn, lake, P, ((A, 1.0), (B, 1.0))),
+        write_factor_file(
+            conn, lake, T, tuple((code, 2.0) for code in changed_codes) + ((B, 1.0),)
+        ),
+        write_factor_file(
+            conn, lake, P, tuple((code, 1.0) for code in changed_codes) + ((B, 1.0),)
+        ),
     )
     old = models.StkFactorProRecordedResults(
         T, None, None, None, None, None, None, (), (), None, None
@@ -129,7 +143,10 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_rec
             prior=old,
             known_records=known_records,
         ),
-        history_starts=(models.StkFactorProHistoryStart(A, dates[0], 1, dates[0]),),
+        history_starts=tuple(
+            models.StkFactorProHistoryStart(code, dates[0], 1, dates[0])
+            for code in changed_codes
+        ),
         check_cancel=lambda: None,
         known_records=known_records,
         factor_relations=factor_relations,
@@ -154,12 +171,16 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_rec
         calendar=(*dates, T),
         registered_dates=dates,
     )
-    source_rows = tuple(
-        row(A, day.strftime("%Y%m%d"))
-        for day in (*dates, T)
-        if day not in missing_dates
+    downloader = HistoryDownloader(
+        {
+            code: tuple(
+                row(code, day.strftime("%Y%m%d"))
+                for day in (*dates, T)
+                if day not in missing_dates
+            )
+            for code in changed_codes
+        }
     )
-    downloader = HistoryDownloader({A: source_rows})
 
     def recheck():
         return refs[0], refs[1], valid.raw_coverage, valid.target_silver
@@ -296,7 +317,10 @@ def test_one_batch_source_query_per_twenty_dates_and_raw_silver_order(
         observed = BatchQueries(conn)
         outputs = tuple(
             publication.publish_stk_factor_pro_history(
-                observed, **args, known_records=known_records
+                observed,
+                **args,
+                known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(observed, args, known_records),
             )
         )
         assert len(observed.batch_queries) == batches
@@ -350,7 +374,10 @@ def test_holiday_gap_and_no_row_dates_keep_explicit_skip_without_file_audit(tmp_
         observed = BatchQueries(conn)
         outputs = tuple(
             publication.publish_stk_factor_pro_history(
-                observed, **args, known_records=known_records
+                observed,
+                **args,
+                known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(observed, args, known_records),
             )
         )
         missing = [
@@ -381,6 +408,9 @@ def test_business_closes_iterator_after_raw_retains_raw_and_releases_all_relatio
             BatchQueries(conn),
             **args,
             known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(
+                BatchQueries(conn), args, known_records
+            ),
         )
         target, audit = next(iterator)
         assert target.trade_date == dates[0] and target.layer == "raw" and audit.passed
@@ -410,6 +440,9 @@ def test_silver_failure_keeps_completed_raw_and_cleans_current_batch(
             BatchQueries(conn),
             **args,
             known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(
+                BatchQueries(conn), args, known_records
+            ),
         )
         target, audit = next(iterator)
         assert target.layer == "raw" and audit.passed
@@ -437,6 +470,7 @@ def test_batch_read_failure_stops_new_dates_and_releases_prior_relations(
                 observed,
                 **args,
                 known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(observed, args, known_records),
             ):
                 completed.append((target, audit))
         assert len(completed) == (failed_batch - 1) * 40
@@ -445,4 +479,66 @@ def test_batch_read_failure_stops_new_dates_and_releases_prior_relations(
         if failed_batch == 2:
             assert silver_stock_factor_pro_path(lake, dates[19].isoformat()).exists()
         assert_current_day_unchanged(conn, lake, hashes)
+        assert_clean(conn)
+
+
+@pytest.mark.parametrize("count", [21, 41, 60])
+def test_history_batch_releases_full_audits_and_keeps_only_small_targets(
+    tmp_path, count
+):
+    import inspect
+
+    states, records = [], {}
+    with connection(tmp_path) as conn:
+        _, _, _, _, _, _, args = setup(conn, tmp_path, count, known_records=records)
+
+        def space(stage, *, path, **facts):
+            if stage == "历史20日批计算前":
+                frame = inspect.currentframe().f_back
+                assert frame.f_code.co_name == "_publish_stk_factor_pro_history"
+                completed = frame.f_locals["completed"]
+                assert all(
+                    isinstance(target, models.PublishedTarget) for target in completed
+                )
+                if completed:
+                    assert frame.f_locals["raw_audit"] is None
+                    assert frame.f_locals["silver_audit"] is None
+                    assert frame.f_locals["raw_guard"] is None
+                assert not any(
+                    isinstance(v[0], models.StkFactorProFileAudit)
+                    for v in records.values()
+                )
+                names = {
+                    name
+                    for (name,) in conn.execute(
+                        "SELECT table_name FROM duckdb_tables() WHERE temporary"
+                    ).fetchall()
+                }
+                assert not names.intersection(
+                    {
+                        "stk_factor_pro_day_prior",
+                        "stk_factor_pro_raw_expected",
+                        "stk_factor_pro_silver_expected",
+                    }
+                )
+                assert not any(
+                    name.startswith("stk_factor_pro_checked_") for name in names
+                )
+                states.append(len(completed))
+            check_test_space(stage, path=path, **facts)
+
+        args["check_space"] = space
+        outputs = tuple(
+            publication.publish_stk_factor_pro_history(
+                conn,
+                **args,
+                known_records=records,
+                prior_raw_row_counts=prior_raw_counts(conn, args, records),
+            )
+        )
+        assert len(outputs) == 2 * count
+        assert states == list(range(0, 2 * count, 40))
+        assert not any(
+            isinstance(v[0], models.StkFactorProFileAudit) for v in records.values()
+        )
         assert_clean(conn)

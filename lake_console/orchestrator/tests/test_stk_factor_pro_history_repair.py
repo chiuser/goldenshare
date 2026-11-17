@@ -142,6 +142,20 @@ def test_repair_uses_current_native_gate_and_only_fresh_original_history(
         assert revised.file_sha256 != original.factor_t_ref.file_sha256
     remote = HistoryDownloader({A: replay[1:]})
     monkeypatch.setattr(asset.download.TushareDownloader, "load", lambda: remote)
+    download_history = asset.download.download_stk_factor_pro_history
+    cache_states = []
+
+    def observed_history(conn, **kwargs):
+        cache_states.append(
+            conn.execute(
+                "SELECT current_setting('enable_external_file_cache')"
+            ).fetchone()[0]
+        )
+        return download_history(conn, **kwargs)
+
+    monkeypatch.setattr(
+        asset.download, "download_stk_factor_pro_history", observed_history
+    )
     for calls in counts.values():
         calls.clear()
     with repair_job_context(job) as repair:
@@ -220,6 +234,7 @@ def test_repair_uses_current_native_gate_and_only_fresh_original_history(
         == target_state
     )
     assert all(not calls for calls in counts.values())
+    assert cache_states == ([False] if failure_layer is None else [])
 
 
 def test_newer_repair_failure_takes_precedence_over_retryable_update(

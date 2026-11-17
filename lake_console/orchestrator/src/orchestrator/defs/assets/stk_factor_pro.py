@@ -876,6 +876,7 @@ def _publish_history(
     bootstrap_context,
     initialization_state,
 ):
+    connection.execute("SET enable_external_file_cache=false")
     identity = plan.identity
     day = identity.target_trade_date
     control, check_cancel = download.build_stk_factor_pro_run_control(
@@ -902,6 +903,13 @@ def _publish_history(
         if initialization_state is None
         else tuple(d for d in dates if d in initialization_state["approved_counts"])
     )
+    prior_raw_row_counts = history.read_stk_factor_pro_history_raw_rows(
+        connection,
+        identity=identity,
+        publication_dates=dates,
+        lake_root=lake,
+        known_records=known_records,
+    )
     space = history.build_stk_factor_pro_history_space_check(
         connection,
         identity=identity,
@@ -916,6 +924,7 @@ def _publish_history(
             if fact["basis"].row_count is not None
         ),
         operation_dates=operation_dates,
+        prior_raw_row_counts=prior_raw_row_counts,
     )
     eligibility = C.HistoryEligibilityRecord(
         1,
@@ -1067,6 +1076,7 @@ def _publish_history(
             calendar=calendar,
             registered_dates=registered,
             publication_dates=dates,
+            prior_raw_row_counts=prior_raw_row_counts,
             check_space=space,
             recheck_inputs=verified_inputs,
             check_cancel=check_cancel,
@@ -1128,6 +1138,7 @@ def _publish_history(
                 break
             if target.layer == "silver" and target.trade_date in batch_ends:
                 yield from flush()
+                item = target = audit = None
     root = stk_factor_pro_run_staging_root(staging, identity.creator_run_id, str(day))
     return (
         source.source_complete_ref.file_sha256,

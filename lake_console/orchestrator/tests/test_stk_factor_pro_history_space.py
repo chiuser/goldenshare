@@ -219,6 +219,7 @@ def space_inputs(tmp_path):
                 "staging_root": staging,
                 "known_records": {},
                 "basis_row_counts": (2, 2, 2),
+                "prior_raw_row_counts": {friday: 2},
             },
         )
 
@@ -245,6 +246,13 @@ def test_spill_already_on_disk_is_not_reserved_twice_and_budget_is_computed_once
     # 1MiB record beyond the pure k=9 sample.
     monkeypatch.setattr(
         history.shutil, "disk_usage", lambda path: SimpleNamespace(free=1_117_827_974)
+    )
+    inputs["prior_raw_row_counts"] = history.read_stk_factor_pro_history_raw_rows(
+        observed,
+        identity=inputs["identity"],
+        publication_dates=inputs["publication_dates"],
+        lake_root=inputs["lake_root"],
+        known_records=inputs["known_records"],
     )
     check = history.build_stk_factor_pro_history_space_check(observed, **inputs)
     check("历史会话前", path=inputs["staging_root"])
@@ -417,6 +425,13 @@ def test_large_complete_record_uses_actual_bytes_before_one_atomic_write(
             staging_root=staging,
             known_records=known,
             basis_row_counts=(1, 1),
+            prior_raw_row_counts=history.read_stk_factor_pro_history_raw_rows(
+                conn,
+                identity=identity,
+                publication_dates=tuple(dates),
+                lake_root=lake,
+                known_records=known,
+            ),
         )
         check("最后统计", path=root, event="final_statistics")
         with (
@@ -502,6 +517,13 @@ def test_forty_five_dates_plan_twenty_day_work_without_creating_business_files(
             staging_root=staging,
             known_records={},
             basis_row_counts=(1, 1),
+            prior_raw_row_counts=history.read_stk_factor_pro_history_raw_rows(
+                conn,
+                identity=identity(),
+                publication_dates=planned,
+                lake_root=lake,
+                known_records={},
+            ),
         )
         first = check("首批前", path=staging)
         check("第二批前", path=staging)
@@ -539,6 +561,13 @@ def test_initial_capacity_failure_never_starts_a_download_session(
             staging_root=args["staging_root"],
             known_records=known_records,
             basis_row_counts=(2, 2),
+            prior_raw_row_counts=history.read_stk_factor_pro_history_raw_rows(
+                conn,
+                identity=args["identity"],
+                publication_dates=(P,),
+                lake_root=args["lake_root"],
+                known_records=known_records,
+            ),
         )
         monkeypatch.setattr(
             history.shutil, "disk_usage", lambda path: SimpleNamespace(free=0)
@@ -588,6 +617,13 @@ def test_already_saved_valid_eligibility_is_not_reserved_as_new_space(
             staging_root=args["staging_root"],
             known_records=records,
             basis_row_counts=(2, 2),
+            prior_raw_row_counts=history.read_stk_factor_pro_history_raw_rows(
+                conn,
+                identity=args["identity"],
+                publication_dates=(P,),
+                lake_root=args["lake_root"],
+                known_records=records,
+            ),
         )
         result = check("历史下载前", path=root)
         assert result.record_bytes == 9_437_184
@@ -616,6 +652,13 @@ def test_capacity_loss_stops_before_the_next_unit_is_requested(tmp_path, monkeyp
             staging_root=args["staging_root"],
             known_records=known_records,
             basis_row_counts=(2, 2),
+            prior_raw_row_counts=history.read_stk_factor_pro_history_raw_rows(
+                conn,
+                identity=args["identity"],
+                publication_dates=(P,),
+                lake_root=args["lake_root"],
+                known_records=known_records,
+            ),
         )
         monkeypatch.setattr(
             history.shutil,

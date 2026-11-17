@@ -13,7 +13,12 @@ from orchestrator.defs.paths import (
     raw_stk_factor_pro_path,
     silver_stock_factor_pro_path,
 )
-from tests.stk_factor_pro_history_test_support import connection, row, write_factor_file
+from tests.stk_factor_pro_history_test_support import (
+    connection,
+    prior_raw_counts,
+    row,
+    write_factor_file,
+)
 from tests.test_stk_factor_pro_history_publication_batches import setup, write_rows
 
 T, P = date(2026, 10, 16), date(2026, 10, 15)
@@ -52,7 +57,10 @@ def test_complete_record_covers_exact_delivered_targets_and_current_source(tmp_p
         args["recheck_inputs"] = observed
         delivered = tuple(
             publication.publish_stk_factor_pro_history(
-                conn, **args, known_records=known_records
+                conn,
+                **args,
+                known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
             )
         )
         record = publication.read_stk_factor_pro_history_publication_complete(
@@ -107,7 +115,10 @@ def test_final_input_change_keeps_valid_files_but_no_range_complete(tmp_path, fa
 
         args["recheck_inputs"] = changed
         iterator = publication.publish_stk_factor_pro_history(
-            conn, **args, known_records=known_records
+            conn,
+            **args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
         )
         assert next(iterator)[0].layer == "raw"
         assert next(iterator)[0].layer == "silver"
@@ -126,7 +137,10 @@ def test_changed_formal_target_is_still_rejected_before_complete(tmp_path):
             conn, tmp_path, 1, known_records=known_records
         )
         iterator = publication.publish_stk_factor_pro_history(
-            conn, **args, known_records=known_records
+            conn,
+            **args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
         )
         next(iterator)
         next(iterator)
@@ -151,7 +165,10 @@ def test_complete_reuses_confirmed_records_without_reading_them_again(
             conn, tmp_path, 1, known_records=known_records
         )
         iterator = publication.publish_stk_factor_pro_history(
-            conn, **args, known_records=known_records
+            conn,
+            **args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
         )
         raw, _ = next(iterator)
         silver, _ = next(iterator)
@@ -185,7 +202,10 @@ def test_new_execution_rejects_bad_record_on_first_read(tmp_path, fault):
             conn, tmp_path, 1, known_records=producer_records
         )
         iterator = publication.publish_stk_factor_pro_history(
-            conn, **args, known_records=producer_records
+            conn,
+            **args,
+            known_records=producer_records,
+            prior_raw_row_counts=prior_raw_counts(conn, args, producer_records),
         )
         raw, _ = next(iterator)
         next(iterator)
@@ -240,7 +260,10 @@ def test_write_complete_failure_does_not_undo_published_files(tmp_path, monkeypa
 
         monkeypatch.setattr(publication, "_json_write", failed)
         iterator = publication.publish_stk_factor_pro_history(
-            conn, **args, known_records=known_records
+            conn,
+            **args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
         )
         next(iterator)
         next(iterator)
@@ -260,7 +283,10 @@ def test_explicit_skips_complete_without_file_audits_or_fake_checkpoints(tmp_pat
         )
         delivered = tuple(
             publication.publish_stk_factor_pro_history(
-                conn, **args, known_records=known_records
+                conn,
+                **args,
+                known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(conn, args, known_records),
             )
         )
         assert len(delivered) == 2
@@ -303,7 +329,7 @@ class NoSecondFieldAudit:
         )
 
 
-def test_completion_reuses_file_audits_without_another_full_field_scan(tmp_path):
+def test_completion_reuses_small_results_without_another_full_field_scan(tmp_path):
     known_records = {}
     with connection(tmp_path) as conn:
         _, root, _, _, _, _, args = setup(
@@ -311,7 +337,10 @@ def test_completion_reuses_file_audits_without_another_full_field_scan(tmp_path)
         )
         observed = NoSecondFieldAudit(conn)
         iterator = publication.publish_stk_factor_pro_history(
-            observed, **args, known_records=known_records
+            observed,
+            **args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(observed, args, known_records),
         )
         next(iterator)
         next(iterator)

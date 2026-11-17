@@ -773,7 +773,7 @@ def test_midnight_gap_today_then_manual_date(scene):
 
 
 @pytest.mark.parametrize("revision", ["T", "P"])
-def test_history_wait_then_complete_range_redownload(scene, revision):
+def test_history_wait_then_complete_range_redownload(scene, revision, monkeypatch):
     seed_history(scene)
     register(scene)
     (request,) = tick(scene).run_requests
@@ -818,12 +818,37 @@ def test_history_wait_then_complete_range_redownload(scene, revision):
     )
     scene.clock = scene.clock.replace(hour=20, minute=0)
     (request,) = tick(scene).run_requests
+    history_queries = []
+    read_checks = (
+        scene.instance.event_log_storage.get_latest_asset_check_execution_by_key
+    )
+
+    def observed_checks(keys, **kwargs):
+        selected = kwargs.get("partition_filter")
+        if (
+            selected is not None
+            and selected.key in {str(FIRST), str(P14), str(PREVIOUS)}
+            and any(
+                key.asset_key.to_user_string()
+                in (C.STK_FACTOR_PRO_RAW_ASSET_KEY, C.STK_FACTOR_PRO_SILVER_ASSET_KEY)
+                for key in keys
+            )
+        ):
+            history_queries.append(selected.key)
+        return read_checks(keys, **kwargs)
+
+    monkeypatch.setattr(
+        scene.instance.event_log_storage,
+        "get_latest_asset_check_execution_by_key",
+        observed_checks,
+    )
     recovered = automatic(scene, request)
     assert recovered.success
+    assert history_queries == []
     assert scene.measurements[-1]["http"] == 2
-    # _publish_file compares the existing relation and uses mode=reuse when
-    # identical. T is unchanged from waiting; P's Raw changes only in revision P.
-    assert scene.measurements[-1]["physical_replaces"] == (3 if revision == "T" else 4)
+    # LLD23 directly replaces 3 historical dates x Raw/Silver, even when equal.
+    # T remains unchanged under the separate daily publication contract.
+    assert scene.measurements[-1]["physical_replaces"] == 6
     expected = {DAY: scene.daily[DAY]}
     for day in (FIRST, P14, PREVIOUS):
         expected[day] = (

@@ -201,20 +201,27 @@ def compare_factor_relations(
     fields = STK_FACTOR_PRO_SOURCE_COLUMNS[2:]
     differences = [f'e."{field}" IS DISTINCT FROM a."{field}"' for field in fields]
     both = "e.ts_code IS NOT NULL AND a.ts_code IS NOT NULL"
-    aggregations = ", ".join(
-        f"count(*) FILTER (WHERE {both} AND ({diff}))" for diff in differences
+    joined = (
+        f"FROM {expected_name} e FULL OUTER JOIN {actual_name} a "
+        "ON e.ts_code=a.ts_code AND e.trade_date=a.trade_date"
     )
     result = connection.execute(
         f"SELECT count(*) FILTER (WHERE e.ts_code IS NOT NULL), "
         "count(*) FILTER (WHERE a.ts_code IS NOT NULL), "
         "count(*) FILTER (WHERE e.ts_code IS NOT NULL AND a.ts_code IS NULL), "
         "count(*) FILTER (WHERE e.ts_code IS NULL AND a.ts_code IS NOT NULL), "
-        f"count(*) FILTER (WHERE {both} AND ({' OR '.join(differences)})), {aggregations} "
-        f"FROM {expected_name} e FULL OUTER JOIN {actual_name} a "
-        "ON e.ts_code=a.ts_code AND e.trade_date=a.trade_date"
+        f"count(*) FILTER (WHERE {both} AND ({' OR '.join(differences)})) "
+        f"{joined}"
     ).fetchone()
+    if result[4]:
+        aggregations = ", ".join(
+            f"count(*) FILTER (WHERE {both} AND ({diff}))" for diff in differences
+        )
+        field_counts = connection.execute(f"SELECT {aggregations} {joined}").fetchone()
+    else:
+        field_counts = (0,) * len(fields)
     return StkFactorProComparison(
-        *result[:5], tuple(zip(fields, result[5:], strict=True))
+        *result, tuple(zip(fields, field_counts, strict=True))
     )
 
 

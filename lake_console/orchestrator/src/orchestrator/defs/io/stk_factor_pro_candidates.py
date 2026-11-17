@@ -287,6 +287,7 @@ def build_stk_factor_pro_raw_candidate_from_relation(
     candidate_path: Path,
     run_root: Path,
     known_records: dict,
+    prior_row_count: int | None = None,
 ):
     """Build B-K+U from an already verified, internal single-date relation."""
     if (
@@ -307,6 +308,13 @@ def build_stk_factor_pro_raw_candidate_from_relation(
             f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM {source_relation} WHERE false"
         )
         base = 0
+    elif source_relation == HISTORY_DAY_SOURCE:
+        require_stk_factor_pro_safe_path(prior_path)
+        connection.execute(
+            f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM read_parquet(?, hive_partitioning=false)",
+            [str(prior_path)],
+        )
+        base = prior_row_count
     else:
         base, _ = load_stk_factor_pro_prior_relation(
             connection,

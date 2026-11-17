@@ -336,3 +336,18 @@ def saved_real_rows() -> tuple[tuple[object, ...], ...]:
         ("000001.SZ", "20261016"),
     )
     return rows
+
+
+def prior_raw_counts(connection, arguments, known_records):
+    """Use the actual bounded footer producer after each fixture's last write."""
+    from orchestrator.defs.io.stk_factor_pro_history import (
+        read_stk_factor_pro_history_raw_rows,
+    )
+
+    return read_stk_factor_pro_history_raw_rows(
+        connection,
+        identity=arguments["plan"].identity,
+        publication_dates=arguments["publication_dates"],
+        lake_root=arguments["lake_root"],
+        known_records=known_records,
+    )

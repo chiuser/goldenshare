@@ -2075,9 +2075,11 @@ def emit_stk_factor_pro_publications(
         known_pg[
             ("publication_events", context.run.run_id, target.trade_date, target.layer)
         ] = (material, event, audit)
-    # Execution ids have a separate namespace from event storage ids. One query
-    # per actual date includes both keys, then downstream readers reuse it.
-    for day in dict.fromkeys(target.trade_date for target, _audit in files):
+    # Daily coverage consumes execution ids. Historical consumers obtain them
+    # only when initialization statistics actually need them.
+    for day in dict.fromkeys(
+        target.trade_date for target, _audit in files if day_output
+    ):
         keys = tuple(
             dg.AssetCheckKey(key[0], item[2])
             for key, item in expected.items()

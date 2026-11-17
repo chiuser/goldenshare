@@ -53,6 +53,7 @@ from tests.stk_factor_pro_history_test_support import (
     contract,
     eligibility,
     identity,
+    prior_raw_counts,
     roots,
     row,
     saved_real_rows,
@@ -415,7 +416,11 @@ def create_flow(conn, fixture, *, run="run-normal", old=None, known_records):
 def complete(conn, source, publish_args, *, known_records):
     return tuple(
         publication.publish_stk_factor_pro_history(
-            conn, source=source, **publish_args, known_records=known_records
+            conn,
+            source=source,
+            **publish_args,
+            known_records=known_records,
+            prior_raw_row_counts=prior_raw_counts(conn, publish_args, known_records),
         )
     )
 
@@ -673,6 +678,9 @@ def child_stage(stage, base, *, known_records):
                 source=source,
                 **publish_args,
                 known_records=known_records,
+                prior_raw_row_counts=prior_raw_counts(
+                    guarded, publish_args, known_records
+                ),
             )
             if stage == "exit":
                 target, audit = next(outputs)

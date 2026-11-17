@@ -33,6 +33,40 @@ T, P = date(2026, 10, 16), date(2026, 10, 15)
 A, B = "000001.SZ", "600000.SH"
 
 
+@pytest.mark.parametrize("phase,initial_reads", [("history", 1), ("day", 2)])
+def test_cancel_status_interval_is_shared_only_by_history(phase, initial_reads):
+    from types import SimpleNamespace
+
+    import dagster as dg
+
+    clock, reads, status = [10.0], [], [dg.DagsterRunStatus.STARTED]
+
+    def get_run(run_id):
+        reads.append(run_id)
+        return SimpleNamespace(run_id=run_id, status=status[0])
+
+    control, check = downloads.build_stk_factor_pro_run_control(
+        SimpleNamespace(get_run_by_id=get_run),
+        identity=identity(),
+        phase=phase,
+        monotonic=lambda: clock[0],
+    )
+    check()
+    check()
+    assert not control.is_cancelled()
+    assert len(reads) == initial_reads
+    clock[0] = 10.5
+    if phase == "history":
+        check()
+        assert len(reads) == 1
+    status[0] = dg.DagsterRunStatus.CANCELING
+    clock[0] = 11.0
+    with pytest.raises(dg.Failure, match="已取消"):
+        check()
+    assert len(reads) == initial_reads + 1
+    assert control.is_cancelled()
+
+
 def prepare(conn, tmp_path, *, kind="normal", run="run-a", known_records):
     lake, staging = roots(tmp_path)
     t = ((A, 1.0), (B, 2.0)) if kind == "no_action" else ((A, 2.0), (B, 3.0))

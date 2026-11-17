@@ -157,6 +157,7 @@ def _publish_file(
     known_records,
     check_space,
     phase="day",
+    prior_identity=None,
     unrefreshed_keys_ref=None,
     unrefreshed_count=None,
     scope_facts=None,
@@ -179,10 +180,15 @@ def _publish_file(
     )
     if (directory / "intent.json").exists() or (directory / "complete.json").exists():
         raise ValueError("技术因子不得使用已有intent或complete继续发布")
-    if _hash_if_exists(target, known_records=known_records) != prior:
+    current = (
+        (factor_file_identity(target) if target.exists() else None)
+        if phase == "history"
+        else _hash_if_exists(target, known_records=known_records)
+    )
+    if current != (prior_identity if phase == "history" else prior):
         raise ValueError("技术因子正式目标在构造候选时已改变")
     unchanged, prior_audit = False, None
-    if prior is not None:
+    if phase == "day" and prior is not None:
         relation, rows, schema = known_records[target][0]
         if prior_relation != relation:
             raise ValueError("技术因子旧文件关系未交接首次读取结果")
@@ -262,9 +268,13 @@ def _publish_file(
     )
     check_cancel()
     raw_guard()
-    if (
-        _hash_if_exists(target, known_records=known_records) != prior
-        or factor_file_identity(candidate) != known_records[candidate][2]
+    current = (
+        (factor_file_identity(target) if target.exists() else None)
+        if phase == "history"
+        else _hash_if_exists(target, known_records=known_records)
+    )
+    if current != (prior_identity if phase == "history" else prior) or (
+        factor_file_identity(candidate) != known_records[candidate][2]
     ):
         raise ValueError("技术因子目标或候选在发布前改变")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -426,7 +436,6 @@ def publish_stk_factor_pro_day(
 
 
 HISTORY_BATCH_SOURCE = "stk_factor_pro_history_batch_source"
-HISTORY_PRIOR_SILVER = "stk_factor_pro_history_prior_silver"
 HISTORY_SCOPE_ROWS = "stk_factor_pro_history_scope_rows"
 HISTORY_UNREFRESHED_KEYS = "stk_factor_pro_history_unrefreshed_keys"
 HISTORY_UNREFRESHED_SAVED = "stk_factor_pro_history_unrefreshed_saved"
@@ -456,7 +465,6 @@ def _history_day_release_sql():
             RAW_MATCHED_KEYS,
             RAW_EXPECTED,
             SILVER_EXPECTED,
-            HISTORY_PRIOR_SILVER,
             HISTORY_UNREFRESHED_KEYS,
         )
     )
@@ -543,42 +551,21 @@ def _history_unrefreshed_keys(
     root,
     identity,
     day,
-    layer,
     codes,
     prior_relation,
     known_records,
     check_space,
 ):
     if prior_relation is None:
-        return None, 0
-    path = (
-        root
-        / "publication"
-        / "history"
-        / day.isoformat()
-        / layer
-        / "unrefreshed-keys.parquet"
+        return None, None, 0
+    connection.execute(
+        f"CREATE TEMP TABLE {HISTORY_UNREFRESHED_KEYS} AS SELECT b.ts_code, "
+        f"CAST(strptime(b.trade_date,'%Y%m%d') AS DATE) AS trade_date "
+        f"FROM {prior_relation} b WHERE b.ts_code=ANY(?) AND NOT EXISTS "
+        f"(SELECT 1 FROM {RAW_MATCHED_KEYS} u "
+        "WHERE u.ts_code=b.ts_code AND u.trade_date=b.trade_date)",
+        [list(codes)],
     )
-    temporary = path.with_suffix(".parquet.tmp")
-    for value in (root, path, temporary):
-        _safe(value)
-    if path.exists() or temporary.exists():
-        raise ValueError("历史缺原键诊断已存在，不接受续跑")
-    if prior_relation is not None:
-        key_date = (
-            "CAST(strptime(b.trade_date,'%Y%m%d') AS DATE)"
-            if layer == "raw"
-            else "b.trade_date"
-        )
-        source_relation = RAW_MATCHED_KEYS if layer == "raw" else HISTORY_DAY_SOURCE
-        source_date = "CAST(strptime(u.trade_date,'%Y%m%d') AS DATE)"
-        connection.execute(
-            f"CREATE TEMP TABLE {HISTORY_UNREFRESHED_KEYS} AS SELECT ?::VARCHAR AS layer, "
-            f"b.ts_code,{key_date} AS trade_date FROM {prior_relation} b "
-            f"WHERE b.ts_code=ANY(?) AND NOT EXISTS (SELECT 1 FROM {source_relation} u "
-            f"WHERE u.ts_code=b.ts_code AND {source_date}={key_date})",
-            [layer, list(codes)],
-        )
 
     def release_keys(connection, primary):
         _release_history_sql(
@@ -595,64 +582,91 @@ def _history_unrefreshed_keys(
             f"SELECT count(*) FROM {HISTORY_UNREFRESHED_KEYS}"
         ).fetchone()[0]
         if count == 0:
-            return None, 0
-        check_space(
-            "历史缺原键明细保存前", path=path, trade_date=day, layer=layer, rows=count
-        )
-        path.parent.mkdir(parents=True, exist_ok=True)
-        for value in (path, temporary):
-            _safe(value)
-        connection.execute(
-            copy_query_to_parquet(
-                f"SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS} ORDER BY ts_code,trade_date",
-                temporary,
+            return None, None, 0
+        references = []
+        for layer in ("raw", "silver"):
+            path = (
+                root
+                / "publication"
+                / "history"
+                / str(day)
+                / layer
+                / "unrefreshed-keys.parquet"
             )
-        )
-        connection.execute(
-            f"CREATE TEMP TABLE {HISTORY_UNREFRESHED_SAVED} AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
-            [str(temporary)],
-        )
-        schema = tuple(
-            (row[0], row[1])
-            for row in connection.execute(
-                f"DESCRIBE {HISTORY_UNREFRESHED_SAVED}"
-            ).fetchall()
-        )
-        difference = connection.execute(
-            f"SELECT count(*) FROM ((SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS} "
-            f"EXCEPT ALL SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_SAVED}) "
-            f"UNION ALL (SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_SAVED} "
-            f"EXCEPT ALL SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS}))"
-        ).fetchone()[0]
-        if (
-            schema
-            != (("layer", "VARCHAR"), ("ts_code", "VARCHAR"), ("trade_date", "DATE"))
-            or difference
-        ):
-            raise ValueError("历史缺原键诊断读回不符")
-        before = factor_file_sha(temporary)
-        with temporary.open("rb") as stream:
-            os.fsync(stream.fileno())
-        if temporary.stat().st_dev != path.parent.stat().st_dev:
-            raise ValueError("历史缺原键诊断跨文件系统")
-        _safe(path)
-        _safe(temporary)
-        if path.exists():
-            raise ValueError("历史缺原键诊断目标已改变")
-        os.replace(temporary, path)
-        _fsync_directory(path.parent)
-        known_records[path] = (None, before, factor_file_identity(path))
-        check_space(
-            "历史缺原键明细已保存",
-            path=path,
-            trade_date=day,
-            layer=layer,
-            rows=count,
-            event="record_saved",
-        )
-        return RecordRef(
-            identity.creator_run_id, path.relative_to(root).as_posix(), before
-        ), count
+            temporary = path.with_suffix(".parquet.tmp")
+            for value in (root, path, temporary):
+                _safe(value)
+            if path.exists() or temporary.exists():
+                raise ValueError("历史缺原键诊断已存在，不接受续跑")
+            check_space(
+                "历史缺原键明细保存前",
+                path=path,
+                trade_date=day,
+                layer=layer,
+                rows=count,
+            )
+            path.parent.mkdir(parents=True, exist_ok=True)
+            for value in (path, temporary):
+                _safe(value)
+            connection.execute(
+                copy_query_to_parquet(
+                    f"SELECT '{layer}'::VARCHAR AS layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS} ORDER BY ts_code,trade_date",
+                    temporary,
+                )
+            )
+            connection.execute(
+                f"CREATE TEMP TABLE {HISTORY_UNREFRESHED_SAVED} AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                [str(temporary)],
+            )
+            schema = tuple(
+                (row[0], row[1])
+                for row in connection.execute(
+                    f"DESCRIBE {HISTORY_UNREFRESHED_SAVED}"
+                ).fetchall()
+            )
+            difference = connection.execute(
+                f"SELECT count(*) FROM ((SELECT '{layer}'::VARCHAR AS layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS} "
+                f"EXCEPT ALL SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_SAVED}) "
+                f"UNION ALL (SELECT layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_SAVED} "
+                f"EXCEPT ALL SELECT '{layer}'::VARCHAR AS layer,ts_code,trade_date FROM {HISTORY_UNREFRESHED_KEYS}))"
+            ).fetchone()[0]
+            if (
+                schema
+                != (
+                    ("layer", "VARCHAR"),
+                    ("ts_code", "VARCHAR"),
+                    ("trade_date", "DATE"),
+                )
+                or difference
+            ):
+                raise ValueError("历史缺原键诊断读回不符")
+            before = factor_file_sha(temporary)
+            with temporary.open("rb") as stream:
+                os.fsync(stream.fileno())
+            if temporary.stat().st_dev != path.parent.stat().st_dev:
+                raise ValueError("历史缺原键诊断跨文件系统")
+            _safe(path)
+            _safe(temporary)
+            if path.exists():
+                raise ValueError("历史缺原键诊断目标已改变")
+            os.replace(temporary, path)
+            _fsync_directory(path.parent)
+            known_records[path] = (None, before, factor_file_identity(path))
+            check_space(
+                "历史缺原键明细已保存",
+                path=path,
+                trade_date=day,
+                layer=layer,
+                rows=count,
+                event="record_saved",
+            )
+            references.append(
+                RecordRef(
+                    identity.creator_run_id, path.relative_to(root).as_posix(), before
+                )
+            )
+            connection.execute(f"DROP TABLE {HISTORY_UNREFRESHED_SAVED}")
+        return *references, count
 
 
 def _history_scope_facts(connection, *, relation, codes, row_count):
@@ -682,6 +696,7 @@ def publish_stk_factor_pro_history(
     calendar: tuple[date, ...],
     registered_dates: tuple[date, ...],
     publication_dates: tuple[date, ...],
+    prior_raw_row_counts: dict[date, int],
     check_space,
     recheck_inputs,
     check_cancel,
@@ -701,6 +716,7 @@ def publish_stk_factor_pro_history(
             calendar=calendar,
             registered_dates=registered_dates,
             publication_dates=publication_dates,
+            prior_raw_row_counts=prior_raw_row_counts,
             check_space=check_space,
             recheck_inputs=recheck_inputs,
             check_cancel=check_cancel,
@@ -760,6 +776,7 @@ def _publish_stk_factor_pro_history(
     calendar: tuple[date, ...],
     registered_dates: tuple[date, ...],
     publication_dates: tuple[date, ...],
+    prior_raw_row_counts: dict[date, int],
     check_space,
     recheck_inputs,
     check_cancel,
@@ -846,7 +863,7 @@ def _publish_stk_factor_pro_history(
                     for path in (raw, silver):
                         _safe(path)
                     count = source_counts.get(day.strftime("%Y%m%d"), 0)
-                    prior_raw = _hash_if_exists(raw, known_records=known_records)
+                    prior_raw = factor_file_identity(raw) if raw.exists() else None
                     active_codes = tuple(
                         unit.object_code
                         for unit in units
@@ -858,17 +875,6 @@ def _publish_stk_factor_pro_history(
                                 "历史日期仅存在Silver但缺Raw，请管理员处理"
                             )
                         for layer in ("raw", "silver"):
-                            _history_unrefreshed_keys(
-                                connection,
-                                root=root,
-                                identity=source.identity,
-                                day=day,
-                                layer=layer,
-                                codes=active_codes,
-                                prior_relation=None,
-                                known_records=known_records,
-                                check_space=check_space,
-                            )
                             target = PublishedTarget(
                                 day,
                                 layer,
@@ -881,7 +887,7 @@ def _publish_stk_factor_pro_history(
                                 hashlib.sha256(b"").hexdigest(),
                                 1,
                             )
-                            completed.append((target, None))
+                            completed.append(target)
                             yield target, None
                         check_space(
                             "历史日期已完成",
@@ -913,6 +919,7 @@ def _publish_stk_factor_pro_history(
                         candidate_path=raw_candidate,
                         run_root=root,
                         known_records=known_records,
+                        prior_row_count=prior_raw_row_counts[day],
                     )
                     check_space(
                         "历史Raw候选已校验",
@@ -922,16 +929,17 @@ def _publish_stk_factor_pro_history(
                         rows=raw_audit.row_count,
                         event="candidate_verified",
                     )
-                    ref, missing = _history_unrefreshed_keys(
-                        connection,
-                        root=root,
-                        identity=source.identity,
-                        day=day,
-                        layer="raw",
-                        codes=active_codes,
-                        prior_relation=DAY_PRIOR if prior_raw else None,
-                        known_records=known_records,
-                        check_space=check_space,
+                    raw_missing_ref, silver_missing_ref, missing = (
+                        _history_unrefreshed_keys(
+                            connection,
+                            root=root,
+                            identity=source.identity,
+                            day=day,
+                            codes=active_codes,
+                            prior_relation=DAY_PRIOR if prior_raw else None,
+                            known_records=known_records,
+                            check_space=check_space,
+                        )
                     )
                     scope_count = count + missing
                     scope_facts = _history_scope_facts(
@@ -947,20 +955,21 @@ def _publish_stk_factor_pro_history(
                         run_root=root,
                         target=raw,
                         candidate_audit=raw_audit,
-                        prior=prior_raw,
-                        prior_relation=DAY_PRIOR if prior_raw else None,
+                        prior=None,
+                        prior_identity=prior_raw,
+                        prior_relation=None,
                         expected_relation=RAW_EXPECTED,
                         check_cancel=check_cancel,
                         raw_guard=lambda: None,
                         phase="history",
                         on_publish_attempt=on_publish_attempt,
-                        unrefreshed_keys_ref=ref,
+                        unrefreshed_keys_ref=raw_missing_ref,
                         unrefreshed_count=missing,
                         scope_facts=scope_facts,
                         known_records=known_records,
                         check_space=check_space,
                     )
-                    completed.append((raw_target, raw_audit))
+                    completed.append(raw_target)
                     yield raw_target, raw_audit
                     check_cancel()
 
@@ -972,26 +981,8 @@ def _publish_stk_factor_pro_history(
                             raise ValueError("历史生成Silver期间对应Raw已改变")
 
                     raw_guard()
-                    prior_silver = _hash_if_exists(silver, known_records=known_records)
-                    if prior_silver is not None:
-                        load_stk_factor_pro_prior_relation(
-                            connection,
-                            path=silver,
-                            relation=HISTORY_PRIOR_SILVER,
-                            target_trade_date=day,
-                            layer="silver",
-                            known_records=known_records,
-                        )
-                    ref, missing = _history_unrefreshed_keys(
-                        connection,
-                        root=root,
-                        identity=source.identity,
-                        day=day,
-                        layer="silver",
-                        codes=active_codes,
-                        prior_relation=HISTORY_PRIOR_SILVER if prior_silver else None,
-                        known_records=known_records,
-                        check_space=check_space,
+                    prior_silver = (
+                        factor_file_identity(silver) if silver.exists() else None
                     )
                     silver_candidate = (
                         root
@@ -1037,26 +1028,45 @@ def _publish_stk_factor_pro_history(
                         run_root=root,
                         target=silver,
                         candidate_audit=silver_audit,
-                        prior=prior_silver,
-                        prior_relation=HISTORY_PRIOR_SILVER if prior_silver else None,
+                        prior=None,
+                        prior_identity=prior_silver,
+                        prior_relation=None,
                         expected_relation=SILVER_EXPECTED,
                         check_cancel=check_cancel,
                         raw_guard=raw_guard,
                         phase="history",
                         on_publish_attempt=on_publish_attempt,
-                        unrefreshed_keys_ref=ref,
+                        unrefreshed_keys_ref=silver_missing_ref,
                         unrefreshed_count=missing,
                         scope_facts=scope_facts,
                         known_records=known_records,
                         check_space=check_space,
                     )
-                    completed.append((silver_target, silver_audit))
+                    completed.append(silver_target)
                     yield silver_target, silver_audit
                     check_space(
                         "历史日期已完成",
                         path=root,
                         trade_date=day,
                         event="date_completed",
+                    )
+            raw_audit = silver_audit = raw_guard = None
+            for target in completed[-2 * len(batch_dates) :]:
+                if not target.skip_no_file:
+                    path = (
+                        raw_stk_factor_pro_path
+                        if target.layer == "raw"
+                        else silver_stock_factor_pro_path
+                    )(lake_root, str(target.trade_date))
+                    _, digest, file_identity = known_records[path]
+                    known_records[path] = (None, digest, file_identity)
+                    known_records.pop(
+                        root
+                        / "candidates"
+                        / "history"
+                        / str(target.trade_date)
+                        / target.layer
+                        / "data.parquet"
                     )
     _finish_stk_factor_pro_history_publication(
         connection,
@@ -1097,11 +1107,11 @@ def _verify_history_published_targets(
     connection, *, source, root, lake_root, dates, completed, known_records
 ):
     expected = tuple((day, layer) for day in dates for layer in ("raw", "silver"))
-    actual = tuple((target.trade_date, target.layer) for target, _ in completed)
+    actual = tuple((target.trade_date, target.layer) for target in completed)
     if actual != expected:
         raise ValueError("历史已交付结果没有按日期/两层唯一完整覆盖请求范围")
     targets, missing_refs = [], []
-    for target, audit in completed:
+    for target in completed:
         day = target.trade_date
         path = (
             raw_stk_factor_pro_path
@@ -1110,24 +1120,9 @@ def _verify_history_published_targets(
         )(lake_root, day.isoformat())
         _safe(path)
         if target.skip_no_file:
-            if (
-                audit is not None
-                or path.exists()
-                or target.scope_rows != 0
-                or target.unrefreshed_count
-            ):
+            if path.exists() or target.scope_rows != 0 or target.unrefreshed_count:
                 raise ValueError("历史无文件结果与实际目标或检查结果不符")
         else:
-            if (
-                audit is None
-                or not audit.passed
-                or audit.trade_date != day
-                or audit.layer != target.layer
-                or audit.path != path
-                or audit.file_sha256 != target.file_sha256
-                or audit.row_count != target.file_rows
-            ):
-                raise ValueError("历史文件未对应本轮已通过的检查事实")
             checkpoint = root / target.checkpoint_ref.relative_path
             checkpoint_fact = known_records.get(checkpoint)
             if (

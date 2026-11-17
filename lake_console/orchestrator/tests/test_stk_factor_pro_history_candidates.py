@@ -56,6 +56,7 @@ def build(
         candidate_path=target,
         run_root=root,
         source_row_count=2,
+        prior_row_count=2,  # The literal old fixture has A and B; no old business audit.
         known_records=known_records,
     )
 
