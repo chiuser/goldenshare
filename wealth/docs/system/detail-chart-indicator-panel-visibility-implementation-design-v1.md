@@ -4,6 +4,7 @@
 > 配套文档为[代码级 LLD](./detail-chart-indicator-panel-visibility-low-level-design-v1.md)。
 > [已审阅的 Figma 交互稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2191-419)使用原设计文件的可编辑图层。比较页展示指数分钟图的全亮、关 KDJ 和全关，四类图表均有可点击的原型入口。图稿用于审阅交互，尺寸依据见[当前页面实测](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)。
 > 2026-11-14 收尾：[第 8 节](#main-overlay-interaction-plan)的主图下拉菜单删除与 MA 线、读数同步显隐已完成。方案提交为 `07b336b78`，实现与验证记录提交为 `3161b1cd4`；管理员已确认本需求验收通过，需求关闭。开发证据见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)，本次验收与结案见 [LLD §9.10](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-acceptance-closeout)。
+> 2026-11-17：管理员确认修复日线 KDJ 底部被裁掉的问题，并授权先同步原方案与 LLD，再实施和验证。本步以[第 9 节](#daily-kdj-layout-fix)及 [LLD 第 10 节](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-layout-fix-lld)为准；历史验收不作为本次修复的通过证据。本轮开发后，管理员已明确验收通过，本需求关闭，见 [LLD §10.5](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-acceptance-closeout)。
 
 ## 1. 交付范围
 
@@ -190,3 +191,35 @@
 2026-11-14，管理员确认本需求验收通过，并要求收尾及整体提交。验收范围为股票和指数详情页左上角下拉菜单移除，以及底部 MA 标签同步控制均线和顶部读数。依据本轮管理员反馈，将本需求标记为完成并关闭，原开发、自动化和真实接口核验记录继续保留。
 
 本次不再等待验证窗口登录或重复执行自动浏览器验收；关闭本任务的临时验证进程并清理任务临时目录。收尾仅更新本方案、配套 LLD 和索引，不改产品代码、不部署。方案、实现和本次收尾按原提交顺序保留，本需求范围内的修改全部提交，其它任务的工作区修改保留。
+
+<a id="daily-kdj-layout-fix"></a>
+
+## 9. 日线 KDJ 底部显示修复
+
+### 9.1 目标、原因与范围
+
+截图中的上证日线 KDJ 多处曲线在日期轴上缘被切断，右侧最低值标签消失。当前共享 CSS 将日线 KDJ 底部裁掉日期轴高度，而绘图宿主仍占裁剪前的高度；`DetailChartWorkspace` 的日线原生时间轴关闭，指标纵轴上下留白为零，因此低位曲线与最低值标签被画进随后裁掉的区域。原 LLD 第 4 节将裁剪写入设计，这个设计有误，本步同步纠正。
+
+只调整共享 CSS 的日线 KDJ 规则：底部距离改为现有日期轴高度，面板高度改为原副图高度减去日期轴高度，删除日线裁剪。日期轴仍在原位置，KDJ 顶部和标题位置不变。股票和指数日线共用本修复，分钟图保留现有原生时间轴与显隐规则。指标计算、真实最小最大值、零留白、图表生命周期、横向范围、请求、配置、后端与数据均不修改，不部署。
+
+### 9.2 实现与验证
+
+实现位置为 `wealth/src/shared/charts/detail-workspace/detail-chart-workspace.css`。继续复用 `--detail-chart-pane-height` 与 `--detail-chart-time-axis-height`；日线日期轴的 `24px` 来自现行 CSS 和 LLD §6.1 量测，不新增尺寸常量。若原副图高度为 H、日期轴高度为 A，新面板高度 H−A、底部距离 A，顶部仍为图表区底部−H；宿主由现有 Grid 分配标题之外的高度，图表按 `autoSize` 重绘。
+
+在现有 `DetailChartWorkspace.test.tsx` 中补充样式合同回归，检查日线面板为日期轴扣除真实空间且没有裁剪，分钟图继续保留原底部及显隐规则。预期来自管理员确认的尺寸方案；先在旧 CSS 上失败，再在修复后通过。复用已有 K/D/J 真实范围、日线和分钟显隐及图表生命周期测试。样式合同和模拟图表测试不能证明实际画布显示完整。
+
+2026-11-17 管理员随后明确“我来验收，你不需要验收了”，本步停止 Codex 浏览器验收，由管理员检查真实股票、指数日线及分钟图。建议沿用 LLD §6 的样本及视口，核对低位曲线、右侧最低值标签、日期轴、缩放、窗口变化、KDJ 关闭恢复。自动化结果只表明其实际覆盖范围，不写成真实页面通过。
+
+### 9.3 执行边界与性能
+
+仅 CSS 改动，不新增请求、数据扫描、指标计算、图表实例或序列装载代码；实际重绘沿用图表的尺寸观察机制。自动化使用现有有界夹具，不读取全局数据、不写业务数据。中断后从未完成检查继续；失败时保留具体证据，不扩大到纵轴或分钟图改造。浏览器验收由管理员负责。
+
+### 9.4 开发结果
+
+2026-11-17，先同步本方案和 LLD，再完成共享日线 CSS 的最小修改及现有测试文件中的一项样式合同回归。旧 CSS 上回归因日线仍有裁剪而失败；修复后相关 55 个文件、648 项测试通过，Wealth 全量 187 个文件、1611 项通过，类型检查、构建和文档完整性检查通过。具体覆盖与限制见 [LLD §10.4](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-fix-validation)。开发交接时由管理员接手真实页面验收，随后已明确反馈验收通过，最新结论见下一节。
+
+### 9.5 验收与收尾
+
+2026-11-17，管理员在本轮对话中明确“我验收通过了”，并要求将结论写入 LLD。依据该反馈，本次日线 KDJ 底部显示修复验收通过，需求关闭，详见 [LLD §10.5](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-acceptance-closeout)。这是管理员的人工验收结论，原自动化证据继续保留。
+
+管理员已授权提交。本次仅本地提交共享布局、回归测试、原方案与配套 LLD 四个文件，保留工作区其它修改，不推送或部署。

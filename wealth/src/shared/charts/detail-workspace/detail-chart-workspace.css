@@ -159,7 +159,8 @@
 }
 
 .detail-chart-area[data-time-mode="daily"] > .kdj-panel {
-  clip-path: inset(0 0 var(--detail-chart-time-axis-height) 0);
+  bottom: var(--detail-chart-time-axis-height);
+  height: calc(var(--detail-chart-pane-height) - var(--detail-chart-time-axis-height));
 }
 
 .detail-chart-area[data-time-mode="daily"] > .kdj-panel[data-hidden] {

@@ -40,7 +40,7 @@ export interface DetailChartIndicatorControls {
 
 `DetailChartWorkspace` 保留 `macd → volume → kdj` 的副图顺序和稳定的 `key`，继续渲染四个图表宿主。它在 `.detail-chart-area` 上标记 `data-time-mode={timeMode}`，在副图上逐项传 `hidden={hiddenIndicatorPanels.has(panel)}`。`DetailChartPane` 的根元素用 `data-hidden={hidden || undefined}` 供 CSS 识别，并设 `inert={hidden || undefined}`，使隐藏副图及其控件退出交互和可访问性树。原共享 Tooltip 与右侧信息栏继续由各自的逻辑处理。
 
-`.detail-chart-area` 沿用 Grid。第一行给主图，其余三行分别对应 MACD、成交量和 KDJ 所占区域。MACD 和成交量行收起时归零。KDJ 行在全开时包含 KDJ 可见内容和原有底轴，收起时只剩底轴。KDJ 宿主始终用绝对定位贴绘图区底边，由第四行单独占位，保留原宿主尺寸。日线与分钟线的裁切规则见第 4 节。外层 `.detail-chart-workspace` 的 `34px` 标签条行沿用现有规则。
+`.detail-chart-area` 沿用 Grid。第一行给主图，其余三行分别对应 MACD、成交量和 KDJ 所占区域。MACD 和成交量行收起时归零。KDJ 行在全开时包含 KDJ 可见内容和原有底轴，收起时只剩底轴。KDJ 保留绝对定位及原网格占位；日线面板在日期轴上方结束，分钟面板保留含原生时间轴的原尺寸，见第 4 节。2026-11-17 修复纠正原来的日线裁剪设计，实施及验收依据见[第 10 节](#daily-kdj-layout-fix-lld)。外层 `.detail-chart-workspace` 的 `34px` 标签条行沿用现有规则。
 
 ```css
 .detail-chart-area {
@@ -76,13 +76,13 @@ export interface DetailChartIndicatorControls {
 }
 ```
 
-`.kline-panel`、显示中的 `.macd-panel` 和 `.volume-panel` 分别放在第 1、2、3 行。隐藏的 MACD 和成交量用 `position: absolute; inset-inline: 0; top: 0; height: var(--detail-chart-pane-height); visibility: hidden`，使它们退出布局且宿主宽高仍可用于同步。`.kdj-panel` 用相同的宽高规则，固定 `bottom: 0`，第 4 行由网格留出。
+`.kline-panel`、显示中的 `.macd-panel` 和 `.volume-panel` 分别放在第 1、2、3 行。隐藏的 MACD 和成交量用 `position: absolute; inset-inline: 0; top: 0; height: var(--detail-chart-pane-height); visibility: hidden`，使它们退出布局且宿主宽高仍可用于同步。`.kdj-panel` 的通用规则保留原高度及 `bottom: 0`，日线按第 4 节扣除日期轴高度，第 4 行的网格占位不变。
 
 `17 / 95` 与 `16 / 94` 分别来自当前全开轨道 `44fr 17fr 17fr 17fr` 和 `46fr 16fr 16fr 16fr`，基数是底部标签条上方的 `.detail-chart-area` 高度。主图获得的高度是被隐藏副图的可见内容高度。关闭 KDJ 时，第四行由原高减到时间轴高度，因而 MACD 和成交量下移的距离等于 KDJ 的标题加可见绘图区，底轴空间只计一次。每个断点以当前真实页面量测确认这组尺寸关系。
 
 ## 4. 独立底轴与浏览范围
 
-1. **日线。** 沿用 `DailyTimeAxis`、`buildDailyTimeAxisMarkers` 和 KDJ 的现有横坐标。日期轴继续 `bottom: 0`，高度引用 `--detail-chart-time-axis-height`。KDJ 可见时用 `clip-path: inset(0 0 var(--detail-chart-time-axis-height) 0)` 露出时间轴上方的部分。KDJ 隐藏时用 `visibility: hidden`，共享日期轴继续显示。原 `24px` 来自 `.detail-chart-time-axis` 的现行 CSS。
+1. **日线。** 沿用 `DailyTimeAxis`、`buildDailyTimeAxisMarkers` 和 KDJ 的现有横坐标。日期轴继续 `bottom: 0`，高度引用 `--detail-chart-time-axis-height`。KDJ 设置 `bottom: var(--detail-chart-time-axis-height)`、`height: calc(var(--detail-chart-pane-height) - var(--detail-chart-time-axis-height))`，让宿主和画布实际结束于日期轴上缘，删除原来的日线 `clip-path`。KDJ 隐藏时继续用 `visibility: hidden`，共享日期轴仍显示。原 `24px` 来自 `.detail-chart-time-axis` 的现行 CSS。原裁剪虽保留了外观高度，却切掉低位曲线和最低值标签，不能继续作为正确布局。
 2. **分钟线。** `createPaneChart`、`buildChartOptions` 及 `formatShanghaiMinuteAxisLabel` 保持原样，默认底轴继续由 KDJ 图实例绘制。KDJ 可见时保留原图，原生时间轴自然位于其绘图区下方。KDJ 隐藏时，用 `clip-path: inset(calc(100% - var(--detail-chart-time-axis-height)) 0 0 0)` 只露出原生时间轴。独立底轴指页面上的固定一条空间，原生刻度继续由原实例绘制，避免增设图表、重新计算时间刻度或把轴移到其他副图。`28px` 已在两类 5 分钟图的刻度画布实测验证，和锁定的 Lightweight Charts 5.2.0 默认高度一致。外层表格行高 `34px`，布局取实际绘制的 `28px`。已有 `each-pane` 初始化行为继续由原条件处理，四个页面入口沿用 `bottom-pane`。
 3. **范围和缩放。** 开关只改变布局。四图创建 effect、`dataKey`、`syncVisibleRange`、`alignRightPriceScales`、`ResizeObserver`、`applyIndicatorRanges` 和 `syncCrosshairMove` 沿用现有逻辑。全部关闭时主图自然填到轴的上缘，缩放按钮继续用主图内的现有偏移。宽度、首尾时间与根数只作验收断言。当前没有证据证明隐藏 KDJ 会改变横向宽度，禁止为此增加锁宽、拦截尺寸或图表回调、手动写回范围、重试或延时。
 4. 底轴和标签条位置固定。验证轴上方紧贴的图依次为全开时 `KDJ`、关 KDJ 后 `成交量`、再关 VOL 后 `MACD`、再关 MACD 后 `K线`。恢复任意副图后沿用同一顺序。
@@ -522,3 +522,60 @@ quantitativeStructure?: DetailChartQuantitativeStructure;
 | 提交范围 | 本需求的方案、实现与收尾提交全部保留。工作区其它任务的修改不进入本次提交。 |
 
 本次只修改文档，执行文档完整性、链接与差异检查；不重复运行已经通过的前端测试和构建，也不新增生产运行或部署结论。
+
+<a id="daily-kdj-layout-fix-lld"></a>
+
+## 10. 日线 KDJ 底部修复 LLD
+
+### 10.1 开工依据与实现位置
+
+2026-11-17，管理员已确认[方案第 9 节](./detail-chart-indicator-panel-visibility-implementation-design-v1.md#daily-kdj-layout-fix)，授权先更新文档再修改代码、测试和浏览器验收。CodeGraph `codegraph_explore` 核对共享面板以及股票、指数日线和分钟适配组件；再按当前 CSS、`createPaneChart`、`buildChartOptions` 与 `applyIndicatorRanges` 核实：日线原生时间轴关闭，K/D/J 共同决定真实范围，裁剪来自共享 CSS。没有后端、配置、API 或依赖方向变更。
+
+生产变更只替换 `detail-chart-workspace.css` 的 `.detail-chart-area[data-time-mode="daily"] > .kdj-panel` 三项声明：删除裁剪，设置现有日期轴高度的底部距离，并从原面板高度扣除同一高度。复用现有变量、Grid 和 `autoSize: true`，不加尺寸观察、回调、延时或留白逻辑。新旧面板顶部均为图表区底部−H，标题及其它副图位置不变；新的宿主高为 H−A−标题高。分钟选择器不匹配本次规则。
+
+### 10.2 硬口径、测试与门禁
+
+| 硬口径 | 代码落点 | 验证 |
+| --- | --- | --- |
+| 日线完整显示 KDJ 低位曲线、右侧最低值标签，日期轴独立占位 | 日线 KDJ CSS 的 `bottom` 和 `height`；删除裁剪 | 样式合同回归检查日期轴空间和日线无裁剪；旧 CSS 必须失败。实际曲线和标签由管理员实页验收。 |
+| 保留真实范围，J 小于 0 或大于 100 不裁数值 | 原 `resolveVisibleIndicatorRange` 和 `applyIndicatorRanges` 保持原样 | 复用已有范围测试和组件中 J=−20、140 的字面量样本，预期不调用待测计算生成。 |
+| 标题、其它副图、底轴、标签条位置与横向范围保持原样 | 只修改日线 KDJ 选择器，网格占位不变 | 复用已有显隐、范围更新测试；实际量测与交互交由管理员验收。 |
+| 分钟图保留原生底轴与原显隐规则 | `data-time-mode="minute"` 及现有裁剪规则不修改 | 样式合同及已有分钟显隐、原生底轴和范围测试；真实分钟图交由管理员验收。 |
+| 不新增请求、计算、配置、业务写入、图表重建 | 仅 CSS，无运行逻辑变更 | 当前改动审计及现有组件显隐与生命周期测试；不做真实数据读取或写入。 |
+
+2026-11-17 管理员随后明确自行验收，取消 Codex 浏览器验收及浏览器回归脚本。改在现有 `DetailChartWorkspace.test.tsx` 补充样式合同回归；只证明 CSS 与获准的空间分配规则一致，模拟图表测试只证明原有行为合同。真实曲线、标签、几何、网络和控制台未由本次自动化覆盖，不能宣称真实 API 或实页验收通过。
+
+通用清单适用性：§2.1、2.6、2.12、2.13 由本次已确认的方案、LLD、映射与回归落实；§2.2、2.4、2.8、2.9、2.14 保留原事实字段并复用范围测试；§2.17 实页核对由管理员验收，不以替身代替；§2.3、2.5 保留原状态并测试显隐过程；§2.7 不切换数据源；§2.10、2.11 不新增计算、传输或配置；§2.15、2.16 不涉及并排图或卡片文案；§2.18 的单一来源、契约、配置、默认、顺序、性能、异常、用户可见结果均按原组件及本节约束。浏览器验收由管理员接手是本次明确授权的边界，除此之外无例外。
+
+### 10.3 执行、失败和性能边界
+
+先更新本方案和 LLD，再运行修复前样式合同回归以证明能抓住裁剪，然后改 CSS，执行同一回归、现有相关及全量测试、类型检查和构建。构建产物、缓存和日志均在 `/private/tmp`；不安装依赖，不写仓库过程文件，不启动或改动后端，不部署。已为本步打开的独立浏览器在管理员接手验收后关闭。
+
+CSS 不引入新增数据遍历、请求、指标计算、图表实例和序列装载。自动化使用现有有界夹具，不增加真实数据读取；没有无依据的耗时保证或额外数据预算。中断后从未完成检查继续，记录实际结果。失败保留具体证据，不能用 mock 或历史通过代替实页验收；如需改变已确认方案，先回到原方案和本节。源码撤回仅针对本步改动，不动其它任务文件与业务数据。
+
+<a id="daily-kdj-fix-validation"></a>
+
+### 10.4 验证记录
+
+2026-11-17，按先文档、再测试复现、再 CSS 修改的顺序完成。实际修改为本方案、配套 LLD、`detail-chart-workspace.css` 与 `DetailChartWorkspace.test.tsx` 四个文件。生产代码只删除日线 KDJ 的裁剪，并增加底部距离与扣除日期轴后的高度；分钟选择器、图表逻辑、适配器、数据合同和配置均未修改。CodeGraph 的影响面审计覆盖两个日线与两个分钟消费者，没有新增组件或依赖边界。
+
+| 检查 | 结果与证据范围 |
+| --- | --- |
+| 修复前缺陷回归 | 对旧 CSS 运行新增 `reserves the daily date axis outside KDJ without changing the minute layout`，因实际 `clip-path` 仍为裁剪而失败，证明回归能发现本次错误。 |
+| 样式回归的预期修正 | 初版测试将 CSSOM 的零距离表示错误地写成字符串 `0`，实际解析为 `0px`。已改为数值零断言，依据仍为原规则的 `bottom: 0`，没有修改分钟规则迎合测试。 |
+| 相关测试 | `npm --prefix wealth run test -- --config <任务临时目录>/vite.config.mjs detail-workspace stock-detail index-detail`：55 个文件、648 项通过。含日线无裁剪与实际空间分配声明、分钟原规则、K/D/J 真实范围及显隐、范围与生命周期。图表引擎使用既有 mock，不证明像素显示。 |
+| 全量测试 | 同一临时配置执行 Wealth 全量测试，最终 187 个文件、1611 项通过。首次全量另有行业分析测试未找到下钻按钮；该文件单独运行 15 项通过，最终全量也通过，未修改该页面或其测试。 |
+| 类型检查 | `npm --prefix wealth run typecheck` 通过。 |
+| 构建 | `node wealth/node_modules/vite/bin/vite.js build --config <任务临时目录>/vite.config.mjs` 通过；沿用原 Vite 配置，只将缓存和构建产物放到临时目录。构建仍提示包体积超过默认提醒值，本步未修改打包配置。 |
+| 文档与差异 | `python3 scripts/check_docs_integrity.py`、`git diff --check` 通过；本次原方案、LLD 及锚点互相链接。 |
+| 实页验收 | 开发交接时管理员明确自行验收，Codex 已停止浏览器检查并关闭本任务独立浏览器。随后管理员反馈验收通过，最新结论见 §10.5；本表自动化证据不包含 Codex 浏览器验收。 |
+
+上述临时配置只继承原 `wealth/vite.config.ts` 并覆盖本机已有工程根、缓存目录和构建输出目录，测试环境与 setup 沿用原配置。测试、日志和构建输出位于本任务 `/private/tmp/goldenshare-kdj-layout-20261117`，有效结论已写回本节，临时文件已清理。本节保留代码与自动化完成时的交接记录，最新验收与收尾状态见下一节。
+
+<a id="daily-kdj-acceptance-closeout"></a>
+
+### 10.5 管理员验收与结案
+
+2026-11-17，管理员在本轮对话中明确“我验收通过了。你可以更新到LLD文档中了。”依据该反馈，本次日线 KDJ 底部显示修复验收通过，需求关闭。验收对应本节既定的股票、指数日线显示修复及分钟图回归范围；记录为管理员人工验收，不改写为 Codex 自动浏览器验收，也不补写反馈未提供的逐项量测。
+
+管理员已要求提交。本次提交只包含 `detail-chart-workspace.css`、`DetailChartWorkspace.test.tsx`、原实施方案及本 LLD。相关 648 项、全量 1611 项、类型检查、构建和缺陷回归证据按 §10.4 保留；本轮仅补充文档验收状态，执行文档及差异检查，不重复运行未变化的代码测试。其它任务的修改保持原样，本次只作本地提交，不推送或部署。

@@ -441,6 +441,28 @@ describe("DetailChartWorkspace", () => {
     expect(css).toMatch(/\.detail-chart-axis-float-label\s*\{[^}]*right:\s*8px/s);
   });
 
+  it("reserves the daily date axis outside KDJ without changing the minute layout", () => {
+    // The approved layout gives the date axis its own space; jsdom does not measure canvas pixels.
+    const style = document.createElement("style");
+    style.textContent = readFileSync(
+      resolve(process.cwd(), "src/shared/charts/detail-workspace/detail-chart-workspace.css"), "utf8",
+    );
+    document.head.append(style);
+    try {
+      const rules = Array.from(style.sheet!.cssRules) as CSSStyleRule[];
+      const rule = (selector: string) => rules.find((item) => item.selectorText === selector)!.style;
+      const daily = rule('.detail-chart-area[data-time-mode="daily"] > .kdj-panel');
+      expect(daily.getPropertyValue("clip-path")).toBe("");
+      expect(daily.getPropertyValue("bottom")).toBe("var(--detail-chart-time-axis-height)");
+      expect(daily.getPropertyValue("height")).toBe("calc(var(--detail-chart-pane-height) - var(--detail-chart-time-axis-height))");
+      expect(Number.parseFloat(rule(".detail-chart-area > .kdj-panel").getPropertyValue("bottom"))).toBe(0);
+      expect(rule('.detail-chart-area[data-time-mode="minute"] > .kdj-panel[data-hidden]').getPropertyValue("clip-path"))
+        .toBe("inset(calc(100% - var(--detail-chart-time-axis-height)) 0 0 0)");
+    } finally {
+      style.remove();
+    }
+  });
+
   it("keeps four panes synchronized on the latest adaptive 120 observations", () => {
     renderWorkspace(makePoints(300));
 
