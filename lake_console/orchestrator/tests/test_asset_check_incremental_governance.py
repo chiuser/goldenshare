@@ -11,6 +11,12 @@ from pathlib import Path
 import orchestrator.defs.checks as checks_pkg
 import orchestrator.defs.sensors as sensors_pkg
 from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET, ANNOUNCEMENT_CHECKS
+from orchestrator.defs.assets.index_period import (
+    raw_index_monthly,
+    raw_index_weekly,
+    silver_index_monthly,
+    silver_index_weekly,
+)
 from orchestrator.defs.assets.stk_factor_pro import stk_factor_pro
 from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
@@ -40,6 +46,7 @@ from orchestrator.defs.run_contracts.index_mins import (
     INDEX_MINS_RAW_CHECKS,
     INDEX_MINS_SILVER_CHECKS,
 )
+from orchestrator.defs.run_contracts.index_period import INDEX_MONTHLY, INDEX_WEEKLY
 from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
     MAJOR_INDEX_MINS_GOLD_CHECKS,
@@ -630,6 +637,18 @@ def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
 
 
 ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
+    **{
+        period.silver_asset: _rules((period.silver_check,),category=KEEP_BLOCKING_DAGSTER,
+            phase="index_period_silver",readiness=False,retention_allowed=False)
+        for period in (INDEX_WEEKLY,INDEX_MONTHLY)
+    },
+    **{
+        period.raw_asset: _rules(
+            (period.raw_check,), category=KEEP_BLOCKING_DAGSTER,
+            phase="index_period_raw", readiness=False, retention_allowed=False,
+        )
+        for period in (INDEX_WEEKLY, INDEX_MONTHLY)
+    },
     "raw_tushare_daily_basic": _rules(
         ("raw_tushare_daily_basic_file_contract_check", "raw_tushare_daily_basic_source_coverage_check"),
         category=KEEP_BLOCKING_DAGSTER,
@@ -1063,6 +1082,10 @@ def _active_blocking_checks_by_asset() -> dict[str, set[str]]:
         spec.asset_key.to_user_string(): {spec.name}
         for spec in stk_factor_pro.check_specs if spec.blocking
     }
+    for asset in (raw_index_weekly, raw_index_monthly, silver_index_weekly, silver_index_monthly):
+        for spec in asset.check_specs:
+            if spec.blocking:
+                check_names.setdefault(spec.asset_key.to_user_string(), set()).add(spec.name)
     for module_info in pkgutil.iter_modules(checks_pkg.__path__):
         if module_info.name.startswith("__"):
             continue
@@ -1108,9 +1131,7 @@ def _readiness_check_pairs() -> set[tuple[str, str]]:
 
 class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
     def test_fixed_input_readiness_and_retention_are_explicit(self) -> None:
-        from orchestrator.defs.bootstrap.asset_check_event_retention import (
-            ASSET_CHECK_RETENTION_ASSET_KEYS,
-        )
+        from orchestrator.defs.bootstrap.asset_check_event_retention import ASSET_CHECK_RETENTION_ASSET_KEYS
 
         source = inspect.getsource(stock_suspend_confirmed_readiness)
         self.assertIn("confirmed_contract.STOCK_SUSPEND_CONFIRMED_CHECKS", source)

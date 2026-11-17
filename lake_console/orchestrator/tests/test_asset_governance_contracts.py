@@ -58,6 +58,12 @@ from orchestrator.defs.assets.index_global_silver import silver_index_global
 from orchestrator.defs.assets.index_mins_gold import GOLD_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.index_mins_raw import RAW_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.index_mins_silver_defs import SILVER_INDEX_MINS_ASSETS
+from orchestrator.defs.assets.index_period import (
+    raw_index_monthly,
+    raw_index_weekly,
+    silver_index_monthly,
+    silver_index_weekly,
+)
 from orchestrator.defs.assets.lake_root_health import lake_root_health
 from orchestrator.defs.assets.major_index_mins_gold import GOLD_MAJOR_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.major_index_mins_raw import RAW_MAJOR_INDEX_MINS_ASSETS
@@ -362,7 +368,11 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_index_basic,
     silver_index_basic,
     raw_index_daily,
+    raw_index_weekly,
+    raw_index_monthly,
     silver_index_daily,
+    silver_index_weekly,
+    silver_index_monthly,
     raw_index_global,
     silver_index_global,
     *RAW_INDEX_MINS_ASSETS,

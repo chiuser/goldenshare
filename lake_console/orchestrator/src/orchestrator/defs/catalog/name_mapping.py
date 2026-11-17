@@ -32,6 +32,8 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "stock_suspend_confirmed": "股票历史确认全日停牌事实",
         "index_basic": "指数基本信息",
         "index_daily": "指数日线行情",
+        "index_weekly": "指数周线行情",
+        "index_monthly": "指数月线行情",
         "index_mins": "指数历史分钟行情",
         "etf_basic": "ETF 基础信息",
         "fund_daily": "基金日线行情",

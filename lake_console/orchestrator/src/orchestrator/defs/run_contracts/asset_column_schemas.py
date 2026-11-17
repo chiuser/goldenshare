@@ -27,9 +27,38 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_column_specs,
 )
+from orchestrator.tushare_download.contracts.index_weekly import (
+    SOURCE_FIELDS as INDEX_PERIOD_SOURCE_FIELDS,
+)
 from orchestrator.tushare_download.contracts.stk_factor_pro import (
     STK_FACTOR_PRO_CONTRACT,
 )
+
+RAW_INDEX_WEEKLY_SCHEMA = tuple(
+    ColumnContract(
+        field.name,
+        ("VARCHAR" if field.name in ("ts_code", "trade_date") else
+         "DECIMAL(10,4)" if field.name == "pct_chg" else
+         "DECIMAL(20,4)" if field.name in ("vol", "amount") else "DECIMAL(18,4)"),
+        field.description,
+    )
+    for field in INDEX_PERIOD_SOURCE_FIELDS
+)
+RAW_INDEX_MONTHLY_SCHEMA = RAW_INDEX_WEEKLY_SCHEMA
+
+SILVER_INDEX_WEEKLY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "指数代码"),
+    ColumnContract("period_start_date", "DATE", "自然周期首个开市日"),
+    ColumnContract("trade_date", "DATE", "本根行情实际截至日"),
+    *(ColumnContract(name, "DECIMAL(18,4)", description) for name, description in (
+        ("open", "开盘点位"), ("high", "最高点位"), ("low", "最低点位"),
+        ("close", "收盘点位"), ("pre_close", "窗口首日前收盘"), ("change_amount", "涨跌点位"),
+    )),
+    ColumnContract("pct_chg", "DECIMAL(12,4)", "涨跌幅百分数，1%为1.0000"),
+    ColumnContract("vol", "DECIMAL(20,6)", "成交量，手"),
+    ColumnContract("amount", "DECIMAL(20,7)", "成交额，千元"),
+)
+SILVER_INDEX_MONTHLY_SCHEMA = SILVER_INDEX_WEEKLY_SCHEMA
 
 RAW_TUSHARE_STK_FACTOR_PRO_SCHEMA = tuple(
     ColumnContract(field.name, STK_FACTOR_PRO_RAW_COLUMN_TYPES[field.name], field.description)

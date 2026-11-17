@@ -49,6 +49,8 @@ class DatasetTransportMapping:
 
 # Dataset onboarding owns source evidence; this binding never selects an SDK fallback.
 BINDINGS = (
+    TransportBinding(dataset_id="index_weekly", source_api_name="index_weekly"),
+    TransportBinding(dataset_id="index_monthly", source_api_name="index_monthly"),
     TransportBinding(dataset_id="daily_basic", source_api_name="daily_basic"),
     TransportBinding(
         dataset_id="stk_factor_pro",

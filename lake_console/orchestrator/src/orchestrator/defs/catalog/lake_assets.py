@@ -55,6 +55,8 @@ from orchestrator.defs.paths import (
     raw_index_daily_path,
     raw_index_global_path,
     raw_index_mins_path,
+    raw_index_monthly_path,
+    raw_index_weekly_path,
     raw_major_index_mins_path,
     raw_moneyflow_path,
     raw_namechange_path,
@@ -80,6 +82,8 @@ from orchestrator.defs.paths import (
     silver_index_factor_pro_path,
     silver_index_global_path,
     silver_index_mins_path,
+    silver_index_monthly_path,
+    silver_index_weekly_path,
     silver_major_index_mins_path,
     silver_moneyflow_path,
     silver_namechange_path,
@@ -126,6 +130,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
     RAW_INDEX_GLOBAL_SCHEMA,
     RAW_INDEX_MINS_SCHEMA,
+    RAW_INDEX_MONTHLY_SCHEMA,
+    RAW_INDEX_WEEKLY_SCHEMA,
     RAW_MAJOR_INDEX_MINS_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     RAW_STK_PERIOD_BAR_ADJ_WEEK_SCHEMA,
@@ -166,6 +172,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_FACTOR_PRO_SCHEMA,
     SILVER_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
+    SILVER_INDEX_MONTHLY_SCHEMA,
+    SILVER_INDEX_WEEKLY_SCHEMA,
     SILVER_MAJOR_INDEX_MINS_SCHEMA,
     SILVER_MONEYFLOW_CNT_THS_SCHEMA,
     SILVER_MONEYFLOW_DC_SCHEMA,
@@ -239,6 +247,7 @@ from orchestrator.defs.run_contracts.index_global import (
     INDEX_GLOBAL_RAW_CHECKS,
     INDEX_GLOBAL_SILVER_CHECKS,
 )
+from orchestrator.defs.run_contracts.index_period import INDEX_MONTHLY, INDEX_WEEKLY
 from orchestrator.defs.run_contracts.major_index_mins_technical import (
     MAJOR_INDEX_MINS_TECHNICAL_FREQS,
     major_index_mins_technical_asset_key,
@@ -323,6 +332,10 @@ class PartitionPhysicalLayout(str, Enum):
 
 
 class PartitionModel(str, Enum):
+    WEEK_END_PARTITION_SILVER_INDEX_WEEKLY_FULL_FILE = "week_end_partition_silver_index_weekly_full_file"
+    MONTH_PARTITION_SILVER_INDEX_MONTHLY_FULL_FILE = "month_partition_silver_index_monthly_full_file"
+    WEEK_END_PARTITION_RAW_INDEX_WEEKLY_FULL_FILE = "week_end_partition_raw_index_weekly_full_file"
+    MONTH_PARTITION_RAW_INDEX_MONTHLY_FULL_FILE = "month_partition_raw_index_monthly_full_file"
     WEEK_END_PARTITION_SILVER_STOCK_WEEKLY = "week_end_partition_silver_stock_weekly"
     MONTH_PARTITION_SILVER_STOCK_MONTHLY = "month_partition_silver_stock_monthly"
     TRADE_DATE_PARTITION_RAW_MONEYFLOW = "trade_date_partition_raw_moneyflow"
@@ -783,6 +796,20 @@ def _model(
 
 
 PARTITION_MODEL_DEFINITIONS = (
+    _model(PartitionModel.WEEK_END_PARTITION_SILVER_INDEX_WEEKLY_FULL_FILE,
+        PartitionModelFamily.NATURAL_WEEK_PARTITION,AssetLayer.SILVER,"index_weekly","week_end_date",PartitionPhysicalLayout.SINGLE_FILE),
+    _model(PartitionModel.MONTH_PARTITION_SILVER_INDEX_MONTHLY_FULL_FILE,
+        PartitionModelFamily.NATURAL_MONTH_PARTITION,AssetLayer.SILVER,"index_monthly","month",PartitionPhysicalLayout.SINGLE_FILE),
+    _model(
+        PartitionModel.WEEK_END_PARTITION_RAW_INDEX_WEEKLY_FULL_FILE,
+        PartitionModelFamily.NATURAL_WEEK_PARTITION, AssetLayer.RAW, "index_weekly",
+        "week_end_date", PartitionPhysicalLayout.SINGLE_FILE,
+    ),
+    _model(
+        PartitionModel.MONTH_PARTITION_RAW_INDEX_MONTHLY_FULL_FILE,
+        PartitionModelFamily.NATURAL_MONTH_PARTITION, AssetLayer.RAW, "index_monthly",
+        "month", PartitionPhysicalLayout.SINGLE_FILE,
+    ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_RAW_MONEYFLOW,
         PartitionModelFamily.TRADE_DATE_PARTITION, AssetLayer.RAW, "moneyflow",
@@ -1644,6 +1671,48 @@ def _derived_entry(
 
 
 LAKE_ASSET_CATALOG = (
+    *(
+        _derived_entry(asset_key=period.silver_asset,dataset_id=period.dataset_id,
+            layer=AssetLayer.SILVER,data_domain=DataDomain.INDEX_TOPIC,group_name="index",
+            data_contract=period.silver_contract,column_schema=schema,
+            path_template=lake_path_template(path_function(PATH_TEMPLATE_LAKE_ROOT)),partition_model=model,
+            blocking_check_names=(period.silver_check,),batch_grain=period.frequency,
+            write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+            bootstrap_sources=(IngestionSource.PROD_DB_READONLY,IngestionSource.DERIVED_FROM_ASSETS),
+            notes="日更只读DG指数日线Silver；正式Raw优先，按键合并完整文件；无日线源请求。")
+        for period,schema,path_function,model in (
+            (INDEX_WEEKLY,SILVER_INDEX_WEEKLY_SCHEMA,silver_index_weekly_path,PartitionModel.WEEK_END_PARTITION_SILVER_INDEX_WEEKLY_FULL_FILE),
+            (INDEX_MONTHLY,SILVER_INDEX_MONTHLY_SCHEMA,silver_index_monthly_path,PartitionModel.MONTH_PARTITION_SILVER_INDEX_MONTHLY_FULL_FILE),
+        )
+    ),
+    *(
+        _entry(
+            asset_key=period.raw_asset, dataset_id=period.dataset_id,
+            layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC, group_name="index",
+            source_system=SourceSystem.TUSHARE, data_contract=period.raw_contract,
+            data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+            column_schema=schema, path_template=lake_path_template(path_function(PATH_TEMPLATE_LAKE_ROOT)),
+            partition_model=model, source_api=period.dataset_id, source_doc=period.source_doc,
+            ingestion_sources=(IngestionSource.TUSHARE_API,),
+            default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+            bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+            blocking_check_names=(period.raw_check,),
+            write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+            event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+            performance_contract=_perf(
+                batch_grain=period.frequency, compute_engine=ComputeEngine.DUCKDB_SQL,
+                python_row_loop_allowed=False,
+                source_request_policy="11个对象期末点查unit，复用通用Tushare下载组件",
+                notes="单期最多11行；DuckDB合并完整文件，单资产writer pool串行，失败人工原范围重跑。",
+            ),
+        )
+        for period, schema, path_function, model in (
+            (INDEX_WEEKLY, RAW_INDEX_WEEKLY_SCHEMA, raw_index_weekly_path,
+             PartitionModel.WEEK_END_PARTITION_RAW_INDEX_WEEKLY_FULL_FILE),
+            (INDEX_MONTHLY, RAW_INDEX_MONTHLY_SCHEMA, raw_index_monthly_path,
+             PartitionModel.MONTH_PARTITION_RAW_INDEX_MONTHLY_FULL_FILE),
+        )
+    ),
     _entry(
         asset_key="raw_tushare_moneyflow", dataset_id="moneyflow",
         layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA, group_name="moneyflow",

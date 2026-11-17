@@ -67,6 +67,32 @@ SILVER = "silver"
 GOLD = "gold"
 LAYERS = {RAW, SILVER, GOLD}
 
+
+def raw_index_weekly_path(root: Path) -> Path:
+    return lake_path(root, RAW, "index_weekly", "full", "part-000.parquet")
+
+
+def raw_index_monthly_path(root: Path) -> Path:
+    return lake_path(root, RAW, "index_monthly", "full", "part-000.parquet")
+
+
+def silver_index_weekly_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "index_weekly", "full", "part-000.parquet")
+
+
+def silver_index_monthly_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "index_monthly", "full", "part-000.parquet")
+
+
+def index_period_candidate_path(
+    staging_root: Path, run_id: str, layer: str, dataset_id: str,
+) -> Path:
+    if (layer not in (RAW, SILVER)
+            or dataset_id not in ("index_weekly", "index_monthly")
+            or not re.fullmatch(r"[A-Za-z0-9_-]+", run_id)):
+        raise ValueError("指数周月线候选路径身份不符")
+    return staging_root / run_id / "index_period" / layer / dataset_id / "part-000.parquet"
+
 FORBIDDEN_NEW_LAKE_PARTS = {
     "raw_tushare",
     "manifest",

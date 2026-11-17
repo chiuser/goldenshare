@@ -1,8 +1,10 @@
 # DG 指数周线、月线数据集接入方案与低层设计 v1
 
-状态：**管理员已确认“按周、月分区并各保存完整历史文件；日更复用 DG 指数日线 Silver，待上游成功后触发；正式周月线用通用下载组件取得并另行覆盖”。本版只更新方案和 LLD，尚未开发、bootstrap、注册正式分区或启用 sensor。**
+状态：**C 阶段开发、隔离测试及独立审计完成，结果见 §11.6。管理员已确认 bootstrap 每批使用独立 Dagster 原生运行。D 阶段未开始；未访问正式源、写正式 Lake／事件、注册正式分区或启用 sensor。**
 
-日期：2026-11-17。本文按 [DG 新增数据集模板](../templates/dagster-dataset-onboarding-template.html) 编写，将方案与 LLD 合在一份文件维护。业务口径采用本次讨论中已经确认的决定；分区、job、sensor、check 对应关系以 §3、§6、§7 为准。初稿不分区、联合 Silver job、周月链重新下载日线及重复探测 Tushare 日线的设计均已撤回；日更实际输入为已有 `silver_index_daily`。本次只修改文档。
+C 更新日期：2026-11-18；§2 的 Prod 审计日期及历史数量保持原记录。
+
+日期：2026-11-17。本文按 [DG 新增数据集模板](../templates/dagster-dataset-onboarding-template.html) 编写，将方案与 LLD 合在一份文件维护。业务口径采用本次讨论中已经确认的决定；分区、job、sensor、check 对应关系以 §3、§6、§7 为准。初稿不分区、联合 Silver job、周月链重新下载日线及重复探测 Tushare 日线的设计均已撤回；日更实际输入为已有 `silver_index_daily`。实现进度只以 §11 的阶段记录为准，未完成阶段仍是设计要求。
 
 ## 1. 目标、范围与已经确认的决定
 
@@ -82,7 +84,7 @@ fields=(ts_code, trade_date)
 
 既有日线四个 blocking checks 为 `silver_index_daily_contract_check`、`silver_index_daily_key_integrity_check`、`silver_index_daily_value_domain_check`、`silver_index_daily_registered_code_coverage_check`。它们当前没有显式 `partitions_def`；本次只消费其与当天物化关联的原生结果，不顺带迁移、改名或重跑这些 checks。门禁查询方式见 §7.2，不能假设旧 check evaluation 已有日期 partition。
 
-通用下载入口已实现于 `orchestrator.tushare_download.TushareDownloader`，提供 `DownloadTask`、`BY_OBJECT_POINT` 和完整 unit 交付。当前注册表尚无 `index_weekly/index_monthly`；本次只为这两项登记完整源契约和 HTTP binding，不登记 `index_daily`。组件现成的配置、请求生成、分页、源数值解析、标准错误和资源关闭直接复用，不另写下载器或迁移既有日线链。
+通用下载入口已实现于 `orchestrator.tushare_download.TushareDownloader`，提供 `DownloadTask`、`BY_OBJECT_POINT` 和完整 unit 交付。A 阶段审计时注册表尚无 `index_weekly/index_monthly`；B 阶段已只为这两项登记完整源契约和 HTTP binding，未登记 `index_daily`。组件现成的配置、请求生成、分页、源数值解析、标准错误和资源关闭直接复用，没有另写下载器或迁移既有日线链。组件真实源接入验收仍留到 E。
 
 ## 3. 数据集、资产、分区与文件
 
@@ -131,7 +133,7 @@ Raw 周线按 `trade_date=周分区键` 选取目标记录，Raw 月线按 `trad
 
 示例：若日历确认 2026 年 11 月 16 日至 22 日这一周的最后交易日为 11 月 20 日，则 11 月 17 日 Silver 周线使用 `partition_key=2026-11-20, trade_date=2026-11-17`，月线使用 `partition_key=2026-11, trade_date=2026-11-17`。18 日仍更新这两个分区，实际截至日改为 18 日；期末到数后也覆盖原分区，不新建一个“期末正式行情分区”。
 
-写入策略为 `SINGLE_FILE_ATOMIC_REPLACE`。同一资产不同分区写的是同一文件，必须使用 §7.4 的单文件串行写入约束。日常只记录本次目标分区的物化与 check；bootstrap 四个文件一次生成，按实际有记录的历史分区批量补录物化与 check 结果，不能仅写四次无分区事件冒充历史分区已就绪。Catalog 声明支持该受控 bootstrap 方式，不新增 bootstrap 资产，事件数量见 §9。
+写入策略为 `SINGLE_FILE_ATOMIC_REPLACE`。同一资产不同分区写的是同一文件，必须使用 §7.4 的单文件串行写入约束。日常只记录本次目标分区的物化与 check；bootstrap 四个文件一次生成，按实际有记录的历史分区批量补录物化与 check 结果，不能仅写四次无分区事件冒充历史分区已就绪。四条 Catalog entry 的事件策略为 `DAGSTER_RUN_ONLY`。bootstrap 由每批独立原生运行承载，不新增 bootstrap 资产；人工重跑创建新运行，资产结果数量仍按 §9 的 `2N` 统计，正常运行日志另计。
 
 ## 4. 字段、日期与单位
 
@@ -378,7 +380,7 @@ bootstrap 只在既定范围内搬运已有完整数据。按 §2 已无待自�
 
 ## 10. 实现位置与影响面
 
-下列为拟新增或最小扩展位置，尚未编码。已经用 CodeGraph explore／impact 和当前文件核对目录与相邻链路，分析覆盖指数资产、checks、jobs、sensors、资源、Catalog 及财势乾坤日线消费者；CodeGraph 结果只用于定位，业务规则以实际读取代码为准。
+下列是全部阶段的实现位置；B 的 Raw、C 的 Silver 与 bootstrap 入口已实现；sensor 仍未实现。设计阶段已用 CodeGraph explore／impact 和当前文件核对目录与相邻链路，分析覆盖指数资产、checks、jobs、sensors、资源、Catalog 及财势乾坤日线消费者；B 阶段又用 explore 定位相邻周期链和 `TushareDownloader`，逐项阅读实际组件、资源、Catalog 与测试。CodeGraph 结果只用于定位，业务规则以当前代码为准。
 
 | 位置（均相对 `lake_console/orchestrator/src/orchestrator/`） | 本次职责 |
 | --- | --- |
@@ -419,7 +421,7 @@ bootstrap 只在既定范围内搬运已有完整数据。按 §2 已无待自�
 | 同文件串行写入 | 四资产分别绑定正确 pool，启用前验证各有效 limit=1。隔离测试用不同历史分区的两个 run 证明同资产 writer 不重叠且两个更新都保留；不同文件不因本设计互相串行，不用正式 instance 作测试 |
 | Catalog、文件与人能读懂 | schema／路径／check 名称／partition model 与方案一致；job 不选择上游 writer；cursor 的 reason_code、blocked_component、summary、next_action 和已有长度预算分别测试 |
 
-拟新增测试文件明确如下，均位于 `lake_console/orchestrator/tests/`；本轮仅定义映射，不创建测试代码，也不把待实现用例记为通过。
+各阶段测试文件映射如下，均位于 `lake_console/orchestrator/tests/`。B／C 已实现前三份的 Raw／Silver 部分、源响应隔离用例及 bootstrap 测试；sensor 与完整并发集成用例留在 D，不记为已通过。共用的人工样本和生产者 schema 保存在 `tests/index_period_test_support.py`，不复制正式数据。
 
 | 测试文件 | 对应要求与必要反例 |
 | --- | --- |
@@ -436,14 +438,14 @@ bootstrap 只在既定范围内搬运已有完整数据。按 §2 已无待自�
 
 | 阶段 | 产出与通过条件 | 当前状态 |
 | --- | --- | --- |
-| A 方案确认 | 按模板定义字段、Catalog、paths、周期分区／完整文件、四组 job／sensor／check、初始化及预算 | 最新口径和开发任务已落档，本次提交文档；尚未开始 B 阶段 |
-| B 合同与 Raw | 字段／分区／路径、Prod 只读投影；两份完整周期契约和 HTTP binding；Raw 下载及发布探测复用现成组件，writer／check／job 隔离测试；只列本次最小真实组件接入验证范围，不改日线链、不写正式数据 | 未开始 |
-| C Silver 与初始化入口 | 从 DG 日线 Silver 合成、单位转换、期末覆盖及 bootstrap；日线缺失不得下载兜底；金样本与人工重跑验证 | 未开始 |
+| A 方案确认 | 按模板定义字段、Catalog、paths、周期分区／完整文件、四组 job／sensor／check、初始化及预算 | 已提交 `f027076e5`，B 按此基准实施 |
+| B 合同与 Raw | 字段／分区／路径、Prod 只读投影；两份完整周期契约和 HTTP binding；Raw 下载及发布探测复用现成组件，writer／check／job 隔离测试；只列本次最小真实组件接入验证范围，不改日线链、不写正式数据 | 开发及专项验收完成，独立审计见 §11.4；全局治理仍有既有失败，待管理员验收 |
+| C Silver 与初始化入口 | 从 DG 日线 Silver 合成、单位转换、期末覆盖及 bootstrap；日线缺失不得下载兜底；金样本与人工重跑验证 | 开发及隔离验收完成，独立审计见 §11.6；D 未开始 |
 | D 自动化及集成 | 四个默认停止 sensor；DG 日线成功／原生关联 checks／11 码门禁，零日线请求；分区、P＋T 去重、独立 Raw 覆盖、四 pool 和分区事件集成通过 | 未开始 |
 | E 正式初始化与最小日更验收 | 列明实例、命令、11 代码范围、DG 日线窗口、N／2N 和 pool；获批后完成必要的最小组件真实取数验证、四文件初始化与分区事实补录；待既有 DG 日线 T 成功，再分别运行周月日更及必要读回，不重复全历史源审计 | 未授权、未执行 |
 | F 启用与收尾 | 管理员确认验收后启用 sensor；回填本文、资产拓扑和实际结果 | 未授权、未执行 |
 
-本次只编写文档，执行文档完整性与 diff 检查；不执行 Dagster evaluation、checks、materialize、bootstrap、事件补录或 sensor 启停。后续代码验证使用 orchestrator 现有 `.venv` 的 pytest／Ruff，无安装或升级步骤。
+B 阶段使用 orchestrator 现有 `.venv` 的 pytest／Ruff，以及仓库规定的受保护治理测试启动器；无安装或升级步骤。job、checks 与分区事件只在临时目录的隔离 instance 验证，不执行正式 evaluation、materialize、bootstrap、事件补录或 sensor 启停。
 
 以下是后续启动的任务顺序。B、C、D 是三个开发阶段；E、F 是正式执行阶段。各阶段完成本阶段测试、代码与本文口径对账，交管理员验收后再推进下一阶段。开发授权不自动包含正式读写或启用授权。
 
@@ -509,7 +511,7 @@ bootstrap 只在既定范围内搬运已有完整数据。按 §2 已无待自�
 
 验收：区分“已启用”“自动日更已验证”“周线／月线期末自动覆盖已验证”三类实际状态；仅在对应证据真实取得后标完成。启用和观察范围不扩展为财势乾坤 API／前端接入。
 
-后续启动时从 B 阶段开始，先将本阶段硬口径映射到 §10 的具体修改文件和 §11.1 测试；复用当前代码和已有审计，保留当前 `dev-interface` 工作区其他改动。未经下一步授权不提前进入 C、D 或正式执行阶段。
+开发阶段分别交付；当前停在 C，不自动开始 D。后续获准启动时，先将该阶段硬口径映射到 §10 的具体修改文件和 §11.1 测试；复用当前代码和已有审计，保留当前 `dev-interface` 工作区其他改动。未经下一步授权不提前进入 C、D 或正式执行阶段。
 
 ### 11.3 Dagster UI 与排障文字
 
@@ -524,13 +526,103 @@ bootstrap 只在既定范围内搬运已有完整数据。按 §2 已无待自�
 
 运行日志仅按下载、计算、写候选、提升及结果报告阶段记录，不逐历史行刷屏。完整说明在本文，cursor 和 PG metadata 不复制本文或审计明细。
 
+### 11.4 B 阶段实施与独立审计记录（2026-11-17）
+
+本节为 B 交付当时的记录；C 的后续实现及验收以 §11.5、§11.6 为准。
+
+授权只覆盖 B 开发、测试与开发结果审计。本次在当前 `dev-interface` 工作区完成以下实现；未修改既有指数日线、Prod 或下载组件的公开接口／引擎，没有开始 C。
+
+| B 硬口径 | 当前实现位置（相对 `orchestrator/src/orchestrator/`） | 验收证据 |
+| --- | --- | --- |
+| 只取 seed 的 11 个代码，不使用日线历史起点 | `defs/run_contracts/index_period.py:index_period_codes` | 与已确认 11 码字面清单核对；没有日期过滤或 Prod 池查询 |
+| 周实际期末、月 `YYYY-MM`，文件仍完整保存 | `defs/partitions.py`、`defs/paths.py`、`defs/io/index_period_writer.py:index_period_end` | 人工休市周五样本使用周四分区；月分区从日历取月底最后交易日；错误键在下载前失败。两个文件路径均为 `raw/<dataset_id>/full/part-000.parquet` |
+| 完整源合同、固定 HTTP、复用公开组件 | `tushare_download/contracts/index_weekly.py`、`index_monthly.py`、`contracts/__init__.py`、`dataset_transport_mapping.py` | 两份 version=1 的 11 字段合同，`BY_OBJECT_POINT`；ISO 日期实际转换成 `YYYYMMDD`，每对象首请求 `limit=1000,offset=0`。`limit/offset` 由现有分页合同维护，不重复登记为业务输入；未登记 `index_daily` |
+| 下载完整 unit 后才允许写候选 | `defs/io/index_period_writer.py:download_index_period_rows` | 正常 11 个 unit、北证50空时10行；其他缺代码、缺字段、错代码／日期、重复行及下载中断均失败，正式目标不变；创建与关闭会话在调用线程完成 |
+| 原始单位、历史保留、同键替换、失败人工重跑 | 同文件 `write_index_period_raw` | 股／元／比例及四位小数保持；两个周期20行合并与同键重跑结果一致；北证50已有记录保留；A500发布前记录及首期零值不被过滤；坏候选／提升前中断不覆盖旧文件，人工重跑成功 |
+| 每资产仅一个 blocking file_contract check | `defs/checks/index_period_checks.py`、`defs/assets/index_period.py` | 两项 check 显式使用同资产分区；候选校验结果用于随写入发出的原生 check，不另起扫描任务。反例覆盖 schema、空／重复键、日期与传输行数；不增加行情重算或历史连续性 check |
+| 两个 job、仅本资产／本 check、原生分区记录 | `defs/jobs/index_period_update.py`、`defs/assets/index_period.py` | 在临时 instance 实际运行两项 job；每项仅一份物化和一个检查结果。物化、check evaluation、check execution 的 partition 均为所选键，check 原生关联指向本 run 的物化；metadata 区分分区10行与完整文件20行 |
+| 只有 partition 时间输入，导入时不读凭据 | 两项资产显式 `config_schema={}`；同频率固定 writer pool | 额外 `period_end_date/source` 在取源前被 Dagster 拒绝；禁止凭据加载的替身下可导入资产／job。两个 pool 名称已绑定，正式 limit 设置及并发验证仍在 D／E，不声称已生效 |
+| Prod 固定字段投影和只读入口，不实际导出 | `defs/prod_db/index_period.py` | 四张表 SQL 与绑定范围均核对：Raw11码、Serving10码且排除科创综指；Raw DATE 转紧凑日期；没有 `SELECT *` 或本地辅助列；替身证明仅走 `connect_readonly_transaction` |
+| 发布探测只点查上证指数正式周期 | `source_readiness/tushare/index_period.py` | 同一组件、完整11字段、单对象单期末；有值为已发布、合法空结果为等待；不下载日线、不写文件或状态，不定义 sensor |
+| Catalog 只登记已实现的两个 Raw | `defs/catalog/lake_assets.py`、`name_mapping.py`、`defs/run_contracts/asset_column_schemas.py` | 逐项比对实际资产 metadata、中文名、schema、路径、check、分区维度及 `SINGLE_FILE`；没有 Silver 占位 entry。两份既有治理测试只补本次资产／check，未放宽断言 |
+
+测试结果：
+
+- `test_index_period_contracts.py`、`test_index_period_writer.py`、`test_index_period_checks.py` 共 **38 项通过**；现有下载组件 contract registry／request builder／pagination 回归 **28 项通过**，同次合计 **66 passed**。HTTP 编码、响应解析和 Decimal 交付使用现成 HTTP transport，只有连接被替身替换；该结果不是 Tushare 网络或真实源验收。
+- `stock_suspend_confirmed_test_runner.py --scope regression --suite test_run_contract_static_gates.py` 通过全部 **113 项**受保护静态门禁；全仓 Ruff 致命错误基线及本次修改 Python 文件的默认规则均通过。文档完整性与本次改动的 diff 空白检查通过。
+- 最初直接运行全局治理测试时，停牌固定输入用例因未走专用启动器而不能导入其支持模块。随后改用规定的受保护入口，该停牌用例通过；两份治理 suite 分别在既有的资产清单／check 治理缺项处停止，不能标成全绿。
+- 对照本轮前的 Catalog 文件及 HEAD 的两份治理测试，确认资产清单和 check 治理都已缺少 `gold_major_index_quantitative_structure`；readiness 仍有相同的 **27 对**既有未登记关系，本轮新增缺失为 **0**。未修改这些其他数据集，也未删除／跳过失败断言。它们是全局治理未通过的限制，不是本次周月线新增定义缺失；本阶段两个 Raw 已另按同样事实逐项核对。
+
+测试后的独立审计重新核对 §11.2 B 的五项任务，检查实际源码、SQL、两项 job 执行记录、字段字面预期及候选失败反例。结论：**本次实现符合 B 的业务范围、分区／完整文件、通用下载复用及失败处理要求，未发现本次范围内未修复问题；全局治理既有失败仍保留。** 首轮发现的 Raw 空配置约束遗漏、批次标识缺少 `producer_run_id`、资产 metadata 调用不满足静态门禁均已修正并回归。所有单元预期独立于写入计算，不以替身结果代替正式源验证。
+
+成本范围沿用 §9：每频率一次正常 Raw 更新11个单点 unit，正常11次响应、10或11行增量、一个候选及一个完整目标文件；下载组件每请求最多3次有限重试，全部成功到第4次时最多44次尝试。读旧文件一次进入 DuckDB，再做按键合并／排序／COPY；完整文件的 schema 与行数只读元数据，键／日期检查只处理本次增量。中断后人工原范围重跑这些步骤。B 只实测上述小样本与隔离分区事件；完整历史文件字节、峰值内存和 `2N` 历史补录成本仍待 D／E 对应验证，没有沿用日线探测耗时或制造新的耗时上限。
+
+E 阶段最小真实组件验证范围已固定：`index_weekly` 请求 `000680.SH / 2026-07-03`，`index_monthly` 请求 `000680.SH / 2026-10-30`，各一个 `BY_OBJECT_POINT` unit、完整11字段；正常各一次响应、每项应有一行。由组件生成紧凑源日期及分页参数，核对完整 unit 和 Raw 接入合同，不重新读全历史、不请求日线。**本次未执行这两项真实请求或任何 Prod 导出。**
+
+边界：只在 `/private/tmp` 隔离目录创建文件、instance、分区及测试事件；正式 Lake／staging、正式 Dagster／PG、正式凭据及源接口均未用作测试。没有启用或新增正式 sensor，没有配置正式 pool limit，没有写正式分区或事件，没有 bootstrap；C／D／E／F 均未启动。保留工作区其他改动，尤其 Catalog 本轮前的未提交内容。
+
+### 11.5 C 阶段开工约束与实现落点
+
+管理员已授权 C 开发及隔离测试；本阶段不执行正式来源查询、导出、写湖、分区／事件写入或 sensor 操作。沿用 §2 证据，不重新审计 Prod 历史；不修改既有指数日线或开展 D 自动化开发。
+
+| 要求 | 本步实现与验收 |
+| --- | --- |
+| Silver 入口、配置与血缘 | 扩展既有 `run_contracts/index_period.py`、`assets/index_period.py`、`jobs/index_period_update.py`、paths／schema／Catalog。新增两个 Silver 资产、对应两个 check／job；与同频率 Raw 共用分区，绑定各自 writer pool。配置仅 `mode=daily/period/repair`（必填）、`trade_date`（仅 daily 必填）；额外来源、频率或重复期末输入均拒绝。声明日线、Raw、日历和指数基础信息血缘，不选择其 writer |
+| DG 日线合成 | 在既有 `io/index_period_writer.py` 按自然周期一次查询日历、11码基础信息，按发布日期构造需要的日期／代码集合；一次读取本频率必要日线文件并投影9列。缺文件、缺日／代码、空必要值、重复或首日前收盘为0时失败；没有源下载兜底。日更非首日要求旧周期截至上一应有交易日或本次目标日，同日可重跑，禁止截至日倒退 |
+| 精度、接续与覆盖 | 价格和量额先适配 §4 的 DECIMAL。以整数价格单位精确实现 Prod 的比例四位 `ROUND_HALF_UP`，再乘100，不用二进制除法近似判断正负中点。Raw／Serving量额仅在进入Silver时除100／1000，比例乘100；日线量额不再换算。period 只用期末Raw加已有完整Silver，北证50不重读日线；缺完整记录失败。repair保留已有完整记录，其余优先Raw、再读DG日线补齐，不要求旧周期接续 |
+| 共用文件写入与 check | 在原 writer 中提取按键合并、候选生成／检查／原子提升的共用函数，供现有Raw、Silver和bootstrap调用。check稳定规则保留同一实现，以SQL聚合传输／键／日期结果；日常仅检查增量，bootstrap四来源分别一次集合式分组产生各分区数量／截至日。schema与完整文件行数使用元数据；不逐分区读文件、查询readiness或重算行情 |
+| bootstrap 生成与事件 | 新增 `bootstrap/index_period_history.py`、`index_period_history_cli.py`。四张Prod表复用B只读投影；采用命名游标、按驱动现有 `itersize` 分批交付DuckDB，不自行设请求或内存倍数。批次传输使用已有 pandas，DataFrame仅含单批；本机没有PyArrow，不新增依赖。十指数Serving仅转换，科创综指已结束期从本次Raw转换、当前期只读DG日线；Serving当前截至日不一致或DG输入不足即失败。先生成并检查四候选，再逐文件提升；批量登记两套键，按四资产实际分区数N写2N事件。每资产批量查询本次N条物化取得原生关联，不按分区查询 |
+| CLI及配置审计 | `python -m orchestrator.defs.bootstrap.index_period_history_cli --operation-id <ID>` 默认只显示固定来源、对象范围和目标，无连接或写入；显式 `--apply` 才执行完整bootstrap及事件，使用既有Resources、正式roots和当前明确的DAGSTER_HOME。operation-id作为本批标签进入批次标识；候选目录使用本次原生run_id，人工重跑相互独立；不开放任意来源、代码池或Lake根覆盖。测试通过函数参数注入临时路径／instance与来源替身，不用CLI切换正式边界 |
+| 失败及范围 | 单文件原子提升，四文件不保证整体原子；任何异常直接失败，人工原范围重跑。无恢复表、备份、自动续跑、自动回滚或自造锁；已经写入的文件和事件不删除。正式初始化和真实组件点查仍在E |
+
+成本沿用 §9：日常每频率一个周期、11码、最多7／31个自然日日历范围、77／341条过滤后逻辑日线输入、0个源请求；旧完整文件一次加载后按键合并，写一个候选和两个分区结果。bootstrap四条固定范围投影查询／四次只读连接，批次大小继承现有驱动游标值，内存中的Python业务缓冲仅单批；DuckDB复用现有连接配置。四个来源一次装载、四个候选各一次保存／检查和分区聚合，事件原生关联查询每资产一次而非N次；重跑重新执行这些步骤，不将失败视为免费续跑。N由本次分区统计取得；无法精确预估字节、耗时和峰值内存，不编造上限。拒绝全市场、全历史日线重算、逐分区深扫或超出本次四文件的写入；对应规模的隔离验证在本阶段记录，正式性能仍待E。
+
+验收扩展原三份测试并新增 `test_index_period_bootstrap.py`：独立字面金样本、正负中点、单位一次转换、首期零值、跨周／月／年、发布日期、接续／同日重跑／禁止倒退、缺输入失败和人工重跑、晚到Raw及北证50、科创综指、四候选失败不提升、2N原生关联与集合式读取。运行现有组件回归、受保护静态／Catalog／check治理入口和Ruff；既有治理问题继续区分，不放宽断言。
+
+#### C 实测后的事件归属修正（2026-11-18，管理员已确认）
+
+隔离测试发现安装的 Dagster 对同一资产／check／分区重复补录 runless check 会撞唯一键。第一次文件和事件可完成，第二次物化已追加而check插入失败，因此原文“runless事件中断后直接整段重跑”的方式不能满足本任务。已核对当前安装代码：runless分支直接插入，键包含空run_id；有原生运行ID时按运行和分区保存。未查询或修改正式PG。
+
+管理员明确同意改为**每批独立的Dagster原生运行**。本项替代本文所有涉及本数据集bootstrap的runless事件执行要求，不改变其他数据集或全局runless能力：
+
+- CLI仅在显式 `--apply` 后构造并执行一次 `index_period_history_bootstrap_job`；该入口只在CLI调用时创建，不登记成日常Definitions的第五个更新job，也不新增bootstrap资产。固定一个op完成整批，运行终态由Dagster维护。
+- 四文件生成／检查／逐文件提升保持不变；物化和check均归属本批真实run_id，check继续原生关联本批对应分区物化。每次人工重跑是新的运行，旧文件及事件不删除，无自造去重表、恢复状态或自动重试。
+- 仍按本批分区统计批量登记两套键，并写 `N` 次物化、`N` 次check，即 `2N` 条资产结果。额外存在一次原生运行的正常运行／步骤日志，与资产结果数量分开，不再称为runless补录；不按N启动job。
+- 扩展测试须证明两次完整bootstrap数据一致、两次原生run_id不同且成功；中途事件失败时四文件保留，人工新运行重试可以完成。原生关联仍每资产一次批量读取，不逐分区查询。
+
+正式执行仍留到E阶段单独授权；本轮只在隔离instance验证。原先被该冲突阻断的测试保留为人工重跑的回归，修正后必须通过，不能删掉或跳过。
+
+### 11.6 C 阶段交付与独立审计（2026-11-18）
+
+本阶段已完成开发及隔离验收；管理员确认的“每批独立原生运行”已落地。未开始D，未执行正式Prod／Tushare请求、正式Lake／staging写入、正式分区／事件补录、pool配置或sensor操作。
+
+| C 要求 | 实现落点与证据 |
+| --- | --- |
+| 两项Silver及对应入口 | `assets/index_period.py`、`checks/index_period_checks.py`、`jobs/index_period_update.py`。四个日常资产／check／job均已具备；周／月仍各用原动态分区。两个Silver的12字段、手／千元／百分数、pool、Catalog、路径及四项只读血缘逐项匹配；job实际只执行本资产和本check，不触发上游writer |
+| 真实DG输入合同 | `io/index_period_writer.py` 明确读取既有DG日线DOUBLE输入并转DECIMAL；仅投影需要的9列、按日期／代码集合读取，日线涨跌额／涨跌幅不参与周期相加。夹具使用已核对的calendar／index_basic／index_daily生产者schema；源下载器替身直接失败，证明Silver不请求Tushare。科创综指发布日期取基础信息，seed日线起点未参与 |
+| 合成、单位和舍入 | 独立字面样本验证OHLC、首日前收盘、量额求和及涨跌额。比例四位ROUND_HALF_UP通过整数运算后乘100，正负中点及中点两侧均有独立预期。Raw／Serving历史只转换单位一次，保留首期零值；DG日线量额不再换算 |
+| 日更、修复及正式覆盖 | 验证同日重跑、缺前一交易日失败、缺文件／代码／值或重复失败、禁止截至日倒退；先补DG输入再人工重跑成功。repair仅允许上海日期下已结束周期，不要求旧周期接续，已有完整记录保留；发布日期、休市周五、跨周／月／年与新周期首日已覆盖。期末Raw成功后同一Silver分区另行覆盖；北证50已有完整合成值保留，不重读日线 |
+| 物理保存与原生检查 | Raw／Silver／bootstrap复用同一按键合并、候选检查及提升入口；检查仅覆盖本次传输与身份，不重算价格公式。Silver将旧完整文件一次加载，供接续和合并共用；计数测试证明没有第二次读旧Parquet。隔离实际job验证物化、check evaluation、check execution的partition及本run原生关联；分区行数、文件行数和逻辑输入数量分别记录 |
+| 四来源初始化 | `prod_db/index_period.py` 使用命名游标和原有只读事务；`bootstrap/index_period_history.py`按游标itersize分批传输，Python只保留当前批。十指数Serving直接采用，科创综指已结束期从同次Raw转换、当期从DG日线合成；没有重新查询或复核Prod历史。四份候选全部通过后才逐文件提升；坏的最后候选或DG输入不足均不提升任一文件 |
+| 批次运行、事件与重跑 | 每次CLI apply创建一次原生运行，固定一个op，未向Definitions增加日常job或bootstrap资产。真实run_id用于候选目录和事件归属；四资产Catalog事件策略均为DAGSTER_RUN_ONLY。两次完整初始化的数据一致、run_id不同且均成功；模拟事件中断时文件保留、原运行失败，人工新运行重试成功。既有事件不删除、不加去重表或恢复服务 |
+| CLI与运维边界 | `index_period_history_cli.py` 默认只输出来源／投影／代码范围，未创建资源；额外Lake根输入与非法operation-id在连接前拒绝。只在显式apply时使用既有Resources和明确DAGSTER_HOME。测试只注入临时路径、真实隔离instance和PG来源替身；没有用正式连接或凭据试跑 |
+
+测试与限制：
+
+- 四份指数周期测试共 **75项通过**，加现有通用下载组件28项回归，合计 **103 passed**；包含B阶段回归。受保护静态门禁 **113项通过**。Ruff致命错误基线、本次Python文件默认规则及文档检查分别验收；未安装或升级套件。
+- 初始化人工样本一次传输Prod替身60行（两份Raw各10、两份Serving各20），生成四文件64行（Raw各10、Silver各22）。科创综指当期两频率累计6条过滤后逻辑日线输入，重叠日期重复计，不是磁盘实际扫描量。四资产分区数合计N=6，每批资产结果12条，即2N；两个共享动态集合各2个键。原生关联公开查询每资产一次，共4次；未按N读文件或查询readiness。完整真实历史规模和来源耗时仍待E，未把小样本耗时当作正式保证。
+- 全局Catalog／check治理测试仍在原有缺项处失败：`gold_major_index_quantitative_structure`未列入治理测试清单，27对readiness关系未登记。与C开工前的Catalog及两份治理测试快照对照，新增缺失为0；没有更改其他数据集或放宽断言。不能将全局治理称为全绿。
+- Prod来源在本轮由游标替身替换；HTTP／PG真实访问、正式完整文件、正式历史事件和正式pool有效限额均未验收。源参数／历史完整性／单位沿用§2；真实组件点查及正式初始化仍在E。
+
+独立审计在测试后重新逐项核对C的五项任务、实际SQL／消费者、配置、四资产关系、失败反例和运行记录。审计修正了遗漏的repair已结束周期约束、Silver旧文件重复读取及来源数量／metadata表达；runless冲突按管理员明确决定改为每批原生运行并验证人工重跑。**本次C范围内未发现未修复问题；全局既有治理缺项仍按上述限制保留。** 结果已落回本原方案，不另建过程报告。下一阶段需管理员另行授权，当前不进入D。
+
 ## 12. 本版确认范围与实施约束
 
 业务单位、11 个指数、初始化来源、每日当期更新、运行窗口与失败人工重试已确认。管理员本轮进一步明确：日更从既有 DG 指数日线 Silver 合成，必须在当天日线成功及原 checks 通过后触发；本链不再探测或下载 Tushare 日线。正式周／月线下载复用现成通用组件，不重复开发下载能力。
 
 管理员已确认 **Dagster 按周、月分区，Raw／Silver 每频率各一份完整历史文件**。本版明确为四个资产、两套指数专用周期分区、四个 job、四个同名 sensor、四个随目标分区写入执行的 check；对应关系见 §7.1、§7.2。文件路径保持四份，周／月内每天重复更新同一分区，实际截至日单独记录。
 
-必须同时采用的约束：两个 Silver job 只读 DG 日线窗口，日更去重包含 P 和 T；上游未成功不提前运行；当前 Raw 未到数不阻塞已就绪日线的合成；新 Raw 仍可另行覆盖同一原分区，不被当日已合成挡住；同文件 writer 串行；bootstrap 按分区补录 `2N` 结果。两份正式周期下载契约需登记后才能调用现有组件，不能写成已经接通。本次只更新文档，不开始编码、设置 pool、注册分区、写湖、补事件或启用 sensor。
+必须同时采用的约束：两个 Silver job 只读 DG 日线窗口，日更去重包含 P 和 T；上游未成功不提前运行；当前 Raw 未到数不阻塞已就绪日线的合成；新 Raw 仍可另行覆盖同一原分区，不被当日已合成挡住；同文件 writer 串行；bootstrap 按分区补录 `2N` 结果。B 已登记两份周期下载契约并通过隔离组件接入测试，不能据此声称真实源或正式运行已验收。尚未设置正式 pool limit、注册正式分区、写正式 Lake／事件或启用 sensor；C 已完成 Silver 与 bootstrap 入口及隔离验证；自动化仍留在 D，正式初始化和启用仍分别留在 E／F。
 
 ## 13. 依据与模板对账
 

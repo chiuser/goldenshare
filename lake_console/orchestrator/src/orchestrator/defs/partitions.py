@@ -1,5 +1,13 @@
 import dagster as dg
 
+from orchestrator.defs.run_contracts.index_period import (
+    INDEX_MONTH_PARTITIONS,
+    INDEX_WEEK_PARTITIONS,
+)
+
+cn_a_index_week_ends = dg.DynamicPartitionsDefinition(name=INDEX_WEEK_PARTITIONS)
+cn_a_index_months = dg.DynamicPartitionsDefinition(name=INDEX_MONTH_PARTITIONS)
+
 from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
     STRUCTURE_PARTITIONS,
 )
