@@ -726,6 +726,16 @@ def build(
 
 def resolve_update_sources(lake, freq, reference, instance, *, cancel=lambda: False, origin=None):
     """Resolve this original range and all actual successor Raw deliveries in sets."""
+    from orchestrator.defs.asset_guards.stock_period_delivery import read_completion
+
+    origin = origin or read_completion(instance, reference, root=lake)
+    minimum = "2014-01-03" if freq == "week" else "2014-01"
+    periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
+    return resolve_period_sources(lake, freq, reference, periods, instance, cancel=cancel, origin=origin)
+
+
+def resolve_period_sources(lake, freq, reference, periods, instance, *, cancel=lambda: False, origin=None):
+    """Apply the existing source proof to an explicit Silver period range."""
     from orchestrator.defs.asset_guards.stock_period_delivery import (
         read_completion,
         read_completions,
@@ -741,8 +751,6 @@ def resolve_update_sources(lake, freq, reference, instance, *, cancel=lambda: Fa
     from orchestrator.defs.stock_period_checks import verify_period_materialization
 
     origin = origin or read_completion(instance, reference, root=lake)
-    minimum = "2014-01-03" if freq == "week" else "2014-01"
-    periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
     evidence = batch_event_evidence(instance, freq, periods)
     latest, references = {}, {}
     for period in periods:

@@ -3954,7 +3954,7 @@ LAKE_ASSET_CATALOG += tuple(
             batch_grain="stock/frequency; period",
             compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="period_point_3_fields_probe_then_21_fields_download",
-            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然周五单点下载21列，只更新当期一文件。新股随全市场日更，复权因子变化通过独立job按单股两频完整历史回刷；日更和回刷失败整批重取。本频日更成功后由独立job清理确认退市股票的本频历史，完整范围交付同频Silver，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。",
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然周五单点下载21列，只更新当期一文件。新股随全市场日更，复权因子变化通过独立job按单股两频完整历史回刷；日更和回刷失败整批重取。Raw保留已取得历史，不因退市删行；同频Silver日更成功后由独立job直接清理Silver确认退市历史，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3996,7 +3996,7 @@ LAKE_ASSET_CATALOG += tuple(
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="stock/frequency; period", compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="period_point_3_fields_probe_then_21_fields_download",
-            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然月末单点下载21列，只更新当期一文件。全日停牌有效返回可合并、缺席保留旧记录；不改既有历史标签；复权因子变化由独立job回刷两频完整历史。本频日更成功后由独立job清理确认退市股票的本频历史，完整范围交付同频Silver，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。"),
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然月末单点下载21列，只更新当期一文件。全日停牌有效返回可合并、缺席保留旧记录；不改既有历史标签；复权因子变化由独立job回刷两频完整历史。Raw保留已取得历史，不因退市删行；同频Silver日更成功后由独立job直接清理Silver确认退市历史，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 
@@ -4056,7 +4056,7 @@ for _freq, _label, _family, _dimension, _schema, _path, _model_id in (
             batch_grain=_dimension,
             write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
             event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-            notes="独立首次建库或完整成功Raw交付更新；2014起源整行投影，21列不变。按原生范围逐文件重建，每期一次COPY及完整校验，三项原检查绑定真实物化；失败从头重做，不复用日更候选或文件进度。sensor按运行及周期集合读取原生证据，不读旧回执和行情；无源请求。",
+            notes="独立首次建库、完整成功Raw交付更新或同频Silver日更成功后的独立退市清理；Raw保留，Silver只删除确认退市股票。前次同频清理未补齐则新清理启动即失败，原任务完整重跑成功后继续。2014起源整行投影，21列不变。按原生范围逐文件重建，每期一次COPY及完整校验，三项原检查绑定真实物化；失败从头重做，不复用日更候选或文件进度。sensor按运行及周期集合读取原生证据，不读旧回执和行情；无源请求。",
         ),
     )
 

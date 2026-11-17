@@ -1,5 +1,7 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
+**2026-11-17退市保留代码已实现并通过隔离验证，尚未正式切换。** 月线Raw保留已取得并落湖的历史，退市只直接清理月线Silver；过去已删除数据保持现状，不恢复、不补数。共享改动见[周月线LLD第13.23节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-silver-retirement-design)，月线差异见[第12节](#monthly-silver-retirement-design)。第11节旧Raw退市删除描述及有日期的结果保留为切换前正式实现/历史事实，不再作为本次改造目标；文档完成不代表旧任务已停止。
+
 **结项状态：2026-11-12已完成并结项。** 月线与周线的开发、正式切换、补数及首次自然日更验收全部完成，结项依据见下述周月线LLD第13.21.5节。
 
 **2026-11-12 六阶段开发、隔离验收及正式切换完成，11月11日股票复权月线与周线欠账已补齐。** 第6阶段独立审计见[周月线LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)，正式运行及最后验收见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。第5阶段源码提交为`202739e60`，第6阶段设计提交为`982619968`。月线新流程见[第11节](#monthly-daily-point-readiness)，实施细则见[周月线LLD第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)。第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
@@ -327,7 +329,7 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 - 上海时间交易日20:00起，月线sensor用同日已验收的在市名单减去当日全日停牌，得到应更新代码集合。输入`freq=month, trade_date=自然月末`，首请求带既有`limit=6000, offset=0`。例如11月10日请求`trade_date=20261130`，只取`ts_code, trade_date, end_date`，每个应更新代码都须有一条当月记录且`end_date=20261110`。全日停牌股票允许有有效记录，也允许缺席。未齐时按原检查间隔重查，通过才提交月Raw。
 - 月Raw正式下载沿相同单点请求并核原21列，只交付`month=2026-11/data.parquet`这一类当期文件。全日停牌股票有有效返回就合并，无返回则保留原记录。当天新上市股票由当月全市场日更写入首根月线。月Silver按通过检查的实际Raw交付接续。同日两频Raw日更均完成并通过检查后，复用现行Silver股票复权因子生产、验收及相邻日比较，独立回刷复权因子变化股票。
-- 月Raw当日成功并通过原检查后，成功事件sensor向独立清理job提交`freq=month`。只清月线Raw，按退市股票代码统计全部历史月文件，只改命中文件，包含正式上市前记录；月Silver按本次完整交付范围接续。周线成功时独立提交周清理，两频分别记录结果。详见[周月线详细设计第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。
+- 正式环境切换前仍在月Raw日更成功后删除月Raw历史，再交付月Silver，历史设计见[周月线LLD第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。2026-11-17代码已改为保留月Raw、直接清理月Silver，在当期月Silver完整成功后触发。新范围、事件、重跑与验收见[第12节](#monthly-silver-retirement-design)及共享LLD第13.23节，已通过隔离验证，尚未正式切换。
 - 2026年11月全市场三列实测，`trade_date=20261130`与原月初至月末范围各5,575行，三列双向差集为0。2026年10月单股最后交易日`20261030`返回0行，自然月末`20261031`返回1行。2020年2月范围曾返回28日与29日两种标签，现存历史按原合同保留。全市场当月日更、预检和指定闭合月补齐使用自然月末单点，单股完整历史按`ts_code + freq=month`获取，不传`trade_date`、`start_date`或`end_date`，沿用既有分页。
 
 月线专项回归须证明自然月末非交易日仍按自然月末请求、输入`trade_date`与输出`end_date`分别核对、正式下载与预检使用同一坐标。新回刷任务失败后按原业务范围整批重跑，按源返回的历史日期定位月文件，验证重跑后月线无重复记录、较新的当期行情得到保留。按共享规则清退`baseline.json`、建库交接标记和跨批文件版本目录。历史回刷遇到整月文件缺失时走该月全市场补齐。补建整月文件时，逐日计算应更新代码并取并集。覆盖核对用每只股票在该月最后应更新日，允许源后来重算到更晚日期，Silver用实际交付日期。某日因当期交付不齐而未触发回刷时，沿共享规则核实Raw并按原复权因子日期提交。范围、耗时、重跑和补齐见周月线LLD第13.4至13.7节。
@@ -343,3 +345,20 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 **正式切换及11月11日补数完成（2026-11-12，09:54最终状态读回）。** 月线三列源实际应有5,574只全部截至11日，另1条可选停牌记录截至9日；原月Raw新运行`12545136-b675-460d-ac35-286ef57e1870`及当期月Silver `09dbfefb-1b68-4601-b24c-b80a4c4bbeec`均SUCCESS。8只股票复权因子变化历史回刷交付232份月Raw，月Silver `6fa20aba-d565-4d0e-9ddf-a6ef5598e0db`按既有2014下限完整接续155份，465项原检查通过。月退市清理 `01a0305d-7596-4d75-9fe2-41f3ff18c9f8`真实登记343只确认名单、零命中文件，未改写历史或触发额外Silver。月Raw/Silver当期文件各5,575行/唯一键，应有代码覆盖完整、21列双向差异0；月Silver游标已推进至`schema_version=2,after=8035725`，无pending。本链六条sensor最终均RUNNING，未重启或重载DG，没有恢复旧代码或修改默认资源；11月12日任务继续等20:00正常窗口。本次九笔正式运行、全部6,112项检查、数量/耗时及清理边界统一见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。
 
 **首次自然日更验收通过（2026-11-12，21:07）。** 月线sensor在20:00:23自然提交当日Raw，20:00:28成功，月线Silver当期接续20:02:04成功。两频日更均成功后，6只股票复权因子变化历史回刷交付141份月Raw，月线Silver历史接续20:26:09成功，完整处理同一141份月文件；当日月线确认退市任务零新增候选、零命中文件，真实结果正常保存。当期月Raw/Silver各5,575行，应更新5,573只均截至11月12日，另2条可选停牌记录保留较早日期，21列双向差异0。月Silver游标`after=8050038`、无pending；六条sensor均RUNNING。九笔自然运行、全部4,438项检查及周/月完整只读验收见[第13.21.5节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-first-natural-daily-acceptance)，上午的待自然日更状态已办结，本轮没有补跑或修改DG。
+
+
+<a id="monthly-silver-retirement-design"></a>
+
+## 12. 保留月线Raw历史，直接清理月线Silver（2026-11-17，已实现并隔离验证，未正式切换）
+
+业务口径与实施合同统一见[原方案第10.21节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-silver-retirement-plan)和[共享LLD第13.23节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-silver-retirement-design)，本节不另设任务、状态或资源上限。
+
+- 只保留现有来源及准入合同下已取得并落湖的月Raw，确认退市后不再删除其历史。过去已删除或未下载的历史不恢复；自然月末请求、日期语义、21列、源端三套OHLC和完整源键保留规则不变，不扩退市对象下载或人工维护范围。
+- 新成功事件sensor监听silver_stock_monthly_update_job，只接受实际消费当期Raw daily交付的完整成功运行；business_date、freq=month、Raw source_completion及source_silver_run_id按共享合同交叉核对。月Raw单独成功、闭合月补齐、股票复权因子历史回刷和清理自身不能触发这笔清理，也不等待周线。
+- 本频定位只枚举silver/quote/stock_monthly/month=YYYY-MM/part-000.parquet，按规范代码及确认别名统计；不枚举月Raw历史。命中后只删指定退市行，其他股票整行不变。仅为原来源投影检查只读对应月份Raw；候选仍须通过现有月Silver三项检查，不能将20200228/20200229源标签自行归并或改变源日期。
+- 依DG全局单任务队列逐文件串行执行，不新增文件锁，使用现有run-scoped staging；全文件删空仍保留合法21列零行Parquet。未命中月份不改写；明确重跑原失败任务时才沿真实父运行取回原完整月份范围，已干净月份不重复替换、仍完整校验及登记。同频前次月线清理失败尚未补齐时，后续月线新清理启动即失败，不读取行情或改写文件、不自动补偿；管理员重跑原月线失败任务完整成功后才继续。周线失败不额外阻断月线。月Raw文件身份与字节在正常、失败和重跑中保持不变。
+- 发布复用普通Silver日更实际使用的io/stock_period_raw.publish_period，写入目标只允许本次月Silver目录；Raw集合、字节与版本须保持不变，不复用首次建库的state/checkpoint发布流程。人工与自动请求均经DG排队，同一时间只有一个任务执行，先后重复清理对已无目标行的文件不重复替换，不新增跨入口锁或外部脚本。
+- 启动检查必须在worker入口且先于零候选返回，不能只在sensor跳过；错误显示原月线失败运行ID。重跑被挡住的新任务不能代替原任务恢复；原失败任务带真实父链和原配置重跑可正常进入，完整成功后解除后续月清理阻断，不新增跳过开关或自动补跑入口。
+- 新月Silver累计结果从真实新任务核对取得，不承接旧月Raw清理check的已清理名单；无候选不扫历史，零命中仍登记实际结果。成本按共享N/F/W公式分别核定月线实际数量，不借周线实测代替。
+
+开发时须迁移月线专属真实文件、sensor、原检查、清空文件及失败父运行用例，并验证普通月Silver消费不因清理新物化重复或卡住。正式切换和任何全局明细读取/正式写入另行明确范围和批准。本步月线代码已完成并通过共享LLD第13.23.11节所列隔离测试：月线实际N=5、F=W=3，删除3行，保留其他行21列原值；零行文件schema、完整父范围重跑、前次失败未补齐时启动失败及Raw身份/摘要不变均已验证。未停止旧清理、重载正式定义、运行正式DG任务或操作正式Lake。正式环境尚未应用新行为；不能将隔离结果当作正式清理结果。

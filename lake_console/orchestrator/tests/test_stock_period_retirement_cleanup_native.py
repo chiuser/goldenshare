@@ -1,165 +1,260 @@
-"""Real single-frequency jobs/files and native lineage; no formal resources.
+"""Real temporary producer jobs and native lineage; no formal resources.
 
-Raw stock_basic projects ts_code/list_status VARCHAR from its real producer;
-lifecycle and identity use the existing native fixture's real column contracts.
-000016.SZ is the documented retirement case. 920799.BJ is deliberately D here
-only to test its documented pre-listing bar. Alias relations below are explicit
-synthetic cases, not claims about these issuers. Expected rows are literal.
+The literal 21-column fixture follows the verified real producer contract. Real
+identity-maintenance jobs record unchanged historical Raw (an absent I key is
+removed); real Silver updates run while the synthetic issuers are L. Only then
+stock_basic/lifecycle change to D. HTTP/upstream acceptance use market's explicit
+substitutes. Independent expected rows preserve all 21 values including NULLs.
 """
 
 import json
-from decimal import Decimal
+import time
+from pathlib import Path
 from types import SimpleNamespace as NS
+from uuid import uuid4
 
 import dagster as dg
 import pytest
-from dagster._core.events import DagsterEventType
 
 from orchestrator.defs import paths, stock_period_source
 from orchestrator.defs import stock_period_retirement_cleanup as cleanup
-from orchestrator.defs.asset_guards.stock_period_delivery import read_completion
+from orchestrator.defs.asset_guards.stock_period_delivery import (
+    native_run_records,
+    silver_completion_consumed,
+)
 from orchestrator.defs.asset_guards.stock_period_retirement import (
+    failure_origin,
     latest_retirement_result,
 )
-from orchestrator.defs.io.stock_period_raw import connection, execute, file_version
+from orchestrator.defs.io.stock_period_raw import (
+    connection,
+    execute,
+    file_digest,
+    file_version,
+)
 from orchestrator.defs.io.stock_period_raw import target_path as raw_path
-from orchestrator.defs.jobs.raw_stock_period_retirement_cleanup import (
-    raw_stock_period_retirement_cleanup_job,
+from orchestrator.defs.jobs.raw_stock_period_history_repair import (
+    raw_stock_period_history_repair_job,
+)
+from orchestrator.defs.jobs.silver_stock_period_retirement_cleanup import (
+    silver_stock_period_retirement_cleanup_job,
 )
 from orchestrator.defs.run_contracts.stock_period_delivery import (
     COMPLETION_KEY,
-    WORK_KEY,
+    FREQUENCY_TAG,
+    SILVER_SCOPE_KEY,
+)
+from orchestrator.defs.run_contracts.stock_period_history_repair import (
+    StockPeriodHistoryRepairConfig,
+    build_history_repair_run_config,
 )
 from orchestrator.defs.run_contracts.stock_period_retirement_cleanup import (
     JOB_NAME,
+    OP_NAME,
+    RESULT_KEY,
+    WORK_KEY,
     StockPeriodRetirementCleanupConfig,
     build_retirement_run_config,
-    retirement_result_check_name,
+)
+from orchestrator.defs.run_contracts.stock_period_silver import (
+    SPECS,
+    asset_name,
+    check_names,
+    target_path,
+)
+from orchestrator.defs.sensors.silver_stock_period_retirement_cleanup_job_sensor import (
+    silver_stock_period_retirement_cleanup_job_sensor,
 )
 from orchestrator.defs.stock_daily_qfq import (
     gold_stock_daily_qfq_factor_repair_codes_hash as codes_hash,
 )
-from tests.test_stock_period_native_daily import (
-    A,
-    D,
-    I,
-    N,
-    price_rows,
-    raw_job,
-    reference_for,
-)
-from tests.test_stock_period_native_daily import (
-    market as market,  # noqa: PLC0414 -- pytest fixture re-export
-)
+from tests.test_stock_period_native_daily import A, D, I, S, raw_job, reference_for
+from tests.test_stock_period_native_daily import market as market  # noqa: PLC0414
 from tests.test_stock_period_silver_contracts import literal_row, write_raw
 
 C, B, ALIAS = "000016.SZ", "920799.BJ", "800001.BJ"
+PERIODS = {
+    "week": ["2014-01-03", "2020-01-31", "2026-11-06"],
+    "month": ["2014-01", "2020-01", "2026-10"],
+}
 
 
-def write_retirement_facts(market):
-    (market.tmp / "instance" / "dagster.yaml").write_text(
-        "telemetry:\n  enabled: false\n"
+def label(freq, period):
+    return period.replace("-", "") if freq == "week" else period.replace("-", "") + "31"
+
+
+def facts(market, *, retired):
+    life, identity, basic = (
+        paths.silver_stock_lifecycle_path(market.root),
+        paths.silver_stock_identity_map_path(market.root),
+        paths.raw_stock_basic_path(market.root),
     )
-    basic = paths.raw_stock_basic_path(market.root)
     basic.parent.mkdir(parents=True, exist_ok=True)
-    life = paths.silver_stock_lifecycle_path(market.root)
-    identity = paths.silver_stock_identity_map_path(market.root)
-    with connection(market.tmp / "retired_facts") as con:
+    with connection(market.tmp / "facts") as con:
         con.execute(
             "CREATE TEMP TABLE life AS SELECT * FROM read_parquet(?)", [str(life)]
         )
+        con.execute("DELETE FROM life WHERE ts_code IN (?,?)", [C, B])
         con.execute(
-            "INSERT INTO life VALUES ('000016.SZ','D',DATE '1991-01-01',DATE '2026-10-28',true),"
-            "('920799.BJ','D',DATE '2020-07-27',DATE '2026-11-09',true)"
+            "INSERT INTO life VALUES (?, ?, DATE '1991-01-01',NULL::DATE,true),(?, ?,DATE '1991-01-01',NULL::DATE,true)",
+            [C, "D" if retired else "L", B, "D" if retired else "L"],
         )
+        if retired:
+            con.execute(
+                "UPDATE life SET delist_date=DATE '2026-11-10' WHERE ts_code IN (?,?)",
+                [C, B],
+            )
         execute(con, "COPY life TO ? (FORMAT PARQUET)", [str(life)])
         con.execute(
-            "CREATE TEMP TABLE identities AS SELECT * FROM read_parquet(?)",
-            [str(identity)],
+            "CREATE TEMP TABLE ids AS SELECT * FROM read_parquet(?)", [str(identity)]
         )
         con.execute(
-            "INSERT INTO identities VALUES ('000016.SZ','000016.SZ','confirmed'),"
-            "('920799.BJ','920799.BJ','confirmed'),('800001.BJ','920799.BJ','confirmed'),"
-            "('000099.SZ','000001.SZ','confirmed')"
+            "INSERT INTO ids SELECT * FROM (VALUES (?,?,'confirmed'),(?,?,'confirmed'),(?,?,'confirmed'),('000099.SZ','000001.SZ','confirmed')) v(s,l,c) WHERE s NOT IN (SELECT source_ts_code FROM ids)",
+            [C, C, B, B, ALIAS, B],
         )
-        execute(con, "COPY identities TO ? (FORMAT PARQUET)", [str(identity)])
+        execute(con, "COPY ids TO ? (FORMAT PARQUET)", [str(identity)])
         execute(
             con,
-            "COPY (SELECT * FROM (VALUES ('000016.SZ','D'),('920799.BJ','D'),"
-            "('000099.SZ','D'),('000001.SZ','L')) v(ts_code,list_status)) TO ? (FORMAT PARQUET)",
+            "COPY (SELECT ts_code,list_status FROM life UNION ALL SELECT '000099.SZ','D') TO ? (FORMAT PARQUET)",
             [str(basic)],
         )
 
 
+def run_silver(market, instance, freq, ref, anchor):
+    return market.defs.resolve_job_def(
+        asset_name(freq) + "_update_job"
+    ).execute_in_process(
+        instance=instance,
+        partition_key=anchor,
+        run_config={
+            "ops": {
+                asset_name(freq): {
+                    "config": {"intent": "update", "source_completion": ref}
+                }
+            }
+        },
+    )
+
+
+def history(ready, freq, periods):
+    config = StockPeriodHistoryRepairConfig(
+        intent="identity_maintenance",
+        business_date=D,
+        frequencies=[freq],
+        stock_codes=[],
+        codes_hash=codes_hash([]),
+        remove_keys=[
+            {"ts_code": I, "trade_date": label(freq, p), "freq": freq} for p in periods
+        ],
+    )
+    return ready.defs.resolve_job_def(
+        raw_stock_period_history_repair_job.name
+    ).execute_in_process(
+        instance=ready.instance, run_config=build_history_repair_run_config(config)
+    )
+
+
 @pytest.fixture
 def ready(market):
-    write_retirement_facts(market)
-    with dg.DagsterInstance.local_temp(str(market.tmp / "instance")) as instance:
-        results = {freq: raw_job(market, instance, freq) for freq in ["week", "month"]}
-        refs = {
-            freq: reference_for(instance, run.run_id) for freq, run in results.items()
-        }
-        affected = {}
-        untouched = {}
-        with connection(market.tmp / "old_history") as con:
-            for freq, periods in [
-                ("week", ["2000-01-07", "2020-01-31", "2026-11-06"]),
-                ("month", ["2000-01", "2020-01", "2026-10"]),
-            ]:
-                affected[freq] = periods
-                for index, period in enumerate(periods):
-                    label = (
-                        period.replace("-", "")
-                        if freq == "week"
-                        else period.replace("-", "") + "31"
-                    )
-                    retired = (
-                        [C] if index == 0 else [B, ALIAS] if index == 1 else [C, B]
-                    )
+    facts(market, retired=False)
+    with dg.DagsterInstance.local_temp(
+        str(market.tmp / "instance"), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        definitions = dg.Definitions.merge(
+            market.defs,
+            dg.Definitions(
+                jobs=[
+                    silver_stock_period_retirement_cleanup_job,
+                    raw_stock_period_history_repair_job,
+                ]
+            ),
+        )
+        ready = NS(
+            market=market,
+            instance=instance,
+            defs=definitions,
+            raw={},
+            silver={},
+            refs={},
+            old={},
+            untouched={},
+            historical_silver={},
+        )
+        for freq, periods in PERIODS.items():
+            clean = "2019-01-04" if freq == "week" else "2019-01"
+            instance.add_dynamic_partitions(
+                "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months",
+                periods + [clean],
+            )
+            with connection(market.tmp / ("history_" + freq)) as con:
+                for period, retired_code in zip(
+                    periods + [clean], [C, ALIAS, B, None], strict=True
+                ):
                     rows = [
-                        literal_row(code, label, freq, asof="20261110", qfq="9.0000")
-                        for code in retired
+                        literal_row(
+                            A, label(freq, period), freq, asof="20261109", qfq="4.0000"
+                        )
                     ]
                     rows.append(
-                        literal_row(A, label, freq, asof="20261110", qfq="4.0000")
+                        literal_row(
+                            S, label(freq, period), freq, asof="20261109", qfq="2.0000"
+                        )
                     )
-                    if freq == "month" and period == "2026-10":
-                        rows = [
+                    if retired_code:
+                        rows += [
                             literal_row(
-                                code, "20261031", freq, asof="20261110", qfq="9.0000"
-                            )
-                            for code in retired
-                        ] + [
-                            literal_row(
-                                A, "20261031", freq, asof="20261110", qfq="4.0000"
+                                retired_code,
+                                label(freq, period),
+                                freq,
+                                asof="20261109",
+                                qfq="9.0000",
                             )
                         ]
                     write_raw(con, raw_path(market.root, freq, period), rows)
-                period = "2019-01-04" if freq == "week" else "2019-01"
-                label = "20190104" if freq == "week" else "20190131"
-                path = raw_path(market.root, freq, period)
-                write_raw(
-                    con,
-                    path,
-                    [literal_row(A, label, freq, asof="20261110", qfq="4.0000")],
-                )
-                untouched[freq] = (path, file_version(path))
-                instance.add_dynamic_partitions(
-                    "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months",
-                    periods + [period],
-                )
-        definitions = dg.Definitions.merge(
-            market.defs, dg.Definitions(jobs=[raw_stock_period_retirement_cleanup_job])
-        )
-        yield NS(
-            market=market,
-            instance=instance,
-            refs=refs,
-            raw=results,
-            affected=affected,
-            untouched=untouched,
-            defs=definitions,
-        )
+            run = history(ready, freq, sorted(periods + [clean]))
+            assert run.success
+            historical = run_silver(
+                market,
+                instance,
+                freq,
+                reference_for(instance, run.run_id),
+                max(periods + [clean]),
+            )
+            assert historical.success
+            ready.historical_silver[freq] = historical
+            ready.old[freq] = {
+                p: rows_at(market, target_path(market.root, freq, p)) for p in periods
+            }
+            path = target_path(market.root, freq, clean)
+            ready.untouched[freq] = (path, file_version(path), file_digest(path))
+        facts(market, retired=True)
+        for freq in PERIODS:
+            ready.raw[freq] = raw_job(market, instance, freq)
+            ready.refs[freq] = reference_for(instance, ready.raw[freq].run_id)
+            ready.silver[freq] = run_silver(
+                market,
+                instance,
+                freq,
+                ready.refs[freq],
+                "2026-11-13" if freq == "week" else "2026-11",
+            )
+            assert ready.silver[freq].success
+        yield ready
+
+
+def rows_at(market, path):
+    with connection(market.tmp / "readback") as con:
+        return con.execute(
+            "SELECT * FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
+            [str(path)],
+        ).fetchall()
+
+
+def snapshot(root):
+    return {
+        str(p): (file_version(p), file_digest(p))
+        for p in sorted(root.rglob("*.parquet"))
+    }
 
 
 def configuration(ready, freq, codes=None):
@@ -170,6 +265,7 @@ def configuration(ready, freq, codes=None):
         stock_codes=codes,
         codes_hash=codes_hash(codes),
         source_completion=ready.refs[freq],
+        source_silver_run_id=ready.silver[freq].run_id,
     )
 
 
@@ -190,779 +286,764 @@ def run_cleanup(ready, freq, *, config=None, parent=None, raise_on_error=True):
         parent_run_id=parent,
         root_run_id=ancestor.root_run_id or parent,
     )
-    result = execute_run(
+    return execute_run(
         InMemoryJob(job), run, ready.instance, raise_on_error=raise_on_error
     )
-    assert ready.instance.get_run_by_id(run.run_id).parent_run_id == parent
-    return result
 
 
-def completion(ready, run_id):
-    records = ready.instance.get_records_for_run(
-        run_id, of_type=DagsterEventType.ASSET_OBSERVATION
-    ).records
-    values = [
-        r.asset_observation.metadata[COMPLETION_KEY].value
-        for r in records
-        if COMPLETION_KEY in r.asset_observation.metadata
+def observations(ready, run_id, key):
+    return [
+        r.asset_observation.metadata[key].value
+        for r in native_run_records(ready.instance, [run_id], ["ASSET_OBSERVATION"])
+        if key in r.asset_observation.metadata
     ]
-    if not values:
-        return None
-    assert len(values) == 1
-    return {
-        key: values[0][key] for key in ["producer_run_id", "freq", "upstream_batch_id"]
-    }
 
 
 def result_metadata(ready, run_id, freq):
-    records = ready.instance.get_records_for_run(
-        run_id, of_type=DagsterEventType.ASSET_CHECK_EVALUATION
-    ).records
-    values = [r.event_log_entry.dagster_event.event_specific_data for r in records]
-    result = next(
-        v for v in values if v.check_name == retirement_result_check_name(freq)
-    )
-    return {k: v.value for k, v in result.metadata.items()}
+    values = observations(ready, run_id, RESULT_KEY)
+    assert len(values) == 1 and values[0]["freq"] == freq
+    return values[0]
 
 
 def test_confirmed_retirement_requires_both_facts_and_identity(ready):
-    actual = cleanup.load_confirmed_retirements(ready.market.root)
-    assert set(actual) == {C, B}
-    assert actual[B] == {B, ALIAS}
-    assert A not in actual  # Old D alias points to a currently-listed security.
+    assert cleanup.load_confirmed_retirements(ready.market.root) == {
+        C: {C},
+        B: {B, ALIAS},
+        "000004.SZ": {"000004.SZ"},
+    }
+    assert A not in cleanup.load_confirmed_retirements(ready.market.root)
 
 
 @pytest.mark.parametrize("freq", ["week", "month"])
-def test_sensor_submits_only_its_successful_raw_frequency(ready, freq):
+def test_real_sensor_cleanup_original_checks_raw_preserved(ready, monkeypatch, freq):
+    import resource
+    from contextlib import contextmanager
+
+    from orchestrator.defs.io import stock_period_raw as raw_io
+
     context = NS(
         instance=ready.instance,
-        dagster_run=ready.instance.get_run_by_id(ready.raw[freq].run_id),
+        dagster_run=ready.instance.get_run_by_id(ready.silver[freq].run_id),
     )
-    first = cleanup.evaluate_retirement_sensor(context, ready.market.resource)
-    again = cleanup.evaluate_retirement_sensor(context, ready.market.resource)
-    assert isinstance(first, dg.RunRequest) and first.run_key == again.run_key
-    config = first.run_config["ops"]["raw_stock_period_retirement_cleanup_op"]["config"]
+    request = cleanup.evaluate_retirement_sensor(context, ready.market.resource)
+    assert isinstance(request, dg.RunRequest)
     assert (
-        config["freq"] == freq
-        and config["business_date"] == D
-        and config["stock_codes"] == [C, B]
+        cleanup.evaluate_retirement_sensor(context, ready.market.resource).run_key
+        == request.run_key
     )
-    assert config["source_completion"] == ready.refs[freq]
-
-
-@pytest.mark.parametrize("freq", ["week", "month"])
-def test_real_single_frequency_cleanup_and_silver(ready, monkeypatch, freq):
+    cfg = request.run_config["ops"][OP_NAME]["config"]
+    assert (
+        cfg["source_silver_run_id"] == ready.silver[freq].run_id
+        and cfg["source_completion"] == ready.refs[freq]
+    )
+    raw_before = snapshot(ready.market.root / "raw")
     other = "month" if freq == "week" else "week"
-    before = {
-        p: file_version(raw_path(ready.market.root, other, p))
-        for p in ready.affected[other]
+    other_before = snapshot(
+        target_path(ready.market.root, other, PERIODS[other][0]).parent.parent
+    )
+    publish = cleanup.publish_period
+    writes = []
+    measurements = {
+        "duckdb_execute": 0,
+        "candidate_bytes": [],
+        "rows_before": [],
+        "code_scans": [],
+        "work_bytes_before_publish": [],
     }
+    original_connection, original_counts = (
+        raw_io.connection,
+        cleanup.count_retirement_rows,
+    )
+
+    class MeasuredConnection:
+        def __init__(self, con):
+            self.con = con
+
+        def execute(self, *args, **kwargs):
+            measurements["duckdb_execute"] += 1
+            return self.con.execute(*args, **kwargs)
+
+        def __getattr__(self, key):
+            return getattr(self.con, key)
+
+    @contextmanager
+    def measured_connection(*args, **kwargs):
+        with original_connection(*args, **kwargs) as con:
+            yield MeasuredConnection(con)
+
+    def measured_counts(*args, **kwargs):
+        counts = original_counts(*args, **kwargs)
+        measurements["code_scans"].append(len(counts))
+        return counts
+
+    monkeypatch.setattr(raw_io, "connection", measured_connection)
+    monkeypatch.setattr(cleanup, "connection", measured_connection)
+    monkeypatch.setattr(cleanup, "count_retirement_rows", measured_counts)
+
+    def checked_publish(item, **kw):
+        assert Path(item["target"]).is_relative_to(
+            target_path(ready.market.root, freq, PERIODS[freq][0]).parent.parent
+        )
+        writes.append(item["period"])
+        measurements["candidate_bytes"].append(Path(item["candidate"]).stat().st_size)
+        measurements["rows_before"].append(item["rows_before"])
+        work = Path(item["candidate"]).parents[2]
+        measurements["work_bytes_before_publish"].append(
+            sum(p.stat().st_size for p in work.rglob("*") if p.is_file())
+        )
+        return publish(item, **kw)
+
+    monkeypatch.setattr(cleanup, "publish_period", checked_publish)
     monkeypatch.setattr(
         stock_period_source,
         "HttpPage",
-        lambda **kw: pytest.fail("cleanup must not request Tushare"),
+        lambda **kw: pytest.fail("cleanup must not download"),
     )
-    result = run_cleanup(ready, freq)
-    assert result.success
-    ref = completion(ready, result.run_id)
-    origin = read_completion(ready.instance, ref, root=ready.market.root)
-    assert sorted(p for f, p in origin["items"]) == ready.affected[freq]
-    for period in ready.affected[freq]:
-        assert price_rows(ready.market, raw_path(ready.market.root, freq, period)) == {
-            A: Decimal(4)
-        }
-    for period, version in before.items():
-        assert file_version(raw_path(ready.market.root, other, period)) == version
-    assert file_version(ready.untouched[freq][0]) == ready.untouched[freq][1]
-    assert latest_retirement_result(ready.instance, freq) == {C, B}
-    assert latest_retirement_result(ready.instance, other) == set()
+    started = time.monotonic()
+    result = run_cleanup(ready, freq, config=StockPeriodRetirementCleanupConfig(**cfg))
+    readback_started = time.monotonic()
+    assert result.success and writes == PERIODS[freq]
+    assert snapshot(ready.market.root / "raw") == raw_before
+    assert (
+        snapshot(target_path(ready.market.root, other, PERIODS[other][0]).parent.parent)
+        == other_before
+    )
+    for p in PERIODS[freq]:
+        assert rows_at(ready.market, target_path(ready.market.root, freq, p)) == [
+            r for r in ready.old[freq][p] if r[0] in (A, S)
+        ]
+    path, version, sha = ready.untouched[freq]
+    assert (file_version(path), file_digest(path)) == (version, sha)
     meta = result_metadata(ready, result.run_id, freq)
     assert (
-        meta["file_count"] == 3
-        and meta["rewritten_file_count"] == 3
-        and meta["cleared_codes"] == [C, B]
+        meta["file_count"],
+        meta["rewritten_file_count"],
+        meta["removed_row_count"],
+    ) == (3, 3, 3)
+    records = native_run_records(
+        ready.instance,
+        [result.run_id],
+        ["ASSET_MATERIALIZATION", "ASSET_CHECK_EVALUATION", "ASSET_OBSERVATION"],
+    )
+    assert not observations(ready, result.run_id, COMPLETION_KEY) and not observations(
+        ready, result.run_id, SILVER_SCOPE_KEY
+    )
+    mats = {
+        r.asset_materialization.partition: r for r in records if r.asset_materialization
+    }
+    checks = [
+        r.event_log_entry.dagster_event.event_specific_data
+        for r in records
+        if r.event_log_entry.dagster_event.event_type_value == "ASSET_CHECK_EVALUATION"
+    ]
+    assert len(checks) == 9
+    for check in checks:
+        assert check.passed and check.blocking and check.check_name in check_names(freq)
+        assert (
+            check.target_materialization_data.storage_id
+            == mats[check.partition].storage_id
+        )
+        assert check.target_materialization_data.run_id == result.run_id
+    assert silver_completion_consumed(
+        ready.instance,
+        ready.refs[freq],
+        ["2026-11-13" if freq == "week" else "2026-11"],
+        root=ready.market.root,
+        business_date=D,
+    )
+    print(
+        json.dumps(
+            {
+                "freq": freq,
+                "N": 5,
+                "F": 3,
+                "W": 3,
+                "removed_rows": 3,
+                "result_bytes": len(json.dumps(meta).encode()),
+                "measurements": measurements,
+                "process_peak_rss_bytes": resource.getrusage(
+                    resource.RUSAGE_SELF
+                ).ru_maxrss,
+                "seconds": time.monotonic() - started,
+                "readback_seconds": time.monotonic() - readback_started,
+            }
+        )
+    )
+
+
+@pytest.mark.parametrize("freq", ["week", "month"])
+def test_empty_codes_and_zero_hits_record_result_without_rewriting(
+    ready, monkeypatch, freq
+):
+    with monkeypatch.context() as m:
+        m.setattr(
+            cleanup,
+            "count_retirement_rows",
+            lambda *a, **kw: pytest.fail("empty must not enumerate"),
+        )
+        assert run_cleanup(ready, freq, config=configuration(ready, freq, [])).success
+    before = snapshot(ready.market.root)
+    result = run_cleanup(ready, freq, config=configuration(ready, freq, ["000004.SZ"]))
+    assert result_metadata(ready, result.run_id, freq)["file_count"] == 0
+    assert snapshot(ready.market.root) == before
+    assert latest_retirement_result(ready.instance, freq) == {"000004.SZ"}
+
+
+@pytest.mark.parametrize(
+    "fault",
+    [
+        "before_candidate",
+        "after_replace",
+        "after_materialization",
+        "final_counts",
+        "cancel",
+    ],
+)
+@pytest.mark.parametrize("freq", ["week", "month"])
+def test_failure_blocks_new_even_empty_and_only_original_retry_unblocks(
+    ready, monkeypatch, freq, fault
+):
+    before = snapshot(ready.market.root / "raw")
+    original_publish, original_assemble, original_counts = (
+        cleanup.publish_period,
+        cleanup.assemble_retirement_period,
+        cleanup.count_retirement_rows,
+    )
+    calls = []
+
+    def publish(item, **kw):
+        result = original_publish(item, **kw)
+        calls.append(item["period"])
+        if len(calls) == 1 and fault == "after_replace":
+            raise RuntimeError("exit after replace before materialization")
+        return result
+
+    def assemble(*a, **kw):
+        if fault == "before_candidate" or (fault == "after_materialization" and calls):
+            raise RuntimeError("injected candidate failure")
+        if fault == "cancel":
+            from orchestrator.defs.io.stock_period_raw import PeriodCancelled
+
+            raise PeriodCancelled("injected cancel at candidate boundary")
+        return original_assemble(*a, **kw)
+
+    def counts(*a, **kw):
+        result = original_counts(*a, **kw)
+        return (
+            {PERIODS[freq][0]: 1}
+            if fault == "final_counts" and "final_counts" in str(kw["work"])
+            else result
+        )
+
+    with monkeypatch.context() as m:
+        m.setattr(cleanup, "publish_period", publish)
+        m.setattr(cleanup, "assemble_retirement_period", assemble)
+        m.setattr(cleanup, "count_retirement_rows", counts)
+        failed = run_cleanup(ready, freq, raise_on_error=False)
+    assert not failed.success and not observations(ready, failed.run_id, RESULT_KEY)
+    assert snapshot(ready.market.root / "raw") == before
+    after = snapshot(ready.market.root)
+    next_day = configuration(ready, freq, []).model_copy(
+        update={"business_date": "2026-11-11"}
+    )
+    with monkeypatch.context() as m:
+        m.setattr(
+            cleanup,
+            "retirement_source",
+            lambda *a, **kw: pytest.fail("blocked must not read sources"),
+        )
+        blocked = run_cleanup(ready, freq, config=next_day, raise_on_error=False)
+        blocked_again = run_cleanup(
+            ready,
+            freq,
+            config=next_day,
+            parent=blocked.run_id,
+            raise_on_error=False,
+        )
+    for result in (blocked, blocked_again):
+        assert not result.success and not observations(ready, result.run_id, WORK_KEY)
+        assert (
+            failure_origin(ready.instance, ready.instance.get_run_by_id(result.run_id))
+            == failed.run_id
+        )
+    assert snapshot(ready.market.root) == after
+    clean_versions = {
+        p: file_version(target_path(ready.market.root, freq, p)) for p in calls
+    }
+    rerun = run_cleanup(ready, freq, parent=failed.run_id)
+    meta = result_metadata(ready, rerun.run_id, freq)
+    assert (
+        rerun.success
+        and meta["periods"] == PERIODS[freq]
+        and meta["rewritten_file_count"] == 3 - len(calls)
+    )
+    assert all(
+        file_version(target_path(ready.market.root, freq, p)) == v
+        for p, v in clean_versions.items()
     )
     assert (
         len(
-            ready.instance.get_records_for_run(
-                result.run_id, of_type=DagsterEventType.ASSET_CHECK_EVALUATION
-            ).records
+            native_run_records(
+                ready.instance, [rerun.run_id], ["ASSET_CHECK_EVALUATION"]
+            )
         )
-        == 10
+        == 9
     )
-    name = "weekly" if freq == "week" else "monthly"
-    anchor = ready.affected[freq][-1]
-    silver = ready.defs.resolve_job_def(
-        f"silver_stock_{name}_update_job"
-    ).execute_in_process(
-        instance=ready.instance,
-        partition_key=anchor,
-        run_config={
-            "ops": {
-                f"silver_stock_{name}": {
-                    "config": {"intent": "update", "source_completion": ref}
-                }
-            }
-        },
-    )
-    assert silver.success
-    from orchestrator.defs.run_contracts.stock_period_silver import target_path
-
-    assert price_rows(ready.market, target_path(ready.market.root, freq, anchor)) == {
-        A: Decimal(4)
-    }
+    assert run_cleanup(ready, freq, config=configuration(ready, freq, [])).success
+    assert snapshot(ready.market.root / "raw") == before
 
 
 @pytest.mark.parametrize("freq", ["week", "month"])
-def test_empty_list_does_not_enumerate_or_read_history(ready, monkeypatch, freq):
+def test_empty_schema_and_all_columns_preserved(ready, freq):
+    p = PERIODS[freq][0]
+    with connection(ready.market.tmp / "empty") as con:
+        source, target = (
+            raw_path(ready.market.root, freq, p),
+            target_path(ready.market.root, freq, p),
+        )
+        for file in (source, target):
+            execute(
+                con,
+                "COPY (SELECT * FROM read_parquet(?,hive_partitioning=false) WHERE ts_code=?) TO ? (FORMAT PARQUET)",
+                [str(file), C, str(file)],
+            )
+    assert history(ready, freq, [p]).success
+    raw_before = snapshot(ready.market.root / "raw")
+    assert run_cleanup(ready, freq).success and rows_at(ready.market, target) == []
+    with connection(ready.market.tmp / "schema") as con:
+        assert (
+            tuple(
+                (r[0], r[1])
+                for r in con.execute(
+                    "DESCRIBE SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                    [str(target)],
+                ).fetchall()
+            )
+            == SPECS
+        )
+    assert snapshot(ready.market.root / "raw") == raw_before
+
+
+@pytest.mark.parametrize("bad", ["code", "hash", "freq", "extra", "silver_id", "day"])
+def test_invalid_intent_fails_before_history(ready, monkeypatch, bad):
+    config = configuration(ready, "week").model_dump()
+    config.update(
+        {
+            "code": {"stock_codes": [A], "codes_hash": codes_hash([A])},
+            "hash": {"codes_hash": "wrong"},
+            "freq": {"freq": "month"},
+            "extra": {"resume_run_id": str(uuid4())},
+            "silver_id": {"source_silver_run_id": str(uuid4())},
+            "day": {"business_date": "2026-11-09"},
+        }[bad]
+    )
     monkeypatch.setattr(
         cleanup,
         "count_retirement_rows",
-        lambda *a, **kw: pytest.fail("zero scans history"),
+        lambda *a, **kw: pytest.fail("invalid must not scan"),
     )
-    monkeypatch.setattr(
-        cleanup,
-        "assemble_retirement_period",
-        lambda *a, **kw: pytest.fail("zero candidate"),
-    )
-    result = run_cleanup(ready, freq, config=configuration(ready, freq, []))
-    assert result.success and completion(ready, result.run_id) is None
-    assert result_metadata(ready, result.run_id, freq)["file_count"] == 0
-
-
-@pytest.mark.parametrize("after_replace", [False, True])
-def test_real_native_parent_rebuilds_full_scope_without_replacing_clean_file(
-    ready, monkeypatch, after_replace
-):
-    publish = cleanup.publish_period
-    seen = []
-
-    def fault(item, **kwargs):
-        seen.append(item["period"])
-        if after_replace:
-            value = publish(item, **kwargs)
-            if len(seen) == 1:
-                raise RuntimeError("replace completed before event")
-            return value
-        if len(seen) == 2:
-            raise RuntimeError("second file failed")
-        return publish(item, **kwargs)
-
-    monkeypatch.setattr(cleanup, "publish_period", fault)
-    failed = run_cleanup(ready, "week", raise_on_error=False)
-    assert not failed.success and completion(ready, failed.run_id) is None
-    assert latest_retirement_result(ready.instance, "week") == set()
-    first = raw_path(ready.market.root, "week", ready.affected["week"][0])
-    version = file_version(first)
-    monkeypatch.setattr(cleanup, "publish_period", publish)
-    success = run_cleanup(ready, "week", parent=failed.run_id)
-    assert success.success and file_version(first) == version
-    origin = read_completion(
-        ready.instance, completion(ready, success.run_id), root=ready.market.root
-    )
-    assert len(origin["items"]) == 3
-    assert result_metadata(ready, success.run_id, "week")["rewritten_file_count"] == 2
-
-
-def test_zero_physical_hits_still_records_verified_completion(ready):
-    first = run_cleanup(ready, "month")
-    assert first.success
-    again = run_cleanup(ready, "month")
-    assert again.success and completion(ready, again.run_id) is None
-    meta = result_metadata(ready, again.run_id, "month")
-    assert meta["file_count"] == 0 and meta["cleared_codes"] == [C, B]
-    assert meta["stock_codes"] == [C, B]
-
-
-def test_unconfirmed_code_refuses_before_any_history_io(ready, monkeypatch):
-    monkeypatch.setattr(
-        cleanup,
-        "count_retirement_rows",
-        lambda *a, **kw: pytest.fail("invalid code read history"),
-    )
-    result = run_cleanup(
-        ready, "week", config=configuration(ready, "week", [A]), raise_on_error=False
-    )
-    assert not result.success and completion(ready, result.run_id) is None
-
-
-def test_result_is_cumulative_and_independent_of_business_date_filter(ready):
-    first = run_cleanup(ready, "week", config=configuration(ready, "week", [C]))
-    assert first.success
-    second = run_cleanup(ready, "week", config=configuration(ready, "week", [B]))
-    assert second.success
-    assert latest_retirement_result(ready.instance, "week") == {C, B}
-    assert result_metadata(ready, second.run_id, "week")["stock_codes"] == [B]
-
-
-def test_sensor_definition_and_real_resource_injection(ready):
-    from orchestrator.defs.sensors.raw_stock_period_retirement_cleanup_job_sensor import (
-        raw_stock_period_retirement_cleanup_job_sensor as sensor,
-    )
-
-    assert (
-        sensor.default_status == dg.DefaultSensorStatus.STOPPED
-        and sensor.required_resource_keys == {"lake_root"}
-    )
-    assert sensor.tags["goldenshare/sensor_target_layer"] == "raw"
-    with dg.build_run_status_sensor_context(
-        sensor_name=sensor.name,
-        dagster_instance=ready.instance,
-        dagster_run=ready.instance.get_run_by_id(ready.raw["week"].run_id),
-        dagster_event=ready.raw["week"].get_run_success_event(),
-        resources={"lake_root": ready.market.resource},
-    ) as ctx:
-        assert isinstance(sensor(ctx), dg.RunRequest)
+    if bad == "extra":
+        with pytest.raises(ValueError):
+            StockPeriodRetirementCleanupConfig(**config)
+    else:
+        result = ready.defs.resolve_job_def(JOB_NAME).execute_in_process(
+            instance=ready.instance,
+            run_config={"ops": {OP_NAME: {"config": config}}},
+            raise_on_error=False,
+        )
+        assert not result.success
 
 
 @pytest.mark.parametrize(
-    "change", [{"freq": "month"}, {"codes_hash": "wrong"}, {"stock_codes": [A]}]
+    "fault",
+    [
+        "missing_column",
+        "wrong_type",
+        "wrong_period",
+        "duplicate",
+        "other_price",
+        "corrupt",
+        "reference_changed",
+    ],
 )
-def test_configuration_refuses_wrong_hash_or_frequency(ready, change):
-    with pytest.raises(ValueError):
-        configuration(ready, "week").model_copy(update=change).validate_intent()
+def test_invalid_candidate_never_clears_or_changes_raw(ready, monkeypatch, fault):
+    target = target_path(ready.market.root, "week", PERIODS["week"][0])
+    raw_before = snapshot(ready.market.root / "raw")
+    if fault == "corrupt":
+        target.write_bytes(b"not parquet")
+    elif fault == "reference_changed":
+        assemble = cleanup.assemble_retirement_period
 
+        def changed(*a, **kw):
+            result = assemble(*a, **kw)
+            paths.silver_stock_lifecycle_path(ready.market.root).touch()
+            return result
 
-@pytest.mark.parametrize("freq", ["week", "month"])
-def test_emptied_market_file_has_valid_native_delivery_and_silver(ready, freq):
-    period = ready.affected[freq][-1]
-    label = period.replace("-", "") if freq == "week" else "20261031"
-    with connection(ready.market.tmp / "empty_candidate") as con:
-        write_raw(
-            con,
-            raw_path(ready.market.root, freq, period),
-            [literal_row(C, label, freq, asof="20261110", qfq="9.0000")],
-        )
-    result = run_cleanup(ready, freq)
-    assert result.success
-    ref = completion(ready, result.run_id)
-    origin = read_completion(ready.instance, ref, root=ready.market.root)
+        monkeypatch.setattr(cleanup, "assemble_retirement_period", changed)
+    else:
+        selections = {
+            "missing_column": "* EXCLUDE (pct_chg)",
+            "wrong_type": "* REPLACE (close_qfq::DOUBLE AS close_qfq)",
+            "wrong_period": "* REPLACE ('20140110' AS trade_date)",
+            "duplicate": "*",
+            "other_price": "* REPLACE (CASE WHEN ts_code='000001.SZ' THEN 99::DECIMAL(18,4) ELSE close_qfq END AS close_qfq)",
+        }
+        with connection(ready.market.tmp / "bad") as con:
+            query = f"SELECT {selections[fault]} FROM read_parquet(?,hive_partitioning=false)"
+            params = [str(target)]
+            if fault == "duplicate":
+                query += (
+                    " UNION ALL SELECT * FROM read_parquet(?,hive_partitioning=false)"
+                )
+                params += [str(target)]
+            execute(
+                con, f"COPY ({query}) TO ? (FORMAT PARQUET)", params + [str(target)]
+            )
+    result = run_cleanup(ready, "week", raise_on_error=False)
+    assert not result.success and not observations(ready, result.run_id, RESULT_KEY)
     assert (
-        origin["items"][(freq, period)]["rows"] == 0
-        and origin["items"][(freq, period)]["source_asof"] is None
+        latest_retirement_result(ready.instance, "week") == set()
+        and snapshot(ready.market.root / "raw") == raw_before
     )
-    name = "weekly" if freq == "week" else "monthly"
-    silver = ready.defs.resolve_job_def(
-        f"silver_stock_{name}_update_job"
-    ).execute_in_process(
+
+
+def test_raw_alone_non_daily_and_unbound_silver_cannot_trigger(ready):
+    context = NS(
         instance=ready.instance,
-        partition_key=period,
-        run_config={
-            "ops": {
-                f"silver_stock_{name}": {
-                    "config": {"intent": "update", "source_completion": ref}
-                }
-            }
-        },
+        dagster_run=ready.instance.get_run_by_id(ready.raw["week"].run_id),
     )
-    assert silver.success
-    from orchestrator.defs.run_contracts.stock_period_silver import target_path
-
-    assert price_rows(ready.market, target_path(ready.market.root, freq, period)) == {}
-
-
-def test_candidate_scans_and_plan_persistence_are_frequency_bounded(ready, monkeypatch):
-    count = cleanup.count_retirement_rows
-    assemble = cleanup.assemble_retirement_period
-    scans = []
-    units = []
-
-    def counted(root, freq, codes, **kwargs):
-        scans.append(freq)
-        return count(root, freq, codes, **kwargs)
-
-    def checked(**kwargs):
-        units.append(kwargs["freq"])
-        run = ready.instance.get_runs(
-            filters=dg.RunsFilter(statuses=[dg.DagsterRunStatus.STARTED]), limit=1
-        )[0]
-        observations = ready.instance.get_records_for_run(
-            run.run_id, of_type=DagsterEventType.ASSET_OBSERVATION
-        ).records
-        plans = [
-            r.asset_observation.metadata[WORK_KEY].value
-            for r in observations
-            if WORK_KEY in r.asset_observation.metadata
-        ]
-        assert (
-            len(plans) == 1
-            and plans[0]["freq"] == "week"
-            and plans[0]["periods"] == ready.affected["week"]
+    assert isinstance(
+        cleanup.evaluate_retirement_sensor(context, ready.market.resource),
+        dg.SkipReason,
+    )
+    run = ready.instance.get_run_by_id(ready.silver["week"].run_id)
+    for intent in [
+        "bootstrap",
+        "factor_repair",
+        "closed_period",
+        "history_maintenance",
+    ]:
+        fake = NS(
+            job_name=run.job_name,
+            status=run.status,
+            run_id=run.run_id,
+            run_config={"ops": {asset_name("week"): {"config": {"intent": intent}}}},
         )
-        return assemble(**kwargs)
+        assert isinstance(
+            cleanup.evaluate_retirement_sensor(
+                NS(instance=ready.instance, dagster_run=fake), ready.market.resource
+            ),
+            dg.SkipReason,
+        )
+    from orchestrator.defs.assets.stock_weekly import silver_stock_weekly
 
-    monkeypatch.setattr(cleanup, "count_retirement_rows", counted)
-    monkeypatch.setattr(cleanup, "assemble_retirement_period", checked)
-    from orchestrator.defs.io import stock_period_raw as io
-
-    monkeypatch.setattr(io, "read_json", lambda *a: pytest.fail("old control JSON"))
-    monkeypatch.setattr(
-        io, "assemble", lambda *a, **k: pytest.fail("old mixed assembler")
-    )
-    for file in ["baseline.json", "daily.json"]:
-        (ready.market.staging / "stock_period" / file).write_text("invalid old control")
-    assert (
-        run_cleanup(ready, "week").success
-        and scans == ["week", "week"]
-        and units == ["week"] * 3
-    )
-
-
-def test_raw_success_without_original_checks_does_not_submit(ready):
-    from orchestrator.defs.assets.stock_weekly import (
-        raw_tushare_stk_period_bar_adj_week,
-    )
-
-    job = dg.define_asset_job("raw_stk_period_bar_adj_week_update_job")
-    definitions = dg.Definitions(
-        assets=[raw_tushare_stk_period_bar_adj_week],
+    job = dg.define_asset_job("silver_stock_weekly_update_job")
+    defs = dg.Definitions(
+        assets=[silver_stock_weekly],
         jobs=[job],
         resources={"lake_root": ready.market.resource},
     )
-    result = definitions.resolve_job_def(job.name).execute_in_process(
-        instance=ready.instance,
-        partition_key="2026-11-13",
-        run_config={
-            "ops": {
-                "raw_tushare_stk_period_bar_adj_week": {
-                    "config": {"automatic_intent_date": D}
-                }
-            }
-        },
+    result = defs.resolve_job_def(job.name).execute_in_process(
+        instance=ready.instance, partition_key="2026-11-13", run_config=run.run_config
     )
     assert result.success
-    decision = cleanup.evaluate_retirement_sensor(
-        NS(
-            instance=ready.instance,
-            dagster_run=ready.instance.get_run_by_id(result.run_id),
-        ),
-        ready.market.resource,
-    )
-    assert isinstance(decision, dg.SkipReason)
-
-
-@pytest.mark.parametrize(
-    "intent", ["closed_period", "factor_repair", "retirement_cleanup"]
-)
-def test_sensor_rejects_non_daily_and_recursive_notifications(ready, intent):
-    run = NS(
-        job_name="raw_stk_period_bar_adj_week_update_job",
-        run_config={
-            "ops": {
-                "raw_tushare_stk_period_bar_adj_week": {
-                    "config": {"automatic_intent_date": D, "intent": intent}
-                }
-            }
-        },
-    )
     assert isinstance(
         cleanup.evaluate_retirement_sensor(
-            NS(instance=ready.instance, dagster_run=run), ready.market.resource
-        ),
-        dg.SkipReason,
-    )
-    run = NS(job_name=JOB_NAME)
-    assert isinstance(
-        cleanup.evaluate_retirement_sensor(
-            NS(instance=ready.instance, dagster_run=run), ready.market.resource
+            NS(
+                instance=ready.instance,
+                dagster_run=ready.instance.get_run_by_id(result.run_id),
+            ),
+            ready.market.resource,
         ),
         dg.SkipReason,
     )
 
 
-@pytest.mark.parametrize("had_prior_work", [False, True])
-def test_reexecution_skips_ancestors_without_work_scope(
-    ready, monkeypatch, had_prior_work
-):
-    publish = cleanup.publish_period
-    load = cleanup.load_confirmed_retirements
-    seen = []
-    if had_prior_work:
-
-        def fault(item, **kwargs):
-            seen.append(item["period"])
-            if len(seen) == 2:
-                raise RuntimeError("partial write")
-            return publish(item, **kwargs)
-
-        monkeypatch.setattr(cleanup, "publish_period", fault)
-    else:
-        monkeypatch.setattr(
+def test_other_frequency_old_raw_failure_and_idempotent_repeat(ready):
+    with pytest.MonkeyPatch.context() as m:
+        m.setattr(
             cleanup,
-            "load_confirmed_retirements",
-            lambda *a: (_ for _ in ()).throw(RuntimeError("before scope")),
+            "assemble_retirement_period",
+            lambda *a, **kw: (_ for _ in ()).throw(RuntimeError("fault")),
         )
-    first = run_cleanup(ready, "week", raise_on_error=False)
-    assert not first.success
-    monkeypatch.setattr(
-        cleanup,
-        "load_confirmed_retirements",
-        lambda *a: (_ for _ in ()).throw(RuntimeError("intermediate before scope")),
+        assert not run_cleanup(ready, "month", raise_on_error=False).success
+
+    @dg.job(name="raw_stock_period_retirement_cleanup_job")
+    def legacy_job():
+        pass
+
+    legacy = ready.instance.create_run_for_job(
+        job_def=legacy_job,
+        tags={FREQUENCY_TAG: "week"},
     )
-    middle = run_cleanup(ready, "week", parent=first.run_id, raise_on_error=False)
-    assert not middle.success
-    monkeypatch.setattr(cleanup, "publish_period", publish)
-    monkeypatch.setattr(cleanup, "load_confirmed_retirements", load)
-    last = run_cleanup(ready, "week", parent=middle.run_id)
+    ready.instance.report_run_failed(legacy)
+    assert run_cleanup(ready, "week").success
+    before = snapshot(ready.market.root)
+    again = run_cleanup(ready, "week")
     assert (
-        last.success and result_metadata(ready, last.run_id, "week")["file_count"] == 3
+        result_metadata(ready, again.run_id, "week")["file_count"] == 0
+        and snapshot(ready.market.root) == before
     )
-    assert result_metadata(ready, last.run_id, "week")["rewritten_file_count"] == (
-        2 if had_prior_work else 3
+    assert latest_retirement_result(ready.instance, "week") == {C, B}
+
+
+def test_result_cumulative_and_one_indexed_observation(ready, monkeypatch):
+    assert run_cleanup(ready, "week", config=configuration(ready, "week", [C])).success
+    assert run_cleanup(ready, "week", config=configuration(ready, "week", [B])).success
+    monkeypatch.setattr(
+        ready.instance,
+        "get_records_for_run",
+        lambda *a, **kw: pytest.fail("must not scan history"),
+    )
+    assert latest_retirement_result(ready.instance, "week") == {C, B}
+
+
+def test_new_definitions_stopped_and_legacy_removed(ready):
+    sensor = silver_stock_period_retirement_cleanup_job_sensor
+    assert sensor.default_status == dg.DefaultSensorStatus.STOPPED and set(
+        sensor.required_resource_keys
+    ) == {"lake_root"}
+    base = Path(cleanup.__file__).parent
+    for directory, name in [
+        ("jobs", "raw_stock_period_retirement_cleanup"),
+        ("ops", "raw_stock_period_retirement_cleanup"),
+        ("sensors", "raw_stock_period_retirement_cleanup_job_sensor"),
+    ]:
+        assert not (base / directory / (name + ".py")).exists()
+    assert not hasattr(
+        __import__(
+            "orchestrator.defs.io.stock_period_raw", fromlist=["count_retirement_rows"]
+        ),
+        "count_retirement_rows",
     )
 
 
 @pytest.mark.parametrize(
-    "fault", ["missing", "passed", "version", "freq", "hash", "nonblocking_failure"]
+    "fault", ["missing", "version", "freq", "hash", "producer", "periods", "old_raw"]
 )
-def test_latest_success_with_invalid_result_cannot_be_treated_as_empty(ready, fault):
-    from dagster._core.definitions.asset_checks.asset_check_evaluation import (
-        AssetCheckEvaluation,
-    )
-
+def test_invalid_success_result_does_not_skip_retirements(ready, fault):
     first = run_cleanup(ready, "week")
-    assert first.success
-    metadata = result_metadata(ready, first.run_id, "week")
+    meta = result_metadata(ready, first.run_id, "week")
 
     @dg.op(out={})
-    def wrong_result(context):
-        # Deliberately invalid native producer; proves the reader rejects bad evidence.
-        from orchestrator.defs.run_contracts.stock_period_delivery import (
-            period_run_tags,
-        )
-
-        context.instance.add_run_tags(
-            context.run_id,
-            period_run_tags(business_date=D, kind="retirement_cleanup", freq="week"),
-        )
+    def bad(context):
+        context.instance.add_run_tags(context.run_id, {FREQUENCY_TAG: "week"})
         if fault == "missing":
             return
-        meta = {**metadata, "producer_run_id": context.run_id}
+        result = {**meta, "producer_run_id": context.run_id}
         if fault == "version":
-            meta["version"] = "invalid"
+            result["version"] = "invalid"
         if fault == "freq":
-            meta["freq"] = "month"
+            result["freq"] = "month"
         if fault == "hash":
-            meta["cleared_codes_hash"] = "invalid"
-        yield AssetCheckEvaluation(
-            asset_key=dg.AssetKey("raw_tushare_stk_period_bar_adj_week"),
-            check_name=retirement_result_check_name("week"),
-            passed=fault not in ("passed", "nonblocking_failure"),
-            blocking=fault != "nonblocking_failure",
-            partition="2026-11-13",
-            metadata=meta,
+            result["cleared_codes_hash"] = "invalid"
+        if fault == "producer":
+            result["producer_run_id"] = first.run_id
+        if fault == "periods":
+            result["periods_hash"] = "invalid"
+        asset = dg.AssetKey(
+            "raw_tushare_stk_period_bar_adj_week"
+            if fault == "old_raw"
+            else asset_name("week")
+        )
+        yield dg.AssetObservation(
+            asset_key=asset, metadata={RESULT_KEY: dg.MetadataValue.json(result)}
         )
 
     @dg.job(name=JOB_NAME)
-    def invalid_result_job():
-        wrong_result()
+    def invalid():
+        bad()
 
-    result = invalid_result_job.execute_in_process(
-        instance=ready.instance, raise_on_error=False
-    )
-    if fault == "passed":
-        # A real failed blocking check fails its run; the prior SUCCESS remains authoritative.
-        assert not result.success and latest_retirement_result(
-            ready.instance, "week"
-        ) == {C, B}
-        return
-    assert result.success
+    assert invalid.execute_in_process(instance=ready.instance).success
     with pytest.raises(ValueError, match="period_retirement_result"):
         latest_retirement_result(ready.instance, "week")
+    result = run_cleanup(
+        ready, "week", config=configuration(ready, "week", []), raise_on_error=False
+    )
+    assert not result.success and not observations(ready, result.run_id, RESULT_KEY)
 
 
-def test_result_lookup_reads_one_indexed_result_not_all_original_checks(
+def test_native_canceled_previous_run_blocks_and_original_rerun_succeeds(
     ready, monkeypatch
 ):
-    from contextlib import contextmanager
+    publish = cleanup.publish_period
 
-    from orchestrator.defs.asset_guards import stock_period_retirement as guard
+    def canceled(item, **kw):
+        publish(item, **kw)
+        raise RuntimeError("cancel after real committed file")
 
-    assert run_cleanup(ready, "week").success
-    get_runs = ready.instance.get_run_records
-    connection_ = ready.instance.event_log_storage.index_connection
-    limits = []
-    queries = []
-
-    def runs(**kwargs):
-        limits.append(kwargs["limit"])
-        assert kwargs["order_by"] == "end_time" and not kwargs["ascending"]
-        return get_runs(**kwargs)
-
-    @contextmanager
-    def connected():
-        with connection_() as con:
-
-            class Proxy:
-                def execute(self, statement):
-                    queries.append(statement)
-                    return con.execute(statement)
-
-            yield Proxy()
-
-    monkeypatch.setattr(ready.instance, "get_run_records", runs)
-    monkeypatch.setattr(ready.instance.event_log_storage, "index_connection", connected)
-    monkeypatch.setattr(
-        guard,
-        "native_run_records",
-        lambda *a: pytest.fail("unbounded original check read"),
+    with monkeypatch.context() as m:
+        m.setattr(cleanup, "publish_period", canceled)
+        failed = run_cleanup(ready, "week", raise_on_error=False)
+    ready.instance.report_run_canceled(ready.instance.get_run_by_id(failed.run_id))
+    assert (
+        ready.instance.get_run_by_id(failed.run_id).status
+        == dg.DagsterRunStatus.CANCELED
     )
+    before = snapshot(ready.market.root)
+    blocked = run_cleanup(
+        ready, "week", config=configuration(ready, "week", []), raise_on_error=False
+    )
+    assert not blocked.success and snapshot(ready.market.root) == before
+    assert run_cleanup(ready, "week", parent=failed.run_id).success
+
+
+def test_completion_order_controls_result_not_creation_order(ready):
+    first = run_cleanup(ready, "week", config=configuration(ready, "week", [C]))
+    second = run_cleanup(ready, "week", config=configuration(ready, "week", [B]))
     assert latest_retirement_result(ready.instance, "week") == {C, B}
-    assert limits == [1] and len(queries) == 1 and queries[0]._limit_clause.value == 1
-    params = queries[0].compile().params
-    assert retirement_result_check_name("week") in params.values()
+    from dagster._core.events import DagsterEvent
+    from dagster._core.events.log import EventLogEntry
 
-
-def test_cumulative_result_uses_completion_order_when_creation_order_differs(ready):
-    from dagster._core.definitions.job_base import InMemoryJob
-    from dagster._core.execution.api import execute_run
-
-    job = ready.defs.resolve_job_def(JOB_NAME)
-    pending = ready.instance.create_run_for_job(
-        job_def=job,
-        run_config=build_retirement_run_config(configuration(ready, "week", [C])),
-    )
-    assert run_cleanup(ready, "week", config=configuration(ready, "week", [B])).success
-    last = execute_run(InMemoryJob(job), pending, ready.instance, raise_on_error=True)
-    assert last.success
-    assert result_metadata(ready, last.run_id, "week")["cleared_codes"] == sorted(
-        [C, B]
-    )
-    assert latest_retirement_result(ready.instance, "week") == {C, B}
-
-
-def test_sensor_requires_only_its_own_raw_success(market):
-    write_retirement_facts(market)
-    with dg.DagsterInstance.local_temp(str(market.tmp / "instance")) as instance:
-        result = raw_job(market, instance, "week")
-        assert result.success
-        decision = cleanup.evaluate_retirement_sensor(
-            NS(instance=instance, dagster_run=instance.get_run_by_id(result.run_id)),
-            market.resource,
+    ready.instance.handle_new_event(
+        EventLogEntry(
+            error_info=None,
+            level=20,
+            user_message="late original completion",
+            run_id=first.run_id,
+            timestamp=time.time() + 1,
+            dagster_event=DagsterEvent(
+                event_type_value="PIPELINE_SUCCESS", job_name=JOB_NAME
+            ),
         )
-        assert isinstance(decision, dg.RunRequest)
+    )
+    assert latest_retirement_result(ready.instance, "week") == {C}
+    assert second.success
 
 
-def test_configuration_extra_and_private_resume_fields_are_rejected(ready):
-    from pydantic import ValidationError
+def test_real_process_exit_after_replace_reexecutes_complete_scope(ready):
+    import multiprocessing
+    import os
+    import signal
 
-    with pytest.raises(ValidationError):
-        StockPeriodRetirementCleanupConfig(
-            **configuration(ready, "week").model_dump(), execution_id="a" * 64
+    marker = ready.market.tmp / "committed_run"
+    raw_before = snapshot(ready.market.root / "raw")
+
+    def child():
+        with dg.DagsterInstance.local_temp(
+            str(ready.market.tmp / "instance"),
+            overrides={"telemetry": {"enabled": False}},
+        ) as instance:
+            ready.instance = instance
+            publish = cleanup.publish_period
+
+            def exit_after_replace(item, **kw):
+                value = publish(item, **kw)
+                run = instance.get_runs(
+                    filters=dg.RunsFilter(
+                        job_name=JOB_NAME, statuses=[dg.DagsterRunStatus.STARTED]
+                    ),
+                    limit=1,
+                )[0]
+                marker.write_text(run.run_id)
+                os.kill(os.getpid(), signal.SIGKILL)
+                return value
+
+            cleanup.publish_period = exit_after_replace
+            run_cleanup(ready, "week")
+
+    process = multiprocessing.get_context("fork").Process(target=child)
+    process.start()
+    process.join(30)
+    try:
+        assert process.exitcode == -signal.SIGKILL and marker.exists()
+        run_id = marker.read_text()
+        ready.instance.report_run_failed(ready.instance.get_run_by_id(run_id))
+        # Monitoring's terminal state is explicit; no worker auto-recovery.
+        assert not run_cleanup(
+            ready, "week", config=configuration(ready, "week", []), raise_on_error=False
+        ).success
+        rerun = run_cleanup(ready, "week", parent=run_id)
+        assert (
+            result_metadata(ready, rerun.run_id, "week")["periods"] == PERIODS["week"]
         )
+        assert result_metadata(ready, rerun.run_id, "week")["rewritten_file_count"] == 2
+        assert snapshot(ready.market.root / "raw") == raw_before
+    finally:
+        if process.is_alive():
+            process.kill()
+            process.join()
 
 
-def day_inputs(ready, day):
-    suspension = paths.silver_stock_suspend_daily_path(ready.market.root, day)
-    suspension.parent.mkdir(parents=True, exist_ok=True)
-    with connection(ready.market.tmp / "day_inputs") as con:
+def test_both_retirement_facts_and_confirmed_identity_are_required(ready):
+    with connection(ready.market.tmp / "contradiction") as con:
+        basic = paths.raw_stock_basic_path(ready.market.root)
+        life = paths.silver_stock_lifecycle_path(ready.market.root)
+        identity = paths.silver_stock_identity_map_path(ready.market.root)
         execute(
             con,
-            "COPY (SELECT NULL::VARCHAR ts_code,NULL::DATE trade_date,NULL::VARCHAR suspend_type,NULL::VARCHAR suspend_timing WHERE false) TO ? (FORMAT PARQUET)",
-            [str(suspension)],
+            "COPY (SELECT * REPLACE (CASE WHEN ts_code=? THEN 'L' ELSE list_status END AS list_status) FROM read_parquet(?)) TO ? (FORMAT PARQUET)",
+            [C, str(basic), str(basic)],
         )
         execute(
             con,
-            "COPY (SELECT 'SSE' exchange,d::DATE trade_date,true is_open,NULL::DATE pretrade_date "
-            "FROM (VALUES ('2026-11-09'),('2026-11-10'),('2026-11-11')) v(d)) TO ? (FORMAT PARQUET)",
-            [str(paths.silver_trade_calendar_path(ready.market.root))],
+            "COPY (SELECT * REPLACE (CASE WHEN ts_code=? THEN 'L' ELSE list_status END AS list_status) FROM read_parquet(?)) TO ? (FORMAT PARQUET)",
+            [B, str(life), str(life)],
         )
-
-
-def run_day_raw(ready, monkeypatch, day, codes):
-    class Wire:
-        def __init__(self, **kwargs):
-            pass
-
-        def __call__(self, params):
-            rows = [
-                literal_row(
-                    code,
-                    params["trade_date"],
-                    params["freq"],
-                    asof=day.replace("-", ""),
-                    qfq="15.0000",
-                )
-                for code in codes
-            ]
-            from orchestrator.defs.run_contracts.stock_period import FIELDS
-
-            return json.dumps(
-                {"code": 0, "data": {"fields": list(FIELDS), "items": rows}}
-            ).encode()
-
-    monkeypatch.setattr(stock_period_source, "HttpPage", Wire)
-    day_inputs(ready, day)
-    result = ready.defs.resolve_job_def(
-        "raw_stk_period_bar_adj_week_update_job"
-    ).execute_in_process(
-        instance=ready.instance,
-        partition_key="2026-11-13",
-        run_config={
-            "ops": {
-                "raw_tushare_stk_period_bar_adj_week": {
-                    "config": {"automatic_intent_date": day}
-                }
-            }
-        },
-    )
-    assert result.success
-    return result
-
-
-def test_previous_business_day_completed_codes_are_not_submitted_again(
-    ready, monkeypatch
-):
-    day = "2026-11-09"
-    raw = run_day_raw(ready, monkeypatch, day, [A, I, "000002.SZ", "000004.SZ"])
-    config = StockPeriodRetirementCleanupConfig(
-        business_date=day,
-        freq="week",
-        stock_codes=[C],
-        codes_hash=codes_hash([C]),
-        source_completion=reference_for(ready.instance, raw.run_id),
-    )
-    result = run_cleanup(ready, "week", config=config)
-    assert result.success
-    assert result_metadata(ready, result.run_id, "week")["business_date"] == day
-    request = cleanup.evaluate_retirement_sensor(
-        NS(
-            instance=ready.instance,
-            dagster_run=ready.instance.get_run_by_id(ready.raw["week"].run_id),
-        ),
-        ready.market.resource,
-    )
-    assert isinstance(request, dg.RunRequest)
-    assert request.run_config["ops"]["raw_stock_period_retirement_cleanup_op"][
-        "config"
-    ]["stock_codes"] == [B]
-
-
-def test_late_retirement_is_processed_after_next_days_raw_success(ready, monkeypatch):
-    assert run_cleanup(ready, "week").success
-    life = paths.silver_stock_lifecycle_path(ready.market.root)
-    basic = paths.raw_stock_basic_path(ready.market.root)
-    with connection(ready.market.tmp / "late_retired") as con:
-        con.execute(
-            "CREATE TEMP TABLE life AS SELECT * FROM read_parquet(?)", [str(life)]
+        execute(
+            con,
+            "COPY (SELECT * REPLACE (CASE WHEN source_ts_code='000004.SZ' THEN 'unknown' ELSE confidence END AS confidence) FROM read_parquet(?)) TO ? (FORMAT PARQUET)",
+            [str(identity), str(identity)],
         )
-        con.execute(
-            "UPDATE life SET list_status='D',delist_date=DATE '2026-11-11' WHERE ts_code='000003.SZ'"
-        )
-        execute(con, "COPY life TO ? (FORMAT PARQUET)", [str(life)])
-        con.execute(
-            "CREATE TEMP TABLE basic AS SELECT * FROM read_parquet(?)", [str(basic)]
-        )
-        con.execute("INSERT INTO basic VALUES ('000003.SZ','D')")
-        execute(con, "COPY basic TO ? (FORMAT PARQUET)", [str(basic)])
-    raw = run_day_raw(
-        ready, monkeypatch, "2026-11-11", [A, N, "000002.SZ", "000005.SZ"]
-    )
-    request = cleanup.evaluate_retirement_sensor(
-        NS(
-            instance=ready.instance,
-            dagster_run=ready.instance.get_run_by_id(raw.run_id),
-        ),
-        ready.market.resource,
-    )
-    values = request.run_config["ops"]["raw_stock_period_retirement_cleanup_op"][
-        "config"
-    ]
-    assert values["business_date"] == "2026-11-11" and values["stock_codes"] == [I]
-    output = run_cleanup(
-        ready, "week", config=StockPeriodRetirementCleanupConfig(**values)
-    )
-    assert output.success and latest_retirement_result(ready.instance, "week") == {
-        C,
-        B,
-        I,
-    }
-
-
-def test_nonzero_final_residual_cannot_publish_completion_or_clear_codes(
-    ready, monkeypatch
-):
-    count = cleanup.count_retirement_rows
-    calls = []
-
-    def with_residual(*args, **kwargs):
-        calls.append(1)
-        value = count(*args, **kwargs)
-        if len(calls) == 2:
-            value[ready.affected["week"][-1]] = 1
-        return value
-
-    monkeypatch.setattr(cleanup, "count_retirement_rows", with_residual)
-    result = run_cleanup(ready, "week", raise_on_error=False)
-    assert not result.success and completion(ready, result.run_id) is None
-    assert latest_retirement_result(ready.instance, "week") == set()
+    assert cleanup.load_confirmed_retirements(ready.market.root) == {}
+    before = snapshot(ready.market.root)
+    assert not run_cleanup(ready, "week", raise_on_error=False).success
+    assert snapshot(ready.market.root) == before
 
 
 @pytest.mark.parametrize("freq", ["week", "month"])
-def test_real_retry_delivery_drives_complete_silver_range(ready, monkeypatch, freq):
-    # Independent audit regression: real parent lineage must drive Silver's full range.
-    from orchestrator.defs.run_contracts.stock_period_silver import (
-        target_path as silver_path,
+def test_real_non_daily_silver_success_does_not_trigger_cleanup(ready, freq):
+    run = ready.instance.get_run_by_id(ready.historical_silver[freq].run_id)
+    assert run.status == dg.DagsterRunStatus.SUCCESS
+    assert run.run_config["ops"][asset_name(freq)]["config"]["intent"] == "update"
+    assert isinstance(
+        cleanup.evaluate_retirement_sensor(
+            NS(instance=ready.instance, dagster_run=run), ready.market.resource
+        ),
+        dg.SkipReason,
     )
 
-    original = cleanup.publish_period
-    seen = []
 
-    def interrupt(item, **kwargs):
-        seen.append(item["period"])
-        if len(seen) == 2:
-            raise RuntimeError("audit interruption after first completed file")
-        return original(item, **kwargs)
+def test_actual_canceling_state_interrupts_sql_and_blocks_new_request(
+    ready, monkeypatch
+):
+    raw_before = snapshot(ready.market.root / "raw")
+    elapsed = []
 
-    monkeypatch.setattr(cleanup, "publish_period", interrupt)
-    failed = run_cleanup(ready, freq, raise_on_error=False)
-    assert not failed.success
-    unchanged = raw_path(ready.market.root, freq, ready.affected[freq][0])
-    version = file_version(unchanged)
-    monkeypatch.setattr(cleanup, "publish_period", original)
-    retried = run_cleanup(ready, freq, parent=failed.run_id)
-    assert retried.success
-    assert file_version(unchanged) == version
-    ref = completion(ready, retried.run_id)
-    origin = read_completion(ready.instance, ref, root=ready.market.root)
-    assert sorted(period for _, period in origin["items"]) == ready.affected[freq]
-    # Pre-2014 is intentionally outside the existing Silver contract.
-    expected = (
-        ["2020-01-31", "2026-11-06"] if freq == "week" else ["2020-01", "2026-10"]
+    def long_sql(con, unit, codes, **kw):
+        run = ready.instance.get_runs(
+            filters=dg.RunsFilter(
+                job_name=JOB_NAME, statuses=[dg.DagsterRunStatus.STARTED]
+            ),
+            limit=1,
+        )[0]
+        ready.instance.report_run_canceling(run)
+        started = time.monotonic()
+        try:
+            execute(
+                con,
+                "SELECT sum(i%97) FROM range(1000000000000) t(i)",
+                cancel=kw["cancel"],
+            )
+        finally:
+            elapsed.append(time.monotonic() - started)
+        pytest.fail("canceled SQL must not finish")
+
+    with monkeypatch.context() as m:
+        m.setattr(cleanup, "assemble_retirement_period", long_sql)
+        failed = run_cleanup(ready, "week", raise_on_error=False)
+    assert not failed.success and elapsed
+    assert not observations(ready, failed.run_id, RESULT_KEY)
+    from orchestrator.defs.asset_guards.stock_period_retirement import (
+        require_previous_retirement_complete,
     )
-    name = "weekly" if freq == "week" else "monthly"
-    silver = ready.defs.resolve_job_def(
-        f"silver_stock_{name}_update_job"
-    ).execute_in_process(
-        instance=ready.instance,
-        partition_key=expected[-1],
-        run_config={
-            "ops": {
-                f"silver_stock_{name}": {
-                    "config": {"intent": "update", "source_completion": ref}
-                }
-            }
-        },
-    )
-    assert silver.success
-    mats = ready.instance.get_records_for_run(
-        silver.run_id, of_type=dg.DagsterEventType.ASSET_MATERIALIZATION
-    ).records
-    assert sorted(r.asset_materialization.partition for r in mats) == expected
-    for period in expected:
-        assert price_rows(
-            ready.market, silver_path(ready.market.root, freq, period)
-        ) == {A: Decimal(4)}
 
-
-def test_corrupt_hit_file_does_not_clear_or_publish_success(ready):
-    path = raw_path(ready.market.root, "week", "2020-01-31")
-    with connection(ready.market.tmp / "audit-corrupt") as con:
-        # Wrong frequency on a physical hit exercises the original full-file validation.
-        write_raw(
-            con, path, [literal_row("920799.BJ", "20200131", "month", asof="20261110")]
+    with pytest.raises(dg.Failure) as error:
+        require_previous_retirement_complete(
+            ready.instance, NS(parent_run_id=None), configuration(ready, "week", [])
         )
-    result = run_cleanup(ready, "week", raise_on_error=False)
-    assert not result.success
-    assert completion(ready, result.run_id) is None
-    assert latest_retirement_result(ready.instance, "week") == set()
+    assert error.value.allow_retries is False
+    assert error.value.metadata["original_failed_run_id"].value == failed.run_id
+    assert snapshot(ready.market.root / "raw") == raw_before
+    assert run_cleanup(ready, "week", parent=failed.run_id).success
+    print(json.dumps({"cancel_sql_seconds": elapsed[0]}))

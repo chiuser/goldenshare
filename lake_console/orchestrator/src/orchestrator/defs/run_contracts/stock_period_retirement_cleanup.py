@@ -12,8 +12,12 @@ from orchestrator.defs.stock_daily_qfq import (
     gold_stock_daily_qfq_factor_repair_codes_hash,
 )
 
-JOB_NAME = "raw_stock_period_retirement_cleanup_job"
-OP_NAME = "raw_stock_period_retirement_cleanup_op"
+JOB_NAME = "silver_stock_period_retirement_cleanup_job"
+OP_NAME = "silver_stock_period_retirement_cleanup_op"
+WORK_KEY = "goldenshare/silver_retirement_work"
+RESULT_KEY = "goldenshare/silver_retirement_result"
+WORK_VERSION = "stock-period-silver-retirement-work@1"
+RESULT_VERSION = "stock-period-silver-retirement-result@1"
 
 
 class StockPeriodRetirementCleanupConfig(dg.Config):
@@ -23,6 +27,7 @@ class StockPeriodRetirementCleanupConfig(dg.Config):
     stock_codes: list[str]
     codes_hash: str
     source_completion: dict[str, str]
+    source_silver_run_id: str
 
     def validate_intent(self):
         iso_business_date(self.business_date)
@@ -33,12 +38,9 @@ class StockPeriodRetirementCleanupConfig(dg.Config):
         ):
             raise ValueError("period_retirement_codes_hash_mismatch")
         validate_delivery_ref(self.source_completion, self.freq)
+        from orchestrator.defs.run_contracts.stock_period_silver import canonical_run_id
 
-
-def retirement_result_check_name(freq):
-    from orchestrator.defs.run_contracts.stock_period import frequency
-
-    return f"raw_tushare_stk_period_bar_adj_{frequency(freq)}_retirement_cleanup_result_check"
+        canonical_run_id(self.source_silver_run_id)
 
 
 def build_retirement_run_config(config):

@@ -19,6 +19,139 @@ from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 from orchestrator.defs.run_contracts.stock_period_silver import canonical_run_id
 
 
+def count_retirement_rows(
+    root, freq, codes, *, work, cancel=lambda: False, progress=lambda _: None
+):
+    """Read only codes from this frequency's existing canonical Silver files."""
+    from orchestrator.defs import paths
+    from orchestrator.defs.io.stock_period_raw import connection, execute
+    from orchestrator.defs.run_contracts.stock_period_silver import (
+        period_key,
+        target_path,
+    )
+
+    if not codes:
+        return {}
+    path_for = (
+        paths.silver_stock_weekly_path
+        if freq == "week"
+        else paths.silver_stock_monthly_path
+    )
+    dataset = path_for(root, paths.PATH_TEMPLATE_PARTITION_KEY).parent.parent
+    pattern = (
+        "week_end=*/part-000.parquet" if freq == "week" else "month=*/part-000.parquet"
+    )
+    files = {}
+    for path in sorted(dataset.glob(pattern)):
+        period = path.parent.name.split("=", 1)[1]
+        try:
+            period_key(period, freq)
+        except ValueError:
+            continue
+        if path == target_path(root, freq, period):
+            files[str(path)] = period
+    if not files:
+        return {}
+    with connection(work) as con:
+        counts = dict(
+            execute(
+                con,
+                "SELECT filename,count(*) FILTER(WHERE list_contains(?,ts_code)) "
+                "FROM read_parquet(?,hive_partitioning=false,filename=true) GROUP BY filename",
+                [list(codes), list(files)],
+                cancel=cancel,
+                progress=progress,
+                stage="silver_retirement_code_counts",
+            ).fetchall()
+        )
+    return {period: counts.get(path, 0) for path, period in files.items()}
+
+
+def assemble_retirement_period(
+    con, unit, codes, *, work, cancel=lambda: False, progress=lambda _: None
+):
+    """Delete approved codes, preserve every other value, and run the original Silver validation."""
+    from orchestrator.defs.io.stock_period_raw import (
+        execute,
+        file_digest,
+        storage_record,
+        storage_reserve,
+    )
+    from orchestrator.defs.run_contracts.stock_period_silver import COLUMNS
+    from orchestrator.defs.stock_period_silver import (
+        assert_schema,
+        select_period,
+        validate_projection,
+    )
+
+    target = safe_path(unit["target"])
+    before = file_version(target)
+    execute(
+        con,
+        "CREATE OR REPLACE TEMP TABLE retirement_prior AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+        [str(target)],
+        cancel=cancel,
+    )
+    assert_schema(con, "retirement_prior")
+    rows_before, removed = execute(
+        con,
+        "SELECT count(*),count(*) FILTER(WHERE list_contains(?,ts_code)) FROM retirement_prior",
+        [codes],
+        cancel=cancel,
+    ).fetchone()
+    path = target
+    if removed:
+        path = durable_directory(work) / "candidate.parquet"
+        storage_reserve(before[2], spill=True)
+        execute(
+            con,
+            f"COPY (SELECT {COLUMNS} FROM retirement_prior WHERE NOT list_contains(?,ts_code) ORDER BY ts_code) "
+            "TO ? (FORMAT PARQUET,COMPRESSION ZSTD)",
+            [codes, str(path)],
+            cancel=cancel,
+            progress=progress,
+            stage="silver_retirement_candidate",
+        )
+        storage_record(path)
+    select_period(con, unit["source"], unit["freq"], unit["period"], asof=unit["asof"])
+    rows = validate_projection(con, path, unit["freq"], unit["period"])
+    execute(
+        con,
+        f"CREATE OR REPLACE TEMP TABLE retirement_kept AS SELECT {COLUMNS} FROM retirement_prior "
+        "WHERE NOT list_contains(?,ts_code)",
+        [codes],
+        cancel=cancel,
+    )
+    differences = execute(
+        con,
+        f"SELECT "
+        f"(SELECT count(*) FROM ((SELECT {COLUMNS} FROM retirement_kept) EXCEPT ALL (SELECT {COLUMNS} FROM silver_output)))+"
+        f"(SELECT count(*) FROM ((SELECT {COLUMNS} FROM silver_output) EXCEPT ALL (SELECT {COLUMNS} FROM retirement_kept)))",
+        cancel=cancel,
+    ).fetchone()[0]
+    residual = execute(
+        con,
+        "SELECT count(*) FROM silver_output WHERE list_contains(?,ts_code)",
+        [codes],
+        cancel=cancel,
+    ).fetchone()[0]
+    if differences or residual or rows_before - rows != removed:
+        raise ValueError("silver_retirement_other_rows_changed")
+    record = {
+        **unit,
+        "target_preimage": before,
+        "rows_before": rows_before,
+        "removed_rows": removed,
+        "rewritten": bool(removed),
+        "rows": rows,
+        "sha256": file_digest(path),
+        "version": before,
+    }
+    if removed:
+        record.update(candidate=str(path), candidate_version=file_version(path))
+    return record
+
+
 def read_json(path):
     return json.loads(safe_path(path).read_text())
 
@@ -52,7 +185,7 @@ def validate_roots(lake, staging):
 
 @contextmanager
 def writer_lock(staging):
-    # Kept outside the datasets; every Silver writer uses the same independent lock.
+    # Existing bootstrap and normal updates use this lock; DG serializes retirement cleanup.
     path = safe_path(
         durable_directory(Path(staging) / "stock_period_silver") / "writer.lock"
     )

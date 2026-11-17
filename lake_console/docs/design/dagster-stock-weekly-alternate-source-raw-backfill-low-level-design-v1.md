@@ -1,5 +1,7 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
+**2026-11-17退市保留代码已实现并通过隔离验证，尚未正式切换。** 目标为保留股票复权周线、月线Raw历史，直接清理Silver中的确认退市股票；过去已删除数据保持现状，不恢复、不补数。当前实现、完整改动及验收见[第13.23节](#stock-period-silver-retirement-design)。本节替代第13.8节及其他旧条款中的Raw退市删除目标；旧实现、测试和正式执行结果按原日期保留。文档更新不代表旧任务已停止或新任务已生效。
+
 **2026-11-16跨日原日更日期校验修复已完成开发与隔离验证。** 当前业务日期口径按[第13.22节](#stock-period-cross-day-daily-date-fix)修正。11月12日交付记录保留其当时范围，不作为原日更跨日重跑已覆盖的证明；本次未部署或正式运行，数据写入另按明确授权执行。
 
 **2026-11-12 六阶段开发、隔离验收及正式切换已完成，11月11日股票复权周/月线欠账已补齐。** 第6阶段实现及独立审计见[第13.19节](#stock-period-stage-six-results)，正式九笔运行、文件验收和六条sensor最终状态见[第13.21节](#stock-period-formal-cutover-results)。第5阶段源码提交为`202739e60`，第6阶段实施设计提交为`982619968`。新流程以[第13节](#stock-period-daily-then-history-lld)为准，第6阶段执行细则见[第13.18节](#stock-period-stage-six-execution)。第1至12节记录切换前实现和执行结果。第13节继续引用其中有效的字段、日期和文件规则。旧删除重建、续跑、建库交接及补事件命令只用于追溯，切换后按第13节操作。
@@ -2696,6 +2698,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 ### 13.8 退市清理由独立job按频率触发
 
+**旧设计及切换前正式实现说明。** 本节描述删除Raw后交付Silver的旧实现。2026-11-17确认的目标已改为保留Raw、直接清理Silver，改造以[第13.23节](#stock-period-silver-retirement-design)为准，代码已隔离验证、尚未正式切换；本节不再授权新增Raw退市删除。
+
 管理员确认日更完成后独立清理。周Raw当天更新成功后只触发周线清理，月Raw当天更新成功后只触发月线清理，两频各自执行。这里的日更成功指对应Raw job运行成功、实际当期文件交付完整且原检查通过。
 
 **现有方式与触发。** 复用[股票日线前复权回刷sensor](../../orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py)的`run_status_sensor(SUCCESS)`模式。该sensor只监听指定日更job，读取触发运行的业务日期，核对上游检查及所需范围后返回带去重键的`RunRequest`。周月线新增一个同样方式的sensor，监听`raw_stk_period_bar_adj_week_update_job`和`raw_stk_period_bar_adj_month_update_job`。只接受当期日更意图，频率由触发job确定，业务日期取Raw配置的`automatic_intent_date`。周五分区和月份用于核对对应文件坐标。延迟执行仍使用上游业务日期。同日指定周期补齐、因子回刷和清理自身成功均不递归触发清理。
@@ -3839,3 +3843,195 @@ CodeGraph explore/callers/impact及当前源码确认`check_period_rows`只有�
 整组回归首次为496通过、5失败、2跳过（132.65秒）；5项失败均来自我从标准输入启动pytest，macOS子进程无法加载`<stdin>`入口，不能算作业务失败或通过。按项目标准`.venv/bin/python3 -B -m pytest`精确重跑这5项，全部通过（4.31秒），并核对失败与重跑通过的测试身份集合完全相同，故最终累计501项通过，不把重复执行次数相加。该次重跑只使用既有临时本机HTTP服务；全部测试均未访问真实Tushare、正式DG或正式Lake，PostgreSQL实验未启用，不声称正式环境验收通过。
 
 本轮只完成代码与原设计文档修复、消费者审计及隔离验证，未部署、重载/重启、触发正式任务或写入正式数据。有效证据落本节，本任务工程外临时目录及其中过程实例、候选、spill和测试日志已清理，工程内未新增临时附件。
+
+
+<a id="stock-period-silver-retirement-design"></a>
+
+### 13.23 保留Raw历史，直接清理Silver中的确认退市股票（2026-11-17，已实现并隔离验证，未正式切换）
+
+#### 13.23.1 目标、范围与当前状态
+
+管理员确认：股票复权周线、月线Raw保留已经取得并落湖的历史；确认退市后只从Silver删除该股票历史。过去已删除或未下载的Raw保持现状，不恢复、不补数。本步不扩下载对象、不改变源请求与准入、价格口径、21列、已有人工指定业务键维护或其他数据集规则。管理员最新确认：同频前次清理失败尚未补齐时，后续清理启动即失败，不自动补偿；原失败任务由管理员重跑补齐后再继续。该规则替代此前“次日不等待旧验收”的表述。对应[原方案第10.21节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-silver-retirement-plan)。
+
+以下第13.23.2至13.23.10节保留开工前的代码依据、已确认设计及审计纠偏。管理员随后已授权本步开发；当前dev-interface代码与隔离验收结果见第13.23.11节。正式切换、正式DG任务及Lake写入尚未授权，本轮均未执行。既有未提交内容原样保留，不把历史审计描述误写成正式运行现状。
+
+**本步运行前提（2026-11-17补核）。** 已只读核对/Users/congming/.goldenshare/dagster_home/dagster.yaml：run_coordinator为QueuedRunCoordinator，concurrency.runs.max_concurrent_runs=1。管理员明确所有任务均经DG执行，没有其他外部直接运行代码或改写文件的入口；新清理job只有一个op，内部逐文件串行处理。人工启动和sensor提交可同时进入队列，但不会同时执行。因此本步不新增文件锁、跨入口去重锁、外部脚本或绕过DG的执行方式，不在worker重复校验这个已保证的调度条件。后续设计与审计遵守[长期规范中的实际运行条件核对要求](../../orchestrator/CODING_STANDARDS.md#verify-execution-conditions-before-risk)：已排除的问题不另作特殊处理，不能只因实现中存在锁就认定新任务也需要锁。
+
+#### 13.23.2 当前实现审计及复用限制
+
+以下为开发前核对的实际行为及本步改动映射，路径相对于lake_console/orchestrator/src/orchestrator/defs；实现结果见第13.23.11节：
+
+| 当前位置 | 已核对的实际行为 | 本次处理 |
+| --- | --- | --- |
+| jobs/raw_stock_period_retirement_cleanup.py、ops/raw_stock_period_retirement_cleanup.py | job只装配op；op调用execute_retirement_cleanup | 替换为Silver层任务及op，旧入口不保留兼容调用 |
+| sensors/raw_stock_period_retirement_cleanup_job_sensor.py、stock_period_retirement_cleanup.evaluate_retirement_sensor | 监听两频Raw日更SUCCESS，核真实日更交付；取本频确认退市集合减去旧任务累计结果 | 改为监听两频Silver更新成功，并额外确认消费的是当期Raw日更；结果只查新Silver任务 |
+| stock_period_retirement_cleanup.load_confirmed_retirements | 股票基础Raw与生命周期均为D、人民币股票、身份confidence=confirmed；收集规范代码及确认别名，核参考文件版本 | 保留退市确认规则，不将换码、停牌、源缺行或未知身份当退市 |
+| stock_period_retirement_cleanup.execute_retirement_cleanup、io/stock_period_raw.count_retirement_rows/assemble_retirement_period | 本频Raw代码列统计，命中后读取21列删行；发布Raw物化、原检查及Raw完成通知 | 改为Silver文件统计及删除；删除这些仅供旧Raw退市路径使用的函数及调用，不改Raw日更/历史回刷的正常合并函数 |
+| asset_guards/stock_period_retirement.latest_retirement_result/parent_retirement_scope | 前者只查询本频SUCCESS，不会发现未补齐失败；后者按真实父运行读取原范围 | 同次迁移到新Silver任务、Silver资产及下文专用观察记录；新增worker启动检查，不能用“只看最新成功结果”代替失败检查；旧Raw结果只留历史 |
+| stock_period_silver.select_period | 使用当前生命周期与确认身份，限定L、人民币股票、上市周期及最新源版本，原21列投影；退市股票本已排除 | 保持此业务规则；直接删除存量Silver后仍须与该投影一致 |
+| stock_period_silver.validate_projection/current_validation、checks/stock_period_silver_checks.py | 三项原检查共用schema、键/周期及Raw投影比较；current_validation使用当前参考版本，旧Silver残留退市行会产生投影差异 | 复用原SQL及绑定要求，不把旧文件在删除前的预期不一致误当成禁止修复，也不以只数目标代码代替原检查 |
+| stock_period_silver.deliver_update_asset、io/stock_period_raw.publish_period、io/stock_period_silver.run_directory | 普通Silver日更实际经publish_period发布Silver目标；当前还取得共用writer及Silver writer_lock。io/stock_period_silver.publish另有state/checkpoint要求，主要用于首次建库 | 复用真正的日更候选、校验和publish_period；函数所在文件不决定写入层级。新清理依靠DG全局串行，不叠加这两把文件锁；既有普通更新和建库的锁本步不改 |
+| asset_guards/stock_period_delivery.silver_completion_consumed、stock_period_silver.evaluate_update_sensor | 正常消费结果按原成功运行及绑定检查确认，前者只比较历史记录元数据；sensor只消费Raw完成观察 | 保留正常Raw到Silver消费合同；新清理不得写Raw完成观察或触发第二次Silver更新，也不得因新清理物化出现而抹掉先前真实消费结果 |
+| run_contracts/stock_period_silver.py、paths.py、catalog/lake_assets.py | 两个Silver资产、原三项检查、21列及正式路径已固定；catalog目前只描述建库和Raw完整交付更新 | 不改资产key、字段类型、路径和原check名称；补齐catalog关于Silver独立退市清理的写入/事件说明 |
+
+已使用CodeGraph explore核对清理入口、调用链及测试引用，impact核对current_validation；再读上述实际SQL、发布和消费实现。索引对动态定义及通用同名符号的覆盖不足，已补做精确源码引用审计。直接代码消费者为本表所列入口、参数、文件IO、Silver检查/消费及catalog；测试涉及test_stock_period_retirement_cleanup_native.py、test_stock_period_workflow_integration.py、test_run_contract_static_gates.py及现有Silver/资产治理回归。本次无Prod、后端业务API或前端合同改动，不借此核验其他工程的股票范围。
+
+#### 13.23.3 入口、配置、去重和观察记录
+
+实现入口为silver_stock_period_retirement_cleanup_job、silver_stock_period_retirement_cleanup_op、silver_stock_period_retirement_cleanup_job_sensor，分别替换jobs/、ops/、sensors/下同名Raw文件。sensor target_layer改为SILVER，代码默认STOPPED。四个Raw/Silver正式资产及日更job、原三项Silver check保持原名，不新增资产或第二套同义check。
+
+| 运行参数 | 来源、默认与持久化 | 校验、消费者和生效方式 |
+| --- | --- | --- |
+| business_date、freq | 必填，无默认；从触发Silver运行及其真实Raw日更来源取得，保存在Dagster run_config | freq只允许week/month；日期是上游业务意图，不改为实际清理日；sensor、配置validator、worker与父运行核对共同消费 |
+| stock_codes、codes_hash | 必填，无默认；当前确认退市集合减新Silver累计完成集合，规范排序及摘要一并保存 | 执行前重核真实退市身份及摘要，不接受任意代码；无新增候选时允许空名单并记录本频结果 |
+| source_completion | 必填，无默认；仍表示触发Silver实际消费的Raw交付引用，保留原producer_run_id/freq/upstream_batch_id结构 | 仅作为只读来源依据，不把Silver运行伪装成Raw生产者；必须是同频daily及相同业务日，合法较新Raw交付按既有消费者规则核验 |
+| source_silver_run_id | 新增必填，无默认；实际触发的Silver SUCCESS运行ID，保存在run_config | 读取该运行实际配置、planned/files_complete范围、物化和绑定检查，明确证明它消费了source_completion；不能仅凭job成功或tag认定已交付 |
+
+以上参数只来自sensor或按原范围人工重跑，不新增环境变量、Settings、数据库配置、页面开关或来源参数；配置仍禁止额外字段。运营从Dagster查看配置、阶段、范围、文件进度和结果。新定义及配置加载后生效，不能要求旧Raw任务继续接受新配置。
+
+sensor只监听silver_stock_weekly_update_job和silver_stock_monthly_update_job的SUCCESS。只接受intent=update且来源Raw完整交付kind=daily；bootstrap、closed_period、factor_repair、history_maintenance与清理自身均不触发。每个成功事件至多提交本频一笔请求，不等待另一频。去重继续使用build_upstream_triggered_run_key，consumer改为新job名称，upstream_batch_id沿真实Raw日更交付；不从run_key解析参数、不引入事件storage ID或另造Silver批次。相同Raw交付的Silver整批重跑不重复自动提交；已有失败清理须由管理员按原范围重跑补齐，不删旧run_key记录。run_key只承担同一sensor的既有事件去重，不新增手工/自动请求的全局去重、请求登记或锁。前次成功后，先后重复请求对已无目标行的文件不再替换；前次失败未补齐时，则由worker在启动时直接报错，不能用零候选或零残留跳过。sensor不把这一业务失败改成SkipReason，也不负责自动补齐。
+
+触发依据为[Dagster官方run status sensor指南](https://dagster.io/docs/guides/automate/sensors/run-status-sensors)，SUCCESS监听、request_job和避免递归的用法已核对；全局排队依据见[Dagster官方run coordinator说明](https://dagster.io/docs/deployment/execution/run-coordinators)。选择Silver成功后触发，只表示本频当期Silver完成后再独立清理历史；在已确认的单任务条件下，不存在两个正式任务抢锁或并发覆盖，撤回上一轮据此提出的开工阻断。
+
+新增两种Dagster AssetObservation的JSON合同，均绑定实际silver_stock_weekly或silver_stock_monthly资产，不写Raw的period_work/period_completion：
+
+- goldenshare/silver_retirement_work，version=stock-period-silver-retirement-work@1：producer_run_id、business_date、freq、stock_codes、codes_hash、source_completion、source_silver_run_id、reference_versions、periods及periods_hash。日期、运行ID及摘要为字符串，代码/周期为规范排序去重的字符串列表，source_completion沿原引用结构；reference_versions为stock_basic/lifecycle/identity各自的五整数file_version映射。普通新任务的periods为本次实际命中范围；明确重跑原失败任务时，才与匹配父运行原范围取并集；首次替换前持久记录。每个选中周期在首次替换前另写同一工作key的文件观察，标明period、Raw source/source_version/source_completion/asof、Silver target/target_preimage、rows_before和expected_removed_rows；路径及asof为字符串、版本为五整数列表、行数为非负整数。范围观察与文件观察以是否含period字段区分，父范围读取只接受含完整periods及摘要的范围观察，不能从一份文件观察推断整批范围。
+- goldenshare/silver_retirement_result，version=stock-period-silver-retirement-result@1：保存范围观察中的身份与范围、file_count、rewritten_file_count、removed_row_count、cleared_codes及cleared_codes_hash。数量为非负整数，file_count等于完整periods长度；rewritten_file_count和removed_row_count仅统计本次运行实际替换及删除，不把父运行已经删除的行重复累计；cleared_codes是本频新任务此前成功集合与本次完整验收代码的规范并集。仅在完整范围原检查与残留统计通过后产生；读取时只接受新job的SUCCESS及真实匹配资产/频率/运行/版本/摘要的结果，按完成时间取最新累计集合。
+
+结果观察只登记清理结果，不代替文件检查。原Raw结果check和累计名单不转换、不补写或伪造新结果。新清理不发布SILVER_SCOPE_KEY的普通Raw消费完成观察，避免混淆任务身份；文件物化仍提供原Silver规则、来源版本、业务日期和实际文件身份，供现有readiness及检查读取。
+
+现存Raw文件可能仍引用旧Raw清理生成的真实物化和交付，这些来源事实继续由现有read_completions及通用合同只读核验。不能删除合法历史kind、改写旧事件或要求重写Raw来迁移来源；清退的是Raw退市写入入口和专属删除函数，不是现存文件的来源证据。
+
+#### 13.23.4 执行步骤、文件边界与检查
+
+1. 校验配置并登记既有业务日期、频率和任务类型运行标签，先执行第13.23.5节的同频前次失败检查；被阻止时直接将本运行置为失败，不读取行情、不创建候选或staging、不写work/result或cleared_codes。通过后才核对上游Silver完整成功及其Raw日更来源，读取并固定股票基础信息、生命周期及身份映射版本，重新确认退市名单。即使配置代码名单为空也必须先做启动检查；没有候选且启动检查通过时，才记录实际零结果。首次核对不把旧Raw累计结果当排除依据。
+2. 使用现有Silver正式路径；本job在DG全局串行调度下逐文件执行，不再叠加writer或writer_lock。周线只枚举silver/quote/stock_weekly/week_end=*/part-000.parquet，月线只枚举silver/quote/stock_monthly/month=*/part-000.parquet，并逐路径核对target_path和period_key。仅对本频既有规范Silver文件用DuckDB投影ts_code，统计目标规范代码及确认别名的匹配行数；禁止用Raw历史目录定位、扫描另一频或新建缺失历史文件。
+3. 普通新任务使用本次实际命中范围；只有明确重跑原失败任务时，才合并匹配父运行的原完整范围。写入work范围观察。每个选中周期以batch_event_evidence等集合查询核对对应Raw正式物化、绑定原检查及真实文件版本，按真实交付引用取得该周期的asof。校验用silver_asof沿现有resolve_update_sources的max(本次业务日期,实际Raw交付项asof)规则，不借用另一个周期的日期；按validate_materialization_scope核对2014-01-01下限与周期。只读取这份Raw，使用load_references/select_period形成原检查要求的预期关系，并在替换前写入上述文件工作观察。
+4. 读取本周期原Silver，按确认代码删除指定行，其他股票的完整21列、价格、NULL、源日期及键保持不变。候选必须同时满足：行数差等于实际目标删除数、目标代码无残留、非目标行双向EXCEPT ALL为零，以及原assert_schema/validate_projection的完整schema、键/分区、Raw投影语义。若当前Raw或其他股票已变化，使仅删除无法通过投影检查，则停止并交正常Silver更新处理；不得扩大为顺手重算其他股票或放宽检查。身份未知、参考文件变化、来源不合格、目标损坏也停止。
+5. 候选及spill仅用data_lake_staging/stock_period_silver/run_id=<本次UUID>。复用普通日更的StockPeriodPolicy、StorageBudget、connection、stock_period_silver.cancellation和io/stock_period_raw.publish_period；本次目标由Silver target_path产生，不调用首次建库的io/stock_period_silver.publish，不引入其state/checkpoint流程，也不为更换模块位置重构健康的共用函数。发布record沿普通日更提供freq、period、source、source_version、source_completion、asof、target、candidate、candidate_version、target_preimage、rows和sha256；候选摘要用file_digest取得。校验原Silver、Raw及参考版本、挂载/空间/同设备后，逐文件原子替换并读回。发布函数可以复用，发布目标只能是本次本频指定Silver文件；原三项检查不放宽。允许删除后形成有完整21列schema的零行Parquet，不能删除文件或分区代替合法空结果。
+6. 每个已完成周期登记本次真实Silver物化、silver_execution_id、Silver来源路径/版本和参考版本、silver_rule、silver_asof、silver_lower、row_count及实际file_version；使用现有goldenshare前缀的metadata字段，silver_execution_id必须是本次实际清理运行ID。原三项检查绑定同一物化storage ID、run_id及timestamp。复用原SQL真实校验后才发通过结果，不只因COPY或替换成功就补绿。已清理父范围文件再次完整验收，不重复替换，但登记本次完整范围与结果。
+7. 再以本频Silver代码列集合统计确认待清理代码全部为零，并核本次完整范围物化与原检查、文件版本及删除数。全部通过后才产生result观察；不写Raw文件、Raw物化、Raw结果check或Raw完成通知，不再提交一次普通Silver更新。
+
+本步直接使用DG既有全局单任务约束，不再把并发抢锁或外部写者当作设计前提，不新增文件锁、锁等待、私有重试或重复防御检查；普通Silver与首次建库已有的两把锁不在本次清退范围。任务之间仍可能发生合法日更/历史回刷，因此原失败任务稍后重跑时按当时真实合法来源核验，不能误把顺序发生的新交付当成并发损坏。
+
+#### 13.23.5 失败、中断及完整重跑
+
+保持逐文件提交，不声称整批原子。替换前失败不改目标；替换后事件写入失败、取消或进程退出，保留已经提交的Silver，不能回滚业务文件或恢复旧退市记录。阶段、当前频率/周期、完成文件数与耗时沿现有日志输出；取消检查覆盖定位SQL、每文件候选和替换前后，长SQL使用现有可中断execute及预算能力。
+
+**原失败任务的重跑。** 创建同配置的新运行，带真实Dagster父运行关系。沿parent_retirement_scope改造后的Silver工作观察读取原完整范围，与当前命中取并集；只接受相同频率、日期、名单摘要、原Raw引用及source_silver_run_id。不得因第一份文件已删除目标行就从新范围消失。父记录保留原范围及来源供追溯，新运行按当前真实合法Raw交付重新核验，不要求合法新交付的文件版本仍等于父运行版本。已干净文件不替换，仍按原检查验证、登记和完成；损坏、缺文件或无法解释的来源变化必须停止，不能把“零匹配”当成功。
+
+只在新运行完整成功后累计cleared_codes；失败结果不能使下一次日常检查跳过该股票。新运行不接续旧源分页、旧候选或旧JSON文件位置，也不能借重跑恢复已经删除的Raw。替换后登记缺失由真实文件和完整原检查重新证明，不能补造未发生的Raw交付。
+
+**前次未补齐，后续启动即失败，不自动补。** 检查范围只包括新Silver退市清理job的本频运行，不把旧Raw任务历史失败、另一频或其他数据集失败带入。没有前次运行，或前次已完整成功，才正常开始；前次FAILURE/CANCELED未补齐时，本频后续新任务直接失败，包括次日自动请求、人工新建请求、零代码和零命中文件的情况。错误明确写“前次股票复权周线/月线退市清理尚未补齐，请先重跑原失败任务”，并显示实际原失败运行ID。不得改为跳过、等待轮询、自动重试、自动补物化/检查或替管理员提交旧任务。
+
+启动检查使用已有Dagster运行状态及错误/成功结果记录，按本频完成顺序核对，不以创建时间或“最新一笔成功”掩盖后来的失败；不新增表、私有JSON待办或配置开关。启动被挡住的运行仍是真实FAILURE，错误metadata以original_failed_run_id指向原未补齐运行，后续检查继续指向该原任务，不能把今天被挡住的运行当成需要恢复的原业务执行，也不能仅重跑今天的被挡任务绕过昨天的未完成状态。失败以Dagster Failure报告且allow_retries=False，不为它配置自动重新提交。该metadata只解释错误，不成为新的业务状态事实源。
+
+解除方式只有管理员在DG重跑原失败任务，保留真实父运行关系及原配置，通过原完整范围的文件读回、物化和绑定检查；成功后本频后续新任务恢复执行。原任务重跑允许进入恢复流程，不被“前次就是自身失败”再次挡住；必须按父链与原配置确认它确实在恢复该失败任务，不能新增任意跳过检查参数。比如昨天替换9月Silver后中断，今天新清理启动即失败、不动文件；管理员重跑昨天原任务，把9月及原范围检查补齐后，后续清理才能正常开始。本次不扩展为所有DG任务或两个频率共用的失败阻断。
+
+#### 13.23.6 配置依据与正常、中断、末次验收成本
+
+资源沿当前run_contracts/stock_period.py的StockPeriodPolicy及io连接：DuckDB memory=3 GiB、threads=2，进程RSS门禁=4 GiB、spill门禁=16 GiB、workspace门禁=32 GiB；这是现有代码限制，不是本轮实测或新增性能保证，不沿用过去单笔运行临时提高的RSS值。新清理仍串行处理周期、使用列式SQL，不在Python长期保存完整行情。安装、扩容或配置变更不属于本步。
+
+令N为本频既有规范Silver文件数，F为本次实际处理文件数（普通新任务取当前命中；明确重跑原失败任务时才与父范围取并集），W为其中实际仍需删行的文件数，B为本次一个周期实际候选/工作空间占用，R为该周期原Silver行数；以上均须按实际文件取得，W≤F≤N。缺失父范围文件直接失败，不以新增文件扩大F。下表是设计步骤可复算的累计参与量，不是独立行情数量或物理磁盘读取次数：
+
+| 情形 | 请求、读取、写入及最后验收 |
+| --- | --- |
+| 前次本频失败尚未补齐 | 只读取已有Dagster运行及指定错误/完成记录，启动即失败；Tushare请求0、行情读取0、staging/候选0、Raw/Silver替换0、work/result及累计完成写入0，不自动补偿 |
+| 无待清理股票且启动检查通过 | Tushare请求0；只读触发日更范围和小型参考事实/结果；历史目录枚举0、历史行情扫描0、Raw/Silver替换0；结果观察一份 |
+| 有候选但无命中，首次或正常执行 | 本频Silver初次定位N与末次残留N，共2N份代码列统计参与；Raw历史全列读取0，候选/替换0；仍核参考版本并记录实际零命中及累计结果 |
+| 有命中 | 代码列统计2N；每个F周期原Silver全列读取一次、对应Raw全列读取一次；W份候选完整校验及提升后读回各一次，父范围已干净文件改为对既有目标完成同等验收；不作整频Raw扫描。删除不变量和原投影比较使用同周期临时关系，不能为每项check重复读Raw。每个F周期三项原检查，共3F项，绑定真实物化 |
+| 一次中断加一次完整重跑 | 两次分别按实际N、F、W记账；代码列统计上界为2N₁+2N₂，目录未变时为4N；全列与候选成本按各次实际F/W相加，包含失败前已做部分。已干净父范围仍需校验，不能把重跑预算写成只处理剩余命中；末次残留、物化/检查和文件读回已计入各轮，不另漏记 |
+
+文件位置发现只枚举本频Silver。历史事件按明确F周期集合查询，不逐分区深扫所有历史check；batch_event_evidence每次为现有两条集合SQL，原Raw交付按引用集合去重核对。父链只读取实际父运行的工作观察，新累计结果只读最新成功运行的指定结果观察，不能拉取该job全历史事件。控制面范围/结果的序列化空间随F和代码集合增长，必须计实际字节与耗时。
+
+现在没有新Silver路径的有效耗时/磁盘实测，不能把旧Raw清理用时或历史文件数量当性能保证。编码后的隔离验证必须记录实际N/F/W、R、B、请求/SQL数、读写文件累计参与量、结果字节、峰值RSS、取消响应与最终读回耗时，并补回本节。空间检查使用实际候选占用及原StorageBudget，超过现有门禁或未知资源需求时停止，不能随意加倍率或抬上限。正式启用前先取得该频文件数量、字节及代码列计数；如需读取全局明细或对全部命中文件做21列处理，仍须说明目的、范围和成本并获明确批准。本轮未执行这些读取。
+
+#### 13.23.7 测试和验收映射
+
+夹具继续使用现有生产者schema与经核对的21列类型。用小型独立字面样本构造“昨天L、今天D”的真实状态变化：Raw保留其合法历史和确认别名，旧Silver此前包含该股票；另含仍上市股票、全日停牌但未退市股票及另一频文件。预期删除数和保留行逐项人工核算，不用select_period或待测删除函数生成expected。所有资源位于/private/tmp本任务独立目录，正式路径只用于静态禁止断言，不读写正式DG、Lake或网络。
+
+| 硬口径/真实风险 | 必要正向、反向及读回证据 |
+| --- | --- |
+| Raw完整保留 | 正常、取消、替换前后故障及完整重跑隔离用例，独立断言Raw文件集合、字节摘要和file_version不变；捕获每次发布record并断言target属于本次指定Silver目录；允许调用共用publish_period，不能以其模块名判断写入层级；历史数据不恢复、不新请求退市对象 |
+| 只删确认退市、本频Silver | 两频分别执行；独立断言指定代码/别名全部删除、非目标21列原值/NULL不变、另一频与未命中文件身份不变；仅一份事实D、旧别名指向在市股票、未知身份、停牌、新上市及正常源变化均有反例 |
+| Silver成功后才触发 | Raw单独SUCCESS、Silver失败/缺检查/错绑定、来源不是daily或频率/日期/运行不符时均不提交；真实同频日更Silver成功才提交；两频任意先后独立；不递归，重复成功通知去重 |
+| 旧结果与新结果分开 | 即使旧Raw累计称已清理，Silver尚有记录仍进入新首次统计；新累计正确跨日保留，按完成时间取最新；伪造/缺失/错误版本结果、失败结果不能使代码跳过 |
+| 原三项检查 | Raw含退市行、候选Silver已删除时仍按现有select_period通过；不相关行被修改、来源不一致、缺列/错类型/错误周期/重复键、损坏或参考变化均失败；空文件完整schema通过；不能把预期要修的旧投影差异当拒绝清理依据 |
+| 中断与重跑 | 候选前、首文件替换后未物化、物化后检查/结果前、最后残留统计失败、取消及进程退出；本频后续新任务均启动失败，包含零代码；不读行情、不改文件、不自动补齐；明确重跑原任务时保留父完整范围，干净文件不重写也纳入验收，成功后下一笔正常放行，所有本次提交文件最终读回 |
+| 启动失败规则不会误拦 | 首次运行、前次完整成功、另一频失败、旧Raw任务失败不拦本频；昨天实际失败后今天新任务被挡，重跑今天被挡任务仍指向昨天、不得绕过；重跑昨天原任务可进入恢复流程，成功后今天的新任务可通过；拒绝与解除都核真实父链、配置及记录 |
+| 串行请求和合法后继 | 既有运行合同已经排除并发，不新增锁、跨入口去重或相应专属测试门禁；清理幂等沿原有重复执行用例核对。前次成功后再执行已无目标行的请求不重复替换；普通Silver消费游标不因清理新物化重复请求或卡住；原失败重跑可按先后发生的真实合法Raw新交付核验 |
+| 事件和入口清退 | 新结果只在Silver，无Raw完成通知、无额外普通Silver请求；全部原checks绑定本次实际物化；旧Raw job/op/sensor与专属删除函数不再被Definitions或生产调用方引用 |
+
+先迁移test_stock_period_retirement_cleanup_native.py的真实临时文件/原生运行用例，再调整test_stock_period_workflow_integration.py的顺序与独立预期，最后校准test_run_contract_static_gates.py、Silver合同/检查及catalog governance。保留原字段/分页/日更/历史回刷/人工维护回归，不能通过删断言、扩大mock、跳过用例维持通过数量。至少一条隔离链路使用真实临时Raw/Silver生产者、真实新sensor请求、新job、原三项检查及失败父运行重跑，HTTP与正式上游验收使用已有明确替身；这不代表正式源或正式切换通过。
+
+后续开发验证使用项目现有.venv，禁用依赖自动同步，pytest缓存/临时文件和日志均放工程外。实施结果需逐条对账本表、记录真实数量/耗时及未覆盖项，不能沿用第13.13节旧Raw删除测试通过结论证明新Silver路径。以上为开工前确认的验收条件；本轮隔离测试的实际结果与边界见第13.23.11节。
+
+#### 13.23.8 改动清单和正式切换边界
+
+2026-11-17开发位置补核：将asset_guards/stock_period_delivery.silver_completion_consumed中核对某一次Silver成功运行的部分抽为silver_run_completion_consumed；原函数仍选择原先同来源成功运行并调用该函数，新清理用source_silver_run_id指定实际触发运行。将stock_period_silver.resolve_update_sources中按明确周期集合核验最新Raw交付的部分抽为resolve_period_sources；原日更继续传原完整范围，清理仅传本次选中范围。两处均保留原校验语义、来源及正常调用行为，不新增检查或来源规则。启动检查只查新清理同频已结束运行，失败阻止记录通过Dagster Failure metadata保存original_failed_run_id；原任务重跑放行核真实parent/root及完整配置，不能用被阻止任务的重跑代替原任务。实现、回归和正式切换仍分别记录。
+
+开发时同次完成：替换三个Raw任务入口文件；修改stock_period_retirement_cleanup.py及两个运行/结果读取合同文件，并在worker最前加入同频前次失败检查及明确的原任务重跑放行；在io/stock_period_silver.py增加本频计数及删除候选能力，复用普通日更所用的io/stock_period_raw.publish_period；移除io/stock_period_raw.py两项退市专用函数；按需抽取stock_period_silver.py既有校验供调用，正常select_period/current_validation语义不变；更新catalog说明和上述直接测试。无跨子系统依赖、新资产、新来源字段或Prod迁移。修改任何共用helper前仍须核验全部直接调用方并保持正常更新合同，不能为清理另写一套较弱检查。
+
+正式切换另行列精确任务、命令和授权：先核对旧Raw清理sensor及在途/失败父链、待消费Raw交付与两频Silver任务；关闭旧清理触发，已进入旧删除流程的任务须明确办结或终止，不能只卸载定义就算删除能力已退出。保存其真实历史事件，不删库或改成功标记。之后加载通过隔离验收的新定义，确认旧入口消失、新sensor仍STOPPED、普通日更和回刷入口保持；本轮不执行任何启停或重载。
+
+首次Silver清理按实际Silver残留重新核定范围与读取/写入预算，不能将旧Raw累计名单直接灌成完成结果；没有历史可恢复也不能据此写“Raw全集已补齐”。有待处理且没有新的日更Silver成功事件时，可在明确批准后用既有真实成功Silver及其来源提交新job；无需重跑Raw或伪造触发事件。新sensor的成功事件游标自然初始化，人工只通过DG启动同一job，自动请求也经同一队列；不新增外部提交脚本。两笔请求即使都排队，也按顺序执行，后一次已无目标行时不重复改写，无需另做跨入口去重或锁。同频失败尚未补齐时，后续新清理任务启动即失败，管理员重跑原失败任务成功后再继续，不自动补偿，二者的真实结果分别保留。正式启用后的验收必须分别证明Raw实际未变、Silver真实删除及原检查、新结果、普通消费游标和后续日更无回流；禁止仅用定义加载或零命中运行宣称非零清理已经正式通过。
+
+**开工前交付状态（历史记录）：** 原方案、共享LLD及月线差异当时仅记录新的业务口径和实施设计；代码仍为旧Raw清理，尚未开发、测试、切换或执行新清理。后续实施见第13.23.11节。本轮文档检查结果与后续实现/正式验收分开，不改变第13.21至13.22节历史证据。
+
+
+#### 13.23.9 管理员补充执行约束后的审计纠偏（2026-11-17）
+
+本轮只读核对正式dagster.yaml的全局单任务配置，并按管理员明确的“所有任务仅经DG执行、没有外部直接执行入口”纠正设计：两把既有文件锁的存在不能证明新清理需要复制它们；人工/自动请求可排队，不等于并发改文件。撤回上一轮将锁遗漏和跨入口去重列为开工阻断的结论，不新增对应锁、跨入口状态登记或外部运行入口，也不修改现有全局并发配置或顺手移除普通Silver的旧锁。
+
+发布选择已按实际deliver_update_asset调用链纠偏为publish_period，Raw保护以目标路径及实际文件集合/内容证明。上一轮曾写“次日不等待旧验收”，该处理口径随后被管理员明确替换：现在按第13.23.5节，前次同频失败未补齐则后续新清理启动即失败；原任务人工重跑补齐，不做自动补偿。不得继续沿用此前不阻止新任务的表述。
+
+此次只更新原方案、共享LLD及月线差异；未改代码、Dagster配置、任务状态、sensor或Lake。设计修订与实际实现/测试/正式切换仍分别记录，不能用本节撤回错误结论来宣告新清理已经实现。
+
+
+#### 13.23.10 本轮确认的简单处理规则与后续审计要求（2026-11-17）
+
+管理员明确采用：前次同频清理失败尚未补齐，后续清理任务启动即失败，不自动补。该要求已同步本节启动步骤、错误记录、原任务人工重跑、成本与正反验收；不是自动恢复或自动接管前次范围。没有问题的项目不另作特殊处理：DG单任务、作业内串行、无外部直接执行入口已是约束，新清理不再增加文件锁、跨入口去重、假设并发的分支和相应测试。以前已有的普通Silver锁及其他数据集规则不在本次修改范围。
+
+防止后续重复误判的办法写入必须阅读的[DG长期规范](../../orchestrator/CODING_STANDARDS.md#verify-execution-conditions-before-risk)：先核实际运行条件，再用允许发生的具体执行过程证明问题；已有约束排除的情况只说明依据，不增加处理；原失败恢复与后续启动策略以管理员确认口径为准，不自行引入自动补偿。判断依据和实际代码位置必须能复核，不能以增加检查数量代替核对事实。
+
+该轮设计修订时仅完成方案、LLD和长期规范修订，未修改生产代码、任务定义、配置、sensor或数据；随后获准开发的实际结果见第13.23.11节。
+
+#### 13.23.11 本步实现与隔离验收（2026-11-17，未正式切换）
+
+管理员已授权本步开发，范围限Raw保留、Silver退市清理和前次同频失败未补齐时启动即失败。代码在当前dev-interface工作区完成；未创建分支或worktree，未启停sensor、重载正式定义、运行正式DG任务或写正式Lake。旧正式进程尚未切换，不能据此宣称正式Raw已经受到新代码保护。
+
+**代码对账。** 三个旧Raw清理入口文件已删除，替换为jobs/silver_stock_period_retirement_cleanup.py、ops/silver_stock_period_retirement_cleanup.py及sensors/silver_stock_period_retirement_cleanup_job_sensor.py；新sensor保持STOPPED，只监听两频普通Silver更新SUCCESS。stock_period_retirement_cleanup.retirement_source核对指定source_silver_run_id、真实日更Raw来源和该次Silver完整范围及绑定检查。没有Raw清理物化、Raw完成通知或额外普通Silver接续请求。
+
+Raw的count_retirement_rows和assemble_retirement_period专属删除函数已移除。Silver同名函数位于io/stock_period_silver.py，只枚举本频Silver，候选删除确认代码/别名后核对其他整行不变，并调用既有select_period和validate_projection；逐文件经原publish_period发布，再读回和登记三项原检查。普通Silver消费及明确周期来源核验分别抽取silver_run_completion_consumed、resolve_period_sources，原调用方继续使用原合同。catalog只更新两频Raw保留与Silver直接清理的说明；未改资产、字段、路径、原检查、源请求、准入、指定业务键维护或其他数据集。
+
+启动检查在加本频tag后、Lake资源检查及文件操作前执行，包含空名单。asset_guards/stock_period_retirement按同频结束时间读取新任务状态：失败/取消时以Failure(allow_retries=False)报告original_failed_run_id；被挡请求继续指向原失败，不自动补。只有相同配置、真实parent/root的原任务重跑可以进入；按完整父范围并集验证，已干净文件不替换。新结果为Silver资产的专用观察，累计名单不读取旧Raw结果。没有新增锁、跨入口去重、外部入口、配置项、状态表或文件备份。
+
+**夹具和覆盖。** 专项测试先以字面21列数据和真实历史维护生产者建立Raw原生交付，真实Silver更新在合成证券仍为L时生成历史；随后股票基础与生命周期改为D，再运行真实Raw日更、Silver日更、新sensor请求及新清理。包含确认别名、保留的全日停牌股票、当期新上市股票、NULL和Decimal。期望行独立于selector和删除函数，正常/失败/重跑均逐一核对Raw文件集合、五项版本及摘要。全部文件和实例在/private/tmp/gs-silver-retirement-20261117，HTTP和正式上游验收仅使用已说明的替身；未请求正式Tushare。
+
+| 验收要求 | 本轮实际证据 |
+| --- | --- |
+| Raw保留与Silver精确删除 | 周/月分别只发布指定Silver目录；非目标21列、另一频及未命中文件不变；旧Raw删除函数和入口静态清退。全删空文件保留完整21列schema |
+| 触发与原检查 | 真正同频Silver日更成功才提交；Raw单独成功、真实非daily Silver、缺原检查、错误来源/日期/频率/运行ID、递归及bootstrap不提交或拒绝；每份清理文件三项原检查绑定本次真实物化；原消费结果保持已消费 |
+| 原范围恢复与启动失败 | 候选前、首文件替换后未物化、物化后未完成检查/结果、最后残留统计故障及取消；后续次日空名单启动失败，不进入来源/历史读取；重跑被挡任务仍指向原失败；原任务完整重跑补验全部范围后解除阻止 |
+| 进程退出和实际取消 | 子进程真实SIGKILL发生在首份Silver替换后；临时实例登记失败后，新请求被挡，原父运行重跑验证3份、只替换剩余2份。另以真实CANCELING状态中断长SQL，观察取消耗时1.9785秒；随后原任务重跑成功。该耗时是本机隔离实测，非正式规模保证 |
+| 不误拦及结果真实性 | 首次、前次成功、另一频失败和旧Raw失败不拦；重复成功不重写；累计名单和完成时间排序、无结果/错误版本/频率/摘要/生产者或旧Raw资产结果均有反例；未确认退市、缺列、错类型、错周期、重复键、其他价格被改、损坏文件和参考变化拒绝 |
+
+专项test_stock_period_retirement_cleanup_native.py共48项通过（完整47项及新增实际取消1项分别执行）；test_stock_period_workflow_integration.py共11项通过。共享Silver、原生日更、历史回刷及静态运行合同9个测试模块共219项通过，另有5项subtests通过。本地HTTP下载、人工入口和原CLI/bootstrap链3个模块在允许临时本地端口后28项通过；此前默认执行环境拒绝绑定端口的失败不是数据或代码结论。其余扩展Raw、人工维护、字段、周期和定义检查无本步新增失败。
+
+扩展的全局资产治理两模块仍有7项既存失败、11项通过及222项subtests通过，涉及其他资产的catalog/schema/check清单、数量及stock_suspend_confirmed_test_support导入。用开工前保存的catalog模块在内存替换对照，失败测试集合与当前完全相同（7项）；本步catalog只改3处说明，未扩大修复其他工作区内容。因此只声明本步专项和所列原链路隔离回归通过，不声明全仓治理通过。全目录致命Ruff规则与本次全部修改Python文件的默认Ruff规则均通过；文档完整性检查通过。
+
+**小样本实测与成本。** 下表为两次独立频率用例的实际输出，不推算正式历史规模。每频N=5（3份残留、1份未命中历史、1份当期Silver），F=W=3，每份旧Silver R=3、删除1行、输出2行。两次代码列聚合各读取5份，累计参与量2N=10；完整字段只处理3个命中周期，对应Raw各3行，未扫描Raw全历史。
+
+| 观测项 | 周线 | 月线 |
+| --- | --- | --- |
+| 实际发布与保留 | 3份Silver、删除3行、输出6行；Raw全部未变 | 3份Silver、删除3行、输出6行；Raw全部未变 |
+| 单份候选字节与3份累计候选字节 | 3266字节；9798字节 | 3269字节；9807字节 |
+| 每次提升前本run工作目录实际字节B（3次分别统计） | 3266、3266、3266字节 | 3269、3269、3269字节 |
+| 清理连接的DuckDB execute调用 | 75次 | 75次 |
+| 结果观察JSON序列化字节 | 1148字节 | 1142字节 |
+| job及本用例末次读回总耗时 | 0.4313秒，其中读回0.0388秒 | 0.4526秒，其中读回0.0370秒 |
+| 本测试进程累计峰值RSS（包含夹具） | 340590592字节 | 343080960字节 |
+
+B是这次隔离用例各次提升前对该run工作目录文件的实际统计，不是正式任务空间上界。75次是代码列统计及逐期处理连接上的真实execute次数，包含内存关系SQL和三项原检查共用SQL，不是磁盘读取次数；确认退市事实的独立连接及Dagster状态/事件SQL不混入该数。来源事件按明确周期集合核验，batch_event_evidence沿用两条集合SQL，实际Raw引用去重读取。每周期全列累计参与量为旧Silver3行、Raw3行、候选2行、提升后目标2行，共10行；每频3周期合计30行，不称为独立行情数或磁盘实际读取量。原范围中已干净文件重跑仍读取及验证，替换后失败用例验证F=3、W=2，末次残留和全部9项检查均补齐，不把首次已处理部分从成本中抹掉。实际取消与完整重跑的证明以临时实例和物理读回为限；正式频率N/F、字节、耗时和资源预算仍须在正式切换阶段按批准范围重新核定。
+
+正式切换继续遵守第13.23.8节，须另行获准处理旧sensor及在途运行、加载新定义和首次Silver清理。本轮没有执行上述动作。

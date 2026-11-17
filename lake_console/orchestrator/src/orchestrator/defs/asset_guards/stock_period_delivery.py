@@ -211,9 +211,28 @@ def read_completion(instance, reference, *, root):
 
 def silver_completion_consumed(instance, reference, periods, *, root, business_date):
     """A real SUCCESS and original bound checks close consumption, including manual full reruns."""
+    from orchestrator.defs.run_contracts.stock_period_delivery import SOURCE_BATCH_TAG
+    from orchestrator.defs.run_contracts.stock_period_silver import asset_name
+
+    runs = instance.get_runs(
+        filters=dg.RunsFilter(
+            job_name=asset_name(reference["freq"]) + "_update_job",
+            statuses=[dg.DagsterRunStatus.SUCCESS],
+            tags={SOURCE_BATCH_TAG: reference["upstream_batch_id"]},
+        ),
+        limit=1,
+    )
+    if not runs:
+        return False
+    return silver_run_completion_consumed(
+        instance, runs[0], reference, periods, root=root, business_date=business_date
+    )
+
+
+def silver_run_completion_consumed(instance, run, reference, periods, *, root, business_date):
+    """Verify the actual selected Silver run, using its original records and bindings."""
     from orchestrator.defs.run_contracts.stock_period_delivery import (
         SILVER_SCOPE_KEY,
-        SOURCE_BATCH_TAG,
         silver_update_scope,
     )
     from orchestrator.defs.run_contracts.stock_period_silver import (
@@ -224,17 +243,6 @@ def silver_completion_consumed(instance, reference, periods, *, root, business_d
 
     freq = reference["freq"]
     asset = dg.AssetKey(asset_name(freq))
-    runs = instance.get_runs(
-        filters=dg.RunsFilter(
-            job_name=asset_name(freq) + "_update_job",
-            statuses=[dg.DagsterRunStatus.SUCCESS],
-            tags={SOURCE_BATCH_TAG: reference["upstream_batch_id"]},
-        ),
-        limit=1,
-    )
-    if not runs:
-        return False
-    run = runs[0]
     records = native_run_records(
         instance,
         [run.run_id],

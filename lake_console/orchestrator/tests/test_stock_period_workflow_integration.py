@@ -36,8 +36,8 @@ from orchestrator.defs.io import stock_period_raw as raw
 from orchestrator.defs.jobs.raw_stock_period_history_repair import (
     raw_stock_period_history_repair_job,
 )
-from orchestrator.defs.jobs.raw_stock_period_retirement_cleanup import (
-    raw_stock_period_retirement_cleanup_job,
+from orchestrator.defs.jobs.silver_stock_period_retirement_cleanup import (
+    silver_stock_period_retirement_cleanup_job,
 )
 from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
 from orchestrator.defs.run_contracts.stock_period import (
@@ -59,11 +59,11 @@ from orchestrator.defs.sensors import (
 from orchestrator.defs.sensors.raw_stock_period_history_repair_job_sensor import (
     raw_stock_period_history_repair_job_sensor as history_sensor,
 )
-from orchestrator.defs.sensors.raw_stock_period_retirement_cleanup_job_sensor import (
-    raw_stock_period_retirement_cleanup_job_sensor as retirement_sensor,
-)
 from orchestrator.defs.sensors.silver_stock_monthly_update_job_sensor import (
     silver_stock_monthly_update_job_sensor as month_silver_sensor,
+)
+from orchestrator.defs.sensors.silver_stock_period_retirement_cleanup_job_sensor import (
+    silver_stock_period_retirement_cleanup_job_sensor as retirement_sensor,
 )
 from orchestrator.defs.sensors.silver_stock_weekly_update_job_sensor import (
     silver_stock_weekly_update_job_sensor as week_silver_sensor,
@@ -264,8 +264,8 @@ def workflow(market, monkeypatch):
             {
                 "stage": state["stage"],
                 "operation": kwargs.get("stage", "unlabelled"),
-                "retirement_counts": "count(*) FILTER(WHERE list_contains(?,ts_code))"
-                in sql,
+                "retirement_counts": kwargs.get("stage")
+                == "silver_retirement_code_counts",
             }
         )
         return original_execute(con, sql, *args, **kwargs)
@@ -278,7 +278,7 @@ def workflow(market, monkeypatch):
         dg.Definitions(
             jobs=[
                 raw_stock_period_history_repair_job,
-                raw_stock_period_retirement_cleanup_job,
+                silver_stock_period_retirement_cleanup_job,
             ]
         ),
     )
@@ -561,14 +561,16 @@ def prepare_daily(flow, order=("week", "month")):
         else:
             assert isinstance(history, dg.RunRequest)
             flow.history_request = history
-        retirement = callback(flow, retirement_sensor, result)
+        silver_result = consume(flow, freq, "daily_silver_" + freq, [PERIODS[freq][-1]])
+        assert isinstance(callback(flow, retirement_sensor, result), dg.SkipReason)
+        retirement = callback(flow, retirement_sensor, silver_result)
         assert isinstance(retirement, dg.RunRequest)
-        cfg = retirement.run_config["ops"]["raw_stock_period_retirement_cleanup_op"][
+        cfg = retirement.run_config["ops"]["silver_stock_period_retirement_cleanup_op"][
             "config"
         ]
         assert cfg["freq"] == freq and cfg["stock_codes"] == [RETIRED]
+        assert cfg["source_silver_run_id"] == silver_result.run_id
         flow.retirement_requests[freq] = retirement
-        consume(flow, freq, "daily_silver_" + freq, [PERIODS[freq][-1]])
     assert row_count(flow) == 19
     cfg = flow.history_request.run_config["ops"]["raw_stock_period_history_repair_op"][
         "config"
@@ -624,6 +626,8 @@ def assert_final(flow):
         count = 0
         for (freq, period), prices in expected.items():
             rows = read_rows(flow, layer, freq, period)
+            if layer == "raw":
+                prices = {**prices, RETIRED: "1"}
             label = LABELS[freq][PERIODS[freq].index(period)]
             assert [(r[0], r[1], r[2], r[3]) for r in rows] == [
                 (code, label, freq, Decimal(price))
@@ -633,6 +637,8 @@ def assert_final(flow):
             assert dates == {
                 code: "20261106"
                 if code == S
+                else "20261109"
+                if code == RETIRED
                 else "20261109"
                 if code == I and period == "2026-10"
                 else "20261110"
@@ -645,7 +651,7 @@ def assert_final(flow):
             )
             byte_count += path.stat().st_size
             count += len(rows)
-        assert count == 14
+        assert count == (18 if layer == "raw" else 14)
     flow.steps.append(
         {
             "stage": "final_eight_file_audit",
@@ -653,6 +659,59 @@ def assert_final(flow):
             "unique_files": 8,
             "bytes": byte_count,
         }
+    )
+
+
+def seed_silver_retirement_residual(flow):
+    """Only D rows differ from the current genuine Raw projection here."""
+    with raw.connection(flow.market.tmp / "old_silver_residual") as con:
+        for freq, periods in PERIODS.items():
+            for period in periods:
+                target = target_path(flow.market.root, freq, period)
+                raw.execute(
+                    con,
+                    "COPY (SELECT * FROM read_parquet(?,hive_partitioning=false) UNION ALL SELECT * FROM read_parquet(?,hive_partitioning=false) WHERE ts_code=?) TO ? (FORMAT PARQUET)",
+                    [
+                        str(target),
+                        str(raw.target_path(flow.market.root, freq, period)),
+                        RETIRED,
+                        str(target),
+                    ],
+                )
+
+
+def assert_silver_retirement(flow, result, freq, *, rewritten=2):
+    from orchestrator.defs.run_contracts.stock_period_retirement_cleanup import (
+        RESULT_KEY,
+    )
+
+    actual = records(flow, result)
+    assert not any(
+        COMPLETION_KEY in r.asset_observation.metadata
+        for r in actual
+        if r.asset_observation
+    )
+    values = [
+        r.asset_observation.metadata[RESULT_KEY].value
+        for r in actual
+        if r.asset_observation and RESULT_KEY in r.asset_observation.metadata
+    ]
+    assert len(values) == 1
+    assert (
+        values[0]["periods"] == PERIODS[freq]
+        and values[0]["rewritten_file_count"] == rewritten
+    )
+    assert len([r for r in actual if r.asset_materialization]) == 2
+    assert (
+        len(
+            [
+                r
+                for r in actual
+                if r.event_log_entry.dagster_event.event_type_value
+                == "ASSET_CHECK_EVALUATION"
+            ]
+        )
+        == 6
     )
 
 
@@ -665,6 +724,7 @@ def test_daily_history_retirement_manual_and_silver_complete_workflow(workflow, 
     assert any(r[1] == "20261105" for r in read_rows(flow, "raw", "week", "2026-11-06"))
     for freq in ("week", "month"):
         consume(flow, freq, "factor_silver_" + freq, PERIODS[freq])
+    seed_silver_retirement_residual(flow)
     for freq in ("week", "month"):
         other = "month" if freq == "week" else "week"
         versions = [
@@ -675,22 +735,21 @@ def test_daily_history_retirement_manual_and_silver_complete_workflow(workflow, 
             flow,
             flow.retirement_requests[freq],
             "retirement_" + freq,
-            job_name=raw_stock_period_retirement_cleanup_job.name,
+            job_name=silver_stock_period_retirement_cleanup_job.name,
         )
-        origins(flow, result, {freq: PERIODS[freq]})
-        assert len(records(flow, result)) == 11
+        assert_silver_retirement(flow, result, freq)
         assert latest_retirement_result(flow.instance, freq) == {RETIRED}
         assert versions == [
             raw.file_version(raw.target_path(flow.market.root, other, p))
             for p in PERIODS[other]
         ]
-        consume(flow, freq, "retirement_silver_" + freq, PERIODS[freq])
-    assert row_count(flow) == 15
+        assert not silver_request(flow, freq).run_requests
+    assert row_count(flow) == 19
     result = run_request(
         flow, manual_request("specified_history", code=I), "manual_history"
     )
     origins(flow, result, {"week": PERIODS["week"]})
-    assert len(records(flow, result)) == 11 and row_count(flow) == 15
+    assert len(records(flow, result)) == 11 and row_count(flow) == 19
     consume(flow, "week", "manual_silver", PERIODS["week"])
     result = run_request(
         flow,
@@ -698,7 +757,7 @@ def test_daily_history_retirement_manual_and_silver_complete_workflow(workflow, 
         "manual_delete",
     )
     origins(flow, result, {"week": ["2026-11-06"]})
-    assert len(records(flow, result)) == 7 and row_count(flow) == 14
+    assert len(records(flow, result)) == 7 and row_count(flow) == 18
     consume(flow, "week", "delete_silver", ["2026-11-06"])
     assert_final(flow)
     assert len(flow.state["calls"]) == 9
@@ -712,11 +771,11 @@ def test_daily_history_retirement_manual_and_silver_complete_workflow(workflow, 
         == 10
     )
     assert Counter(w["layer"] for w in flow.state["writes"]) == {
-        "raw": 13,
+        "raw": 9,
         "silver": 13,
     }
     assert sum(q["retirement_counts"] for q in flow.state["sql"]) == 4
-    assert len(native_run_records(flow.instance, flow.runs, BUSINESS_EVENTS)) == 142
+    assert len(native_run_records(flow.instance, flow.runs, BUSINESS_EVENTS)) == 124
     assert not list(flow.market.staging.rglob("daily.json"))
     assert not list(flow.market.staging.rglob("baseline.json"))
 
@@ -736,7 +795,7 @@ def assert_failed_without_delivery(flow, result, *, work_count):
     )
 
 
-def assert_repaired_files(flow, scopes, layers, *, weekly_cleaned=False):
+def assert_repaired_files(flow, scopes, layers):
     """Literal pre-manual expectations; no production selector builds expected."""
     started = time.monotonic()
     expected = {
@@ -773,8 +832,7 @@ def assert_repaired_files(flow, scopes, layers, *, weekly_cleaned=False):
                     for code, price, asof in expected[(freq, period)]
                 ]
                 if layer == "raw":
-                    if not (freq == "week" and weekly_cleaned):
-                        wanted.append((RETIRED, label, freq, Decimal(1), "20261109"))
+                    wanted.append((RETIRED, label, freq, Decimal(1), "20261109"))
                     if freq == "week" and period == "2026-11-06":
                         wanted.append((A, "20261105", freq, Decimal(7), "20261109"))
                 assert read_rows(flow, layer, freq, period) == sorted(wanted)
@@ -826,44 +884,44 @@ def test_failed_retirement_reruns_native_complete_scope_and_silver(workflow):
     run_factor(flow)
     for freq in ("week", "month"):
         consume(flow, freq, "factor_silver_" + freq, PERIODS[freq])
+    seed_silver_retirement_residual(flow)
     calls, writes = len(flow.state["calls"]), len(flow.state["writes"])
     queries = sum(q["retirement_counts"] for q in flow.state["sql"])
-    flow.state["fault"] = "raw"
+    raw_before = {
+        str(p): (raw.file_version(p), raw.file_digest(p))
+        for p in (flow.market.root / "raw").rglob("*.parquet")
+    }
+    flow.state["fault"] = "silver"
     request = flow.retirement_requests["week"]
     failed = run_request(
         flow,
         request,
         "retirement_failed",
-        job_name=raw_stock_period_retirement_cleanup_job.name,
+        job_name=silver_stock_period_retirement_cleanup_job.name,
         success=False,
     )
-    assert_failed_without_delivery(flow, failed, work_count=1)
-    # A failed producer leaves work, not completion. Advance the real cursor
-    # over that observation before asking it to consume the successful rerun.
-    assert not silver_request(flow, "week").run_requests
-    assert latest_retirement_result(flow.instance, "week") == set()
-    first = raw.target_path(flow.market.root, "week", "2026-11-06")
+    assert not latest_retirement_result(flow.instance, "week")
+    first = target_path(flow.market.root, "week", "2026-11-06")
     version = raw.file_version(first)
     result = run_request(
         flow,
         request,
         "retirement_rerun",
-        job_name=raw_stock_period_retirement_cleanup_job.name,
+        job_name=silver_stock_period_retirement_cleanup_job.name,
         parent=failed.run_id,
         automatic=False,
     )
-    origins(flow, result, {"week": PERIODS["week"]})
+    assert_silver_retirement(flow, result, "week", rewritten=1)
     assert raw.file_version(first) == version
-    consume(flow, "week", "retirement_rerun_silver", PERIODS["week"])
+    assert not silver_request(flow, "week").run_requests
     assert len(flow.state["calls"]) == calls
-    assert Counter(w["layer"] for w in flow.state["writes"][writes:]) == {
-        "raw": 2,
-        "silver": 2,
-    }
+    assert Counter(w["layer"] for w in flow.state["writes"][writes:]) == {"silver": 2}
     assert sum(q["retirement_counts"] for q in flow.state["sql"]) - queries == 3
-    assert_repaired_files(
-        flow, {"week": PERIODS["week"]}, ("raw", "silver"), weekly_cleaned=True
-    )
+    assert raw_before == {
+        str(p): (raw.file_version(p), raw.file_digest(p))
+        for p in (flow.market.root / "raw").rglob("*.parquet")
+    }
+    assert_repaired_files(flow, {"week": PERIODS["week"]}, ("raw", "silver"))
 
 
 def test_failed_silver_restarts_complete_raw_reference_and_acknowledges(workflow):
