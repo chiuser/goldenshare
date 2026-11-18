@@ -1,6 +1,6 @@
 # 技术指标算子库整体详细设计 v1
 
-**状态为阶段 B 待 review。** 通用读取、股票不复权日线及指数不复权 5 分钟线均已完成 DG、Prod 只读复核。对上结果验证和正式业务迁移分别在 C、D 阶段。[实施 LLD 的核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述现行内核和已验收的算法规则。
+**阶段 C 已在独立工作树完成并通过复核，待 review。** 独立算子库已通过 DG、Prod 不复权股票日线和指数 5 分钟线的完整计算验收。正式业务迁移在阶段 D。[实施 LLD 的核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述现行内核和已验收的算法规则。
 
 ## 1. 目标和模块分工
 
@@ -37,7 +37,7 @@
 | 算子模块 | 复用 MA、MACD、KDJ、BOLL 等现有对象、公式和版本；多个算子共享一次行情读取 | 算子不读湖、不访问 PG、不决定价格复权口径 |
 | 输出合法性检查 | 检查字段、类型、值和时间位置；按指令顺序返回结果 | 不返回额外历史，不输出下一页、游标、页面文案；无目标行情或失败时不返回结果 |
 
-**当前改动依据。** 现有 `TechnicalIndicatorService` 已创建取数需求、循环驱动读取和计算、调用输出收集器；股票日线和上证综指日线业务目前各自先取一段行情再装配内核。通用 DG 适配器也把部分来源写在 `price_contract()` 内，其中股票分钟既有直读前复权文件的行为，与目标不同。新版将这些业务入口迁至同一个内部取数流程；现有产品 HTTP 合同是否调整须另行批准。
+**当前实现边界。** 独立工作树上的 `TechnicalIndicatorService` 已通过新指令定位首批不复权行情，并按新合同返回完整计算结果。正式股票日线和上证综指日线业务仍各自先取一段行情再装配内核，阶段 D 迁入内部取数流程，维持产品 HTTP 合同。
 
 **类清单阅读方式。** 代码块中的 `...` 表示省略实现，并不是可直接运行的代码。正文逐项给出新增类的全部字段与方法、变更类的目标字段和方法或完整变更项。附录逐类列出现有实现中的成员字段与显式方法（含私有方法）；标记复用的类以附录为完整清单。嵌套配置记录是数据，不另外建类；第三方类、Python 自动生成的通用方法和不在本次指标注册表里的独立 XXM 能力不纳入目标设计。
 
@@ -541,9 +541,19 @@ internal_calculations = {
 
 **格式。** 每项输出由固定算子 ID、实际有效参数和算子版本标明，结果字段由算子定义。共享的 `times` 递增、唯一，字段数组长度与其相等。所有周期的 `requested.start/end` 都带上海时区。行情位置 `times`、实际读取区间及输出区间仍按周期表达，分钟带上海时区，日、周、月为日期。周、月的 `source_as_of` 逐根对应 `times`，返回实际截止日期，日线及分钟该字段为 `None`。用同一请求算 MA20 和 MA60，两个结果都用 `value` 字段，由实际有效参数区分。
 
-**对上游的量额合同。** 返回成交量 `volume` 时单位固定为股，成交额 `amount` 固定为元，结果的 `SeriesDescription.volume_unit` 为 `share`、`amount_unit` 为 `CNY`。业务方可在收到标准结果后自行换算。现有产品接口继续按各自已定义的单位交付。
+**目标行来自读取结果。** 输出收集器根据 `PriceReadSelection` 的前置根数和目标根数，按 `seq` 取每批落入目标区间的行，并与算子字段对齐。输出检查首末时间、目标根数和数组长度。日线请求的起止先按上海当地日期定位，同一个交易日可以由当天中午的时间指定。预热行情只用于计算。
+
+**对上游的量额合同。** `price` 的开、高、低、收为必有的有限值。成交量 `volume` 与成交额 `amount` 有值时分别用股和元，来源合法为空时保留空值。结果的 `SeriesDescription.volume_unit` 为 `share`、`amount_unit` 为 `CNY`。业务方可在收到标准结果后自行换算。现有产品接口继续按各自已定义的单位交付。
 
 ~~~python
+class BatchCalculationOutputs:
+    # 一个行情批次及每项请求对应的算子输出。
+    price_batch: PriceBatch
+    instances: tuple[tuple[int, CalculationOutput], ...]
+
+    def __post_init__(self) -> None: ...  # 校验从 0 开始的整数请求下标，固化批次交接。
+
+
 class OutputFieldDescription:
     # 算子定义的固定输出字段说明；仅构造。
     name: str
@@ -597,9 +607,15 @@ class CalculationResult:
 
 
 class OutputCollector:
-    # 完整成员与方法见附录。instances 按本次请求的顺序索引，不用上游标识。
+    # 附录记录现有成员和方法。阶段 C 用 selection 替换原请求时间过滤。
     instances: tuple[OutputInstanceDescription, ...]
+    selection: PriceReadSelection  # 由读取模块交付，包含目标根数及首末位置。
+    target_first_seq: int  # 从 selection.preceding_rows + 1 得到。
+    target_rows: int      # 与 selection.target_rows 相同。
 
+    def __init__(self, *, executor: DuckDBExecutor, request: CalculationRequest,
+                 instances: tuple[OutputInstanceDescription, ...],
+                 selection: PriceReadSelection) -> None: ...
     def _check_descriptions(self) -> None: ...         # 核对输出定义。
     def _check_batch(self, outputs): ...               # 核对批次与输出项。
     def _inspect_output(self, output, batch, identity) -> None:
@@ -631,7 +647,7 @@ class SourceReadError(TechnicalIndicatorError):
 raise SourceReadError("读取数据失败", detail="数据缺失")
 ~~~
 
-输出检查复用当前字段与位置检查，另外将声明的可空条件、有限数值和时间对齐列为新合同验收项。**没有目标 K 线不进入成功结果组装**；有目标 K 线但 MA 因历史不足而按算子定义得到空值，是指标值的合法空值，不是没有行情。结果少行、多行、重复、越界、未知字段或与时间不对应都不返回成功。禁止发布半成品结果。
+目标区间有行情时，保留 MA／BOLL 按定义产生的合法预热空值，以及 `price` 的合法量额空值。结果少行、多行、重复、越界、字段不符或出现非有限值时，整次返回输出合同错误。目标区间全无行情时由读取模块返回数据缺失错误。
 
 ## 6. 一条指令如何走完
 
@@ -676,6 +692,8 @@ result = service.calculate(request)
 | D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归后再评估发布 |
 
 阶段 B 先验证通用读取和股票不复权日线，再接入两端统一开盘规则的指数 5 分钟。首批验收之外的数据集、证券和周期按来源证据逐项开放。 [实施 LLD·阶段 B](technical-indicator-operator-library-implementation-lld-v1.md#阶段-b-的实施步骤)
+
+阶段 C 复用已验证的读取和算子，改造批次交接、目标行收集和结果编码。先迁移独立数值预期及控制测试，再通过公开 `calculate()` 在 DG、Prod 按相同范围验证股票日线、两只指数的 5 分钟线，以及失败后的清理。沿用现有预算，记录首次执行、同指令复跑和故障验收的实际开销。通过阶段 C 的数值和错误回归后，将内核合同版本从 `3.0.0` 更新为 `4.0.0`，以反映请求和结果的字段变化。 [实施 LLD·阶段 C](technical-indicator-operator-library-implementation-lld-v1.md#阶段-c-的实施步骤)
 
 阶段 A–C 在独立工作树实施。A 验收计算指令、算子计划、读取位置及使用显式历史需求构造取数指令。B 接入实际取数与现有预热需求，C 验收完整计算。阶段 A 的配置来源、验收和业务隔离见 [实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md#阶段-a-的实施边界)。
 
@@ -856,7 +874,7 @@ class CalculationSession:
     def _control_error(step_name: str, reason: str) -> None: ...
 
 
-# 复用。 源码起点：第 299 行。
+# 修改见正文。阶段 C 将字符串标识换为整数请求下标。 源码起点：第 299 行。
 @dataclass(frozen=True, slots=True)
 class BatchCalculationOutputs:
     # 成员字段及类常量。

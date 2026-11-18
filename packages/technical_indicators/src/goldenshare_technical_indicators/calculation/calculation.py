@@ -298,17 +298,17 @@ class CalculationSession:
 @dataclass(frozen=True, slots=True)
 class BatchCalculationOutputs:
     price_batch: PriceBatch
-    instances: tuple[tuple[str, CalculationOutput], ...]
+    instances: tuple[tuple[int, CalculationOutput], ...]
 
     def __post_init__(self) -> None:
         copied = []
         for item in self.instances:
             if not isinstance(item, (tuple, list)) or len(item) != 2:
-                raise ValueError("Batch output instances require identity/output pairs")
-            identity, output = item
-            if not isinstance(identity, str) or not isinstance(output, CalculationOutput):
-                raise ValueError("Batch output instances require identity/output pairs")
-            copied.append((identity, output))
+                raise ValueError("Batch output instances require calculation index/output pairs")
+            calculation_index, output = item
+            if type(calculation_index) is not int or calculation_index < 0 or not isinstance(output, CalculationOutput):
+                raise ValueError("Batch output instances require calculation index/output pairs")
+            copied.append((calculation_index, output))
         object.__setattr__(self, "instances", tuple(copied))
 
 

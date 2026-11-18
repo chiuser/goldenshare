@@ -125,7 +125,7 @@ def test_five_definitions_match_independent_lld_literals(module, identifier, par
         "kdj": {"high", "low", "close"},
     }
     expected_nullable = {
-        "price": (False, False, False, False, False, False), "ma": (True,),
+        "price": (False, False, False, False, True, True), "ma": (True,),
         "boll": (True, True, True), "macd": (False, False, False), "kdj": (False, False, False),
     }
     expected_units = {
@@ -169,7 +169,10 @@ def test_result_contract_matches_literal_top_level_and_copies_mutable_field_inpu
         "kernel_version", "series", "requested", "source", "price_adjustment", "times", "source_as_of", "calculations", "range", "statistics", "msg",
     )
     source_values = [None, 11.0]
-    values = CalculationValues("ma", "ma", "1.0.0", (("period", 2),), (("value", source_values),))
+    values = CalculationValues("ma", "1.0.0", (("period", 2),), (("value", source_values),))
+    assert tuple(field.name for field in fields(CalculationValues)) == (
+        "calculation_id", "algorithm_version", "parameters", "fields",
+    )
     source_values.append(99.0)
     assert values.fields == (("value", (None, 11.0)),)
     with pytest.raises(FrozenInstanceError):
@@ -226,11 +229,14 @@ def test_output_descriptions_copy_fields_and_instance_pairs():
     fields_input.clear()
     assert output.fields == (field,)
     price = PriceBatch("prices", 1, 3, 3, 0, ("trade_date",), ("close",), "qfq")
-    instances = [["ma20", output]]
+    instances = [[0, output]]
     batch = BatchCalculationOutputs(price, instances)
-    instances[0][0] = "changed"
+    instances[0][0] = 1
     instances.clear()
-    assert batch.instances == (("ma20", output),)
+    assert batch.instances == ((0, output),)
+    for bad_index in ("ma20", -1, False):
+        with pytest.raises(ValueError, match="calculation index"):
+            BatchCalculationOutputs(price, ((bad_index, output),))
 
 
 def test_node_and_discovery_descriptions_copy_their_container_inputs():

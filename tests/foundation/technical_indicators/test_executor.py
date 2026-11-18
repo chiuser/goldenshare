@@ -6,7 +6,6 @@ other SQL is a few literal rows. Arrow is the approved project dependency.
 """
 
 from contextlib import contextmanager
-from dataclasses import replace
 import threading
 from time import monotonic
 
@@ -15,21 +14,13 @@ import pyarrow as pa
 import pytest
 
 from goldenshare_technical_indicators.calculation.calculation import SqlStep
-from goldenshare_technical_indicators.configuration import KernelConfig
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationExecutionError, ResourceLimitError,
 )
 from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.executor import DuckDBExecutor
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
-
-
-def config(**changes):
-    return replace(KernelConfig(
-        "/not-accessed/data_lake", 2, 2, 2000, 1, 8192, 134217728,
-        268435456, 1073741824, 8000, 2000, 1500000, 10000,
-        500, 16, 33554432, 20, 200,
-    ), **changes)
+from test_execution_control import config
 
 
 @contextmanager

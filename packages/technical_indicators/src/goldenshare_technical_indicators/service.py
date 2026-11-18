@@ -61,7 +61,7 @@ class TechnicalIndicatorService:
 
         return tuple(
             OutputInstanceDescription(
-                instance_id=identity,
+                calculation_index=calculation_index,
                 calculation_id=plan.nodes[index].definition.calculation_id,
                 algorithm_version=plan.nodes[index].definition.algorithm_version,
                 parameters=plan.nodes[index].parameters,
@@ -69,7 +69,7 @@ class TechnicalIndicatorService:
                     name=field.name, sql_type=field.sql_type, nullable=field.nullable,
                     initialization_rule=field.initialization_rule,
                 ) for field in plan.nodes[index].definition.output_fields),
-            ) for identity, index in plan.instances
+            ) for calculation_index, index in plan.instances
         )
 
     def calculate(self, request):
@@ -128,8 +128,7 @@ class TechnicalIndicatorService:
             description = inputs.resolved_description()
             output = OutputCollector(
                 executor=executor, request=normalized, instances=self._describe_output_instances(plan),
-                target_first_seq=description.selection.preceding_rows + 1,
-                target_rows=description.selection.target_rows,
+                selection=description.selection,
             )
             while True:
                 control.check_active()

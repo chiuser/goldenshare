@@ -29,6 +29,7 @@ def config(**changes):
         max_indicator_instances=16,
         max_projected_row_group_bytes=33554432, control_poll_ms=20,
         monitor_join_target_ms=200,
+        data_location="dg", dataset_locations={}, market_datasets={},
     )
     return replace(original, **changes)
 

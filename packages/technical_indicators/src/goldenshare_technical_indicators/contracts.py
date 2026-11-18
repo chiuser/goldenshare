@@ -24,7 +24,7 @@ ParameterValue = int | float | str | bool | None
 Parameters = tuple[tuple[str, int | float], ...]
 PERIODS: tuple[Period, ...] = ("1m", "5m", "15m", "30m", "60m", "90m", "120m", "day", "week", "month")
 TIMEZONE = "Asia/Shanghai"
-KERNEL_VERSION = "3.0.0"
+KERNEL_VERSION = "4.0.0"
 _MAX_OUTPUT_ROWS = 500
 _IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 _SECURITY = re.compile(r"[0-9]{6}\.(?:SH|SZ|BJ)\Z")
@@ -122,10 +122,8 @@ class SeriesDescription:
 
 @dataclass(frozen=True, slots=True)
 class RequestedRange:
-    start: TimePosition | None
-    end: TimePosition | None
-    before: TimePosition | None
-    limit: int
+    start: datetime
+    end: datetime
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,7 +149,6 @@ class PriceAdjustmentResult:
 
 @dataclass(frozen=True, slots=True)
 class CalculationValues:
-    instance_id: str
     calculation_id: str
     algorithm_version: str
     parameters: Parameters

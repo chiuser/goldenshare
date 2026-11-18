@@ -28,7 +28,6 @@ class _ContractJSONEncoder(json.JSONEncoder):
         if isinstance(value, CalculationValues):
             # These two tuples express named JSON objects, not pair arrays.
             return {
-                "instance_id": value.instance_id,
                 "calculation_id": value.calculation_id,
                 "algorithm_version": value.algorithm_version,
                 "parameters": dict(value.parameters),

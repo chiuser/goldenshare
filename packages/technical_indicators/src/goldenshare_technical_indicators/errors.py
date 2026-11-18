@@ -86,9 +86,9 @@ class OutputReadError(TechnicalIndicatorError):
 class OutputContractError(TechnicalIndicatorError):
     """An internal result is missing a declared item, field or time position."""
 
-    def __init__(self, message, *, reason, stage, instance_id=None, **diagnostics):
+    def __init__(self, message, *, reason, stage, calculation_index=None, **diagnostics):
         super().__init__(message)
-        self.reason, self.stage, self.instance_id = reason, stage, instance_id
+        self.reason, self.stage, self.calculation_index = reason, stage, calculation_index
         self.diagnostics = diagnostics
 
 
