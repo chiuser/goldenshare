@@ -639,13 +639,13 @@ def _stk_mins_asset_rules() -> dict[str, dict[str, AssetCheckGovernanceRule]]:
 ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
     **{
         period.silver_asset: _rules((period.silver_check,),category=KEEP_BLOCKING_DAGSTER,
-            phase="index_period_silver",readiness=False,retention_allowed=False)
+            phase="index_period_silver",readiness=True,retention_allowed=False)
         for period in (INDEX_WEEKLY,INDEX_MONTHLY)
     },
     **{
         period.raw_asset: _rules(
             (period.raw_check,), category=KEEP_BLOCKING_DAGSTER,
-            phase="index_period_raw", readiness=False, retention_allowed=False,
+            phase="index_period_raw", readiness=True, retention_allowed=False,
         )
         for period in (INDEX_WEEKLY, INDEX_MONTHLY)
     },

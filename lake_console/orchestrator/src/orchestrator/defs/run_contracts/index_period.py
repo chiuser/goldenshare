@@ -96,6 +96,10 @@ def index_period_codes() -> tuple[str, ...]:
     return tuple(row.ts_code for row in load_major_indices_seed())
 
 
+def build_index_period_silver_run_config(period, config: IndexPeriodSilverConfig):
+    return {"ops": {period.silver_asset: {"config": config.model_dump(exclude_none=True)}}}
+
+
 def index_period_bounds(period: IndexPeriod, partition_key: str) -> tuple[date, date]:
     if period == INDEX_WEEKLY:
         day = date.fromisoformat(partition_key)
