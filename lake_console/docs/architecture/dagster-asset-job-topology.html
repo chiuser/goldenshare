@@ -770,6 +770,42 @@
           <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
         </tr>
         <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>raw_index_weekly</code>（指数周线 Raw）</td>
+          <td><span class="tag raw">raw</span></td>
+          <td><code>cn_a_index_week_ends</code>；文件为 <code>raw/index_weekly/full/part-000.parquet</code></td>
+          <td><code>raw_index_weekly_update_job</code> 只选择本资产及 <code>raw_index_weekly_file_contract_check</code>。通过通用下载组件取十一代码的正式指数周线，北证 50 合法空；保留源股／元／比例。</td>
+          <td><code>raw_index_weekly_update_job_sensor</code>：上海时间 19:00 至零点前，最小间隔 600 秒；该周最后开市日探测正式源。</td>
+          <td>Dagster 按周期分区，物理文件保存完整历史；沿用全局单任务队列，不另设 pool。默认 STOPPED，实际启用与自动验收状态以<a href="../design/dagster-index-period-onboarding-plan-and-low-level-design-v1.md">原方案 §11.18</a>和正式 instance 为准。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>silver_index_weekly</code>（指数周线 Silver）</td>
+          <td><span class="tag silver">silver</span></td>
+          <td><code>cn_a_index_week_ends</code>；文件为 <code>silver/index_weekly/full/part-000.parquet</code></td>
+          <td><code>silver_index_weekly_update_job</code> 只选择本资产及 <code>silver_index_weekly_file_contract_check</code>。日更只读已成功且原检查通过的 DG 指数日线 Silver，合成十一代码当期；新正式 Raw 覆盖原分区，北证 50 保留完整合成值；单位为手／千元／百分数。</td>
+          <td><code>silver_index_weekly_update_job_sensor</code>：上海时间 19:00 至零点前，最小间隔 600 秒；当天日线就绪后按 P＋T 提交日更，另按新 Raw 批次提交原周期覆盖。</td>
+          <td>Dagster 按周期分区，物理文件保存完整历史；沿用全局单任务队列，不另设 pool。默认 STOPPED，实际启用与自动验收状态以<a href="../design/dagster-index-period-onboarding-plan-and-low-level-design-v1.md">原方案 §11.18</a>和正式 instance 为准。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>raw_index_monthly</code>（指数月线 Raw）</td>
+          <td><span class="tag raw">raw</span></td>
+          <td><code>cn_a_index_months</code>；文件为 <code>raw/index_monthly/full/part-000.parquet</code></td>
+          <td><code>raw_index_monthly_update_job</code> 只选择本资产及 <code>raw_index_monthly_file_contract_check</code>。通过通用下载组件取十一代码的正式指数月线，北证 50 合法空；保留源股／元／比例。</td>
+          <td><code>raw_index_monthly_update_job_sensor</code>：上海时间 19:00 至零点前，最小间隔 600 秒；次月首个开市日探测上月正式源。</td>
+          <td>Dagster 按周期分区，物理文件保存完整历史；沿用全局单任务队列，不另设 pool。默认 STOPPED，实际启用与自动验收状态以<a href="../design/dagster-index-period-onboarding-plan-and-low-level-design-v1.md">原方案 §11.18</a>和正式 instance 为准。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>silver_index_monthly</code>（指数月线 Silver）</td>
+          <td><span class="tag silver">silver</span></td>
+          <td><code>cn_a_index_months</code>；文件为 <code>silver/index_monthly/full/part-000.parquet</code></td>
+          <td><code>silver_index_monthly_update_job</code> 只选择本资产及 <code>silver_index_monthly_file_contract_check</code>。日更只读已成功且原检查通过的 DG 指数日线 Silver，合成十一代码当期；新正式 Raw 覆盖原分区，北证 50 保留完整合成值；单位为手／千元／百分数。</td>
+          <td><code>silver_index_monthly_update_job_sensor</code>：上海时间 19:00 至零点前，最小间隔 600 秒；当天日线就绪后按 P＋T 提交日更，另按新 Raw 批次提交原周期覆盖。</td>
+          <td>Dagster 按周期分区，物理文件保存完整历史；沿用全局单任务队列，不另设 pool。默认 STOPPED，实际启用与自动验收状态以<a href="../design/dagster-index-period-onboarding-plan-and-low-level-design-v1.md">原方案 §11.18</a>和正式 instance 为准。</td>
+        </tr>
+        <tr>
           <td><span class="tag">market</span></td>
           <td><code>gold_market_major_indices_daily</code></td>
           <td><span class="tag gold">gold</span></td>
@@ -1050,6 +1086,34 @@
           <td>单个交易日指数日线 silver 分区。</td>
           <td>人工分区运行、UI backfill 或 <code>silver_index_daily_sensor</code> 触发最早未 ready 的交易日。</td>
           <td>只消费同日 raw by-date 文件，不调用 prod 或 Tushare，不写 raw。</td>
+        </tr>
+        <tr>
+          <td><code>raw_index_weekly_update_job</code></td>
+          <td><code>raw_index_weekly</code> + <code>raw_index_weekly_file_contract_check</code></td>
+          <td>指数周线 Raw 完整历史文件，本次只更新目标周期。</td>
+          <td>同名 <code>raw_index_weekly_update_job_sensor</code> 或人工选择原分区，经既有队列提交。</td>
+          <td>下载正式源本期、合并完整 Raw 历史。失败直接报告，由人工补齐或重跑；不重跑上游 writer／checks，不增加额外生产 check。</td>
+        </tr>
+        <tr>
+          <td><code>silver_index_weekly_update_job</code></td>
+          <td><code>silver_index_weekly</code> + <code>silver_index_weekly_file_contract_check</code></td>
+          <td>指数周线 Silver 完整历史文件，本次只更新目标周期。</td>
+          <td>同名 <code>silver_index_weekly_update_job_sensor</code> 或人工选择原分区，经既有队列提交。</td>
+          <td>支持 daily／period／repair；日常 sensor 只提交前两种模式，不下载日线。失败直接报告，由人工补齐或重跑；不重跑上游 writer／checks，不增加额外生产 check。</td>
+        </tr>
+        <tr>
+          <td><code>raw_index_monthly_update_job</code></td>
+          <td><code>raw_index_monthly</code> + <code>raw_index_monthly_file_contract_check</code></td>
+          <td>指数月线 Raw 完整历史文件，本次只更新目标周期。</td>
+          <td>同名 <code>raw_index_monthly_update_job_sensor</code> 或人工选择原分区，经既有队列提交。</td>
+          <td>下载正式源本期、合并完整 Raw 历史。失败直接报告，由人工补齐或重跑；不重跑上游 writer／checks，不增加额外生产 check。</td>
+        </tr>
+        <tr>
+          <td><code>silver_index_monthly_update_job</code></td>
+          <td><code>silver_index_monthly</code> + <code>silver_index_monthly_file_contract_check</code></td>
+          <td>指数月线 Silver 完整历史文件，本次只更新目标周期。</td>
+          <td>同名 <code>silver_index_monthly_update_job_sensor</code> 或人工选择原分区，经既有队列提交。</td>
+          <td>支持 daily／period／repair；日常 sensor 只提交前两种模式，不下载日线。失败直接报告，由人工补齐或重跑；不重跑上游 writer／checks，不增加额外生产 check。</td>
         </tr>
         <tr>
           <td><code>market_major_indices_daily_update_job</code></td>
