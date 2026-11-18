@@ -4,9 +4,11 @@
 
 ## 1. 当前链路与共用规则
 
-`cashflow.maintain → 公告自然日×report_type units → cashflow_vip 分页 → Raw 规范化/upsert → Serving 普通 view`。
+2026-11-19，[财务三表报告期修复](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-period-repair)已在工作区实现，自动积压每表每段最多连续两个完整公告日。现金流量表使用同一套默认及手动指定报告期规则。生产版本仍待发布。
 
-本表完整沿用[财务三表共用规则](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-shared-rules)：公告日而非报告期输入、默认真实 1..12、多选全选交互、七字段身份、end_type 规范化、指纹与修订、HDD/视图选择、事务、Ops 和调度。这里不再复制另一套共享合同。
+`cashflow.maintain → 公告日 × 报告期 × 报表类型 → cashflow_vip 分页 → Raw 规范化/upsert → Serving 普通 view`。
+
+本表沿用[财务三表共用规则](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-shared-rules)，包括公告日和独立的报告期范围、报表类型、多选全选、七字段身份、特殊报告期规范化、事务与调度。
 
 本次共享校验修正的[开发方案与 LLD](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-prelisting-zero-end-type)集中在共用规则 §7：源 end_type=0，且报告期严格早于正式上市日或查询成功但查不到上市日期时，保留源值并豁免季度末与类型映射检查；其他检查不变，数据库查询错误仍停止。不增加 is_calc 或其他运营输入，不改变现金流量表源合同。
 
@@ -27,7 +29,7 @@
 ### 必须保持的本表行为
 
 - 单公告日或公告自然日闭区间，周末也生成 unit；不读股票池，不按股票逐只请求普通接口。
-- report_type 缺失用默认全部，显式空或非法值拒绝；每日期只为所选真实类型生成 unit。请求只有 ann_date/report_type，字段与分页由通用 source client 提供。
+- report_type 缺失用默认全部，显式空或非法值拒绝。每条业务请求传一个 ann_date、一个 period 和一个 report_type，字段与分页由源客户端提供。
 - Raw 保存全部所选类型和不同身份版本，数值 nullable Numeric；三个日期为 Date，额外保存 source_content_hash、api_name、fetched_at，不重复保存 raw_payload。
 - 七字段身份与 end_type 映射仅复用共享合同；同批同身份异内容失败，跨任务同身份修订覆盖，不按响应缺行删除旧事实。
 - Serving 仅 report_type=1，先按 CASE 优先 update_flag=1，再按 f_ann_date 和稳定并列规则选择；不写独立 Serving 表，不在业务/页面重复选择逻辑。

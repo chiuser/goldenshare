@@ -202,8 +202,10 @@ class OperationsWorker:
             or "index_period_serving" in (outcome.ingestion_diagnostics or {})
         )
         stock_period_adj = isinstance(execution_context, dict) and execution_context.get('contract_kind') == 'stock_period_adj/v1'
+        financial_statement = "financial_statement" in (task_run.plan_snapshot_json or {})
         preserve_business_progress = (
             announcement or weekly_adj or index_period_raw or stock_period_adj
+            or financial_statement
             or (index_period_serving and outcome.ingestion_diagnostics is None)
         )
         maintenance_incomplete = task_run.task_type == "maintenance_action" and final_status in {"failed", "canceled"}
@@ -251,8 +253,11 @@ class OperationsWorker:
         if (preserve_business_progress or index_period_serving) and task_run.current_node_id is not None:
             node = session.get(TaskRunNode, task_run.current_node_id)
             if node is not None and node.task_run_id == task_run.id:
-                node.status = final_status
-                node.ended_at = now
+                if financial_statement:
+                    TaskRunDispatcher._finish_node(node, status=final_status)
+                else:
+                    node.status = final_status
+                    node.ended_at = now
                 node.rows_fetched, node.rows_saved, node.rows_rejected = task_run.rows_fetched, task_run.rows_saved, task_run.rows_rejected
                 node.rows_deduplicated = task_run.rows_deduplicated
                 node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})

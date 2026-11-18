@@ -107,6 +107,7 @@ class DatasetInputField:
     display_name: str = ""
     description: str = ""
     scoped_repair_policy: str | None = None
+    manual_only: bool = False
 
     def __post_init__(self) -> None:
         unknown_labels = sorted(set(self.option_labels) - set(self.enum_values))

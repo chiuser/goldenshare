@@ -46,6 +46,14 @@ from src.ops.schemas.task_run import (
 class TaskRunQueryService:
     @staticmethod
     def _execution_policy_label(task_run):
+        financial = (task_run.plan_snapshot_json or {}).get("financial_statement")
+        if financial:
+            mode = "指定报告期" if financial["mode"] == "specified" else "默认报告期"
+            periods = "、".join(financial["report_periods"])
+            label = f"{mode}：{periods}"
+            if financial.get("first_planned_day"):
+                label += f"。首个纳入范围的公告日为 {financial['first_planned_day']}，更早公告日无适用的指定报告期。"
+            return label
         context = (task_run.request_payload_json or {}).get('execution_context') or {}
         if context.get('contract_kind') != 'stock_period_adj/v1':
             return None
@@ -695,7 +703,9 @@ class TaskRunQueryService:
             ("对象类型", cls._entity_kind_label(kind)),
             (cls._time_field_label(time), cls._time_label(time)),
             ("频率", attributes.get("freq")),
-            ("类型", attributes.get("enum_value")),
+            ("报表类型" if attributes.get("period") else "类型", attributes.get("enum_value")),
+            ("报告期", attributes.get("period")),
+            ("当前页", attributes.get("page")),
         ]
         fields: list[TaskRunDisplayField] = []
         seen: set[tuple[str, str]] = set()

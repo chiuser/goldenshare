@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import date
 from decimal import Decimal
 import importlib.util
@@ -26,7 +27,7 @@ from src.foundation.datasets.freshness_policies import EVENT_RUN_TRACE, get_fres
 from src.foundation.datasets.income_contracts import INCOME_DECIMAL_FIELDS, INCOME_SOURCE_FIELDS
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.errors import IngestionNormalizeError, IngestionValidationError
+from src.foundation.ingestion.errors import IngestionNormalizeError, IngestionPlanningError, IngestionSourceError, IngestionValidationError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult
@@ -115,7 +116,7 @@ def _unit(dataset_key: str, unit_date: date, *, report_type: str = "1") -> PlanU
         dataset_key=dataset_key,
         source_key="tushare",
         trade_date=unit_date,
-        request_params={"ann_date": unit_date.strftime("%Y%m%d"), "report_type": report_type},
+        request_params={"ann_date": unit_date.strftime("%Y%m%d"), "period": "20260630", "report_type": report_type},
         progress_context={"ann_date": unit_date.isoformat(), "report_type": report_type},
         pagination_policy="offset_limit",
         page_limit=5_000,
@@ -215,14 +216,59 @@ def test_financial_statement_planner_defaults_to_all_types_and_keeps_natural_day
     )
 
     assert [unit.request_params for unit in point.units] == [
-        {"ann_date": "20260829", "report_type": report_type}
+        {"ann_date": "20260829", "period": period, "report_type": report_type}
+        for period in ("20251231", "20260331", "20260630")
         for report_type in FINANCIAL_STATEMENT_REPORT_TYPE_VALUES
     ]
     assert [unit.request_params for unit in ranged.units] == [
-        {"ann_date": day, "report_type": report_type}
+        {"ann_date": day, "period": period, "report_type": report_type}
         for day in ("20260829", "20260830", "20260831")
+        for period in ("20251231", "20260331", "20260630")
         for report_type in ("1", "6")
     ]
+
+
+@pytest.mark.parametrize("dataset_key", ("income", "balancesheet", "cashflow"))
+def test_financial_statement_default_plan_is_shared_and_recomputes_at_year_boundary(dataset_key):
+    request = DatasetActionRequest(
+        dataset_key=dataset_key,
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 12, 31), end_date=date(2027, 1, 1)),
+        filters={"report_type": ["1"]},
+    )
+    resolver = _resolver(dataset_key)
+    expected = [
+        {"ann_date": "20261231", "period": period, "report_type": "1"}
+        for period in ("20251231", "20260331", "20260630", "20260930", "20261231")
+    ] + [{"ann_date": "20270101", "period": "20261231", "report_type": "1"}]
+    manual = resolver.build_plan(request)
+    automatic = resolver.build_plan(replace(request, trigger_source="scheduled", schedule_id=7))
+    assert [unit.request_params for unit in manual.units] == expected
+    assert manual.units == automatic.units
+    assert len({unit.unit_id for unit in automatic.units}) == 6
+    legacy_oversized = replace(request, time_input=replace(request.time_input, end_date=date(2027, 1, 2)))
+    assert len(resolver.build_plan(legacy_oversized).units) == 7
+    with pytest.raises(IngestionValidationError, match="最多处理 2 个完整公告日"):
+        resolver.build_plan(replace(legacy_oversized, trigger_source="retry", schedule_id=7))
+
+
+def test_financial_statement_explicit_periods_replace_defaults_and_skip_earlier_days():
+    request = DatasetActionRequest(
+        dataset_key="balancesheet",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2023, 8, 30), end_date=date(2023, 9, 1)),
+        filters={"report_periods": ["2023-08-31", "2023-08-31"], "report_type": ["1"]},
+    )
+    assert [unit.request_params for unit in _resolver("balancesheet").build_plan(request).units] == [
+        {"ann_date": ann_date, "period": "20230831", "report_type": "1"}
+        for ann_date in ("20230831", "20230901")
+    ]
+    for value in ("2023-02-30", "20230831", "2023-09-02"):
+        with pytest.raises(IngestionPlanningError) as caught:
+            _resolver("balancesheet").build_plan(replace(request, filters={"report_periods": [value]}))
+        assert caught.value.structured_error.error_code == "invalid_date"
+    with pytest.raises(IngestionValidationError, match="报告期只支持手动维护"):
+        _resolver("balancesheet").build_plan(replace(request, trigger_source="retry", schedule_id=7))
 
 
 @pytest.mark.parametrize("dataset_key", ("income", "balancesheet", "cashflow"))
@@ -240,6 +286,40 @@ def test_financial_statement_rejects_empty_sentinel_and_invalid_report_types(
                 filters=filters,
             )
         )
+
+
+@pytest.mark.parametrize("changed_field,wrong_value", [
+    ("end_date", "20260331"), ("ann_date", "20260830"), ("report_type", "6"), ("update_flag", None),
+])
+def test_financial_statement_second_page_rejects_wrong_scope_or_missing_field(monkeypatch, changed_field, wrong_value):
+    definition = get_dataset_definition("balancesheet")
+    row = _row(BALANCESHEET_SOURCE_FIELDS, BALANCESHEET_DECIMAL_FIELDS)
+    bad = dict(row)
+    if wrong_value is None:
+        del bad[changed_field]
+    else:
+        bad[changed_field] = wrong_value
+    calls = []
+
+    def call(*, api_name, params, fields):
+        calls.append(params["offset"])
+        return [row if params["offset"] == 0 else bad]
+
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda _: SimpleNamespace(call=call))
+    with pytest.raises(IngestionSourceError, match="财务报表源响应"):
+        DatasetSourceClient().fetch(
+            definition=definition, unit=replace(_unit("balancesheet", date(2026, 8, 29)), page_limit=1),
+        )
+    assert calls == [0, 1]
+
+
+def test_financial_statement_requires_period_before_contacting_source(monkeypatch):
+    connector = SimpleNamespace(call=lambda **_: pytest.fail("missing period must not reach the connector"))
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda _: connector)
+    unit = _unit("income", date(2026, 8, 29))
+    params = {key: value for key, value in unit.request_params.items() if key != "period"}
+    with pytest.raises(IngestionSourceError, match="缺少报告期"):
+        DatasetSourceClient().fetch(definition=get_dataset_definition("income"), unit=replace(unit, request_params=params))
 
 
 @pytest.mark.parametrize(
@@ -282,8 +362,8 @@ def test_financial_statement_source_pagination_and_empty_result(
     )
 
     assert [params for params, _fields in calls] == [
-        {"ann_date": "20260829", "report_type": "1", "limit": 5_000, "offset": 0},
-        {"ann_date": "20260829", "report_type": "1", "limit": 5_000, "offset": 5_000},
+        {"ann_date": "20260829", "period": "20260630", "report_type": "1", "limit": 5_000, "offset": 0},
+        {"ann_date": "20260829", "period": "20260630", "report_type": "1", "limit": 5_000, "offset": 5_000},
     ]
     assert all(fields == source_fields for _params, fields in calls)
     assert len(result.rows_raw) == 5_000

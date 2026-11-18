@@ -79,7 +79,8 @@ class TaskRunIngestionContext(IngestionRunContext):
             task_run.unit_failed = failed_units
             task_run.unit_total = total_units
             announcement = (ingestion_diagnostics or {}).get('runtime', {}).get('announcement')
-            numerator = committed_units if announcement else handled_units
+            financial = "financial_statement" in (task_run.plan_snapshot_json or {})
+            numerator = committed_units if announcement or financial else handled_units
             task_run.progress_percent = min(int((numerator / total_units) * 100), 100) if total_units else None
             task_run.rows_fetched = int(rows_fetched if rows_fetched is not None else task_run.rows_fetched or 0)
             task_run.rows_saved = int(rows_saved if rows_saved is not None else task_run.rows_saved or 0)

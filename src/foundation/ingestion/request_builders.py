@@ -91,6 +91,7 @@ def _financial_statement_vip_params(
         raise ValueError(f"{label}报表类型必须是 1 至 12")
     return {
         "ann_date": anchor_date.strftime("%Y%m%d"),
+        "period": _format_yyyymmdd(enum_values["period"]),
         "report_type": report_type,
     }
 

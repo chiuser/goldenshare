@@ -5,10 +5,12 @@ import time
 from time import perf_counter
 
 from src.foundation.connectors.factory import create_source_connector
+from src.foundation.datasets.financial_statement_contracts import FINANCIAL_STATEMENT_UNIT_BUILDER
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
 from src.foundation.ingestion.errors import IngestionError, IngestionSourceError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.financial_statement_runtime import FinancialStatementSourceControl
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 
 
@@ -147,7 +149,7 @@ class DatasetSourceClient:
             error_code="weekly_adj.row_budget_exceeded", error_type="source", phase="source_client",
             message="周线单元没有在页数预算内看到末页，当前单元未入库", retryable=False, unit_id=unit.unit_id))
 
-    def fetch(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot) -> SourceFetchResult:
+    def fetch(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot, control=None) -> SourceFetchResult:
         started_at = perf_counter()
         rows_raw: list[dict] = []
         request_count = 0
@@ -161,7 +163,11 @@ class DatasetSourceClient:
         current_variant_pages = 0
         current_variant_terminal_offset: int | None = None
         current_variant_terminal_rows = 0
-        for page in self.iter_pages(definition=definition, unit=unit):
+        pages = (
+            self.iter_pages(definition=definition, unit=unit, control=control)
+            if control is not None else self.iter_pages(definition=definition, unit=unit)
+        )
+        for page in pages:
             projected_row_count = len(rows_raw) + len(page.rows_raw)
             if (
                 unit.max_source_rows_per_unit is not None
@@ -378,6 +384,8 @@ class DatasetSourceClient:
                 page_limit=page_limit,
                 control=control,
             )
+            if isinstance(control, FinancialStatementSourceControl):
+                control.check(force=True)
             is_short_page = len(rows) < page_limit
             self.logger.info(
                 "dataset_source_page api_name=%s unit_id=%s ann_date=%s period=%s offset=%s limit=%s page_rows=%s is_short_page=%s",
@@ -422,6 +430,12 @@ class DatasetSourceClient:
             params["offset"] = offset
         if page_limit is not None:
             params["limit"] = page_limit
+        financial = definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER
+        if financial and not params.get("period"):
+            raise IngestionSourceError(StructuredError(
+                error_code="required_param_missing", error_type="source", phase="source_client",
+                message="财务报表源请求缺少报告期", retryable=False, unit_id=unit.unit_id,
+            ))
         rows, retries = self._execute_with_retry(
             definition=definition,
             unit=unit,
@@ -429,6 +443,18 @@ class DatasetSourceClient:
             params=params,
             control=control,
         )
+        if financial:
+            expected = {"ann_date": params["ann_date"], "end_date": params["period"], "report_type": params["report_type"]}
+            fields = set(definition.source.source_fields)
+            if (page_limit is not None and len(rows) > page_limit) or any(
+                set(row) != fields or any(str(row[key]) != str(value) for key, value in expected.items())
+                for row in rows
+            ):
+                raise IngestionSourceError(StructuredError(
+                    error_code="source_variant_mismatch", error_type="source", phase="source_client",
+                    message="财务报表源响应与执行单元的日期、报告期、类型或分页字段不一致",
+                    retryable=False, unit_id=unit.unit_id, details={"request_params": params},
+                ))
         self._validate_request_variant_rows(
             definition=definition,
             rows=rows,
@@ -542,6 +568,7 @@ class DatasetSourceClient:
         if control is not None:
             from src.foundation.clients.bounded_tushare_call import BoundedTushareError
 
+        financial = isinstance(control, FinancialStatementSourceControl)
         max_retries = 3
         backoff = 0.5
         retries = 0
@@ -552,14 +579,17 @@ class DatasetSourceClient:
                     "params": params,
                     "fields": definition.source.source_fields,
                 }
-                rows = (connector.call(**source_params) if control is None else
-                        connector.call_bounded(
-                            **source_params, maximum=control.policy.max_response_bytes,
-                            timeout=control.source_timeout, check=control.check,
-                            tick=control.report, before_request=control.check,
-                            response_contract="index_period_raw/v1",
-                            child_pid_changed=control.set_child_pid,
-                        ))
+                if control is None:
+                    rows = connector.call(**source_params)
+                else:
+                    rows = connector.call_bounded(
+                        **source_params,
+                        maximum=control.max_response_bytes if financial else control.policy.max_response_bytes,
+                        timeout=control.source_timeout, check=control.check,
+                        tick=control.report, before_request=control.check,
+                        response_contract=None if financial else "index_period_raw/v1",
+                        child_pid_changed=None if financial else control.set_child_pid,
+                    )
                 self._annotate_rows(definition=definition, rows=rows, params=params)
                 return rows, retries
             except Exception as exc:
@@ -568,10 +598,17 @@ class DatasetSourceClient:
                         raise
                     control.check()
                 if control is not None and isinstance(exc, BoundedTushareError):
+                    code = exc.code
+                    if financial:
+                        code = {
+                            "anns_d.source_deadline_exceeded": "source_timeout",
+                            "anns_d.response_size_exceeded": "financial_statement.response_size_exceeded",
+                            "anns_d.source_payload_invalid": "source_variant_mismatch",
+                        }.get(code, code)
                     structured = StructuredError(
-                        error_code=exc.code, error_type="source", phase="source_client",
-                        message=str(exc), retryable=exc.code in {
-                            "source_connection_failed", "index_period_raw.source_deadline_exceeded",
+                        error_code=code, error_type="source", phase="source_client",
+                        message=str(exc), retryable=code in {
+                            "source_connection_failed", "index_period_raw.source_deadline_exceeded", "source_timeout",
                         },
                         unit_id=unit.unit_id, details=exc.details,
                     )

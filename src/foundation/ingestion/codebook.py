@@ -95,6 +95,8 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("anns_d.source_deadline_exceeded", "公告源调用超过总期限", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("anns_d.dataset_busy", "公告维护执行已被占用", "source/executor", "核验公告预算、恢复范围或源行为"),
     IngestionCodebookEntry("source_connection_failed", "上游单次连接未完成", "source/executor", "查看异常类型、HTTP状态和请求信息，核验Tushare连接后恢复原任务"),
+    IngestionCodebookEntry("financial_statement.response_size_exceeded", "财务报表单页响应超过字节预算", "source", "核对实际响应大小和分页参数后按原范围重试"),
+    IngestionCodebookEntry("financial_statement.resume_mismatch", "财务报表恢复计划不一致", "planner", "核对原任务范围后重新提交"),
     IngestionCodebookEntry("anns_d.source_payload_invalid", "公告源记录无法无损序列化", "normalizer", "核验原始响应格式，禁止字符串化不同值或忽略该记录"),
     IngestionCodebookEntry("anns_d.storage_upgrade_required", "公告存储结构尚未切换", "writer", "按已批准的备份和重拉流程切换公告表结构"),
     IngestionCodebookEntry("anns_d.identity_collision", "公告完整源载荷与哈希不一致", "normalize/writer", "核验公告样本与保存规则"),

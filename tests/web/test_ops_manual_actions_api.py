@@ -537,6 +537,25 @@ def test_ops_manual_action_financial_statement_defaults_to_real_report_types_and
     assert empty.status_code == 422
 
 
+def test_ops_manual_financial_statement_accepts_specified_non_quarter_period(app_client, user_factory):
+    headers = _admin_headers(app_client, user_factory)
+    response = app_client.get("/api/v1/ops/manual-actions", headers=headers)
+    groups = response.json()["groups"]
+    action = next(action for group in groups for action in group["actions"] if action["action_key"] == "balancesheet.maintain")
+    period = next(field for field in action["filters"] if field["key"] == "report_periods")
+    assert period["param_type"] == "string" and period["multi_value"] and not period["required"]
+    body = {
+        "time_input": {"mode": "point", "ann_date": "2024-01-11"},
+        "filters": {"report_type": ["1"], "report_periods": ["2023-08-31"]},
+    }
+    url = "/api/v1/ops/manual-actions/balancesheet.maintain/task-runs"
+    created = app_client.post(url, headers=headers, json=body)
+    assert created.status_code == 200
+    assert created.json()["run"]["filters"] == body["filters"]
+    body["filters"]["report_periods"] = ["2023-02-30"]
+    assert app_client.post(url, headers=headers, json=body).status_code == 422
+
+
 def test_ops_manual_action_task_run_supports_public_fund_full_snapshots(app_client, user_factory) -> None:
     headers = _admin_headers(app_client, user_factory)
 

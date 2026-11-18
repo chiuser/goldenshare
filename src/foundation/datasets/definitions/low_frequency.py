@@ -17,8 +17,10 @@ from src.foundation.datasets.cashflow_contracts import (
 )
 from src.foundation.datasets.financial_statement_contracts import (
     FINANCIAL_STATEMENT_IDENTITY_FIELDS,
+    FINANCIAL_STATEMENT_MAX_UNIT_ROWS,
     FINANCIAL_STATEMENT_REPORT_TYPE_LABELS,
     FINANCIAL_STATEMENT_REPORT_TYPE_VALUES,
+    FINANCIAL_STATEMENT_UNIT_BUILDER,
 )
 from src.foundation.datasets.income_contracts import (
     INCOME_DATE_FIELDS,
@@ -139,6 +141,14 @@ def _financial_statement_dataset_row(
                     "display_name": "报表类型",
                     "description": "默认维护全部报表类型；可取消全部后选择具体类型。",
                 },
+                {
+                    "name": "report_periods",
+                    "field_type": "list",
+                    "multi_value": True,
+                    "manual_only": True,
+                    "display_name": "报告期",
+                    "description": "选填。留空按默认范围维护，填写后只查指定报告期。输入 YYYY-MM-DD，多个日期用逗号分隔。",
+                },
             ),
             "required_groups": (),
             "mutually_exclusive_groups": (),
@@ -165,9 +175,10 @@ def _financial_statement_dataset_row(
             "enum_fanout_defaults": {"report_type": FINANCIAL_STATEMENT_REPORT_TYPE_VALUES},
             "pagination_policy": "offset_limit",
             "page_limit": 5_000,
+            "max_source_rows_per_unit": FINANCIAL_STATEMENT_MAX_UNIT_ROWS,
             "chunk_size": None,
             "max_units_per_execution": None,
-            "unit_builder_key": "build_financial_statement_units",
+            "unit_builder_key": FINANCIAL_STATEMENT_UNIT_BUILDER,
             "fetch_concurrency": 1,
         },
         "normalization": {
@@ -230,7 +241,7 @@ def _financial_statement_dataset_row(
             "commit_policy": "unit",
             "idempotent_write_required": True,
             "write_volume_assessment": (
-                "每个公告自然日和报表类型为独立全市场 unit，page_limit=5000；全部分页、归一化和冲突检查"
+                "每个公告自然日、报告期和报表类型为独立全市场 unit，page_limit=5000；全部分页、归一化和冲突检查"
                 "完成后，在一个业务事务内分批 upsert 到 HDD raw 表；serving 普通 view 不发生第二次写入。"
             ),
         },

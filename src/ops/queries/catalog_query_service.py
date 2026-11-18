@@ -203,6 +203,7 @@ class OpsCatalogQueryService:
                     enum_fanout_defaults=definition.planning.enum_fanout_defaults,
                 )
                 for field in (*definition.input_model.time_fields, *definition.input_model.filters)
+                if not field.manual_only
             ],
         )
 

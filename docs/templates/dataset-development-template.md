@@ -440,6 +440,8 @@
 
 ### 4.5 `input_model`
 
+仅手动任务支持的输入应在 `DatasetInputField.manual_only` 中声明。核对手动目录和提交接收该字段，自动配置目录、保存与触发均拒绝该字段，并检查旧任务重试仍按原触发来源的输入合同执行。
+
 ```python
 "input_model": {
     "time_fields": (),

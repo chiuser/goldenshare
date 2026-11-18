@@ -4,6 +4,10 @@ from calendar import monthrange
 from datetime import date
 from uuid import uuid4
 
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_SCHEDULE_DAYS,
+    FINANCIAL_STATEMENT_UNIT_BUILDER,
+)
 from src.foundation.datasets.models import DatasetDateModel, DatasetDefinition, DatasetInputField
 from src.foundation.ingestion.errors import IngestionValidationError, StructuredError
 from src.foundation.ingestion.execution_plan import DatasetActionRequest, ValidatedDatasetActionRequest
@@ -47,6 +51,11 @@ class DatasetRequestValidator:
                 message=f"{definition.display_name} 不支持按默认策略维护",
             )
 
+        scheduled = request.schedule_id is not None or request.trigger_source in {"schedule", "scheduled", "probe"}
+        if scheduled:
+            for field in definition.input_model.filters:
+                if field.manual_only and field.name in request.filters:
+                    raise self._error("run_profile_unsupported", f"{field.display_label}只支持手动维护")
         normalized_params = self._normalize_input_params(request.filters, definition, strict=strict)
         time_input = request.time_input
         trade_date = self._to_optional_date(time_input.trade_date)
@@ -80,6 +89,12 @@ class DatasetRequestValidator:
                 end_date=end_date,
                 params=normalized_params,
             )
+            if (
+                scheduled and definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER
+                and start_date is not None and end_date is not None
+                and (end_date - start_date).days >= FINANCIAL_STATEMENT_SCHEDULE_DAYS
+            ):
+                raise self._error("units_exceeded", f"财务报表自动任务每次最多处理 {FINANCIAL_STATEMENT_SCHEDULE_DAYS} 个完整公告日")
         elif run_profile == "snapshot_refresh":
             month_key = self._normalize_month_key(normalized_params.get("month"))
             if trade_date is None:

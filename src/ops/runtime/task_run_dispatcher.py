@@ -16,9 +16,14 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.foundation.ingestion.execution_scope import execution_observation_timeout
 from src.foundation.config.settings import get_settings
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_OBSERVATION_TIMEOUT_SECONDS,
+    FINANCIAL_STATEMENT_PLAN_VERSION,
+    FINANCIAL_STATEMENT_UNIT_BUILDER,
+)
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.errors import IngestionError
+from src.foundation.ingestion.errors import IngestionError, IngestionPlanningError, StructuredError
 from src.foundation.ingestion.index_period_raw import MISSING_PERIOD_CODE
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
@@ -107,7 +112,9 @@ class TaskRunDispatcher:
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         node = None
-        period_policy = get_dataset_definition(task_run.resource_key).planning.stock_period_adj_policy
+        planning = get_dataset_definition(task_run.resource_key).planning
+        period_policy = planning.stock_period_adj_policy
+        financial = planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER
         observer = None
         if period_policy is not None:
             node = self._create_node(session, task_run_id=task_run.id, node_key=f'stock_period_adj:{task_run.id}',
@@ -127,10 +134,25 @@ class TaskRunDispatcher:
                 message='生成计划；ETA暂无法估算', current_object={**current_object,
                 'attributes': {'stage': '生成计划', 'eta': '暂无法估算', 'updated_at': datetime.now(timezone.utc).isoformat()}})
 
+        checkpoint = None
         try:
             action_request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(task_run))
             plan = DatasetActionResolver(session).build_plan(action_request, planning_check=planning_check,
                 planning_report=planning_report if observer else lambda current, total: None, persist_plan=period_policy is not None)
+            if financial:
+                if task_run.trigger_source == "retry":
+                    checkpoint = (task_run.request_payload_json or {}).get("financial_statement_checkpoint")
+                if checkpoint is not None and (
+                    checkpoint["version"] != FINANCIAL_STATEMENT_PLAN_VERSION
+                    or checkpoint["plan_id"] != plan.plan_id
+                    or not 0 < checkpoint["unit_done"] <= len(plan.units)
+                ):
+                    raise IngestionPlanningError(StructuredError(
+                        error_code="financial_statement.resume_mismatch", error_type="planning", phase="planner",
+                        message="财务报表恢复位置与本次生成的计划不一致，请按原范围重新提交",
+                        retryable=False,
+                    ))
+                plan = replace(plan, execution_context={"financial_statement_progress": checkpoint})
         except IngestionCanceledError:
             session.rollback()
             if node is not None:
@@ -184,6 +206,12 @@ class TaskRunDispatcher:
         task_run.current_node_id = node.id
         task_run.unit_total = int(plan.planning.unit_count or len(plan.units))
         task_run.plan_snapshot_json = self._plan_snapshot(plan)
+        if financial and checkpoint is not None:
+            task_run.unit_done = checkpoint["unit_done"]
+            task_run.rows_fetched = checkpoint["rows_fetched"]
+            task_run.rows_saved = checkpoint["rows_saved"]
+            task_run.rows_deduplicated = checkpoint["rows_deduplicated"]
+            task_run.progress_percent = int(100 * task_run.unit_done / task_run.unit_total)
         if period_policy is not None:
             task_run.request_payload_json = {**dict(task_run.request_payload_json or {}), 'execution_context': plan.execution_context}
             node.node_key = plan.plan_id
@@ -206,7 +234,7 @@ class TaskRunDispatcher:
                 plan,
             )
             status, issue = self._index_period_raw_result(session, task_run, node, task_run)
-            if not (status == "success" and rows_saved > 0 and scheduled_index_raw_serving_action(task_run)):
+            if not financial and not (status == "success" and rows_saved > 0 and scheduled_index_raw_serving_action(task_run)):
                 self._finish_node(
                     node,
                     status=status,
@@ -259,7 +287,8 @@ class TaskRunDispatcher:
                 if getattr(exc, 'stock_period_adj_progress', None) is not None:
                     node.rows_fetched, node.rows_saved, node.rows_rejected = task_run.rows_fetched, task_run.rows_saved, task_run.rows_rejected
                     node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})
-                self._finish_node(node, status="canceled")
+                if not financial:
+                    self._finish_node(node, status="canceled")
             session.commit()
             return TaskRunDispatchOutcome(status="canceled", summary_message=issue.operator_message, issue_id=issue.id)
         except Exception as exc:
@@ -290,18 +319,19 @@ class TaskRunDispatcher:
             node = session.get(TaskRunNode, node.id)
             if node is not None:
                 node.issue_id = issue.id
-                self._finish_node(
-                    node, status="failed", rows_fetched=progress.get("rows_fetched"),
-                    rows_saved=progress.get("rows_committed"), rows_rejected=progress.get("rows_rejected"),
-                    rows_deduplicated=progress.get("rows_deduplicated"),
-                    ingestion_diagnostics=({**progress["ingestion_diagnostics"],
-                        "unit_done": progress["unit_done"], "unit_total": progress["unit_total"]} if progress else None),
-                )
+                if not financial:
+                    self._finish_node(
+                        node, status="failed", rows_fetched=progress.get("rows_fetched"),
+                        rows_saved=progress.get("rows_committed"), rows_rejected=progress.get("rows_rejected"),
+                        rows_deduplicated=progress.get("rows_deduplicated"),
+                        ingestion_diagnostics=({**progress["ingestion_diagnostics"],
+                            "unit_done": progress["unit_done"], "unit_total": progress["unit_total"]} if progress else None),
+                    )
             if progress:
                 task_run.unit_done = max(task_run.unit_done, progress["unit_done"])
                 task_run.unit_failed = 1
                 task_run.progress_percent = (int(task_run.unit_done / task_run.unit_total * 100)
-                    if getattr(exc, 'stock_period_adj_progress', None) is not None else max(task_run.progress_percent or 0,
+                    if financial or getattr(exc, 'stock_period_adj_progress', None) is not None else max(task_run.progress_percent or 0,
                     int((task_run.unit_done + 1) / task_run.unit_total * 100)))
             session.commit()
             return TaskRunDispatchOutcome(
@@ -1199,13 +1229,18 @@ class TaskRunDispatcher:
     ) -> tuple[int, int, int, dict[str, int], dict[str, list[dict[str, Any]]], str | None]:  # type: ignore[no-untyped-def]
         definition = get_dataset_definition(plan.dataset_key)
         index_period_policy = definition.planning.index_period_raw_policy
+        observation_timeout = (
+            FINANCIAL_STATEMENT_OBSERVATION_TIMEOUT_SECONDS
+            if definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER
+            else index_period_policy.observation_timeout_seconds if index_period_policy
+            else execution_observation_timeout(plan.execution_context)
+        )
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
             run_context=TaskRunIngestionContext(
                 session, independent_cancel=plan.execution_context is not None or index_period_policy is not None,
-                timeout_seconds=index_period_policy.observation_timeout_seconds if index_period_policy else
-                execution_observation_timeout(plan.execution_context),
+                timeout_seconds=observation_timeout,
             ),
             run_recorder=NullRunRecorder(),
             result_store=NullIngestionResultStore(),
@@ -1399,7 +1434,7 @@ class TaskRunDispatcher:
     def _plan_snapshot(plan) -> dict[str, Any]:  # type: ignore[no-untyped-def]
         units = list(plan.units or ())
         period = (plan.execution_context or {}).get('contract_kind') == 'stock_period_adj/v1'
-        return {
+        snapshot = {
             "plan_id": plan.plan_id,
             "dataset_key": plan.dataset_key,
             "run_profile": plan.run_profile,
@@ -1419,6 +1454,16 @@ class TaskRunDispatcher:
             ],
             "units_preview_truncated": len(units) > 20,
         }
+        if "financial_statement_progress" in (plan.execution_context or {}):
+            first_day = units[0].trade_date
+            snapshot["financial_statement"] = {
+                "version": FINANCIAL_STATEMENT_PLAN_VERSION,
+                "mode": "specified" if plan.filters.get("report_periods") else "default",
+                "report_periods": sorted({unit.progress_context["period"] for unit in units}),
+            }
+            if first_day != plan.time_scope.start:
+                snapshot["financial_statement"]["first_planned_day"] = first_day.isoformat()
+        return snapshot
 
     def _run_maintenance_action(
         self,

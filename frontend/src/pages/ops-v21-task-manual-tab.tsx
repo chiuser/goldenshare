@@ -1219,7 +1219,9 @@ export function OpsManualTaskTab() {
                               <TextInput
                                 label={param.display_name}
                                 placeholder={param.description}
-                                value={Array.isArray(effectiveFieldValues[param.key]) ? "" : (effectiveFieldValues[param.key] as string) || ""}
+                                value={Array.isArray(effectiveFieldValues[param.key])
+                                  ? (effectiveFieldValues[param.key] as string[]).join(", ")
+                                  : (effectiveFieldValues[param.key] as string) || ""}
                                 onChange={(event) =>
                                   setDraft((current) => ({
                                     ...current,

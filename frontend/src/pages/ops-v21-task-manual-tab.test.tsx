@@ -503,6 +503,39 @@ const mockManualActions = {
       ],
     },
     {
+      group_key: "equity_financial",
+      group_label: "A股财务数据",
+      group_order: 7,
+      actions: [{
+        action_key: "balancesheet.maintain",
+        action_type: "dataset_action",
+        display_name: "维护资产负债表",
+        description: "按公告日期维护资产负债表。",
+        resource_key: "balancesheet",
+        resource_display_name: "资产负债表",
+        date_model: {
+          date_axis: "natural_day",
+          bucket_rule: "not_applicable",
+          window_mode: "point_or_range",
+          input_shape: "ann_date_or_start_end",
+          observed_field: "ann_date",
+          audit_applicable: false,
+          not_applicable_reason: "公告事件数据",
+        },
+        maintenance_intents: [],
+        time_form: buildTimeForm("point", [{
+          mode: "point", label: "只处理一天", description: "按公告日期选择。",
+          control: "calendar_date", selection_rule: "calendar_day", date_field: "ann_date",
+        }]),
+        filters: [{
+          ...textParam, multi_value: true, key: "report_periods", param_type: "string",
+          display_name: "报告期", description: "留空按默认范围维护，填写后只查指定报告期。",
+        }],
+        search_keywords: ["balancesheet", "资产负债表"],
+        action_order: 40,
+      }],
+    },
+    {
       group_key: "maintenance",
       group_label: "系统维护",
       group_order: 99,
@@ -552,6 +585,7 @@ vi.mock("../shared/api/client", () => ({
       (
         path === "/api/v1/ops/manual-actions/dc_hot.maintain/task-runs"
         || path === "/api/v1/ops/manual-actions/etf_mins.maintain/task-runs"
+        || path === "/api/v1/ops/manual-actions/balancesheet.maintain/task-runs"
       )
       && options?.method === "POST"
     ) {
@@ -945,6 +979,32 @@ describe("手动任务页", () => {
         },
       ),
     );
+  });
+
+  it("财务报表手动补录保留报告期列表并按独立筛选提交", async () => {
+    window.localStorage.setItem(
+      "goldenshare.frontend.ops.task-center.manual.draft",
+      JSON.stringify({
+        action_id: "balancesheet.maintain", time_mode: "point",
+        selected_date: "2024-01-11", start_date: "2024-01-11", end_date: "2024-01-11",
+        field_values: { report_periods: ["2023-08-31"] },
+      }),
+    );
+    renderPage("/app/ops/v21/datasets/tasks?tab=manual");
+    const periods = await screen.findByLabelText("报告期");
+    expect(periods).toHaveValue("2023-08-31");
+    fireEvent.change(periods, { target: { value: "2023-08-31, 2023-09-30" } });
+    fireEvent.click(screen.getByRole("button", { name: "提交维护任务" }));
+    await waitFor(() => expect(apiRequest).toHaveBeenCalledWith(
+      "/api/v1/ops/manual-actions/balancesheet.maintain/task-runs",
+      {
+        method: "POST",
+        body: {
+          time_input: { mode: "point", ann_date: "2024-01-11" },
+          filters: { report_periods: ["2023-08-31", "2023-09-30"] },
+        },
+      },
+    ));
   });
 
   it("提交响应缺少任务编号时会等待任务记录确认", async () => {

@@ -1,17 +1,24 @@
 from __future__ import annotations
 
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from itertools import islice
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from src.foundation.dao.security_dao import SecurityDAO
+from src.foundation.datasets.financial_statement_contracts import FINANCIAL_STATEMENT_UNIT_BUILDER
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
 from src.foundation.ingestion.errors import IngestionError, IngestionNormalizeError, IngestionWriteError, StructuredError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
+from src.foundation.ingestion.financial_statement_runtime import (
+    FinancialStatementSourceControl,
+    financial_statement_transaction,
+)
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.progress import IngestionObserver
 from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult
@@ -130,6 +137,13 @@ class IngestionExecutor:
                 cancel_checker=cancel_checker, progress_reporter=progress_reporter)
         observer = IngestionObserver(progress_reporter=progress_reporter)
         state = _RunState()
+        if definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER:
+            committed_prefix = (request.execution_context or {}).get("financial_statement_progress")
+            if committed_prefix is not None:
+                state.unit_done = committed_prefix["unit_done"]
+                state.rows_fetched = committed_prefix["rows_fetched"]
+                state.rows_written = state.rows_committed = committed_prefix["rows_saved"]
+                state.rows_deduplicated = committed_prefix["rows_deduplicated"]
         eligibility_as_of = (
             self._current_china_date()
             if definition.transaction.commit_policy == "raw_then_serving"
@@ -547,10 +561,17 @@ class IngestionExecutor:
         eligibility_as_of: date | None,
     ) -> None:  # type: ignore[no-untyped-def]
         total_units = len(units)
-        for unit in units:
+        financial = definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER
+        for unit in islice(units, state.unit_done, None):
             self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+            control = self._financial_statement_control(
+                request, definition, observer, state, unit, total_units, cancel_checker
+            ) if financial else None
             try:
-                source_result = self.source_client.fetch(definition=definition, unit=unit)
+                source_result = (
+                    self.source_client.fetch(definition=definition, unit=unit, control=control)
+                    if control is not None else self.source_client.fetch(definition=definition, unit=unit)
+                )
             except Exception as exc:
                 self._handle_unit_exception(
                     request=request,
@@ -562,16 +583,50 @@ class IngestionExecutor:
                     exc=exc,
                 )
                 continue
-            self._process_fetched_unit(
-                request=request,
-                definition=definition,
-                observer=observer,
-                state=state,
-                unit=unit,
-                total_units=total_units,
-                source_result=source_result,
-                eligibility_as_of=eligibility_as_of,
+            if control is not None:
+                control.check(force=True)
+                control.phase = "校验和写入"
+                control.report(force=True)
+                unit = self._financial_statement_progress_unit(unit, control.phase, control.page)
+            transaction = (
+                financial_statement_transaction(self.session, unit.unit_id, control.check)
+                if control is not None else nullcontext()
             )
+            with transaction:
+                self._process_fetched_unit(
+                    request=request,
+                    definition=definition,
+                    observer=observer,
+                    state=state,
+                    unit=unit,
+                    total_units=total_units,
+                    source_result=source_result,
+                    eligibility_as_of=eligibility_as_of,
+                    check_rows=(lambda _: control.check()) if control is not None else None,
+                )
+            if control is not None:
+                control.check(force=True)
+
+    def _financial_statement_control(self, request, definition, observer, state, unit, total_units, cancel_checker):
+        def publish(phase, page):
+            self._report_unit_progress(
+                request=request, definition=definition, observer=observer, state=state,
+                unit=self._financial_statement_progress_unit(unit, phase, page), total_units=total_units,
+                unit_rows_fetched=0, unit_rows_written=0, unit_rows_rejected=0, unit_rows_deduplicated=0,
+            )
+
+        return FinancialStatementSourceControl(
+            lambda: self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id),
+            publish,
+        )
+
+    @staticmethod
+    def _financial_statement_progress_unit(unit, phase, page):
+        return replace(unit, progress_context={
+            **unit.progress_context,
+            "stage": phase, "page": page, "eta": "暂无法估算",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        })
 
     def _run_units_with_concurrent_fetch(
         self,
@@ -650,6 +705,7 @@ class IngestionExecutor:
         total_units: int,
         source_result,
         eligibility_as_of: date | None,
+        check_rows=None,
     ) -> None:  # type: ignore[no-untyped-def]
         unit_rows_fetched = 0
         unit_rows_written = 0
@@ -666,6 +722,7 @@ class IngestionExecutor:
                     definition=definition,
                     fetch_result=source_result,
                     expected_unit_date=unit.trade_date,
+                    **({"check_rows": check_rows} if check_rows is not None else {}),
                 )
             except IngestionNormalizeError as exc:
                 if not strict_validation or exc.structured_error.error_code in {
@@ -1516,7 +1573,11 @@ class IngestionExecutor:
             return {}
         entity = cls._build_current_entity(context)
         time_scope = cls._build_current_time(context)
-        attributes = {key: str(context[key]).strip() for key in ("freq", "enum_field", "enum_value", "unit") if context.get(key) not in (None, "")}
+        attributes = {
+            key: str(context[key]).strip()
+            for key in ("freq", "enum_field", "enum_value", "unit", "period", "stage", "page", "eta", "updated_at")
+            if context.get(key) not in (None, "")
+        }
         return {
             "entity": entity,
             "time": time_scope,

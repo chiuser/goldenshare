@@ -40,6 +40,7 @@ from src.foundation.ingestion.pre_write_validators import (
     PreWriteValidationError,
     get_pre_write_validator,
 )
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.sentinel_guard import (
     find_forbidden_business_sentinel_in_row_context,
     should_guard_dataset_rows,
@@ -264,7 +265,7 @@ class DatasetWriter:
                 ),
                 unit_id=batch.unit_id,
             )
-        except IngestionWriteError:
+        except (IngestionWriteError, IngestionCanceledError):
             raise
         except Exception as exc:
             raise IngestionWriteError(

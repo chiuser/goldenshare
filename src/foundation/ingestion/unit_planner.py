@@ -20,6 +20,10 @@ from src.foundation.ingestion.etf_minute_windows import (
 )
 from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY,
+    FINANCIAL_STATEMENT_UNIT_BUILDER,
+)
 from src.foundation.ingestion.index_month_calendar import load_complete_open_dates, load_index_month_open_dates
 from src.foundation.ingestion import request_builders
 from src.foundation.ingestion.plan_helpers import (
@@ -707,16 +711,49 @@ def _build_financial_statement_units(
         enum_combinations.sort(
             key=lambda item: report_type_order.get(str(item.get("report_type")), len(report_type_order))
         )
-    return build_plan_units(
-        request=request,
-        definition=definition,
-        anchors=anchors,
-        enum_combinations=enum_combinations,
-        request_builder=request_builder,
-        pagination_policy_override=definition.planning.pagination_policy,
-        page_limit_override=definition.planning.page_limit,
-        progress_context_builder=planner._progress_context_builder(definition),
-    )
+    explicit_periods = set()
+    for value in request.params.get("report_periods") or ():
+        try:
+            period = date.fromisoformat(value)
+            if period.isoformat() != value:
+                raise ValueError
+        except ValueError:
+            raise planner._planning_error("invalid_date", f"报告期必须使用有效的 YYYY-MM-DD 日期：{value}") from None
+        if period > anchors[-1]:
+            raise planner._planning_error("invalid_date", f"报告期 {value} 晚于公告窗口末日")
+        explicit_periods.add(period)
+
+    ordered_explicit_periods = sorted(explicit_periods)
+    units = []
+    for anchor in anchors:
+        periods = ordered_explicit_periods
+        if not periods:
+            periods = [date(anchor.year - 1, 12, 31)] if anchor.year > 1 else []
+            periods.extend(
+                date(anchor.year, int(month_day[:2]), int(month_day[2:]))
+                for month_day in FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY
+            )
+        units.extend(build_plan_units(
+            request=request,
+            definition=definition,
+            anchors=[anchor],
+            enum_combinations=[
+                {**selected, "period": period}
+                for period in periods if period <= anchor
+                for selected in enum_combinations
+            ],
+            request_builder=request_builder,
+            progress_context_builder=lambda day, values, _: {
+                "date_field": "ann_date",
+                "ann_date": day.isoformat(),
+                "period": values["period"].isoformat(),
+                "enum_field": "report_type",
+                "enum_value": values["report_type"],
+            },
+        ))
+    if not units:
+        raise planner._planning_error("invalid_date", "公告窗口内没有适用的报告期")
+    return units
 
 
 def _build_sw_daily_units(
@@ -2112,7 +2149,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_etf_sz_cons_units": _build_etf_sz_cons_units,
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
-    "build_financial_statement_units": _build_financial_statement_units,
+    FINANCIAL_STATEMENT_UNIT_BUILDER: _build_financial_statement_units,
     "build_major_news_units": _build_major_news_units,
     "build_natural_day_point_units": _build_natural_day_point_units,
     "build_news_units": _build_news_units,

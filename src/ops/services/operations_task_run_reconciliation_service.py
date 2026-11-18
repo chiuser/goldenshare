@@ -127,6 +127,7 @@ class OperationsTaskRunReconciliationService:
                     )
                     or "index_period_raw" in (node.ingestion_diagnostics_json or {})
                     or "stock_period_adj" in (node.ingestion_diagnostics_json or {})
+                    or "financial_statement" in (task_run.plan_snapshot_json or {})
                     or node.node_key == f"stock_period_adj:{task_run.id}"
                     or ((task_run.request_payload_json or {}).get("execution_context") or {}).get("contract_kind") == "stock_period_adj/v1"
                 ):

@@ -2,11 +2,13 @@
 
 更新时间：2026-10-31。原开发方案与 LLD 已合并于本文；2026-08-30 初始范围 Prod 验收保留为历史。§7 的特殊报告期修正开发已结案，开发提交为 `96bc3b191`，本轮复核见 §7.6；本轮未部署、迁移或重跑生产任务。
 
+2026-11-19，[财务三表报告期修复](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-period-repair)已在工作区实现，生产版本仍待发布。§2 说明工作区实现，§8 记录修复方案与验收条件。
+
 ## 1. 范围与阅读入口
 
 `income.maintain` 按公告自然日维护全市场利润表，使用 `income_vip`，不是按证券池调用普通 income 接口。
 
-`Ops 手动/普通自动任务 → DatasetActionResolver → 公告自然日×report_type units → VIP 分页 → 规范化与身份校验 → Raw upsert → Serving 普通 view`。
+`Ops 手动/普通自动任务 → DatasetActionResolver → 公告日 × 报告期 × 报表类型 → VIP 分页 → 规范化与身份校验 → Raw upsert → Serving 普通 view`。
 
 本文 §2 集中说明 income、[balancesheet](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md)、[cashflow](/Users/congming/github/goldenshare/docs/datasets/cashflow-dataset-development.md) 共用规则；各表字段、源端样本和验收证据分别维护，不复制三套共享实现。变更门禁仍见[数据集模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)及[执行计划说明](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)，本文不是再次部署、迁移或全量同步授权。
 
@@ -18,18 +20,17 @@
 
 | 维度 | 当前事实 |
 | --- | --- |
-| 日期输入 | 单公告日 ann_date，或公告自然日 start_date/end_date 闭区间；不是报告期 end_date |
+| 日期输入 | 单公告日 ann_date，或公告自然日 start_date/end_date 闭区间。报告期是独立范围，手动可选填。 |
 | 日期模型 | natural_day / not_applicable / point_or_range / ann_date_or_start_end；observed_field=ann_date |
 | 股票范围 | no_pool；不读证券池，不用交易日历过滤周末或节假日 |
 | 类型输入 | report_type 必填、多值，真实值为字符串 1..12；缺失时用 enum_fanout_defaults，显式空拒绝 |
-| unit | 已注册的 build_financial_statement_units；日期为外层，类型按 1..12 顺序为内层 |
-| 请求 | 三个 VIP builder 共用 _financial_statement_vip_params，只生成 ann_date=YYYYMMDD 与单个 report_type |
+| 报告期输入 | 默认上年年末加当年截至公告日的季度末，手动选填时只查指定报告期。 |
+| unit | build_financial_statement_units 按公告日、报告期、报表类型顺序生成。 |
+| 请求 | 三个 VIP builder 共用 _financial_statement_vip_params，每次传一个 ann_date、一个 period 和一个 report_type。 |
 | 源字段/分页 | Definition 显式 fields；source client 追加 limit/offset，page_limit=5000，短页结束 |
-| 不向源端传递 | 股票过滤、comp_type、period、is_calc、原始 start/end 区间或任何 ALL 哨兵；分页不在 builder 手写 |
+| 不向源端传递 | 股票过滤、comp_type、is_calc、原始 start/end 区间或任何 ALL 哨兵。分页由源客户端处理。 |
 
-两个自然日默认 24 units；选择 1/6 时每天 2 units。unit 的现行字段为 trade_date、request_params、progress_context 等，不另定义 anchor_date/enum_values 的对外计划结构。完整结构和生成算法见[unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)与[plan_helpers.py](/Users/congming/github/goldenshare/src/foundation/ingestion/plan_helpers.py)。
-
-单日 12、三表 36 是**各 unit 至少请求一次的基础量，不是实际请求上限**；365 天三表约 13,140 次基础请求，分页、满页后终止探测和重试另计。不能通过只取类型 1 缩减已选范围。当前 fetch_concurrency=1，无总日期跨度硬上限；这些不等于已证明任意长任务的内存、耗时或强制退出续跑达标。
+首请求数为各公告日的适用报告期数乘所选报表类型数后累加，分页与重试另计。自动积压每表每段最多两个连续公告自然日，手动可指定范围。生成算法见[规划器](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)，实测与预算见 §8.4。
 
 ### 2.2 通用多选与消费者
 
@@ -93,7 +94,7 @@ raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不�
 ### 2.5 Ops 与调度
 
 - 支持 manual、regular schedule、retry；没有 workflow/probe，不新增财务专用 API。
-- 普通 schedule 使用 `since_last_success_day_range`，策略参数 initial_start_date 必填；日期由策略生成，不在 schedule 手填 point/range 日期。类型数组按配置保存。
+- 普通 schedule 使用 `since_last_success_day_range`，策略参数 initial_start_date 必填。每次截取最早两个待处理公告日，成功后按本段末日续接。类型数组按配置保存，手动报告期字段仅在手动入口可用。
 - 修改 schedule 的类型选择不追溯补历史；需要补过去的新类型，仍用同一手动 maintain 区间。
 - freshness 为 event_run_trace，日期完整性审计关闭。not_applicable 只是不要求每日有公告，不是无日期输入；空公告日成功维护也有运行迹象。
 - Policy 从 Definition projection 获取，不另存 snapshot Policy 副本；现行状态 snapshot 本身仍保留。卡片不能仅用 max(ann_date) 与今天比较后判滞后。
@@ -250,3 +251,100 @@ raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不�
 - 源端与主数据证据：沿用 §7.5 的 2026-10-29 有界实测及完整夹具，不将其表述为 2026-10-31 再次查询结果；无需为文档收尾重复访问源接口或生产数据库。
 - 收尾修改仅限 income、balancesheet、cashflow 三份原开发说明，修正提交状态并统一结案标记；历史验收及原方案、LLD、测试证据保留，工作区其他修改不纳入本次收尾。
 - 生产边界：本会话未执行部署或重试 TaskRun 17453；本轮未核验当前生产版本、该任务终态或页面效果，不将开发结案等同于生产验收。后续如需部署或正式运行，应另按明确授权执行。
+
+<a id="financial-statement-period-repair"></a>
+
+## 8. 2026-11-19 财务三表报告期修复方案与详细设计（本地实施，待验收）
+
+### 8.1 目标和依据
+
+恢复 Prod 的 A 股利润表、资产负债表、现金流量表按公告日维护。自动和手动共用默认报告期计算，手动可以指定更早或非季末的报告期。成功表示完成了任务列明的报告期和报表类型。超出默认范围的旧报表及非季末报表，通过指定报告期补录。
+
+已确认季末当天计入默认范围，手动填写后只查指定报告期，自动积压每张表每段最多连续两个完整公告自然日。分段上限由管理员确认，依据见有界只读实测及 §8.4.2。开发和隔离回归已获授权，生产部署和生产任务执行另行授权。
+
+2026-11-18 自动任务 `20140` 和手动任务 `20194` 对同一公告日 `2026-11-17` 生成了逐条相同的 12 条业务请求。自动任务在 19:30 读取并写入 1 行，手动任务在 23:47 首条请求收到 Tushare `50101`，要求 `period`。现行三表共用的 `_financial_statement_vip_params` 只组装 `ann_date` 和 `report_type`。随后对 `income_vip`、`balancesheet_vip`、`cashflow_vip` 的有界实测均复现缺少 `period` 的报错，带有效报告期均能取数。资产负债表通过 MCP 传空 `period` 也复现了源端错误。源站变更时间和原因尚待源站确认。 [共享请求组装](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)
+
+三组样本用于验收报告期范围。`688133.SH` 的资产负债表在 `2026-11-17` 公告，报告期为 `2026-09-30`，`report_type=6`。`600000.SH` 的利润表在同一公告日 `2018-04-28` 分别命中 `2017-12-31` 和 `2018-03-31`。`920202.BJ` 的资产负债表在 `2024-01-11` 公告，传实际报告期 `2023-08-31` 命中 `end_type=0` 的记录，传 `2023-09-30` 返回空。源接口分别见 [利润表 doc_id=33](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0033_利润表.md)、[资产负债表 doc_id=36](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0036_资产负债表.md)、[现金流量表 doc_id=44](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0044_现金流量表.md)和[非季末真实源报文](/Users/congming/github/goldenshare/tests/fixtures/financial_statements/balancesheet_920202_prelisting.json)。
+
+### 8.2 运营输入和实际查询范围
+
+| 场景 | 按每个公告自然日计算报告期 |
+| --- | --- |
+| 自动任务、手动留空 | 上一年 `12-31`，加公告日所在年截至该日的 `03-31`、`06-30`、`09-30`、`12-31`。以公告日为准，季末当天计入，周末和节假日照常计算。 |
+| 手动填写一个或多个报告期 | 只查询填写的日期。列表去重后按日期排序，保留任意合法日历日期。每个公告日只查询截至当日的指定报告期。晚于公告窗口末日的报告期在提交时提示错误。区间内某天没有适用的指定报告期时明确显示未纳入本次范围。 |
+| 重试 | 沿用原任务公告日、报表类型和手动指定报告期。部署前未记录报告期的旧任务，按原公告日重新计算默认范围。部署前留下的超两日自动任务在执行预检时停止，由自动任务从最后成功日期起按两天一段接续。 |
+
+例如 `2026-11-17` 默认请求 `2025-12-31`、`2026-03-31`、`2026-06-30`、`2026-09-30`。`2026-12-31` 的默认范围含上年末和当年四季末，共五个日期。次日 `2027-01-01` 只含 `2026-12-31`。区间跨季度或跨年时，每个公告日分别计算。手动填写 `2023-08-31` 时，可用公告日 `2024-01-11` 精确补录这期。
+
+手动页显示选填项「报告期」，输入格式 `YYYY-MM-DD`，多个日期以逗号分隔。空白沿用默认规则，填写后只查所填日期。拟用现有手动提交接口中的 `filters.report_periods` 日期字符串数组承载，原公告日及 `report_type` 字段保持原语义。自动任务配置页和自动任务提交接口仅支持默认报告期规则，直接传手动报告期的请求在生成计划前被拒绝。原有任务入口、三个源接口、显式返回字段、报表类型 1–12、Raw 表和 Serving 视图沿用现行合同。
+
+### 8.3 实现位置和影响面
+
+1. **定义与表单。** 在三表共用定义中声明可选报告期列表，由手动动作目录投影给前端。复用手动过滤字段的数组提交，日期合法性、去重和区间交叉规则由后端统一处理。核对自动能力目录、保存规则和触发规则，自动来源的重试仍走默认规则。现有自动配置和未填写报告期的调用保持兼容。 [三表定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/low_frequency.py) · [手动动作目录](/Users/congming/github/goldenshare/src/ops/queries/manual_action_query_service.py) · [手动提交](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py) · [自动参数处理](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py) · [手动页](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx)
+2. **执行计划。** 继续由 `DatasetActionResolver` 调用三表共用规划器。最小执行单元拟定为一个数据集、一个公告日、一个报告期、一个报表类型，按公告日、报告期、既有报表类型顺序串行处理。报告期进入单元标识和进度。共享请求组装把该单元变为 `ann_date=YYYYMMDD`、`period=YYYYMMDD`、单个 `report_type`。源客户端按原字段和 `limit/offset` 分页。前端、TaskRun 和调度保存提交意图，报告期的默认计算统一留在规划器。 [Resolver](/Users/congming/github/goldenshare/src/foundation/ingestion/resolver.py) · [三表规划器](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) · [分页](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py)
+3. **质量与入库。** 先取完单元的全部分页，要求返回记录的 `ann_date`、`end_date`、`report_type` 与该单元一致。源端合法空结果可以完成单元。保留 §7 对上市前非季末报告期的约定及七字段身份、修订覆盖和重复识别，同一身份的不同内容按既有质量规则处理。通过后由现有 Raw writer 按单元 upsert，Serving 继续由普通视图提供。 [执行器](/Users/congming/github/goldenshare/src/foundation/ingestion/executor.py) · [Raw writer](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)
+4. **状态及消费者。** 公告日仍是任务意图与状态日期，报告期用于限定源读取。任务详情展示本次默认或指定模式、已计划/已完成范围、当前公告日、报告期、报表类型和分页位置。逐项回归手动目录、提交/重试、自动配置与日期策略、数据集目录/卡片、freshness、snapshot、日期完整性审计、前端时间控件及既有 Workflow 能力边界。卡片保留 `event_run_trace`，没有公告的自然日仍可合法为空。 [调度成功日期读取](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py) · [任务进度](/Users/congming/github/goldenshare/src/ops/services/task_run_ingestion_context.py) · [卡片状态快照](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py)
+
+### 8.4 失败、续跑和性能
+
+日期区间、报告期及分页都可能扩大请求量，按 Prod 长任务设计。复用现有通用 Worker 串行执行、Raw 单元事务与 TaskRun 任务详情。实施范围限于三表及其必要的参数投影和任务恢复，使用现行表及配置来源。正式部署、真实写入和历史补录为分别授权的步骤。
+
+| 项目 | 拟定规则及验证方法 |
+| --- | --- |
+| 提交与失败 | 分页失败、源返回范围不匹配、质量拒绝或提交前取消时，本单元没有部分入库。此前已提交单元保留。源接口成功返回只是完成一次请求，只有该日所有纳入范围的报告期和类型都完成，才算完成这一天。自动任务全部通过后才产生有效的成功窗口。原计划的报表类型和报告期作为对账依据。 |
+| 进程退出与重试 | 现有重试只复制意图，计划预览最多 20 个单元。拟在已有 TaskRun 记录持久化完整计划的可重建意图、规则版本、计划标识及已连续完成的位置，只在 Raw 单元提交后记录完成位置，空单元也记录。重试核对同一计划后从最后确认的位置接续，原记录缺少可验证进度时用原意图幂等重跑。业务提交成功但进度写入失败时，续跑可重放尚未确认的单元，状态写失败不回滚 Raw。计划标识不一致时提示按原范围重新提交。 |
+| 可见状态与取消 | 每个单元及每页前后检查取消，限流等待可取消。现有阻塞源调用及 65 秒限流等待不能直接满足长任务要求。三表复用有界 HTTP 调用与可取消等待的基础能力，约束单次不可中断步骤并实测；确认停止后不领取新单元。显示阶段、日期、报告期、类型、页、已完成数/总数、百分比和最后更新时间，达到仓库要求的 30 秒内可见更新。无法可靠估算时显示「暂无法估算」。结束时 TaskRun 与活动节点状态一致。 |
+| 量与内存 | 每张表的计划单元数为所选公告日逐日累加「适用报告期数 × 所选类型数」。11 月 17 日每张表 4 × 12 = 48 个单元，三表 144 个。按季末当天计入的拟定规则，12 月 31 日每张表最多 5 × 12 = 60 个默认单元，三表 180 个。每单元按现行 5,000 行/页串行取数，多页的行数及内存在单元内有界。长区间先按已确认的计划容量分段，避免在内存中汇总全范围源数据。 |
+| 普通、重试与验收开销 | 对同一单元，若全部非末页满页、以短页结束，则首请求加分页共 `floor(源返回行数 / 5000) + 1` 次，满页时含末尾探测。超时、限流和重试另计。续跑成本按「重建同范围计划并核对进度 + 未确认单元的取数/校验/写入」计算。最终验收预算单列一次有界真实运行、取消后的未确认部分重放、按同一组公告日和报告期的源数据与 Raw 读回对账。 |
+
+#### 8.4.1 2026-11-19 有界只读实测
+
+先对生产三张 Raw 表指定公告日做聚合计数。选择 `2026-04-28` 至 `2026-04-29` 作为候选中行数较多的连续两日，选择 `2025-12-30` 至 `2025-12-31` 作为默认规则下请求组合最多的连续两日。只读查到三张表各有一个现行每日自动任务，资产负债表 `19:30`、现金流量表 `19:31`、利润表 `19:35`，均为北京时间。
+
+使用项目现有 Tushare HTTP 客户端串行请求。MCP 已用于验证报告期语义，因三表 MCP 工具未开放 `limit/offset`，本轮分页与耗时用项目客户端实测。每个公告日请求该日默认报告期与全部 12 种报表类型，字段分别为 94、158、97 个，`limit=5000`，`offset` 从 0 开始。主测每个组合最多探测两页，短页即结束，本次禁用重试。表中「合计」包含本机取数、解析、用现有归一化逻辑校验和测量开销，生产排队、写库和任务状态提交待后续验收。
+
+| 公告日窗口 | 数据集 | 实际请求 | 源返回行数 | 取数秒 | 内存归一化秒 | 合计秒 |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 2026-04-28 至 04-29 | 利润表 | 48 | 10,635 | 11.130 | 2.177 | 13.378 |
+| 同上 | 资产负债表 | 48 | 6,249 | 10.840 | 1.943 | 12.852 |
+| 同上 | 现金流量表 | 48 | 12,548 | 11.624 | 2.849 | 14.580 |
+| 2025-12-30 至 12-31 | 利润表 | 108 | 135 | 25.905 | 0.047 | 26.005 |
+| 同上 | 资产负债表 | 108 | 69 | 23.816 | 0.039 | 23.908 |
+| 同上 | 现金流量表 | 108 | 136 | 24.736 | 0.045 | 24.832 |
+
+春季两天每天有两个报告期，每表 `2 天 × 2 期 × 12 类 = 48` 次首请求。年末分别有四个、五个报告期，每表 `(4 + 5) × 12 = 108` 次。主测合计 468 次请求、29,772 行，350 个组合为空，全部在首个短页结束。返回字段和公告日、报告期、报表类型校验均通过，29,772 行内存归一化后为 29,772 行，拒绝及去重均为 0。主测单次请求第 95 百分位 0.392 秒，最长 1.135 秒。项目客户端使用本机配置的每接口每分钟 280 次节奏，本轮未触发限流；Tushare 服务端配额和生产并发可用额度待核实。
+
+同一公告日下对三表各做 3 次小页复核。`2026-04-29`、报告期 `2026-03-31`、报表类型 `1` 以 `limit=1` 验证偏移 0、1 返回与主测前两条一致的记录，偏移到实际总数时返回空。另为测量满页负载，仅按 `period=20260930` 和 `report_type=1` 各查一页 5,000 行，并在 `offset=5000, limit=1` 各查到一条后续记录。首屏解压后响应正文及耗时为利润表 3,563,172 字节、1.163 秒，资产负债表 5,875,580 字节、0.562 秒，现金流量表 3,640,972 字节、0.938 秒。满页样本按报告期选取，用于量响应开销。全轮源请求共 `468 + 9 + 6 = 483` 次，未创建任务或写库。
+
+生产 Raw 计数用于选样及确认默认范围的边界。例如 `2026-04-29` 已存记录中，默认报告期之外有利润表 2,475 行、资产负债表 1,602 行、现金流量表 2,476 行。上述取数与内存校验结论限于本次指定报告期。历史 Raw 与当前源端的行数也存在差异，完整身份与版本对账留在正式验收。
+
+#### 8.4.2 自动积压分段上限（已确认）
+
+自动积压**每张表每次最多连续两个完整公告自然日**。从原自动任务应开始的最早日期起取两天，最多到当次原目标日，成功后按实际完成的窗口末日推进。失败或取消沿用 §8.4 的提交及续跑规则。现行排程每天触发一次，每天新增一个待处理日期。每次只取一天时，连续成功也无法缩短积压。两天是每次成功可消化一天积压的最小窗口。上限只用于三张表的自动任务，手动选定范围仍按 §8.2 处理。
+
+两个连续公告日最多有九个「公告日 × 报告期」组合，出现在 `12-30` 的四个加 `12-31` 的五个。默认全选 12 类时，上限为**每张表每段 108 个计划单元及首请求，三表合计 324 次首请求**。分页和重试另计。实际年末窗口三表每表分别耗时 26.005、23.908、24.832 秒，测量合计 74.745 秒。春季繁忙窗口三表合计 40.810 秒。这两组实测分别验证请求组合和繁忙数据量，生产端到端耗时需包括有界请求控制、数据库事务、排队及限流重试，待实现后计入。
+
+续跑先恢复已确认完成的位置，源端开销由剩余单元及其实际分页决定。若用春季两日样本进行正式验收，三表一轮实测为 144 次请求。按相同分页形态且每请求无重试计算，取消前最多 144 次、重跑最多 144 次、独立源核对一轮 144 次，合计最多 432 次；另计实际分页变化、重试及同期 Raw 有界读回。生产写入、进程退出续跑和任务终态仍按 §8.5 验证。
+
+两个公告日限制的是自动任务范围。单个执行单元沿用 5,000 行/页。首期的保护上限取三表历史整期实测的最大量 10,980 行（资产负债表半年报全类型 `5,000 + 5,000 + 980`），足以容纳本次公告日样本最大单组合的 2,163 行，并允许第三页；这是执行保护值，超过时整单元明确失败，源记录可以在独立复核后重新处理。单页正文使用同一通用 Worker 已有的 8 MiB 级预算，与本次三表 5,000 行满页实测最大 5,875,580 字节核对。最多三页对应的响应正文总预算为 24 MiB，Python 对象和事务内存另计。HTTP 单次总期限沿用已有有界调用的 25 秒，锁等待和业务事务沿用同一 Worker 的 2 秒和 20 秒预算。每页处理、限流等待及事务前后可检查取消，预算超出时保留此前提交。 [现有规划与分页](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/low_frequency.py) · [历史分页实测](/Users/congming/github/goldenshare/docs/datasets/balancesheet-dataset-development.md) · [项目有界调用](/Users/congming/github/goldenshare/src/foundation/clients/bounded_tushare_call.py) · [同 Worker 的事务与内存预算](/Users/congming/github/goldenshare/src/foundation/datasets/models.py) · [长任务验收合同](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md#035-prod-数据集长任务识别与执行合同)
+
+开发前用按真实字段构造的 10,980 行/表做隔离 SQLite 容量核验。三表分别用时 3.193/4.942/3.377 秒完成归一化，8.692/13.413/9.017 秒完成真实 DAO 写入及提交，均读回 10,980 行。最大单进程峰值为 653,082,624 字节。只读查看生产 Worker 无单独的 cgroup 内存上限，当时占用 658,407,424 字节，主机可用内存 9,990,764 KiB。隔离测试证明本次保护值有可复算的本地依据，生产 PostgreSQL 的真实事务耗时仍在部署前的独立验收范围。内存只保留当前单元数据，较长手动区间仍使用现行执行计划的轻量单元元数据。
+
+### 8.5 验收条件
+
+| 验收项 | 通过条件 |
+| --- | --- |
+| 默认规则与人工指定 | 三表按同一组公告日、报表类型提交自动和手动留空任务，逐个核对生成的 `ann_date/period/report_type` 和单元总数。独立写明平日、季末当天、年末、元旦及跨季度/跨年区间的预期日期。手动样本以 `2023-08-31` 验证老期、非季末和精确范围，覆盖重复日期、非法日期、窗口外日期、空值及自动接口误传拒绝。 |
+| 真实源与完整分页 | 用三表各一组已知数据抽样，验证带报告期能返回正确记录及完整的现行显式字段。资产负债表覆盖 `688133.SH` 正常三季报和 `920202.BJ` 非季末，利润表覆盖 `600000.SH` 同公告日的两个报告期。另用有界样本核验分页、整页后合法空页及实际请求开销。故意构造报告期、公告日、报表类型不匹配及缺 `period` 的反例，确认当前单元停止且记录原因。 |
+| 数据正确性 | 在隔离库跑正式取数到写入链路，逐单元对账源行、去重后的归一化行、已提交 Raw 行及拒绝原因。合法空单元零行成功，相同数据重放不增加行数，不同 `f_ann_date` 的合法版本仍保留，Serving 视图结果符合原规则。 |
+| 失败和恢复 | 在日期内第二个报告期或分页中制造失败，验证已有提交保留、失败单元没有部分写入、该日未计为完成、自动窗口不提前推进。覆盖取消、进程退出、进度写失败、续跑、幂等重放、进度单调和 TaskRun/节点终态一致。专门验证业务提交后、进度记录前中断可安全重放。 |
+| 正式验收 | 经单独批准后，三表各选有已知源记录的小范围，核对自动/手动默认计划和指定报告期提交链路。至少一次代表性真实执行、取消、续跑并读回 Raw，对照计划报告期、源请求次数、分页、耗时、进度、任务终态和库中记录。预期只按已列明的报告期及报表类型判定完成。 |
+
+测试从 [财务三表回归](/Users/congming/github/goldenshare/tests/test_financial_statement_datasets.py)、[上市前特殊报告期回归](/Users/congming/github/goldenshare/tests/test_financial_statement_prelisting.py)、[手动 API](/Users/congming/github/goldenshare/tests/web/test_ops_manual_actions_api.py)、[自动任务 API](/Users/congming/github/goldenshare/tests/web/test_ops_schedule_api.py)、[TaskRun API](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)、[手动页回归](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.test.tsx) 扩展。报告期规则和两个公告日的自动分段上限均已确认。有界只读实测见 §8.4.1，生产结果和端到端耗时在对应阶段实测后补录。
+
+### 8.6 本地实现与核验
+
+- 共享规划器负责默认及手动指定报告期，源端逐请求携带公告日、报告期、报表类型，校验响应范围。Ops 负责截取自动窗口及保存已完成单元数。重试按原意图重建计划，核对计划标识后接续。源取数和写入仍由 Foundation 执行，业务提交与任务观察分别处理。
+- 使用正式 Tushare 源接口、工作区执行器和本机独立的 SQLite Raw 表，按公告日 `2026-04-29`、报告期 `2026-03-31`、报表类型 `1` 各跑一个单元。利润表源端、写入和读回均为 1,499 行，资产负债表均为 1,561 行，现金流量表均为 2,163 行，拒绝数均为 0。对应本机耗时 2.409、3.533、2.896 秒，包含隔离库写入与读回。未运行生产任务。
+- [实际任务入口回归](/Users/congming/github/goldenshare/tests/web/test_ops_financial_statement_repair.py)使用隔离数据库，验证失败及取消不推进自动日期，分页失败保留此前单元，进程退出后可续跑，进度无法写入时保留已提交数据并允许幂等重放。浏览器核对手动报告期的回填及提交体，请求由测试接管。
+- 财务三表及直接调用方回归 373 项通过，前端任务页回归 44 项通过，Chrome 实测 1 项通过。扩展回归 856 项通过，14 项失败在修改前的代码上逐项复现，涉及股票周期线调度及任务修正、维护动作目录和旧执行命名检查。这些基线失败保留在原有范围。

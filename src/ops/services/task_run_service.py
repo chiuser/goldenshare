@@ -14,6 +14,10 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
+from src.foundation.datasets.financial_statement_contracts import (
+    FINANCIAL_STATEMENT_SCHEDULE_DAYS,
+    FINANCIAL_STATEMENT_UNIT_BUILDER,
+)
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion.errors import IngestionError
 from src.foundation.models.core.trade_calendar import TradeCalendar
@@ -589,6 +593,10 @@ class TaskRunCommandService:
                 definition, action = get_dataset_definition_by_action_key(target_key)
             except KeyError as exc:
                 raise WebAppError(status_code=422, code="validation_error", message="数据集维护目标不存在") from exc
+            filters = self._extract_filters(params_json)
+            for field in definition.input_model.filters:
+                if field.manual_only and (field.name in filters or field.name in params_json):
+                    raise WebAppError(status_code=422, code="validation_error", message=f"{field.display_label}只支持手动维护")
             return TaskRunCreateContext(
                 task_type="dataset_action",
                 resource_key=definition.dataset_key,
@@ -603,7 +611,7 @@ class TaskRunCommandService:
                     timezone_name=timezone_name,
                     schedule_id=schedule_id,
                 ),
-                filters=self._extract_filters(params_json),
+                filters=filters,
                 request_payload=self._dataset_action_request_payload(params_json),
                 trigger_source=trigger_source,
                 requested_by_user_id=requested_by_user_id,
@@ -839,6 +847,8 @@ class TaskRunCommandService:
                 raise ScheduleWindowAlreadyCovered(
                     f"schedule {schedule_id or 'new'} already covers {target_end.isoformat()}"
                 )
+            if definition.planning.unit_builder_key == FINANCIAL_STATEMENT_UNIT_BUILDER:
+                target_end = min(target_end, start_date + timedelta(days=FINANCIAL_STATEMENT_SCHEDULE_DAYS - 1))
             return {
                 **dict(time_input or {}),
                 "mode": "range",
@@ -1303,6 +1313,7 @@ class TaskRunCommandService:
         payload.pop("dataset_key", None)
         payload.pop("action", None)
         payload.pop("schedule_policy_params", None)
+        payload.pop("financial_statement_checkpoint", None)
         return payload
 
     def _context_from_retry(
@@ -1327,6 +1338,23 @@ class TaskRunCommandService:
     @staticmethod
     def _retry_request_payload(session: Session, existing: TaskRun) -> dict[str, Any]:
         request_payload = dict(existing.request_payload_json or {})
+        request_payload.pop("financial_statement_checkpoint", None)
+        plan = dict(existing.plan_snapshot_json or {})
+        financial = plan.get("financial_statement") or {}
+        if (
+            existing.task_type == "dataset_action"
+            and existing.status in {"failed", "partial_success", "canceled"}
+            and financial
+            and existing.unit_done
+        ):
+            request_payload["financial_statement_checkpoint"] = {
+                "plan_id": plan["plan_id"],
+                "version": financial["version"],
+                "unit_done": existing.unit_done,
+                "rows_fetched": existing.rows_fetched,
+                "rows_saved": existing.rows_saved,
+                "rows_deduplicated": existing.rows_deduplicated,
+            }
         if existing.task_type not in {"workflow", "maintenance_action"}:
             return request_payload
         if str(request_payload.get("target_key") or "").strip():

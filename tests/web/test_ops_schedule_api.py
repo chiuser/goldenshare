@@ -1141,6 +1141,15 @@ def test_ops_schedule_financial_statement_persists_real_report_type_defaults_and
     )
     assert empty.status_code == 422
 
+    payload["display_name"] = "自动任务指定报告期"
+    payload["params_json"]["filters"] = {"report_periods": ["2023-08-31"]}
+    explicit = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+    assert explicit.status_code == 422
+
 
 @pytest.mark.parametrize(
     ("schedule_patch", "params_json", "expected_message"),
