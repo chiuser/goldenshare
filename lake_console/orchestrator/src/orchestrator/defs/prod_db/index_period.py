@@ -2,6 +2,7 @@
 
 from contextlib import contextmanager
 
+from orchestrator.defs.run_contracts.column_schema import ColumnContract
 from orchestrator.defs.run_contracts.index_period import (
     INDEX_MONTHLY,
     INDEX_WEEKLY,
@@ -10,20 +11,20 @@ from orchestrator.defs.run_contracts.index_period import (
 from orchestrator.tushare_download.contracts.index_weekly import SOURCE_FIELDS
 
 RAW_COLUMNS = tuple(field.name for field in SOURCE_FIELDS)
-SERVING_COLUMNS = (
-    "ts_code",
-    "period_start_date",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
+# Prod来源仍是股／元／比例，不能提前套用换算后的DG Silver精度。
+PROD_INDEX_PERIOD_SERVING_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "指数代码"),
+    ColumnContract("period_start_date", "DATE", "自然周期首个开市日"),
+    ColumnContract("trade_date", "DATE", "行情实际截至日"),
+    *(ColumnContract(name, "DECIMAL(18,4)", description) for name, description in (
+        ("open", "开盘点位"), ("high", "最高点位"), ("low", "最低点位"),
+        ("close", "收盘点位"), ("pre_close", "前收盘点位"), ("change_amount", "涨跌点位"),
+    )),
+    ColumnContract("pct_chg", "DECIMAL(10,4)", "涨跌幅比例，1%为0.0100"),
+    ColumnContract("vol", "DECIMAL(20,4)", "成交量，股"),
+    ColumnContract("amount", "DECIMAL(20,4)", "成交额，元"),
 )
+SERVING_COLUMNS = tuple(column.name for column in PROD_INDEX_PERIOD_SERVING_SCHEMA)
 
 
 def prod_index_period_query(period, layer):

@@ -18,7 +18,10 @@ from orchestrator.defs.io.index_period_writer import (
     promote_index_period_file,
     synthesize_index_period,
 )
-from orchestrator.defs.prod_db.index_period import open_prod_index_period_rows
+from orchestrator.defs.prod_db.index_period import (
+    PROD_INDEX_PERIOD_SERVING_SCHEMA,
+    open_prod_index_period_rows,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_WEEKLY_SCHEMA,
     SILVER_INDEX_WEEKLY_SCHEMA,
@@ -39,7 +42,9 @@ from orchestrator.defs.run_contracts.run_keys import build_batch_id
 
 
 def load_prod_index_period_relation(connection, resource, period, layer):
-    schema = RAW_INDEX_WEEKLY_SCHEMA if layer == "raw" else SILVER_INDEX_WEEKLY_SCHEMA
+    schema = (
+        RAW_INDEX_WEEKLY_SCHEMA if layer == "raw" else PROD_INDEX_PERIOD_SERVING_SCHEMA
+    )
     relation = f"index_period_source_{period.frequency}_{layer}"
     empty = ",".join(f'CAST(NULL AS {c.type}) AS "{c.name}"' for c in schema)
     connection.execute(

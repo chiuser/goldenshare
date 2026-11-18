@@ -19,10 +19,15 @@ from tests.test_index_period_writer import read
 class SyntheticProd:
     """替换网络与PG；字段顺序来自B只读投影，行情为明确的人工样本。"""
 
-    def __init__(self, as_of=date(2026, 7, 2)):
+    def __init__(
+        self, as_of=date(2026, 7, 2), *,
+        serving_vol="12345.6789", serving_amount="98765.4321",
+    ):
         self.queries = []
         self.batch_sizes = []
         self.as_of = as_of
+        self.serving_vol = serving_vol
+        self.serving_amount = serving_amount
 
     @contextmanager
     def connect_readonly_transaction(self):
@@ -72,8 +77,8 @@ class SyntheticProd:
                                                 "0",
                                                 "4",
                                                 "0.0123",
-                                                "12345.6789",
-                                                "98765.4321",
+                                                owner.serving_vol,
+                                                owner.serving_amount,
                                             ),
                                         ),
                                     )
@@ -105,14 +110,66 @@ def apply(tmp_path, instance, source, operation="bootstrap"):
     )
 
 
+@pytest.mark.parametrize("period", [writer.INDEX_WEEKLY, history.INDEX_MONTHLY])
+def test_prod_serving_load_preserves_source_schema_and_units(period):
+    # 完整来源类型依据当前Prod周／月Serving模型；不使用DG目标schema生成预期。
+    with duckdb.connect() as connection:
+        relation, count = history.load_prod_index_period_relation(
+            connection, SyntheticProd(), period, "serving"
+        )
+        assert count == 20
+        assert tuple(
+            (r[0], r[1]) for r in connection.execute(f"DESCRIBE {relation}").fetchall()
+        ) == (
+            ("ts_code", "VARCHAR"),
+            ("period_start_date", "DATE"),
+            ("trade_date", "DATE"),
+            ("open", "DECIMAL(18,4)"),
+            ("high", "DECIMAL(18,4)"),
+            ("low", "DECIMAL(18,4)"),
+            ("close", "DECIMAL(18,4)"),
+            ("pre_close", "DECIMAL(18,4)"),
+            ("change_amount", "DECIMAL(18,4)"),
+            ("pct_chg", "DECIMAL(10,4)"),
+            ("vol", "DECIMAL(20,4)"),
+            ("amount", "DECIMAL(20,4)"),
+        )
+        assert connection.execute(
+            f"SELECT DISTINCT pct_chg,vol,amount FROM {relation}"
+        ).fetchall() == [
+            (Decimal("0.0123"), Decimal("12345.6789"), Decimal("98765.4321"))
+        ]
+
+
+@pytest.mark.parametrize(
+    "source_vol,source_amount,expected_vol,expected_amount",
+    [
+        ("12345.6789", "98765.4321", "123.456789", "98.7654321"),
+        (
+            "12345.6789", "10000000000000.4321",
+            "123.456789", "10000000000.0004321",
+        ),
+        (
+            "100000000000000.6789", "10000000000000.0000",
+            "1000000000000.006789", "10000000000.0000000",
+        ),
+        (
+            "9999999999999999.9999", "9999999999999999.9999",
+            "99999999999999.999999", "9999999999999.9999999",
+        ),
+    ],
+    ids=("ordinary", "large-amount-fraction", "large-volume", "source-maximum"),
+)
 def test_bootstrap_four_files_units_sources_and_native_partitions(
-    tmp_path, monkeypatch
+    tmp_path, monkeypatch, source_vol, source_amount, expected_vol, expected_amount
 ):
+    # Prod Numeric(20,4)为16位整数、4位小数；精度上限样本不代表真实市场成交额。
+    # 归一化预期为独立字面值：股除100、元除1000，保留新增的小数位。
     silver_inputs(tmp_path / "lake")
     monkeypatch.setattr(
         writer.TushareDownloader, "load", lambda: pytest.fail("初始化不请求Tushare")
     )
-    source = SyntheticProd()
+    source = SyntheticProd(serving_vol=source_vol, serving_amount=source_amount)
     with dg.DagsterInstance.ephemeral(tempdir=str(tmp_path / "instance")) as instance:
         fetch = instance.fetch_materializations
         queries = []
@@ -159,8 +216,8 @@ def test_bootstrap_four_files_units_sources_and_native_partitions(
             assert accepted[7] == 0  # 不重算／拒绝Serving的已接受首期零前收盘。
             assert accepted[9:] == (
                 Decimal("1.2300"),
-                Decimal("123.456789"),
-                Decimal("98.7654321"),
+                Decimal(expected_vol),
+                Decimal(expected_amount),
             )
             current = next(
                 r for r in rows if r[0] == "000680.SH" and r[2] == date(2026, 7, 2)
@@ -219,7 +276,11 @@ def test_bootstrap_four_files_units_sources_and_native_partitions(
             for p in (tmp_path / "lake").glob("*/index_*/full/part-000.parquet")
             if "index_basic" not in p.parts
         }
-        again = apply(tmp_path, instance, SyntheticProd(), "replay")
+        again = apply(
+            tmp_path, instance,
+            SyntheticProd(serving_vol=source_vol, serving_amount=source_amount),
+            "replay",
+        )
         second_run = again.pop("run_id")
         assert first_run != second_run
         assert instance.get_run_by_id(second_run).status == dg.DagsterRunStatus.SUCCESS
