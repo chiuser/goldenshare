@@ -7,6 +7,7 @@ FakeControl references without reading or writing acceptance history.
 
 import asyncio
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import replace
 from datetime import datetime, timezone
 from time import monotonic
@@ -19,6 +20,7 @@ from src.app.runtime.technical_indicators.composition import TechnicalIndicatorR
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 from goldenshare_technical_indicators import CalculationRequest
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.configuration.datasets import DATASET_LOCATIONS
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     RequestInvalidError, WaitExpiredError,
@@ -95,7 +97,9 @@ def test_normal_grant_and_prewait_validation(monkeypatch):
         from src.app.runtime.technical_indicators import execution
 
         async def scenario():
-            config = make_config()
+            locations = deepcopy(DATASET_LOCATIONS)
+            locations["stock_daily"]["dg"]["enabled_adjustments"] = ("none",)
+            config = replace(make_config(), dataset_locations=locations)
             admission = AdmissionController(config)
             first = await admission.acquire(FakeControl(config=config))
             second = await admission.acquire(FakeControl(config=config))
@@ -111,7 +115,7 @@ def test_normal_grant_and_prewait_validation(monkeypatch):
                 await execution.execute_library(runtime, bad, arrived_at=monotonic())
             assert not admission.waiters and len(admission.active_leases) == 2
             good = replace(bad, calculations=({"calculation_id": "ma", "parameters": {"period": 20}},))
-            assert execution._validate_request_before_wait(runtime, good).normalized is good
+            assert execution._validate_request_before_wait(runtime, good).request == good
             queued = asyncio.create_task(admission.acquire(FakeControl(config=config)))
             await asyncio.sleep(0)
             assert len(admission.waiters) == 1

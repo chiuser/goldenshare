@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from time import monotonic
 
@@ -10,20 +9,11 @@ from .configuration.settings import KernelConfig
 from .errors import ResourceCleanupError, _clear_error_frames
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
+from .request_parser import CalculationRequestParser, _build_read_requirement
 
 if TYPE_CHECKING:
-    from .calculation.dependencies import CalculationPlan
     from .calculation.registry import CalculationRegistry
-    from .contracts import CalculationRequest
-    from .output.contracts import OutputInstanceDescription
     from .sources.contracts import PriceSource
-
-
-@dataclass(frozen=True, slots=True)
-class _PreparedCalculation:
-    normalized: CalculationRequest
-    plan: CalculationPlan
-    instances: tuple[OutputInstanceDescription, ...]
 
 
 def connect_private_memory_instance(config: KernelConfig):
@@ -60,7 +50,7 @@ class TechnicalIndicatorService:
         config: KernelConfig, control: ExecutionControl | None = None,
     ):
         self.source = source
-        self.registry = registry
+        self.parser = CalculationRequestParser(config, registry)
         self.config = config
         self.control = control
 
@@ -94,12 +84,16 @@ class TechnicalIndicatorService:
             prepared = None
 
     def _prepare_calculation(self, request):
-        """Prepare parameters and descriptions once, without opening resources."""
-        from .contracts import normalize_request_and_validate_all_instances
+        """Prepare parameters and resolve the dataset without opening resources."""
+        return self.parser.parse(request)
 
-        normalized = normalize_request_and_validate_all_instances(request, self.config)
-        plan = self.registry.expand_dependencies(normalized)
-        return _PreparedCalculation(normalized, plan, self._describe_output_instances(plan))
+    def _build_input_session(self, prepared, engine, executor, read_context):
+        from .sources.session import PriceInputSession
+
+        engine.prepare()
+        history = engine.resolve_history_requirement(self.config.max_input_rows)
+        requirement = _build_read_requirement(prepared, history, batch_rows=self.config.batch_rows)
+        return PriceInputSession(executor, self.source, requirement, read_context=read_context)
 
     def _calculate_library(self, prepared, *, control):
         result = None
@@ -119,11 +113,9 @@ class TechnicalIndicatorService:
         from .calculation.engine import CalculationEngine
         from .contracts import CalculationStatistics
         from .output.collector import OutputCollector
-        from .sources.contracts import ReadRequirement
         from .sources.read_context import SourceReadContext
-        from .sources.session import PriceInputSession
 
-        normalized, plan, instances = prepared.normalized, prepared.plan, prepared.instances
+        normalized, plan = prepared.request, prepared.plan
         read_context = SourceReadContext(self.config)
         connection = executor = inputs = engine = output = None
         result = primary_error = None
@@ -131,17 +123,11 @@ class TechnicalIndicatorService:
             control.check_active()
             connection, executor = self._open_execution(control)
             engine = CalculationEngine(executor, plan)
-            engine.prepare()
-            history = engine.resolve_history_requirement(self.config.max_input_rows)
-            requirement = ReadRequirement(
-                normalized, history, self.config.batch_rows,
-                history_start=None, processing_end=normalized.end,
-            )
-            inputs = PriceInputSession(executor, self.source, requirement, read_context=read_context)
+            inputs = self._build_input_session(prepared, engine, executor, read_context)
             inputs.prepare()
             description = inputs.resolved_description()
             output = OutputCollector(
-                executor=executor, request=normalized, instances=instances,
+                executor=executor, request=normalized, instances=self._describe_output_instances(plan),
                 target_first_seq=description.selection.preceding_rows + 1,
                 target_rows=description.selection.target_rows,
             )

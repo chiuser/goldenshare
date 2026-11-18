@@ -18,6 +18,7 @@ class SourceReadContext:
         self._source_file_bytes = 0
         self._sql_texts: dict[tuple[str, str], str] = {}
         self._basis_row = None
+        self._pg_session = None
 
     def sql_template(self, name: str, *, control) -> str:
         from ..calculation.sql_templates import load_sql_templates
@@ -40,6 +41,17 @@ class SourceReadContext:
     def clear_request_metadata(self) -> None:
         self._sql_texts.clear()
         self._basis_row = None
+
+    def open_postgres(self, session_factory):
+        if self._pg_session is None:
+            self._pg_session = session_factory()
+            return self._pg_session.connection(), True
+        return self._pg_session.connection(), False
+
+    def close_postgres(self) -> None:
+        if self._pg_session is not None:
+            self._pg_session.close()
+            self._pg_session = None
 
     def record_file(self, path: Path, size_bytes: int) -> None:
         path = Path(path)

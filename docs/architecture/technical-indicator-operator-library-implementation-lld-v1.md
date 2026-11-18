@@ -1,6 +1,6 @@
 # 技术指标算子库实施 LLD v1
 
-**状态：阶段 A 已在独立工作树实现并通过隔离验证。** 正式运行仍使用现行合同。B–D 的接线和 Prod 真实读源验证尚待完成。[整体详细设计与 UML](technical-indicator-operator-library-low-level-design-v1.md)说明目标、类和职责，[原内核代码级 LLD](technical-indicator-kernel-low-level-design-v1.html)保留现行预热、计算公式及历史验收证据。
+**状态：阶段 A 已通过隔离验证，阶段 B 的通用读取和股票不复权日线已完成 DG、Prod 只读复核，待 review。** 指数 5 分钟线待本步通过后实施。正式业务迁移在 D 阶段。[整体详细设计与 UML](technical-indicator-operator-library-low-level-design-v1.md)说明目标、类和职责，[原内核代码级 LLD](technical-indicator-kernel-low-level-design-v1.html)保留现行预热、计算公式及历史验收证据。
 
 ## 1. 审计结论与开工边界
 
@@ -43,8 +43,9 @@
 - `time_range.py` 的筛选使用 `ReadRequirement` 的边界。日线按交易日、分钟按时刻含两端，周/月按周期相交并执行 §4 的截止检查。日、周、月取数使用上海当地日期匹配物理日期字段。分钟沿用现有绑定方式，查无时区的源列时仅在绑定值上去掉上海时区，读回后继续使用原时间归一逻辑。数据表字段类型和产品日线日期 JSON 保持现有格式。
 - `sources/session.py`：定位器合法返回 0 个目标位置时，在准备因子、打开价格流或创建输出收集器之前抛 `SourceReadError("读取数据失败", detail="数据缺失")`。用 `errors.py` 的可选 `detail` 保持已有一参调用有效。未配置来源/不支持组合保留不支持类；文件打开失败、PG 查询失败保留实际原因和异常链，不报 `detail="数据缺失"`。非分钟已确认实缺与合法无目标分开诊断，不把读失败退化为合法空。
 - 保留 `_check_delivered_count()` 和实际记录的类型、边界、顺序、唯一性校验，文件或游标漏交已选记录仍按读取合同错误处理。日、周、月在 `PriceInputSession` 新增缺口校验，使用适配器的 `expected_positions()` 比较应有位置与实际位置，覆盖整个目标区间及所选预热范围。启用前逐环境核对适用交易日历、证券存续、全日停牌等事实来源及可用日期范围。分钟只检查实际记录，生成应有分钟位置留作 TODO。
-- 保留“标准化 → 本批复权（若需）→ 与既有前置窗口合并 → 生成 `PriceBatch`”的顺序。复权因子按本次实际日期批量取，一批价格只转换一次，保留的是已转换的历史，不能每个指标重复转换。任何一批失败丢弃整次结果。股票周/月不改用预复权列、不把单日因子乘整周/月。
+- 保留“标准化 → 本批复权（若需）→ 与既有前置窗口合并 → 生成 `PriceBatch`”的顺序。读取模块标准化所需字段时按 §4.1 将成交量换算为股、成交额换算为元，每根只换算一次。复权因子按本次实际日期批量取，复权只影响 OHLC。多算子共用标准化后的批次，历史窗口保留已标准化、已按需复权的记录。任一批失败则丢弃整次结果。股票周/月采用原价字段，周/月复权另行设计。
 - `output/contracts.py`、`output/collector.py`、`output/result.py`、`output/encoding.py`。内部按 `calculation_index` 验证，沿用 `value_{i}_{j}` 和 `seq` 对齐。对外保留算子 ID、有效参数、版本和固定输出字段，移除旧结果标识、`RequestedRange.before/limit`。所有周期的 `requested.start/end` 序列化为带上海时区的时间。分钟的行情位置和读入、输出区间同样带时区，日周月对应字段为日期。周月逐根输出与 `times` 对齐的实际截止日期 `source_as_of`，其他周期为 `None`。在现有校验点核对有限值、声明的可空条件和时间对齐，保留 MA/BOLL 合法的预热空值。数值及错误回归通过后再切换合同版本。
+- `output/result.py` 生成结果时，`SeriesDescription.volume_unit` 固定为 `share`，`amount_unit` 固定为 `CNY`。返回的 `volume` 和 `amount` 使用读取层已标准化的值。业务需要其他单位时在调用方换算，例如现有接口约定为手、千元时，业务分别除以 100 和 1000。
 
 ## 4. 数据源适配、定位与复权
 
@@ -52,16 +53,26 @@
 
 物理位置和 `freq` 值见 [整体设计 §3.1](technical-indicator-operator-library-low-level-design-v1.md#31-数据集位置与固定条件)。本表给实现所需的关键字段和定位依据，位置登记后按环境核验并启用。日、周、月启用前，补齐用于判断应有位置的适用事实来源，明确对应字段、单位和有效区间。
 
-| 行情 | DG 生产者字段及类型 | PG 代码声明及读取方式 | 统一字段、单位和边界 |
+| 行情 | DG 生产者字段及类型 | PG 代码声明及读取方式 | 源端单位与定位边界 |
 |---|---|---|---|
 | 股票日线 | `trade_date DATE`；原价 OHLC、量额 `DOUBLE` | `equity_daily_bar.trade_date DATE`，OHLC `NUMERIC(18,4)`、量额 `NUMERIC(20,4)` | 交易日为目标位置；原价元，量手、额千元按股票日线合同，不能套分钟单位 |
 | 股票分钟 | `trade_date DATE`、`trade_time TIMESTAMP`、分区 `freq` 整数，原价/量额 `DOUBLE` | 分钟视图从底表投影；`trade_time` 无时区，`freq` 为 `SMALLINT`，OHLC `REAL`、量 `BIGINT`、额 `REAL` | `trade_time` 为目标位置；量股、额元，按生产者约定核验；只开放现有 1/5/15/30/60 分钟 |
 | 股票周、月线 | `trade_date/end_date` 为 `YYYYMMDD` 字符串，原价 `DECIMAL(18,4)`、量额 `DECIMAL(20,4)` | `stk_period_bar_adj` 的 `trade_date/end_date` 为日期；`freq` 分别为 `'week'`/`'month'` | 从 `trade_date` 确定周期标签，`source_as_of = end_date`。实际截止为空或含义不符时不启用对应来源。只选无后缀原价列，量额单位核验后开放 |
 | 指数日线 | `trade_date DATE`；点位、量额 `DOUBLE` | `index_daily_serving.trade_date DATE`；点位及量额为定点数 | 交易日为目标位置；点位、手、千元。只读普通指数日线，不回退至指数日线技术因子文件/视图 |
-| 指数分钟 | 通用 Gold `trade_time TIMESTAMP`、`trade_date DATE`、`freq` 整数；点位及量额 `DOUBLE` | `index_minute_bar`，`freq` 例如 `'5min'`，无时区时间戳，点位、量额为双精度，未配置 PG 90/120 分钟 | K 线收盘时间为位置。不复权；需核对量额单位及 DG 规范化与 PG 原生时间位置的差异。不能拿主要指数专用文件兜底 |
+| 指数分钟 | 通用 Gold `trade_time TIMESTAMP`、`trade_date DATE`、`freq` 整数；点位及量额 `DOUBLE` | `index_minute_bar`，`freq` 例如 `'5min'`，无时区时间戳，点位、量额为双精度，未配置 PG 90/120 分钟 | 不复权。已核实的 5 分钟量额单位见下表，其他组合单独核验。5 分钟使用 DG 的开盘业务 K 线规则，Prod 的 09:30 归并入 09:35 |
 | 指数周、月线 | `period_start_date DATE` 是自然周期首个开市日；`trade_date DATE` 是实际截至日；点位和量额为定点数 | 对应独立视图/表的 ORM 同样提供这两个日期列；数值量额精度与 DG 不完全相同 | 由 `period_start_date` 换算自然周期标签，`source_as_of = trade_date`。量手、额千元。假期后的首个开市日需归到对应的自然周期 |
 
-依据：[DG 字段合同](../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py)、[股票周/月底层字段](../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_weekly.py#L60)、[股票分钟 PG 模型](../../src/foundation/models/raw/raw_stk_mins.py#L11)、[指数分钟 PG 模型](../../src/foundation/models/raw/raw_index_mins.py#L11)、[股票周期表](../../src/foundation/models/core_serving/stk_period_bar_adj.py#L12)、[指数周期表](../../src/foundation/models/core_serving/index_weekly_serving.py#L12)。通过固定版本的实际生产者小样本或有界只读样本冻结映射后再构造测试夹具。对金额和成交量优先查对应生产者列说明及标准化是否改变单位；未证实不发布该字段的通用保证。
+依据：[DG 字段合同](../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py)、[股票周/月底层字段](../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_weekly.py#L60)、[股票分钟 PG 模型](../../src/foundation/models/raw/raw_stk_mins.py#L11)、[指数分钟 PG 模型](../../src/foundation/models/raw/raw_index_mins.py#L11)、[股票周期表](../../src/foundation/models/core_serving/stk_period_bar_adj.py#L12)、[指数周期表](../../src/foundation/models/core_serving/index_weekly_serving.py#L12)。用源合同和有界只读样本确定单位映射后再构造测试夹具。
+
+**标准返回单位。** 算子库的成交量一律用**股**，成交额一律用**元**。按源端口径做以下换算，原行情表和文件沿用原值。业务方在收到标准结果后可自行换算。
+
+| 源端量额口径 | 已核实的示例 | 读取时换算 |
+|---|---|---|
+| 手、千元 | 股票和指数日线 | 成交量 ×100，成交额 ×1000 |
+| 手、元 | 上证综指 `000001.SH`、上证50 `000016.SH`、科创50 `000688.SH`、沪深300 `000300.SH`、中证500 `000905.SH` 的 5 分钟线 | 成交量 ×100，成交额原样 |
+| 股、元 | 深证成指 `399001.SZ`、创业板指 `399006.SZ`、深证综指 `399106.SZ` 的 5 分钟线 | 两列原样 |
+
+DG 与 Prod 的 5 分钟样本覆盖 2026-11-16 和 2026-11-17。前五只指数的分钟成交量合计与日线手数相等，后三只为日线手数的 100 倍。八只指数的分钟成交额合计与日线换算为元后的金额一致。其余指数和其他分钟周期逐项核实，按环境、数据集、周期及必要的证券代码确定原单位。只有原单位明确且完成换算核验的组合才启用对应量额输出。 [指数日线单位定义](../sources/tushare/指数专题/0095_指数日线行情.md#输出参数) · [Prod 指数分钟入库转换](../../src/foundation/ingestion/row_transforms.py#L1030)
 
 ### 4.2 DG：改现有读取器，不新增平行链
 
@@ -88,6 +99,8 @@ PG 定位分三步，关系名和列由可信合同选择，所有值参数化�
 
 分钟过滤保留 `trade_time` 原列范围。必要索引、分区裁剪和首尾定位通过有界样本及执行计划核验。分钟完整性检查留作 TODO。PG 仅允许访问配置有位置且已启用的周期。
 
+**指数 5 分钟开盘。** 定位或实际读取需要当天 09:35 作为目标或预热时，PG 在相同事务内有界补读同证券、同交易日、同频率的 09:30。不单独返回或计数 09:30。归并后的 09:35 开盘价为竞价收盘价，最高、最低比较竞价价与 09:35 的对应值，收盘价取 09:35 收盘价，量额相加。缺少任一记录时，该首根业务 K 线不存在，其余有效 K 线继续参与计算。DG 已经归并，直接用 Gold 记录。有重复、字段非法或读取出错时沿用对应错误。 [DG 归并及完整窗口条件](../../lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_bars.py#L365)
+
 ### 4.4 日线、常规股票分钟线复权是独立启用项
 
 DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在 `LakePriceLocator.describe()` 选取。PG 候选 [`core.equity_adj_factor`](../../src/foundation/models/core_serving/equity_adj_factor.py#L12) 的代码模型声明 `ts_code + trade_date` 主键和 `NUMERIC(20,8)` 因子。两端因子各自登记，在当前环境内按含除权日的有界样本验证日期、覆盖、基准和读权限。前复权用当前来源的最新可用因子作基准，后复权用最早可用因子。基准独立于请求区间，缺失、零值或非有限因子按合同报错。`none` 无须读因子。股票日线前复权是 D 阶段股票迁移条件，股票日线后复权和常规股票分钟复权各自核验后启用。
@@ -101,7 +114,7 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 - `stock_daily_kline_calculations.py` 改固定指令项。七组 MA、BOLL、MACD、KDJ 的参数和版本不变；产品需要价格时调用现有 `price` 算子并和指标共享本次复权行情，十项指标加价格一项共 11 项，默认上限 16 不是保证：部署上限低于所需项数时在切换前阻止，不偷偷调上限。
 - `StockDailyKlineAppBackend.work()` 保留验证、对象信息和产品页边界处理；用与内核一致的正式来源查少量日期位置以确定产品页起止，仅把代码、区间和算子传给内核。移除 `page_prices`、`read_previous` 和 `StockDailyPriceSource` 的业务喂价。产品 `limit` 不进新内核。不要从日历算固定最近 N 个自然日，也不能把旧因子文件的有数日期直接当作新来源的页边界。
 - [股票字段映射](../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py#L95)当前显示的开高低收取 `*_qfq`；涨幅、昨收、换手率和量比等来自业务记录。迁移时开高低收取同一内核结果；辅助字段仍按各自既有业务含义读取，在业务层按交易日一一对应。尤其振幅、昨收与前复权口径使用方式先对照生产样本，不把不复权昨收随意改写。配置的实际来源用于调试来源字段，不冒用旧表名。
-- `stock_daily_kline_service.py` 固定 DTO 映射改用 `(calculation_id, 有效参数)` 查找，MACD 的 `hist` 仍按产品字段映射。保持现有 URL、`forward`、产品分页和原 HTTP 错误包络。已按业务规则确定页窗口为空时可以走原页面空态、不调用内核；一旦有要计算的目标页，内核的「读取数据失败/数据缺失」必须让业务收到，不伪造成功页。
+- `stock_daily_kline_service.py` 固定 DTO 映射改用 `(calculation_id, 有效参数)` 查找，MACD 的 `hist` 仍按产品字段映射。采用 `price` 结果的量额时，由业务按现有接口单位换算。保持现有 URL、`forward`、产品分页和原 HTTP 错误包络。业务已确定页窗口为空时走原页面空态。有要计算的目标页时，业务收到内核的「读取数据失败/数据缺失」。
 
 ### 5.2 上证综指日线和已有通用调用
 
@@ -131,7 +144,7 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 
 - **独立工作树。** 阶段 A–C 在 `codex/technical-indicator-stage-a` 的独立工作树开发和验收，基线为文档提交 `0c6101d8f`。原 `dev-interface` 工作区继续承载现行服务。当前读取器、输出收集器和产品调用方依赖旧合同。阶段 A 的工作树只验新的指令链，禁止以该中间版本启动或发布正式服务。B 接读取，C 接输出与完整计算，D 统一迁移正式调用方。在阶段间显式交接剩余引用，避免新增兼容入口。
 - **取数指令验收到构造。** `CalculationRequestParser.parse()` 产出请求、算子计划和已配置位置。A 用显式传入的 `HistoryRequirement` 验证 `_build_read_requirement()` 生成取数指令，核对上海日期转换、位置、所需历史和批次配置。B 在现有引擎求出实际历史需求后调用同一构造函数。A 验收的请求链对行情文件、PostgreSQL、计算连接和临时表的访问次数均为零，调用失败直接返回错误，从同一输入重新执行即可，重跑与最终验收均使用同样的无读取测试。
-- **首批来源证据。** 2026-11-17 DG 核验 `600519.SH` 股票日线一根和 `000001.SH` 指数 5 分钟 09:35–09:45 三根。股票日期为 `DATE`，指数时间为无时区 `TIMESTAMP`，DG 频率为整数 `5`。Prod 股票日线模型与指数分钟视图迁移只提供结构依据，读权限、真实样本和指数分钟量额单位仍待有界只读核验。阶段 A 的测试可显式启用隔离样本组合，随代码提供的行情目录默认未启用。完成测试后也只登记物理位置，按阶段 B 的真实读取证据逐源启用。
+- **阶段 A 的首批来源证据。** 2026-11-17 DG 核验 `600519.SH` 股票日线一根和 `000001.SH` 指数 5 分钟 09:35–09:45 三根。股票日期为 `DATE`，指数时间为无时区 `TIMESTAMP`，DG 频率为整数 `5`。阶段 A 的 Prod 证据限模型和迁移定义。后续 DG、Prod 量额样本及其适用范围见 §4.1。随代码提供的行情目录默认未启用，按阶段 B 的真实读取证据逐源启用。
 
 **配置项审计**
 
@@ -142,10 +155,27 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 | `market_datasets` | 无构造默认。与行情目录一同版本管理，由装配传入 | 证券类型和周期映射到目录标识。配置初始化时验证引用，供解析器和能力查询复用，测试覆盖股票及指数的有效映射和错误引用 |
 | 原有 17 项运行配置 | 保留 `Settings` 的默认值、环境变量和 Lake 根设置 | 显式装配将三个非运行项与原值分别传入 `KernelConfig`。保留资源边界和数值检查，配置测试核对字段复制及 500 根硬上限 |
 
+### 阶段 B 的实施步骤
+
+**先做通用读取和股票不复权日线。** 从 A 的 `ReadRequirement` 接入现有 `PriceInputSession`，保留读取批次、预热和清理规则。DG 原读取器消费 `DatasetReadTarget`，Prod 在 Foundation 用同一读取接口和可信会话工厂装配。先用 `600519.SH` 的 2026-11-16 至 17 日两根原价记录，在 DG 和 Prod 分别核对时间、四价、原始量额及换算结果。正式业务接线及算法公式留在原阶段范围内。
+
+| 股票日线辅助事实 | DG | Prod PostgreSQL | 用途 |
+|---|---|---|---|
+| A 股交易日历 | `silver/calendar/trade_calendar/full/part-000.parquet` | `core_serving.trade_calendar` | 按 SSE 日历及请求日期核对开市，字段为 `exchange/trade_date/is_open` |
+| 股票存续 | `silver/basic/stock_lifecycle/full/part-000.parquet` | `core_serving.security_serving` | 按代码取 `list_date/delist_date`，沿用股票日线的上市日含界、退市日排除规则，退市字段为空表示没有已知的退市日期 |
+| 股票每日停复牌 | `silver/quote/stock_suspend_daily/trade_date={trade_date}/part-000.parquet` | `core_serving.equity_suspend_d` | 按代码和日期取 `suspend_type/suspend_timing`。只以无冲突的全日停牌事实排除目标日期，日内停牌及复牌仍按日线合同判断 |
+
+这三项作为内部数据集由现有 `dataset_locations` 解析，随包版本生效，沿用 A 的环境绑定。日历和存续、停牌事实要覆盖本次目标与必要预热范围。DG 已发布且为空的停复牌分区表示当日没有对应事实，文件读取失败须保留实际错误。由读取诊断区分应有记录缺失与合法停牌或休市。当前 DG 样本两日均为开市日，`600519.SH` 在这两天都处于存续且无对应停牌记录。Prod 已验证相关表的读权限，并取回两根相同原价日线。 [股票日线存续用法](../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily.py#L533) · [Prod 全日停牌判定依据](../../src/biz/services/wealth/market/trading_assistant/suspension_facts.py#L54)
+
+**再接入指数不复权 5 分钟。** 复用同一批次及错误处理接口，以 §4.3 形成业务 K 线后再执行区间、上限和预热判断。用 §4.1 已核实的量额口径。真实对照以 2026-11-17 的 `000001.SH` 和 `399001.SZ` 为样本，分别覆盖手和股的原始成交量。已观察到同日 Prod 原生 49 条、DG Gold 48 根。验收核对 09:35 四价与量额、整日根数和后续位置。验收用例覆盖请求从 09:35 起、截止 09:30、首根恰在预热区、缺 09:30 或 09:35、普通中间缺点和重复记录。
+
+**两步共用的验收。** 除上述真实样本外，用独立预期覆盖合法休市、全日停牌、开市应有却缺行、空目标、准确达到及超过目标上限、已选记录未交付、取消后归还资源。沿用 §7 预算。5 分钟归并每个被检查的 09:35 窗口最多增加一条 09:30 原生记录，计入源端读取量，根数上限和预热按形成的 K 线计量。中断及验收重跑从同一指令重新开始，计入完整日期事实、定位、读取与清理的开销。PG 实际执行计划、取消和用时在隔离验收实测。当前正式 Web 账号是否与审计账号一致留作业务部署验收，阶段 B 用已验证的 Prod 只读查询入口核对样本。
+
 **关键测试落点：**
 
 - 合同、配置和能力查询覆盖 `test_contracts.py`、`test_configuration.py`、`test_registry_dependencies.py`。用带时区时间跨上海日期的样本核对查询日期，覆盖所有周期拒绝无时区时间及纯日期、请求回显带偏移、分钟实际时间行为沿用、日周月实际行情日期保持日期类型。验证当前环境有位置但未启用时解析和能力查询一致。
 - 定位、缺数据与算法覆盖 `test_source_contracts.py`、`test_locator_error_classification.py`、`test_request_reuse_correction.py`、`test_price_adjustment.py`。分钟中间跳点、完全无目标、已选记录漏交分别造独立样本。日线验证开市缺行与休市、全日停牌的区别。周、月各自启用前核对三类截止结果，断言返回的 `source_as_of` 逐根匹配。
+- 量额验收用独立预期核对手/千元、手/元、股/元三类源单位，检查 `price` 数值和结果单位标识一致。用请求内多个算子及前置历史验证只换算一次。业务迁移用现有响应样本核对调用方换算后的接口值。
 - 输出、取消与产品覆盖 `test_d3_output_failures.py`、`test_output_encoding_correction.py`、`test_execution_cancellation.py`、`test_response_lifecycle.py`、`test_stock_daily_integration.py`、`test_index_daily_kline_integration.py`、`test_stock_daily_technical_indicator_api.py`。上证加入同批目标四价、量额合法空值、完全无行情的错误原因、合法空页回归。旧 D3 样本按已认可的隔离测试或对应授权范围运行。
 - 真实核验只读指定证券、周期、少量日期，并区分目标与预热、字段解析和产品展示。PG 权限与查询耗时未验证时，mock 和模型不能证明可启用；DG 文件存在也不能证明任意历史日期齐备。
 
@@ -160,7 +190,22 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 
 **阶段 A 独立复核。** 按计算指令、位置目录、启用配置、算子计划和取数指令分别对照实现。239 项限于合同、配置、算子依赖、解析、排队和架构的回归通过。另用独立字面预期逐项核对 40 个环境与数据集组合，其中 34 个位置与固定条件匹配，6 个按规定无位置并报错。用独立进程限制行情文件和连接访问，未出现调用。按 UTC 跨上海日期及两组有效参数验证日期转换、节点共享和目标取数对象。CodeGraph 用于梳理原服务、配置装配、算子依赖和正式入口，独立工作树的实际改动再按差异和源码复核。
 
-阶段 A 的证据覆盖新指令链及无读取边界。代码保留了 B–D 待接的旧读取和输出引用，分别由对应阶段迁移。500 根作为配置硬上限通过验证，按实际目标根数报超限由 B 的定位和读取链验收。Prod 首批来源还须核对实际读权限、记录和指数分钟量额单位，正式启用仍为关闭状态。
+阶段 A 的证据覆盖新指令链及无读取边界，并验证了 500 根的配置硬上限。阶段 B 开工审计的首批来源和量额核验见 §4.1；新版股票日线读取链的证据如下。
+
+**阶段 B 第一步独立复核，通用读取和股票不复权日线。** 先直接按证券代码和日期读取 DG 的 Parquet 和 Prod PostgreSQL 的 `core_serving.equity_daily_bar`，再用同一计算指令走新版读取链。证券为贵州茅台 `600519.SH`，目标为 2026-11-16、17 日，MA(2) 引擎要求 11-13 一根预热，同时请求四价和量额。两端均在每批一根的情况下重复执行两次。上海日期、开高低收、量额与直接读取换算一致，批次保留的前一根量额也与首次读入一致。11-14、15 的交易日历为休市，上市日期为 2001-08-27，退市日期为空，三日均无该股停牌记录。辅助查询限对应范围的五条日历、一条存续记录及该股停复牌事实。
+
+| 交易日 | 用途 | 开盘／最高／最低／收盘（元） | 原始成交量（手） | 原始成交额（千元） | 标准成交量（股） | 标准成交额（元） |
+|---|---|---|---:|---:|---:|---:|
+| 2026-11-13 | MA(2) 预热 | 1404.00／1437.69／1394.00／1435.26 | 41,779.84 | 5,954,834.070 | 4,177,984 | 5,954,834,070 |
+| 2026-11-16 | 目标 | 1426.30／1454.93／1425.00／1453.90 | 39,967.00 | 5,767,305.714 | 3,996,700 | 5,767,305,714 |
+| 2026-11-17 | 目标 | 1458.88／1461.60／1437.71／1457.70 | 35,116.45 | 5,094,594.655 | 3,511,645 | 5,094,594,655 |
+
+表中标准量额按原值乘 100 和 1000 计算。读取会话使用原内核的双精度，个别换算值在双精度末位有误差。
+
+- **DG。** 每次实际交付 3 根，读取 3 条定位键，接触 8 个 Parquet 文件。其中 3 个行情、3 个停复牌、1 个交易日历、1 个股票存续。统计文件总大小约 1.02 MB。
+- **Prod。** 每次实际交付 3 根，定位读取 4 条键，其中包括一条用于判断是否到历史起点的记录。目标、预热、行情三个样本查询分别使用股票日线主键索引正向、反向、正向读取。实测请求在可重复读、只读事务运行。打开行情游标后取消同一连接上的一条有界只读语句，发出取消至释放资源约 189 毫秒，连接归还池后成功再次查询。
+- **失败与重试。** 两端同样验证以 1 根为上限时 2 根立即报超限，休市区间无目标统一报「读取数据失败」且 `detail=数据缺失`，两种情况均未打开行情流。隔离回归覆盖准确达到上限、合法休市和全日停牌、日内停牌或冲突事实不能抵扣开市缺行、收尾缺行、错日期分区、重复日期、漏交和文件读取失败、取消后从起点重读。260 项相关回归通过。旧 Web 取消用例还引用阶段 A 已移除的 `CalculationInstance`，该用例当前无法收集；新版 PG 取消另用真实只读连接验证。
+- **交接范围。** 本步验证两种环境的股票原价读取和向现有算子交付批次。正式目录启用、对上结果收集及 Web 接线分别随既定阶段推进。指数 5 分钟线在本步 review 通过后开发。 [股票日线测试](../../tests/foundation/technical_indicators/test_stage_b_stock_daily.py) · [Prod 读取器](../../src/foundation/clients/technical_indicator_postgres.py)
 
 **实施前基线审计。**
 

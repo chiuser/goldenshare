@@ -2,6 +2,18 @@
 
 
 DATASET_LOCATIONS = {
+    "trade_calendar": {
+        "dg": {"relative_path": "silver/calendar/trade_calendar/full/part-000.parquet"},
+        "prod_pg": {"schema": "core_serving", "relation": "trade_calendar", "filters": {"exchange": "SSE"}},
+    },
+    "stock_lifecycle": {
+        "dg": {"relative_path": "silver/basic/stock_lifecycle/full/part-000.parquet"},
+        "prod_pg": {"schema": "core_serving", "relation": "security_serving"},
+    },
+    "stock_suspend_daily": {
+        "dg": {"relative_path": "silver/quote/stock_suspend_daily/trade_date={trade_date}/part-000.parquet"},
+        "prod_pg": {"schema": "core_serving", "relation": "equity_suspend_d"},
+    },
     "stock_daily": {
         "dg": {"relative_path": "silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet"},
         "prod_pg": {"schema": "core_serving", "relation": "equity_daily_bar"},

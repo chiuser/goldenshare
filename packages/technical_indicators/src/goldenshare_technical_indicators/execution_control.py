@@ -29,6 +29,7 @@ class ExecutionControl:
         self.stop_reason: str | None = None
         self.stop_requested_at: float | None = None
         self.interrupt_callback: Callable[[], None] | None = None
+        self.source_interrupt: Callable[[], None] | None = None
         self.monitor: threading.Thread | None = None
         self.monitor_started = False
         self.monitor_stop = False
@@ -95,6 +96,11 @@ class ExecutionControl:
                 raise
             self.monitor_started = True
 
+    def set_source_interrupt(self, callback: Callable[[], None] | None) -> None:
+        self._assert_working_thread()
+        with self.condition:
+            self.source_interrupt = callback
+
     def _monitor_loop(self) -> None:
         try:
             with self.condition:
@@ -103,10 +109,12 @@ class ExecutionControl:
                     if self.stop_reason is None:
                         self.condition.wait(timeout=max(0.0, self.work_until - self.clock()))
                         continue
-                    if self.interrupt_callback is not None:
+                    for callback in (self.interrupt_callback, self.source_interrupt):
+                        if callback is None:
+                            continue
                         self.interrupt_count += 1
                         try:
-                            self.interrupt_callback()
+                            callback()
                         except Exception as exc:
                             if self.interrupt_error is None:
                                 # Do not retain a traceback or a copy of the bound connection.
@@ -135,6 +143,7 @@ class ExecutionControl:
         with self.condition:
             locked_at = self.clock()
             self.interrupt_callback = None
+            self.source_interrupt = None
             self.monitor_stop = True
             self.condition.notify_all()
             monitor = self.monitor if self.monitor_started else None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -156,6 +156,11 @@ class PriceSource(Protocol):
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,
         *, read_context: SourceReadContext,
     ) -> SourceStream: ...
+
+    def expected_positions(
+        self, requirement: ReadRequirement, selection: PriceReadSelection, *,
+        read_context: SourceReadContext, control: ExecutionControl,
+    ) -> Iterator[TimePosition]: ...
 
     def prepare_basis(
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,

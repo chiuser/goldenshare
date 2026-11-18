@@ -42,7 +42,9 @@ class SourceContractError(TechnicalIndicatorError):
 
 
 class SourceReadError(TechnicalIndicatorError):
-    pass
+    def __init__(self, message: str, *, detail: str | None = None):
+        super().__init__(message)
+        self.detail = detail
 
 
 class CalculationExecutionError(TechnicalIndicatorError):
