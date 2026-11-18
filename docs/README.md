@@ -89,6 +89,8 @@ docs/
 - [上证日线趋势通道维护说明（LLD、六项决定、未来扩展与已知差距）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [技术指标计算内核组件设计 v1（HTML；组件设计、实现与历史阶段记录；正式消费者接入见股票日线专题）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-component-design-v1.html)
 - [技术指标计算内核代码级LLD v1（HTML；内核代码合同、有限预热、执行与阶段验收记录）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-low-level-design-v1.html)
+- [技术指标算子库整体详细设计 v1（待评审；计算指令、取数、算子、输出与类清单）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-operator-library-low-level-design-v1.md)
+- [技术指标算子库实施 LLD v1（待评审；现状审计、文件级改动、迁移与验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-operator-library-implementation-lld-v1.md)
 - [计算算子共享包落地方案 v1（0.1.0 已完成迁移及本地验收）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-plan-v1.md)
 - [计算算子共享包 LLD v1（源码迁移、独立安装和行为对照）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-low-level-design-v1.md)
 - [技术指标计算内核前端接入要求 v1（HTML；后续1000根分页、提前500根加载、取消与空结果；当前内核外部约束，页面未实施）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-frontend-integration-requirements-v1.html)
