@@ -7,7 +7,8 @@ No connection, SQL, source fixture or real interrupt monitor is created here.
 """
 
 import asyncio
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import inspect
 import threading
 from time import monotonic
@@ -19,7 +20,7 @@ from test_admission import FakeControl, light_case, make_config
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators import CalculationRequest
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
@@ -32,9 +33,11 @@ from goldenshare_technical_indicators.errors import (
 
 
 def request():
-    return CalculationRequest("stock", "600000.SH", "day", (
-        CalculationInstance("ma", "ma", {"period": 20}),
-    ))
+    stamp = datetime(2026, 1, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
+    return CalculationRequest(security_type="stock", ts_code="600000.SH", period="day", adjustment="qfq",
+                              start=stamp, end=stamp, calculations=(
+                                  {"calculation_id": "ma", "parameters": {"period": 20}},
+                              ))
 
 
 def literal_result():
@@ -43,11 +46,11 @@ def literal_result():
     return CalculationResult(
         "3.0.0", SeriesDescription("stock", "600000.SH", "day", "qfq", "Asia/Shanghai",
                                   "CNY", "share", "CNY"),
-        RequestedRange(None, None, None, 500),
+        RequestedRange(request().start, request().end),
         SourceResult("controlled-lifecycle", "1", "qfq", None, day, day, None),
         PriceAdjustmentResult(None, None, None, None, False, "1"),
         (day,), None,
-        (CalculationValues("ma", "ma", "1.0.0", (("period", 20),), (("value", (None,)),)),),
+        (CalculationValues("ma", "1.0.0", (("period", 20),), (("value", (None,)),)),),
         OutputRange(day, day, 1), CalculationStatistics(0, 0, 0, 0, 0, 0, 0.0), "",
     )
 
@@ -141,7 +144,7 @@ def test_execution_cancelled(monkeypatch):
                 try:
                     assert (release_a if is_a else release_b).wait(1), "Test did not release its controlled worker"
                     service.control.check_active()
-                    return literal_result()
+                    return literal_result(), 0, None
                 finally:
                     order.append("worker_a_exit" if is_a else "worker_b_exit")
 
@@ -217,7 +220,7 @@ def test_execution_deadline(monkeypatch):
                     anyio.from_thread.run_sync(started.set)
                     assert release_worker.wait(1), "Test did not release the controlled deadline worker"
                     service.control.check_active()
-                return literal_result()
+                return literal_result(), 0, None
 
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", controlled_calculate)
 
@@ -269,7 +272,7 @@ def test_cleanup_failure(monkeypatch):
                             raise cause
                         except OSError:
                             raise primary from cause
-                    return result
+                    return result, 0, None
 
                 monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", failing_calculate)
                 original_release = rt.admission.release
@@ -327,7 +330,7 @@ def test_shutdown(monkeypatch):
                     anyio.from_thread.run_sync(started.set)
                     assert release_worker.wait(1), "Test did not release the controlled shutdown worker"
                     service.control.check_active()
-                return literal_result()
+                return literal_result(), 0, None
 
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", controlled_calculate)
 

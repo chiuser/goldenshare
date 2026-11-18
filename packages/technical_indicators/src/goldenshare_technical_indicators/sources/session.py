@@ -2,6 +2,7 @@
 
 from dataclasses import replace
 from datetime import date, datetime
+from math import isfinite
 from zoneinfo import ZoneInfo
 
 from ..calculation.calculation import SqlStep
@@ -78,8 +79,9 @@ class PriceInputSession:
                 self._own_table("ti_anchor")
                 resolved = self.source.prepare_basis(self.executor, self.description, self.requirement,
                     table_name="ti_anchor", read_context=self.read_context)
-                if resolved.basis_date is None or resolved.basis_value is None:
-                    raise SourceContractError("Converted daily prices require an actual basis")
+                if (resolved.basis_date is None or resolved.basis_value is None
+                        or not isfinite(resolved.basis_value) or resolved.basis_value <= 0):
+                    raise SourceContractError("Converted daily prices require a finite positive adjustment factor basis")
             self._stream = self.source.open(self.executor, resolved, request, read_context=self.read_context)
             self.executor.control.check_active()
             self._resolved = replace(resolved, volume_unit="share", amount_unit="CNY")
@@ -253,6 +255,17 @@ class PriceInputSession:
                 self._own_table("ti_day_factor")
                 self.source.prepare_factors(self.executor, self._resolved, self.requirement,
                     dates, table_name="ti_day_factor", read_context=self.read_context)
+                invalid_factor_date = self.executor.scalar("""
+                    SELECT prices.trade_date
+                    FROM (SELECT DISTINCT trade_date FROM ti_raw_new) AS prices
+                    LEFT JOIN ti_day_factor AS factor USING (trade_date)
+                    GROUP BY prices.trade_date
+                    HAVING count(*) <> 1 OR count(factor.adj_factor) <> 1
+                        OR NOT bool_and(isfinite(factor.adj_factor) AND factor.adj_factor > 0)
+                    ORDER BY prices.trade_date LIMIT 1
+                """)
+                if invalid_factor_date is not None:
+                    raise SourceContractError(f"Missing, duplicate or invalid adjustment factor for {invalid_factor_date}")
                 step = PriceAdjustmentCalculation().build_sql("ti_raw_new", "ti_day_factor", "ti_anchor",
                     output_table="ti_price_new", fields=self.fields, time_fields=self.time_fields,
                     processed_rows=new_rows,

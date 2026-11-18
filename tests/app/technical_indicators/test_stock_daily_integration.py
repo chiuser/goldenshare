@@ -7,6 +7,8 @@ JUnit reports this function's costs; historical reports are never read/written.
 
 import asyncio
 from dataclasses import replace
+from datetime import datetime
+from zoneinfo import ZoneInfo
 import inspect
 import json
 import threading
@@ -26,7 +28,7 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
     STOCK_DAILY_CALCULATIONS,
 )
 from goldenshare_technical_indicators.contracts import (
-    CalculationInstance, CalculationRequest, CalculationValues,
+    CalculationRequest, CalculationValues,
 )
 from goldenshare_technical_indicators.errors import OutputContractError, RequestInvalidError
 
@@ -35,18 +37,21 @@ class _Payload(dict):
     """A weak-referenceable value used only to check ended-frame ownership."""
 
 
-def _literal_ten_results():
+def _literal_stock_results():
     # Fixed metadata and values from the LLD; no calculation or product helper.
-    means = tuple(CalculationValues(f"ma{period}", "ma", "1.0.0", (("period", period),),
+    means = tuple(CalculationValues("ma", "1.0.0", (("period", period),),
                                    (("value", (None,)),))
                   for period in (5, 10, 20, 30, 60, 90, 250))
     others = (
-        CalculationValues("boll", "boll", "1.0.0", (("period", 20), ("multiplier", 2)),
+        CalculationValues("boll", "1.0.0", (("period", 20), ("multiplier", 2)),
                           (("middle", (None,)), ("upper", (None,)), ("lower", (None,)))),
-        CalculationValues("macd", "macd", "2.0.0", (("fast", 12), ("slow", 26), ("signal", 9)),
+        CalculationValues("macd", "2.0.0", (("fast", 12), ("slow", 26), ("signal", 9)),
                           (("dif", (0.0,)), ("dea", (0.0,)), ("hist", (0.0,)))),
-        CalculationValues("kdj", "kdj", "2.0.0", (("window", 9), ("k_period", 3), ("d_period", 3)),
+        CalculationValues("kdj", "2.0.0", (("window", 9), ("k_period", 3), ("d_period", 3)),
                           (("k", (50.0,)), ("d", (50.0,)), ("j", (50.0,)))),
+        CalculationValues("price", "1.0.0", (),
+                          (("open", (10.0,)), ("high", (11.0,)), ("low", (9.0,)),
+                           ("close", (10.0,)), ("volume", (None,)), ("amount", (None,)))),
     )
     return replace(literal_result(), calculations=means + others)
 
@@ -66,8 +71,10 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
             rt = runtime()
             controls = install_control(monkeypatch)
             main_thread = threading.get_ident()
-            reference = _literal_ten_results()
-            request = CalculationRequest("stock", "600000.SH", "day", STOCK_DAILY_CALCULATIONS)
+            reference = _literal_stock_results()
+            stamp = datetime(2026, 1, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
+            request = CalculationRequest(security_type="stock", ts_code="600000.SH", period="day", adjustment="qfq",
+                                         start=stamp, end=stamp, calculations=STOCK_DAILY_CALCULATIONS)
             calls, releases, weak_values, faults = [], [], [], []
             mode = "normal"
 
@@ -75,14 +82,14 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
                 metrics["calculate_stub_calls"] += 1
                 assert threading.get_ident() != main_thread
                 assert service.control is control is controls[-1]
-                assert prepared.normalized is request
-                assert len(prepared.normalized.calculations) == 10
-                calls.append(prepared.normalized)
+                assert prepared.request is request
+                assert len(prepared.request.calculations) == 11
+                calls.append(prepared.request)
                 if mode == "wrong_library_type":
                     value = _Payload(result="unsupported library result")
                     weak_values.append(weakref.ref(value))
-                    return value
-                return reference
+                    return value, 0, None
+                return reference, 0, None
 
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", calculate)
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result", calculate)
@@ -141,8 +148,12 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
                     )
                     payload = json.loads(sent[1]["body"])
                     assert payload["times"] == ["2026-01-02"]
-                    assert [item["instance_id"] for item in payload["calculations"]] == [
-                        "ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250", "boll", "macd", "kdj",
+                    assert all("instance_id" not in item for item in payload["calculations"])
+                    assert [item["parameters"]["period"] for item in payload["calculations"][:7]] == [
+                        5, 10, 20, 30, 60, 90, 250,
+                    ]
+                    assert [item["calculation_id"] for item in payload["calculations"][7:]] == [
+                        "boll", "macd", "kdj", "price",
                     ]
                     assert payload["calculations"][8]["fields"]["hist"] == [0.0]
                 assert result is None and observers == ["started", "ended"]
@@ -162,7 +173,7 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
                 assert len(calls) == 2 and len(releases) == 2
                 await invoke_http(private=True)
                 assert len(calls) == 2 and len(releases) == 3
-                invalid = replace(request, calculations=(CalculationInstance("bad", "ma", {"period": 0}),))
+                invalid = replace(request, calculations=({"calculation_id": "ma", "parameters": {"period": 0}},))
                 with monkeypatch.context() as blocked:
                     async def forbidden_acquire(control):
                         raise AssertionError("An invalid request entered admission")
@@ -288,7 +299,7 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
         async def scenario():
             rt = make_runtime()
             backend = wiring.StockDailyKlineAppBackend(
-                rt, lambda: object(), settings=Settings(_env_file=None, APP_ENV="prod"),
+                rt, lambda: object(),
             )
             source = _source((_row(date(2026, 1, 5)),))
             started, stopped = anyio.Event(), anyio.Event()
@@ -449,8 +460,8 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
 
     monkeypatch.setattr(registry, "resolve", resolve_once)
     monkeypatch.setattr(CalculationDefinition, "validate_parameters", validate_once)
-    backend = wiring.StockDailyKlineAppBackend(rt, settings=Settings(_env_file=None, APP_ENV="prod"))
-    expected = ["ma"] * 7 + ["boll", "macd", "kdj"]
+    backend = wiring.StockDailyKlineAppBackend(rt)
+    expected = ["ma"] * 7 + ["boll", "macd", "kdj", "price"]
     assert resolved == expected and validated == []
     request = StockDailyKlineRequest("600000.SH", "day", "forward", None, None, None, 500, False)
     assert backend.validate_before_wait(request) is request
@@ -461,10 +472,12 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
     assert resolved == expected and validated == []
 
     service = TechnicalIndicatorService(source=rt.source, registry=registry, config=rt.config)
+    stamp = datetime(2026, 1, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
     prepared = service._prepare_calculation(CalculationRequest(
-        "stock", "600000.SH", "day", STOCK_DAILY_CALCULATIONS,
+        security_type="stock", ts_code="600000.SH", period="day", adjustment="qfq",
+        start=stamp, end=stamp, calculations=STOCK_DAILY_CALCULATIONS,
     ))
-    assert len(prepared.instances) == 10
+    assert len(prepared.plan.instances) == 11
     assert validated == expected
 
     # Deliberately inconsistent definitions exercise the existing startup contract.
@@ -473,7 +486,7 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
         bad_registry = SimpleNamespace(resolve=lambda calculation_id: changed)
         with pytest.raises(CalculationUnsupportedError, match="definition changed"):
             wiring.StockDailyKlineAppBackend(
-                SimpleNamespace(registry=bad_registry), settings=Settings(_env_file=None, APP_ENV="prod"),
+                SimpleNamespace(registry=bad_registry, config=make_config()),
             )
 
 
@@ -615,12 +628,13 @@ def test_lifespan_and_other_paths(monkeypatch, record_property):
             def __init__(self):
                 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
                 self.registry = create_builtin_registry()
+                self.config = make_config()
 
             async def aclose(self):
                 counts["close"] += 1
                 if mode in ("close", "body_close"):
                     raise RuntimeError("Controlled shutdown failure")
-        def create(settings):
+        def create(settings, *, session_factory):
             assert asyncio.get_running_loop().is_running()
             counts["runtime"] += 1
             return Runtime()

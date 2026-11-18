@@ -35,7 +35,13 @@ def make_config(**overrides):
         TECHNICAL_INDICATOR_MAX_WAIT_MS=2000,
         TECHNICAL_INDICATOR_TOTAL_TARGET_MS=8000,
         TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS=2000,
-    ), data_location="dg")
+    ), data_location="dg", dataset_locations={
+        "stock_daily": {
+            "dg": {"relative_path": "silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet",
+                   "enabled_adjustments": ("none", "qfq")},
+            "prod_pg": {"schema": "core_serving", "relation": "equity_daily_bar"},
+        },
+    }, market_datasets={("stock", "day"): "stock_daily"})
     return replace(base, **overrides)
 
 

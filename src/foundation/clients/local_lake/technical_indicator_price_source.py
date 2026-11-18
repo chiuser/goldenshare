@@ -22,7 +22,7 @@ from goldenshare_technical_indicators.errors import (
 )
 from goldenshare_technical_indicators.sources.contracts import SourceBatch, SourceDescription
 
-from ..technical_indicator_stock_daily import full_day_suspension, scheduled_stock_days
+from ..technical_indicator_stock_daily import INDEX_DAILY_ORIGINS, full_day_suspension, scheduled_open_days, scheduled_stock_days
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
 )
@@ -86,12 +86,15 @@ class LakeTechnicalIndicatorPriceSource:
         return resolved
 
     def _partition_paths(self, root, requirement, control):
-        template = Path(requirement.target.location["path_template"])
+        through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
+        return tuple(path for _, path in self._dated_partitions(root, requirement.target, through, control))
+
+    def _dated_partitions(self, root, target, through, control, *, start=None):
+        template = Path(target.location["path_template"])
         base = template.parent.parent
         self._safe_path(root, base)
         control.check_active()
         result = []
-        through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
         try:
             with os.scandir(base) as entries:
                 for entry in entries:
@@ -100,15 +103,56 @@ class LakeTechnicalIndicatorPriceSource:
                     if match is None:
                         continue
                     partition_day = date.fromisoformat(match.group(1))
-                    if partition_day <= through:
+                    if partition_day <= through and (start is None or partition_day >= start):
                         path = Path(str(template).replace("{trade_date}", partition_day.isoformat()))
                         if path.is_file():
                             result.append((partition_day, path))
-            return tuple(path for _, path in sorted(result))
+            return tuple(sorted(result))
         except TechnicalIndicatorError:
             raise
         except (OSError, ValueError) as exc:
             raise SourceReadError("The declared source partitions cannot be enumerated") from exc
+
+    def daily_page_dates(self, dataset, ts_code, *, start, end, limit, control, read_context, before=None):
+        root = self._root()
+        target = self._config.resolve_dataset_location(dataset)
+        dates = []
+        for day, _ in reversed(self._dated_partitions(root, target, end, control, start=start)):
+            if before is not None and day >= before:
+                continue
+            rows = self.daily_rows(dataset, ts_code, (day,), ("trade_date",),
+                                   control=control, read_context=read_context)
+            if day in rows:
+                dates.append(day)
+                if len(dates) == limit:
+                    break
+        return tuple(reversed(dates))
+
+    def daily_rows(self, dataset, ts_code, dates, fields, *, control, read_context):
+        root = self._root()
+        target = self._config.resolve_dataset_location(dataset)
+        columns = ("trade_date", *(field for field in fields if field != "trade_date"))
+        result = {}
+        for day in dates:
+            control.check_active()
+            if dataset == "stock_daily_basic":
+                path = Path(target.location["path_template"].replace("{trade_date}", day.isoformat()))
+                try:
+                    self._safe_path(root, path).stat()
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    raise SourceReadError("Cannot inspect stock daily basic partition") from exc
+                expected = day.strftime("%Y%m%d")
+            else:
+                expected = day
+            rows = self._fact_rows(root, dataset, columns, [("ts_code", "=", ts_code)],
+                                   control, read_context, day=day)
+            if len(rows) > 1 or (rows and rows[0][0] != expected):
+                raise SourceContractError(f"Unexpected daily rows in {dataset} for {ts_code} on {day}")
+            if rows:
+                result[day] = dict(zip(columns, rows[0]))
+        return result
 
     def _inspect(self, path, projection, schema, control, read_context, *, row_groups=None):
         """Footer-only protection; never reads or audits individual values."""
@@ -183,16 +227,22 @@ class LakeTechnicalIndicatorPriceSource:
         except TechnicalIndicatorError:
             raise
         except Exception as exc:
-            raise SourceReadError(f"Cannot read stock daily facts from {identifier}") from exc
+            raise SourceReadError(f"Cannot read daily facts from {identifier}") from exc
 
     def expected_positions(self, requirement, selection, *, read_context, control):
         root = self._root()
         start, end = min(requirement.start, selection.read_start), requirement.end
-        lifecycle = self._fact_rows(root, "stock_lifecycle", ("list_date", "delist_date"),
-                                    [("ts_code", "=", requirement.ts_code)], control, read_context)
+        index = requirement.target.dataset_id == "index_daily"
+        if index:
+            start = max(start, INDEX_DAILY_ORIGINS["dg"])
         calendar = self._fact_rows(root, "trade_calendar", ("trade_date", "is_open"),
                                    [("exchange", "=", "SSE"), ("trade_date", ">=", start),
                                     ("trade_date", "<=", end)], control, read_context)
+        if index:
+            yield from scheduled_open_days(sorted(calendar), start, end)
+            return
+        lifecycle = self._fact_rows(root, "stock_lifecycle", ("list_date", "delist_date"),
+                                    [("ts_code", "=", requirement.ts_code)], control, read_context)
         for day in scheduled_stock_days(sorted(calendar), lifecycle, start, end):
             records = self._fact_rows(root, "stock_suspend_daily", ("trade_date", "suspend_type", "suspend_timing"),
                                       [("ts_code", "=", requirement.ts_code)], control, read_context, day=day)
@@ -206,15 +256,20 @@ class LakeTechnicalIndicatorPriceSource:
         if not description.converted:
             return description
         candidates = description.factor_paths if requirement.target_adjustment == "hfq" else reversed(description.factor_paths)
-        for _, path in candidates:
+        for day, path in candidates:
             self._inspect(path, tuple(name for name, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
             stats = executor.execute(SqlStep("prepare_basis", f"""CREATE OR REPLACE TEMP TABLE {name} AS
-                SELECT trade_date AS basis_date, CAST(adj_factor AS DOUBLE) AS basis_value
+                SELECT trade_date AS basis_date, CAST(adj_factor AS DOUBLE) AS basis_value,
+                       count(*) OVER () AS basis_rows
                 FROM read_parquet(?, hive_partitioning=false) WHERE ts_code=?
                 ORDER BY trade_date {'ASC' if requirement.target_adjustment == 'hfq' else 'DESC'} LIMIT 1""",
                 (str(path), requirement.ts_code), (), (name,), 0))
             if stats.output_rows:
-                basis = executor.scalar(f"SELECT struct_pack(basis_date:=basis_date,basis_value:=basis_value) FROM {name}", ())
+                basis = executor.scalar(
+                    f"SELECT struct_pack(basis_date:=basis_date,basis_value:=basis_value,basis_rows:=basis_rows) FROM {name}"
+                )
+                if basis["basis_rows"] != 1 or basis["basis_date"] != day:
+                    raise SourceContractError(f"Invalid adjustment factor basis partition for {day}")
                 resolved = replace(description, basis_date=basis["basis_date"], basis_value=basis["basis_value"])
                 read_context.remember_basis(resolved, requirement, path)
                 return resolved

@@ -1,10 +1,10 @@
 # 技术指标算子库实施 LLD v1
 
-**阶段 C 已在独立工作树完成并通过复核，待 review。** 新指令通过公开 `calculate()` 返回目标行情和算子结果，DG 与 Prod 的首批不复权样本已通过完整调用验收。正式业务迁移在阶段 D。[整体详细设计与 UML](technical-indicator-operator-library-low-level-design-v1.md)说明目标、类和职责，[原内核代码级 LLD](technical-indicator-kernel-low-level-design-v1.html)保留现行预热、计算公式及历史验收证据。
+**阶段 D 第 1–3 项已在独立工作树完成，生产切换待验收。** 新指令通过公开 `calculate()` 返回目标行情和算子结果，股票详情日线和上证综指日线已在隔离应用接入并复核。阶段 D 的开发顺序见 [§6](#阶段-d-的开发顺序和切换条件)，实施后证据见 §8。[整体详细设计与 UML](technical-indicator-operator-library-low-level-design-v1.md)说明目标、类和职责，[原内核代码级 LLD](technical-indicator-kernel-low-level-design-v1.html)保留现行预热、计算公式及历史验收证据。
 
 ## 1. 审计结论与开工边界
 
-现有内核的参数校验、依赖、预热、同批共享、跨批状态和输出检查继续复用。通用读取当前只装配 DG，部分 DG 来源仍按请求的复权口径选列。股票和上证日线也各自在业务侧预读行情。旧的 `limit`、`before` 和 `instance_id` 进入了定位、输出和业务组装，迁移时一并更新。新指令的 `start/end` 所有周期统一带时区，分钟沿用现有转换逻辑。
+内核复用已有参数校验、依赖、预热、同批共享、跨批状态和输出检查。阶段 C 完成独立入口，阶段 D 本分支完成应用装配和业务调用迁移。生产仍按原部署运行。新指令的 `start/end` 所有周期统一带时区，分钟沿用现有转换逻辑。
 
 **本次锁定的目标。** 本地内核只读 DG，Prod 内核只读生产 PostgreSQL；不授权跨环境回退。读取规定的不复权行情，需要复权时另读正式复权因子并计算，不直接读复权行情列或成品。分钟线按实际读到的有效 K 线计算，不检查缺少哪些分钟位置，不补 K 线；该检查留 TODO。无目标 K 线时返回错误「读取数据失败」，`detail` 为「数据缺失」。已有公式、默认参数、预热、真实起点和跨批规则不变。股票周月线复权、股票 90m/120m 合成和 ETF 不作为首版条件。
 
@@ -14,7 +14,7 @@
 
 ## 2. 实施前基线审计
 
-本节保留阶段 A 开工前的代码和调用方基线。独立工作树已经完成的修改及阶段 C 当前断点见 §8。
+本节保留阶段 A 开工前的代码和调用方基线。阶段 C 已验收的行为及阶段 D 当前断点见 §8。
 
 | 环节 | 当前代码证据 | 实施影响 | 解决方案 |
 |---|---|---|---|
@@ -105,7 +105,7 @@ PG 定位分三步，关系名和列由可信合同选择，所有值参数化�
 
 ### 4.4 日线、常规股票分钟线复权是独立启用项
 
-DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在 `LakePriceLocator.describe()` 选取。PG 候选 [`core.equity_adj_factor`](../../src/foundation/models/core_serving/equity_adj_factor.py#L12) 的代码模型声明 `ts_code + trade_date` 主键和 `NUMERIC(20,8)` 因子。两端因子各自登记，在当前环境内按含除权日的有界样本验证日期、覆盖、基准和读权限。前复权用当前来源的最新可用因子作基准，后复权用最早可用因子。基准独立于请求区间，缺失、零值或非有限因子按合同报错。`none` 无须读因子。股票日线前复权是 D 阶段股票迁移条件，股票日线后复权和常规股票分钟复权各自核验后启用。
+阶段 D 股票日线前复权使用已抽样核实的股票复权因子。DG 为 `silver/quote/adj_factor/trade_date={trade_date}/part-000.parquet`，因子日期为 `DATE`，因子为 `DOUBLE`。Prod 为 [`core.equity_adj_factor`](../../src/foundation/models/core_serving/equity_adj_factor.py#L12)，以 `(ts_code, trade_date)` 为主键，因子为 `NUMERIC(20,8)`。两个位置作为同一个内部数据集登记到 `dataset_locations`。DG 复用已有逐分区基准和批量因子读取，Prod 在与原价行情同一个只读事务中按代码读取最新基准，再按当前批次日期取因子。阶段 B 的日线入口只支持 `none`，阶段 D 增加 `none → qfq` 的转换路径，复用已有复权公式和缺因子检查。前复权用当前来源的最新可用因子作基准，基准独立于请求区间。待后复权分别验收时使用最早可用因子。缺失、零值或非有限因子按合同报错，`none` 无须读因子。股票日线后复权和常规股票分钟复权各自核验后启用。 [现有 DG 因子读取](../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L204) · [Prod 待实现接口](../../src/foundation/clients/technical_indicator_postgres.py#L177)
 
 ## 5. 现有业务迁移：保留产品接口，不保留两套内核
 
@@ -115,17 +115,40 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 
 - `stock_daily_kline_calculations.py` 改固定指令项。七组 MA、BOLL、MACD、KDJ 的参数和版本不变；产品需要价格时调用现有 `price` 算子并和指标共享本次复权行情，十项指标加价格一项共 11 项，默认上限 16 不是保证：部署上限低于所需项数时在切换前阻止，不偷偷调上限。
 - `StockDailyKlineAppBackend.work()` 保留验证、对象信息和产品页边界处理；用与内核一致的正式来源查少量日期位置以确定产品页起止，仅把代码、区间和算子传给内核。移除 `page_prices`、`read_previous` 和 `StockDailyPriceSource` 的业务喂价。产品 `limit` 不进新内核。不要从日历算固定最近 N 个自然日，也不能把旧因子文件的有数日期直接当作新来源的页边界。
-- [股票字段映射](../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py#L95)当前显示的开高低收取 `*_qfq`；涨幅、昨收、换手率和量比等来自业务记录。迁移时开高低收取同一内核结果；辅助字段仍按各自既有业务含义读取，在业务层按交易日一一对应。尤其振幅、昨收与前复权口径使用方式先对照生产样本，不把不复权昨收随意改写。配置的实际来源用于调试来源字段，不冒用旧表名。
-- `stock_daily_kline_service.py` 固定 DTO 映射改用 `(calculation_id, 有效参数)` 查找，MACD 的 `hist` 仍按产品字段映射。采用 `price` 结果的量额时，由业务按现有接口单位换算。保持现有 URL、`forward`、产品分页和原 HTTP 错误包络。业务已确定页窗口为空时走原页面空态。有要计算的目标页时，业务收到内核的「读取数据失败/数据缺失」。
+- 迁移后，开高低收来自与指标共用同一批前复权行情的 `price` 结果。业务层按股票代码和页面交易日批量取得下表字段，并按原字段含义组装响应。股票日线技术因子文件和表退出本分支的行情及辅助字段读取，缺值时也不得从中补取。股票复权因子仍用于内核的前复权计算。振幅继续使用现行字段映射公式，按除权日样本核对分母采用的昨收。调试信息记录实际来源。 [股票字段映射](../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py#L95)
+
+| 产品字段及源字段 | DG | Prod PostgreSQL |
+|---|---|---|
+| 昨收 `pre_close → preClose`、涨跌额 `change_amount → change`、涨跌幅 `pct_chg → changePct` | 股票不复权日线 `silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet` | 股票不复权日线 `core_serving.equity_daily_bar` |
+| 换手率 `turnover_rate → turnoverRate`、量比 `volume_ratio → volumeRatio` | 股票每日指标 `raw/tushare/daily_basic/trade_date={trade_date}/part-000.parquet` | 股票每日指标 `core_serving.equity_daily_basic` |
+
+DG 分区日期为 `YYYY-MM-DD`，股票每日指标文件内的 `trade_date` 是 `YYYYMMDD` 字符串。业务匹配前将其解析为交易日期，与股票不复权日线和 Prod 的 `DATE` 一致。验收覆盖 2026-11-18 贵州茅台 `600519.SH`。当日 DG 有股票不复权日线和股票每日指标，旧股票日线技术因子文件没有当日分区，换手率和量比应分别取到 `0.2388` 和 `0.79`。 [股票日线位置](../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L17) · [DG 股票每日指标路径](../../lake_console/orchestrator/src/orchestrator/defs/paths.py#L260) · [Prod 股票每日指标字段](../../src/foundation/models/core_serving/equity_daily_basic.py#L12)
+
+- `stock_daily_kline_service.py` 固定 DTO 映射改用 `(calculation_id, 有效参数)` 查找，MACD 的 `hist` 仍按产品字段映射。采用 `price` 结果的量额时，由业务按现有接口单位换算。保持现有 URL、`forward`、产品分页和原 HTTP 错误包络。业务已确定页窗口为空时走原页面空态。有目标页但内核返回「读取数据失败」且 `detail` 为「数据缺失」时，由 `StockDailyKlineResponse` 在原 HTTP 500 错误的 `message` 中保留这两段信息。实际 I/O 故障继续按原错误处理并记录实际原因。 [股票响应入口](../../src/app/dependencies/stock_daily_technical_indicators.py#L248) · [现有错误包络](../../src/app/exceptions/web.py#L27)
+
+#### 右侧报价的换手率和量比
+
+- `StockDetailQueryService.build_page_init()` 按股票代码和报价实际的 `quote.tradeDate`，从上表对应环境的股票每日指标读取 `turnover_rate` 和 `volume_ratio`。同一次报价只查这一个交易日。两个字段由业务装配到 `/page-init` 的 `quote`，不再从旧股票日线技术因子表取这两个字段。其余报价字段的来源沿用现有入口。 [当前报价入口](../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py#L55)
+- 股票每日指标无该行，或任一字段为空时，对应响应字段用 `null`。`buildStockDetailViewModel()` 保留这两个字段的空值，`StockInfoRail` 的盘口摘要显示 `--`。有值时沿用现有格式，真实的换手率零显示 `0.00%`，真实的量比零显示 `0.00`。 [当前前端转换](../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts#L88) · [盘口摘要](../../wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx#L134)
+- DG 和 Prod 的只读审计已核对 `600519.SH`、`000001.SZ`、`920185.BJ` 在 2026-11-16 至 2026-11-18 的 9 个股票与交易日组合。两端均可匹配不复权日线，两个字段均有值且一致。开发验收覆盖报价日期早于页面日期、整行缺失、单字段为空和真实零值，并在两端抽样核对接口与页面。
+
+#### 股票日线九转
+
+- **本页应有日期。** `StockNineTurnQuery.load_daily_page()` 复用 `/kline` 的正式股票日线日期定位规则，按同一股票代码、日期窗口和游标选实际存在的日 K。DG 读上表的 `silver/quote/stock_daily`，Prod 读 `core_serving.equity_daily_bar`。按日期倒序取最多 `limit + 1` 个日期，多出的一个仅用于判定续页。游标取本页最早的日 K 日期，按日期升序交付本页。缺失检查只读取日 K 的日期，股票代码用作筛选。沿用路由现有的权限校验、日期参数、页大小和截止日解析。 [现有分页查询](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L24) · [现有请求上限](../../src/biz/api/wealth/market/stock_detail_nine_turn.py#L54)
+- **单表取结果。** 九转结果只由应用 PostgreSQL 的 `core_serving.equity_qfq_nineturn_daily` 提供，按主键 `(ts_code, trade_date)` 匹配本页日期，同一行提供计数、信号和公式版本。Prod 在同一次 SQL 中先限定日 K 日期，再匹配九转结果。DG 先有界定位日 K 日期，再一次批量查询九转表。去掉与 `core_serving.equity_factor_pro` 的连接。完整性检查只用正式日 K 日期和结果表，交易日历不用于补出应有日期。此路径无需读取四价、复权因子或股票每日指标，也不调用算子计算。 [结果表定义](../../src/foundation/models/core_serving/equity_qfq_nineturn_daily.py#L49)
+- **缺失与状态。** `StockNineTurnQueryService.read_daily()` 以本页日 K 根数为 `sourceRowCount`，以有九转结果的日期数为 `matchedRowCount`，两者之差为 `missingRowCount`。例如本页有三个日 K 日期，其中一天没有九转记录，缺失数为 1，已有标记继续返回。休市或停牌无日 K 的日期不参与计数。有结果但该日没有可画标记，仍计为已匹配。沿用现有 `EMPTY`、`PARTIAL`、`DELAYED`、`READY` 的判定顺序和截止日检查，保留 HTTP 参数、响应字段、错误与游标格式。读取失败或源数据合同错误继续报原错误。改动限股票日线九转。 [当前状态与标记规则](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L82) · [前端数量合同](../../wealth/src/features/nine-turn/model/nineTurnAdapter.ts#L26)
+- **验收。** 覆盖某个日 K 日期缺九转、某个九转日期无对应日 K、停牌无日 K、有结果但无可画标记、页内完全无九转，以及页尾缺九转后仍按日 K 日期续页。用两端的有界样本核对日期来源、计数和翻页，并验证旧股票日线技术因子表缺行时仍可查询和检查。重试重复同一页的有界读取。 [现有缺失与分页测试](../../tests/web/test_wealth_stock_nine_turn_api.py#L95)
 
 ### 5.2 上证综指日线和已有通用调用
 
-- 只迁移现有上证普通日线内核分支（`000001.SH`、`day`、产品 `limit <= 500`）。`run_index_daily_kline()` 与 `_build_sse_kline()` 保留交易日历页窗口、身份、页信息和 `nextEndDate`，有页窗口时向新内核提交指令。取消该分支的 `IndexDailyPriceSource(rows, read_previous, …)`。结果日期必须逐项匹配页窗口。分别核对普通指数日线真实起点和现有页面可浏览下界。其他查询继续按既有路由分支处理。 [现有路由条件](../../src/biz/api/wealth/market/index_detail.py#L172)
+- 只迁移现有上证普通日线内核分支（`000001.SH`、`day`、产品 `limit <= 500`）。`run_index_daily_kline()` 与 `_build_sse_kline()` 保留交易日历页窗口、身份、页信息和 `nextEndDate`，有页窗口时向新内核提交指令。取消该分支的 `IndexDailyPriceSource(rows, read_previous, …)`。结果日期必须逐项匹配页窗口。其他查询继续按既有路由分支处理。 [现有路由条件](../../src/biz/api/wealth/market/index_detail.py#L172)
+- **页面下限与预热范围。** 页面可浏览的最早交易日继续为 DG `2000-01-04`、Prod `2010-01-04`。旧实现用同一日期限制页面和预热。迁移后，业务按原下限确定页面目标区间，内核按现有预热规则从同环境的普通指数日线向前读取。阶段 D 审计确认 DG 的上证综指普通日线从 `2000-01-04` 开始，Prod 从 `1991-07-15` 开始。Prod 在页面下限之前的记录可按需参与预热，返回行情仍限页面目标区间。验收用 Prod 的 `2010-01-04` 附近样本核对预热、指标值、数据状态和续页边界，DG 在其页面下限核对真实历史起点和合法指标空值。 [旧入口下限](../../src/app/dependencies/index_daily_technical_indicators.py#L24) · [旧预热范围](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L235)
+- **普通指数日线接入。** 在 DG、Prod 定位器中为已登记的 `index_daily` 增加独立日线分支，复用日线日期定位、流式读取和量额标准化。当前仅为已核验的上证综指业务开启该来源。缺口检查按上证交易日历的开市日，以已核实的普通指数日线历史起点为下界，覆盖目标和所选预热。取数走指数普通日线和现有交易日历，个股上市退市及停牌数据仅用于股票。验收覆盖休市、实际日线缺漏、预热到达实际来源起点、页面下限以前有数据，以及普通日线与页面结果四价逐日一致。 [当前仅支持股票日线的校验](../../src/foundation/clients/technical_indicator_stock_daily.py#L11) · [普通指数日线位置](../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L29)
 - **四价与指标。** 服务内部按需从已校验的 `PriceBatch` 投影目标行开高低收，以同一 `seq` 顺序交接。内部增加四价投影不改变原算子所需的前置根数。上证用这四列组装图上价格，`_apply_sse_factors()` 按算子 ID 与有效参数组装原有 16 个指标字段。内核的公开结果格式按 §3.2 执行。
 - **量额、昨收和涨跌。** 业务按页日期从当前环境的同一普通指数日线数据集批量只读 `vol`、`amount`、`pre_close`、`change_amount`、`pct_chg`。其中 `change_amount → change`、`pct_chg → pct_change` 交给现有字段映射器，其余原名交接。按交易日与目标行情逐项对应，复用现有单位、合法空值和数据状态规则。维持量额的可空行为，四价交接独立于 `price` 算子的量额字段要求。 [DG 普通指数日线字段](../../lake_console/orchestrator/src/orchestrator/defs/assets/index_daily.py#L570) · [PG 普通指数日线字段](../../src/foundation/models/core_serving/index_daily_serving.py#L19) · [产品字段映射](../../src/biz/services/wealth/market/index_detail/index_detail_field_mapper.py#L113)
 - **内部交接。** `TechnicalIndicatorService._calculate_result()` 和 `_calculate_library()` 返回 `(result, preceding_rows, target_ohlc)`。默认 `target_ohlc` 为 `None`。App 的执行接线在上证路径显式选择 `collect_target_ohlc`，业务通过 App 接线取得三项。收集限目标位置，每根四个数，顺序和数量与 `result.times` 对齐。前置根数来自同一次已核对的 `PriceReadSelection`，交给 `_count_sse_missing()` 保留原空值判断。公开 `calculate()`、`execute_library()` 及通用 HTTP 只交付第一项。
 - **错误。** App 在通用指标错误分支之前处理 `SourceReadError`，业务可取得主信息及 `detail`。转换到上证 HTTP 时沿用现有 `ID_QUERY_FAILED` 和 `message`，在原消息中保留「读取数据失败」及原因「数据缺失」。实际 I/O 故障沿用真实原因。合法空页仍由业务在调用算子库前按页窗口判定。
-- 在 [App execution.py](../../src/app/runtime/technical_indicators/execution.py#L177) 的 `execute_library/execute_http` 和两条业务路由/调试路由，统一消费新准备结果；诊断脚本 `technical_indicator_d2_acceptance.py`、`technical_indicator_resources.py` 及测试夹具同步迁移。前端重点核对 [上证翻页](../../wealth/src/features/index-detail/controller/useIndexDailyHistory.ts#L62) 与 [股票空态](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L134)，无需求不改页面代码。核对外部包消费者后再决定发版。清退旧 `StockDailyPriceSource`、`IndexDailyPriceSource` 前用引用和实际接线复查，不保留兼容调用。
+- 在 [App execution.py](../../src/app/runtime/technical_indicators/execution.py#L177) 的 `execute_library/execute_http` 和两条业务路由/调试路由，统一消费新准备结果。诊断按当前合同执行应用接线、取消、响应与读取回归。历史诊断脚本 `technical_indicator_d2_acceptance.py` 和 `technical_indicator_resources.py` 绑定旧口径和批准过的 10,000、1,000 根范围，入口在当前合同下会在访问数据、计划和历史报告前退出。原执行证据保留。前端重点核对 [上证翻页](../../wealth/src/features/index-detail/controller/useIndexDailyHistory.ts#L62) 与 [股票空态](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L134)。核对外部包消费者后再决定发版。两条业务路由的运行链路已退出旧 `StockDailyPriceSource`、`IndexDailyPriceSource`。
 
 **切换条件。** 用真实样本解释新旧来源导致的日期、复权基准、数值和辅助字段差异，两条链路均核对图上和指标使用同一批四价。新合同采用必填且带时区的起止，移除 `instance_id`、`before`、`limit`。受影响的正式调用方在 D 阶段同次迁移。生产部署在前复权和两个产品适配验收后另行评估。
 
@@ -138,7 +161,7 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 | A. 指令和配置 | 定义计算指令、独立解析器、`KernelConfig` 和取数指令。固定首批源字段、类型、单位及时间，核查数据源范围和现有调用方 | 所有周期的起止均带时区，配置冻结，按环境绑定位置和频率。解析器与算子能力查询共享启用配置，非法指令或未启用组合在访问行情前拒绝 |
 | B. 不复权取数 | 改造 DG 读取器，完成 PG 有界只读读取和输入校验。落实新取数指令、目标根数上限和读取错误 | 股票日线、指数 5 分钟在两端各有真实小样本。日线验证应有位置及合法空档。分钟保留 09:35 与 09:45，缺 09:40 仍计算。完全无目标、重复、流漏交分别报错，失败只留在当前环境。恰好上限可算，多一根报错 |
 | C. 独立算子库验收 | 接回现有算子和输出检查，用独立预期核对目标两端、预热、同参数共享和跨批状态。验证 PG 取消和两端资源归还 | 价格与物理样本一致，新旧算法用相同行情对照并符合原验收标准。输出只含目标位置、有效参数和标准结果字段，保留合法指标空值。中途失败整次报错，清理后归还资源 |
-| D. 业务迁移 | 核验股票日线前复权因子和基准，验收普通指数日线，再迁两条产品接线、DTO 及其他旧合同调用方 | 两条链路按日核对图上四价与指标输入，以及辅助字段和合法空值。前复权在除权日前后对照，缺因子报错，`none` 不读因子。首屏、续页、短页、合法空页和读取失败回归通过后再评估发布 |
+| D. 业务迁移 | 核验股票日线前复权因子和基准，验收普通指数日线，再迁两条产品接线、DTO 及其他旧合同调用方。落实右侧报价的换手率和量比取数、缺值展示，以及股票日线九转单表取结果、按正式日 K 日期检查缺失 | 两条链路按日核对图上四价与指标输入，以及辅助字段和合法空值。前复权在除权日前后对照，缺因子报错，`none` 不读因子。首屏、续页、短页、合法空页和读取失败回归通过，股票详情按 §5.1 核对右侧报价和九转后再评估发布 |
 
 股票日线后复权和常规股票分钟复权各自核验后启用。股票周/月复权、股票 `90m/120m` 合成和 ETF 另行评审。
 
@@ -203,11 +226,21 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 
 **预算、错误和退出条件。** 沿用 §7 的目标根数、请求时间、清理和读入预算。输出临时表最多保留本次的 `T` 根目标行情。若本次各项算子共声明 `F` 个返回字段，结果最多保留 `T × F` 个字段值，含重复请求项的输出，另有时间和合同说明。上表每环境每轮交付 6 根目标、3 根预热。初跑加复跑每环境预计交付 18 根逻辑行情。按阶段 B 的同日样本推算，实际行情读取预计为 DG 18 条、Prod 22 条，Prod 多读两只指数各一条竞价，每轮共两条。定位键、辅助事实、SQL 处理量和独立故障用例另计，记录其各自的实测。一次请求中途失败时，整次结果作废，输入、算子及输出表、游标、事务和监控清理完成后才返回错误。重试走完整链并单独记账。另验证完整调用中途取消和清理，Prod 复用阶段 B 的只读取消路径核对游标与连接归还。结果合同、公式对照、DG 与 Prod 的有界样本及失败清理全部通过后，才记录阶段 C 验收完成。
 
+### 阶段 D 的开发顺序和切换条件
+
+**开工结论。** 阶段 C 的独立计算可作为基线。股票复权因子和上证普通日线已有两端的小样本，右侧报价和日线九转的来源与判定也已确定，可以在独立工作树开始开发。§8 的实测属于开工依据，业务切换须等下列步骤的验收。
+
+1. **接通应用运行时和旧合同调用方。** 修复 `create_runtime()` 与配置工厂的接线，按 §3.1 由部署环境显式选择 DG 或 Prod，沿用部署配置的根数、预算和可信会话。同步更新股票与上证日线、通用执行入口和受影响的诊断与回归用例。第一步先证明应用可启动、已准备的请求只执行一次、对外 HTTP 入口能使用新合同，部署发布时核对应用实际载入的算子库版本与结果合同 `4.0.0`。 [运行时装配](../../src/app/runtime/technical_indicators/composition.py#L31) · [共同执行入口](../../src/app/runtime/technical_indicators/execution.py#L177)
+2. **完成股票日线和详情页相关取数。** 先按 §4.4 接通前复权，并用除权日前后和不同页窗口确认基准稳定，再按 §5.1 迁移 `/kline`、右侧报价的换手率和量比、以及日线九转的日期与缺失检查。用两端样本验证旧股票日线技术因子的缺行不影响新日 K 和九转。当前已确认的右侧范围是换手率、量比及其空值展示；`/page-init` 最新报价日期和其余报价字段仍依赖旧表。这是详情页整体退出旧表时需要另行明确的范围。
+3. **完成上证普通日线接入。** 按 §5.2 开通两端的不复权普通日线，保留页面下限并验证下限之前只参与预热。当前网页日 K 首屏及续页请求为 500 根，落在现有上证迁移分支内。用既有业务回归核对其它指数和大于 500 根的旧产品分支。 [页面请求常量](../../wealth/src/shared/charts/dailyChartRequestLimits.ts#L1) · [上证路由条件](../../src/biz/api/wealth/market/index_detail.py#L172)
+4. **切换验收。** 在隔离应用用两端真实小样本走到产品响应，核对图上四价与指标输入、辅助字段、空值、九转状态、分页、取消及读失败。用实际部署身份核对环境取值及所需读取权限，包括 Prod 股票复权因子、普通指数日线、股票每日指标和九转结果表。当前已核对的是审计连接，部署身份、完整请求耗时、限制配置和资源清理仍须实测。仅在上述验收通过后评估上线。
+
 ## 7. 预算、停止和重试
 
 - **沿用既定上限，不重新定额。** 单次上游请求最多计算并返回 500 根**目标 K 线**；如果部署的 `max_output_rows` 更低，以更低值为准。新指令虽然不传 `limit`，但仍按实际目标根数执行此限制，超限报错，不截短、不自动拆单。额外预热不计入 500 根，仍受原来的输入行数上限。现行默认输入 1,500,000 行、每批 8,192 行、8,000 毫秒总目标（含 2,000 毫秒清理预留）及来源文件/列投影上限继续沿用。时间目标不是新 PG 路径的实测承诺，不把 500 写死到 PG 查询和 DG 定位。
 - **目标预算与读入预算分别计量。** 目标上限为配置 `M`，最多见到 `M+1` 个逻辑目标位置即可证实超限（默认即 501），这是逻辑判定阈值，不宣称底层只读了 501 行。实际交付总量是目标 `T` 加根据现有算法选出的前置 `B`，多个算子共享；记录定位键数、实际源行情行、因子行、源文件、SQL 处理行及各阶段耗时，不把不同指标相加当新增 K 线。以 MA20、MA60 为例，历史充足时共用首根目标前 59 根，不能按 19+59 重读。
 - **上证业务页的读入预算。** 目标四价来自已读行情，最多保留 `4 × T` 个数值。辅助字段批量按页日期查询，业务验收单独记录实际读取行数和耗时，计入当前请求的总时间。重复验收和重试均包含这段查询。
+- **右侧报价与日线九转的读入预算。** 每次报价按一个代码和实际报价日期查股票每日指标的两个字段。九转最多返回 `limit + 1` 个日 K 日期供分页判定，结果匹配只用该页最多 `limit` 个日期。验收在现有页面请求大小下记录 DG 打开的分区、Prod 的查询次数及耗时，区分查询返回行数和源端实际扫描量。取消、错误和重试按各自现行请求的资源边界处理，重试只重读同一个报价日期或同一页。
 - **停止、清理、重新请求。** 取消/超时后停止领新批；PG 使用剩余工作时间约束查询，PG 游标和事务由输入会话清理，并计入原有“资源已归还”标记之前的时间，不能在响应或释放并发许可后继续查询。保留既有监控停止与错误优先规则。失败不发送部分成功，不写正式资源。没有持久 checkpoint；一次重试的预算是重新定位、回看、计算和清理的一次完整请求，不能从旧批继续。验收另外计入每来源的有界小样本和同一请求重复一次的观测开销。当前 PG 的实际用时覆盖 §8 中的有界样本。
 
 ## 8. 本轮核验证据
@@ -252,6 +285,19 @@ DG 候选是正式股票复权因子 `silver/quote/adj_factor`，现有定位在
 - **真实读取与结果。** 按阶段 C 表中的三组请求在 DG、Prod 各执行两遍，合计 12 次完整计算并编码。每环境累计返回 12 根目标、另用 6 根预热。贵州茅台和两只指数的 MA(2) 均与表列独立预期一致。四价与标准化量额逐项对照各自源值，复跑除统计信息外结果一致。正常计算实际读取 DG 18 条、Prod 22 条，后者包含 4 条竞价记录。另用直接投影取得独立参考，DG 9 条、Prod 11 条。正常请求含清理用时为 DG 989–2672 毫秒、Prod 240–1014 毫秒。
 - **错误及恢复。** 两端都在收集第一根目标后取消。DG 关闭了读取与临时资源，Prod 取消了同一只读事务中的一条有界语句并归还连接。取消到资源归还分别用时约 967 和 157 毫秒。随后同一指令从头执行，两端均恢复完整结果。取消与重试额外读取 DG 2＋3 条、Prod 3＋4 条。隔离反例覆盖错误下标、字段缺失或错类型、非有限值、必有字段为空、漏行、重复、错位和越界，均按整次错误处理。
 - **回归边界。** 308 项相关回归通过，包括迁移夹具后的 21 项执行控制及执行器测试和 20 项阶段 C 测试。CodeGraph 用于追查批次、收集器、结果组装、编码和已有应用消费者，实际行为在独立工作树以源码和测试复核。历史 D3 受保护执行记录沿用原范围，业务入口、控制器及 HTTP 合同验收在 D 阶段。
+
+**阶段 D 开工审计，2026-11-19。**
+
+- **应用基线。** 从独立工作树提交 `8569ca5c9` 加载包源码复跑 20 项阶段 C 输出测试，全部通过。直接导入股票和上证日线业务模块，均因仍引用已移除的 `CalculationInstance` 失败。单独调用 `create_runtime()`，因缺少必填 `data_location` 失败。DG 和 Prod 的当前定位器仅接受股票不复权日线与已启用的指数分钟读取，Prod 复权读取方法尚未实现。CodeGraph 用于梳理两条日线的应用接线、共享执行入口和九转查询，再在独立工作树核对实际引用。这些断点是 §6 的开发项。 [股票旧合同](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py#L5) · [上证旧合同](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L35)
+- **股票复权样本。** DG 和 Prod 的贵州茅台 `600519.SH` 在 2025-06-25、26、27 与 2026-11-18 的日线收盘价、昨收及因子一致。除权日前后因子从 `8.1454` 变为 `8.3050`。审计时两端最新因子样本均为 2026-11-18 的 `8.6463`。按原收盘价乘当日因子再除以最新因子，6 月 25 日和 26 日的前复权收盘参考分别约为 1352.6773 元和 1363.9476 元。该计算提供独立验收预期，股票四价、预热因子覆盖和两页基准稳定性在实现后验收。DG 定点读取股票不复权日线和股票复权因子文件，Prod 用已有只读连接取同代码的四个指定日期和一条最新因子。
+- **上证普通日线样本。** DG 验证了 `000001.SH` 的 2000-01-04、2000-01-05、2026-11-18 三根。Prod 验证了 2009-12-31、2010-01-04、2010-01-05、2026-11-18 四根，并确认最早一根为 1991-07-15。两端在共同的最近样本上四价、量额、昨收和涨跌字段一致。指定边界日期也核到了上证交易日历开市记录。该样本验证数据与边界可读，实际预热和产品合同在接入后验收。
+
+**阶段 D 第 1–3 项实施后复核。**
+
+- **独立数值。** 用 §8 开工阶段的原始收盘价与因子手算值核对运行结果。DG、Prod 的贵州茅台 2025-06-25／26 两根前复权收盘均匹配，基准均为 `8.6463`。上证普通日线与各端独立样本一致。复核发现预热因子缺失原本可能以空价格进入计算，已在输入会话加上对目标和预热每个日期的因子校验，缺失、重复、零值和非有限值由隔离用例验证。
+- **产品端到端。** 仅装配相关路由的隔离应用，用只读连接分别复核 DG、Prod 的股票日 K、右侧报价、股票日线九转和上证日 K，各四次请求均返回 200。核对贵州茅台最近两天、右侧报价随实际日期取股票每日指标、九转两天均匹配、上证两端页面下限。Prod 页面从 2010-01-04 开始，早于下限的普通日线参与预热。另用 DG 正式行情、隔离的业务元数据验证贵州茅台 500 根整页，一次耗时约 5.07 秒。单次样本不代表并发表现。
+- **回归。** 后端 328 项通过，覆盖应用接线、请求合同、股票和上证日线、前复权异常、九转、取消和子系统依赖。前端 9 项相关测试、类型检查和构建通过。核对当前路由、读取和组装代码，确认两条日 K 调用使用新内核，股票日线九转只用正式日 K 日期和九转结果表。历史诊断脚本在当前合同下已核实会直接退出。
+- **边界。** 未切换生产服务、部署配置或数据库。正式部署身份的权限、服务满载耗时、上线验收和包发版留在第 4 项。`/page-init` 仍按已约定范围使用旧表确定报价日期及其余报价字段。
 
 **实施前基线审计。**
 

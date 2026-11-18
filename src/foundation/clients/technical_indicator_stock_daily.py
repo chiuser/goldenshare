@@ -8,10 +8,17 @@ from goldenshare_technical_indicators.errors import SourceContractError, SourceU
 DAILY_PRICE_FIELDS = ("open", "high", "low", "close", "volume", "amount")
 
 
-def require_stock_daily(requirement, backend):
-    if (requirement.target.backend != backend or requirement.target.dataset_id != "stock_daily"
-            or requirement.period != "day" or requirement.target_adjustment != "none"):
-        raise SourceUnsupportedError("This reader supports unadjusted stock daily bars")
+INDEX_DAILY_ORIGINS = {"dg": date(2000, 1, 4), "prod_pg": date(1991, 7, 15)}
+
+
+def daily_adjustment_paths(requirement, backend):
+    if requirement.target.backend == backend and requirement.period == "day":
+        if requirement.target.dataset_id == "stock_daily" and requirement.target_adjustment in ("none", "qfq"):
+            return (("none", "none"), ("none", "qfq"))
+        if (requirement.target.dataset_id == "index_daily" and requirement.ts_code == "000001.SH"
+                and requirement.target_adjustment == "none"):
+            return (("none", "none"),)
+    raise SourceUnsupportedError("This reader supports stock daily and unadjusted SSE Composite daily bars")
 
 
 def daily_price_projection(fields):
@@ -38,6 +45,10 @@ def scheduled_stock_days(calendar, lifecycle, start, end):
     start = max(start, listed)
     if delisted is not None:
         end = min(end, delisted - timedelta(days=1))
+    yield from scheduled_open_days(calendar, start, end)
+
+
+def scheduled_open_days(calendar, start, end):
     expected = start
     for day, is_open in calendar:
         if type(day) is not date:
@@ -50,7 +61,7 @@ def scheduled_stock_days(calendar, lifecycle, start, end):
             yield day
         expected += timedelta(days=1)
     if expected <= end:
-        raise SourceContractError("Trading calendar does not cover the selected stock range")
+        raise SourceContractError("Trading calendar does not cover the selected daily range")
 
 
 def full_day_suspension(records):

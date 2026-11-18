@@ -21,6 +21,7 @@ from src.biz.services.wealth.market.nine_turn.daily_nine_turn_cursor import (
     encode_daily_nine_turn_cursor,
 )
 from src.foundation.models.core_serving.security_serving import Security
+from goldenshare_technical_indicators.errors import SourceContractError, TechnicalIndicatorError
 
 
 class StockNineTurnRequestError(ValueError):
@@ -54,6 +55,7 @@ class StockNineTurnQueryService:
         limit: int,
         cursor: str | None,
         debug: bool,
+        load_dates=None,
     ) -> NineTurnSeriesDto:
         normalized_code = ts_code.strip().upper()
         security = session.get(Security, normalized_code)
@@ -88,6 +90,7 @@ class StockNineTurnQueryService:
                 end_date=query_end_date,
                 before_trade_date=before_trade_date,
                 limit=limit,
+                load_dates=load_dates,
             )
             for row in page.rows:
                 if row["nine_turn_matched"] and row["formula_version"] != 1:
@@ -125,7 +128,7 @@ class StockNineTurnQueryService:
                 debug_info=(
                     {
                         "sourceTables": [
-                            "core_serving.equity_factor_pro",
+                            "silver/quote/stock_daily" if load_dates is not None else "core_serving.equity_daily_bar",
                             "core_serving.equity_qfq_nineturn_daily",
                         ],
                         "beforeTradeDate": (
@@ -140,7 +143,7 @@ class StockNineTurnQueryService:
             )
         except (StockNineTurnRequestError, StockNineTurnSourceContractError):
             raise
-        except NineTurnContractError as exc:
+        except (NineTurnContractError, SourceContractError) as exc:
             raise StockNineTurnSourceContractError(str(exc)) from exc
-        except SQLAlchemyError as exc:
+        except (SQLAlchemyError, TechnicalIndicatorError) as exc:
             raise StockNineTurnQueryError("股票日线九转查询失败。") from exc

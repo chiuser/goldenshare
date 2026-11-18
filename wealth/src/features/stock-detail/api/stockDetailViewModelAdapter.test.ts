@@ -5,6 +5,14 @@ import { getStockDetailViewModel } from "./stockDetailMockAdapter";
 import { buildStockDetailViewModel } from "./stockDetailViewModelAdapter";
 
 describe("buildStockDetailViewModel", () => {
+  it("keeps missing quote metrics distinct from zero", () => {
+    const pageInit = makePageInit();
+    const quote = { ...pageInit.quote!, turnoverRate: null, volumeRatio: 0 };
+    const view = buildStockDetailViewModel({ ...pageInit, quote }, makeKline());
+    expect(view.quote.turnoverRate).toBeNull();
+    expect(view.quote.volumeRatio).toBe(0);
+  });
+
   it("preserves unavailable moving averages as null instead of synthesizing zero", () => {
     const viewModel = buildStockDetailViewModel(makePageInit(), makeKline());
     const point = viewModel.chart.candles[0]!;

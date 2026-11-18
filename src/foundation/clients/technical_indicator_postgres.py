@@ -1,6 +1,7 @@
 """Bounded PostgreSQL input for the technical indicator kernel."""
 
 from contextlib import contextmanager
+from dataclasses import replace
 from datetime import time
 from itertools import groupby
 from operator import itemgetter
@@ -9,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
 from goldenshare_technical_indicators.errors import (
     CalculationDeadlineError, ResourceLimitError, SourceContractError, SourceReadError,
     SourceUnsupportedError,
@@ -16,7 +18,10 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceBatch, SourceDescription
 
 from .technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
-from .technical_indicator_stock_daily import daily_price_projection, full_day_suspension, require_stock_daily, scheduled_stock_days
+from .technical_indicator_stock_daily import (
+    INDEX_DAILY_ORIGINS, daily_adjustment_paths, daily_price_projection, full_day_suspension,
+    scheduled_open_days, scheduled_stock_days,
+)
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -124,7 +129,7 @@ class PostgresTechnicalIndicatorPriceSource:
         if requirement.period.endswith("m"):
             index_minute_volume_unit(requirement, "prod_pg")
         else:
-            require_stock_daily(requirement, "prod_pg")
+            daily_adjustment_paths(requirement, "prod_pg")
         return _PostgresPriceLocator(self, requirement, read_context, executor.control)
 
     def open(self, executor, description, requirement, *, read_context):
@@ -150,17 +155,23 @@ class PostgresTechnicalIndicatorPriceSource:
     def expected_positions(self, requirement, selection, *, read_context, control):
         connection = self._connection(read_context, control)
         start, end = min(requirement.start, selection.read_start), requirement.end
+        index = requirement.target.dataset_id == "index_daily"
+        if index:
+            start = max(start, INDEX_DAILY_ORIGINS["prod_pg"])
         calendar_target = self._config.resolve_dataset_location("trade_calendar")
+        calendar = _query(connection, control, f"""
+            SELECT trade_date, is_open FROM {_relation(calendar_target)}
+            WHERE exchange = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date
+        """, (calendar_target.location["filters"]["exchange"], start, end))
+        if index:
+            yield from scheduled_open_days(calendar, start, end)
+            return
         lifecycle_target = self._config.resolve_dataset_location("stock_lifecycle")
         suspension_target = self._config.resolve_dataset_location("stock_suspend_daily")
         lifecycle = _query(
             connection, control, f"SELECT list_date, delist_date FROM {_relation(lifecycle_target)} WHERE ts_code = %s",
             (requirement.ts_code,),
         )
-        calendar = _query(connection, control, f"""
-            SELECT trade_date, is_open FROM {_relation(calendar_target)}
-            WHERE exchange = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date
-        """, (calendar_target.location["filters"]["exchange"], start, end))
         suspensions = _query(connection, control, f"""
             SELECT trade_date, suspend_type, suspend_timing FROM {_relation(suspension_target)}
             WHERE ts_code = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date
@@ -175,10 +186,41 @@ class PostgresTechnicalIndicatorPriceSource:
                 yield day
 
     def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
-        raise SourceUnsupportedError("PostgreSQL stock daily adjustment is not enabled")
+        connection = self._connection(read_context, executor.control)
+        relation = _relation(self._config.resolve_dataset_location("stock_adj_factor"))
+        rows = _query(connection, executor.control, f"""
+            SELECT trade_date, adj_factor FROM {relation}
+            WHERE ts_code = %s ORDER BY trade_date DESC LIMIT 1
+        """, (requirement.ts_code,))
+        if not rows:
+            raise SourceContractError("The declared daily conversion has no available basis row")
+        day, raw_value = rows[0]
+        value = float(raw_value) if raw_value is not None else None
+        table = _identifier(table_name)
+        executor.execute(SqlStep(
+            "prepare_basis", f"CREATE TEMP TABLE {table} AS SELECT ?::DATE AS basis_date, ?::DOUBLE AS basis_value",
+            (day, value), (), (table_name,), 1,
+        ))
+        return replace(description, basis_date=day, basis_value=value)
 
     def prepare_factors(self, executor, description, requirement, trade_dates, *, table_name, read_context):
-        raise SourceUnsupportedError("PostgreSQL stock daily adjustment is not enabled")
+        connection = self._connection(read_context, executor.control)
+        relation = _relation(self._config.resolve_dataset_location("stock_adj_factor"))
+        rows = _query(connection, executor.control, f"""
+            SELECT trade_date, adj_factor FROM {relation} WHERE ts_code = %s AND trade_date = ANY(%s)
+        """, (requirement.ts_code, list(trade_dates)))
+        table = _identifier(table_name)
+        if rows:
+            values = ", ".join("(?::DATE, ?::DOUBLE)" for _ in rows)
+            sql = f"SELECT * FROM (VALUES {values}) AS f(trade_date, adj_factor)"
+            bindings = tuple(item for day, factor in rows for item in (
+                day, float(factor) if factor is not None else None,
+            ))
+        else:
+            sql = "SELECT NULL::DATE AS trade_date, NULL::DOUBLE AS adj_factor WHERE FALSE"
+            bindings = ()
+        executor.execute(SqlStep("prepare_factors", f"CREATE TEMP TABLE {table} AS {sql}",
+                                 bindings, (), (table_name,), len(rows)))
 
 
 class _PostgresPriceLocator:
@@ -237,13 +279,16 @@ class _PostgresPriceLocator:
         project = index_minute_projection if minute else daily_price_projection
         physical, standard = project(requirement.history.fields)
         volume_unit = index_minute_volume_unit(requirement, "prod_pg") if minute else "lot"
+        adjustments = (("none", "none"),) if minute else daily_adjustment_paths(requirement, "prod_pg")
+        converted = requirement.target_adjustment == "qfq"
         return SourceDescription(
             source_id=requirement.target.dataset_id, contract_version="1", input_adjustment="none",
-            basis_rule=None, basis_date=None, basis_value=None, price_unit="index_point" if minute else "CNY",
+            basis_rule="latest_available_factor" if converted else None, basis_date=None, basis_value=None,
+            price_unit="index_point" if minute or requirement.target.dataset_id == "index_daily" else "CNY",
             volume_unit=volume_unit, amount_unit="CNY" if minute else "thousand_CNY", timezone="Asia/Shanghai",
             period_label_rule="trade_time" if minute else "period_start", history_origin_rule="earliest_available_formal_row",
-            available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "none"),),
-            converted=False, selection=selection, source_projection=physical, standard_projection=standard,
+            available_through=None, supports_partial_period=False, supported_adjustment_paths=adjustments,
+            converted=converted, selection=selection, source_projection=physical, standard_projection=standard,
         )
 
     def close(self):

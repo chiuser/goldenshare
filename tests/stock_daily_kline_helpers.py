@@ -6,6 +6,8 @@ These values test field mapping, not the numerical indicator algorithms.
 """
 from contextlib import contextmanager
 import json
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import sessionmaker
 
@@ -14,7 +16,6 @@ from src.app.dependencies import stock_daily_technical_indicators as wiring
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.config.settings import Settings
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
@@ -23,7 +24,7 @@ from goldenshare_technical_indicators.contracts import (
 
 
 def make_runtime(**changes):
-    config = make_config(**changes)
+    config = make_config(data_location="prod_pg", **changes)
     return TechnicalIndicatorRuntime(config, create_builtin_registry(), object(), AdmissionController(config))
 
 
@@ -58,13 +59,17 @@ def result_for(ts_code, days, overrides=None):
         ("boll", "boll", "1.0.0", (("period", 20), ("multiplier", 2)), ("middle", "upper", "lower")),
         ("macd", "macd", "2.0.0", (("fast", 12), ("slow", 26), ("signal", 9)), ("dif", "dea", "hist")),
         ("kdj", "kdj", "2.0.0", (("window", 9), ("k_period", 3), ("d_period", 3)), ("k", "d", "j")),
+        ("price", "price", "1.0.0", (), ("open", "high", "low", "close", "volume", "amount")),
     )
-    calculations = tuple(CalculationValues(identity, kind, version, parameters, tuple(
-        (name, tuple(overrides.get((identity, name), 10.0) for _ in days)) for name in fields
+    price = {"open": 10.0, "high": 11.0, "low": 9.0, "close": 10.0, "volume": 10000.0, "amount": 1000000.0}
+    calculations = tuple(CalculationValues(kind, version, parameters, tuple(
+        (name, tuple(overrides.get((identity, name), price.get(name, 10.0) if kind == "price" else 10.0)
+                     for _ in days)) for name in fields
     )) for identity, kind, version, parameters, fields in definitions)
     return CalculationResult(
-        "2.0.0", SeriesDescription("stock", ts_code, "day", "qfq", "Asia/Shanghai", "CNY", "share", "CNY"),
-        RequestedRange(days[0] if days else None, days[-1] if days else None, None, len(days)),
+        "4.0.0", SeriesDescription("stock", ts_code, "day", "qfq", "Asia/Shanghai", "CNY", "share", "CNY"),
+        RequestedRange(datetime.combine(days[0], time.min, ZoneInfo("Asia/Shanghai")),
+                       datetime.combine(days[-1], time.min, ZoneInfo("Asia/Shanghai"))),
         SourceResult("literal", "1", "none", None, None, None, None),
         PriceAdjustmentResult(None, None, None, None, False, "1"), days, None, calculations,
         OutputRange(days[0] if days else None, days[-1] if days else None, len(days)),
@@ -99,7 +104,7 @@ def backend_for_client(client, monkeypatch, engine, record_property, *, override
         rt = client.portal.call(start)
         factory = sessionmaker(bind=engine, autoflush=False)
         backend = wiring.StockDailyKlineAppBackend(
-            rt, lambda: factory, settings=Settings(_env_file=None, APP_ENV="prod"),
+            rt, lambda: factory,
         )
         calls, reads, other_rows = [], [], []
         original_query = StockDetailQuery.load_kline_rows
@@ -122,18 +127,18 @@ def backend_for_client(client, monkeypatch, engine, record_property, *, override
             return result
 
         def calculate(service, request):
-            assert len(request.calculations) == 10
+            assert len(request.calculations) == 11
             assert threading.get_ident() != threading.main_thread().ident
             calls.append(request)
-            days = tuple(day for day in available_days if request.start <= day <= request.end)
+            days = tuple(day for day in available_days if request.start.date() <= day <= request.end.date())
             return result_for(request.ts_code, days, overrides)
 
         # Available dates come from this test's temporary DB, not product calculation.
         from sqlalchemy import select
-        from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+        from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
         with factory() as session:
-            available_days = tuple(session.scalars(select(EquityFactorPro.trade_date)
-                                                   .distinct().order_by(EquityFactorPro.trade_date)))
+            available_days = tuple(session.scalars(select(EquityDailyBar.trade_date)
+                                                   .distinct().order_by(EquityDailyBar.trade_date)))
         monkeypatch.setattr(StockDetailQuery, "load_kline_rows", query)
         monkeypatch.setattr(StockDetailQuery, "load_security", security)
         monkeypatch.setattr(MarketPageContextQuery, "resolve_context", context)

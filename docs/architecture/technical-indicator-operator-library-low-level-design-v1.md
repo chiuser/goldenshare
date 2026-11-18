@@ -1,6 +1,6 @@
 # 技术指标算子库整体详细设计 v1
 
-**阶段 C 已在独立工作树完成并通过复核，待 review。** 独立算子库已通过 DG、Prod 不复权股票日线和指数 5 分钟线的完整计算验收。正式业务迁移在阶段 D。[实施 LLD 的核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述现行内核和已验收的算法规则。
+**阶段 D 第 1–3 项已在独立工作树完成，生产切换待验收。** 独立算子库已通过 DG、Prod 不复权股票日线和指数 5 分钟线的完整计算验收。股票详情日线和上证综指日线已在隔离应用接入。[实施 LLD 的阶段 D 开发顺序](technical-indicator-operator-library-implementation-lld-v1.md#阶段-d-的开发顺序和切换条件)说明切换条件，[核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述原内核和已验收的算法规则。
 
 ## 1. 目标和模块分工
 
@@ -37,7 +37,7 @@
 | 算子模块 | 复用 MA、MACD、KDJ、BOLL 等现有对象、公式和版本；多个算子共享一次行情读取 | 算子不读湖、不访问 PG、不决定价格复权口径 |
 | 输出合法性检查 | 检查字段、类型、值和时间位置；按指令顺序返回结果 | 不返回额外历史，不输出下一页、游标、页面文案；无目标行情或失败时不返回结果 |
 
-**当前实现边界。** 独立工作树上的 `TechnicalIndicatorService` 已通过新指令定位首批不复权行情，并按新合同返回完整计算结果。正式股票日线和上证综指日线业务仍各自先取一段行情再装配内核，阶段 D 迁入内部取数流程，维持产品 HTTP 合同。
+**当前实现边界。** 独立工作树上的股票日线和上证综指日线已接入 `TechnicalIndicatorService` 的内部取数流程。业务确定分页区间并组装现有 HTTP 响应。生产仍按原部署运行。
 
 **类清单阅读方式。** 代码块中的 `...` 表示省略实现，并不是可直接运行的代码。正文逐项给出新增类的全部字段与方法、变更类的目标字段和方法或完整变更项。附录逐类列出现有实现中的成员字段与显式方法（含私有方法）；标记复用的类以附录为完整清单。嵌套配置记录是数据，不另外建类；第三方类、Python 自动生成的通用方法和不在本次指标注册表里的独立 XXM 能力不纳入目标设计。
 
@@ -53,9 +53,9 @@ class TechnicalIndicatorService:
     source: PriceSource               # 部署端装配；上游不能传入读取对象。
     control: ExecutionControl | None  # 可选的请求执行控制。
 
-    def __init__(self, *, config: KernelConfig, parser: CalculationRequestParser,
+    def __init__(self, *, config: KernelConfig, registry: CalculationRegistry,
                  source: PriceSource, control: ExecutionControl | None = None) -> None:
-        # 只由部署装配调用。
+        # 由部署端装配。用共享配置和注册表构造独立解析器。
         ...
 
     def calculate(self, request: CalculationRequest) -> CalculationResult:
@@ -65,6 +65,10 @@ class TechnicalIndicatorService:
     @staticmethod
     def _describe_output_instances(plan: CalculationPlan) -> tuple[OutputInstanceDescription, ...]:
         # 从计划复制标准输出说明，交给输出检查；不是解析器的职责。
+        ...
+
+    def _prepare_calculation(self, request: CalculationRequest) -> _PreparedCalculation:
+        # 交给解析器准备指令。App 也复用这个入口在排队前校验通用请求。
         ...
 
     def _calculate_library(
@@ -92,7 +96,7 @@ class TechnicalIndicatorService:
         ...
 ~~~
 
-现有 `_prepare_calculation(request)` 的解析职责迁到独立解析类，服务不再保留同名解析方法。App 负责装配，物理适配留在 Foundation，共享包只依赖内部读取接口。
+`_prepare_calculation(request)` 直接调用独立解析类。App 负责装配，物理适配留在 Foundation，共享包依赖内部读取接口。
 
 ### 1.2 `KernelConfig`：库的共享配置
 
@@ -689,7 +693,7 @@ result = service.calculate(request)
 | A. 指令和配置 | 定义计算指令、独立解析器、`KernelConfig` 及取数指令。核对首批读源字段和现有调用方 | 所有周期的起止均带时区。解析器和能力查询共享启用配置，识别当前环境，未启用的组合在读取前拒绝 |
 | B. 不复权取数 | 改造 DG 读取器，新增 PG 有界只读读取，按数据集落实输入校验 | 股票日线和指数 5 分钟在两端各有真实小样本。500 根目标上限、分钟跳点照算、整段无行情报错、读取失败只留在当前来源均通过验证 |
 | C. 独立算子库验收 | 复用现有算子和输出检查，验证预热、同批共享、跨批状态、取消及错误后的清理 | 新旧用相同行情对照，数值符合原验收标准。结果仅包含目标区间。通过后完成首轮 |
-| D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归后再评估发布 |
+| D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方。落实右侧报价的换手率和量比取数、缺值展示，以及股票日线九转单表取结果、按正式日 K 日期检查缺失 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归。核对右侧报价字段和日线九转后再评估发布 |
 
 阶段 B 先验证通用读取和股票不复权日线，再接入两端统一开盘规则的指数 5 分钟。首批验收之外的数据集、证券和周期按来源证据逐项开放。 [实施 LLD·阶段 B](technical-indicator-operator-library-implementation-lld-v1.md#阶段-b-的实施步骤)
 
@@ -697,7 +701,13 @@ result = service.calculate(request)
 
 阶段 A–C 在独立工作树实施。A 验收计算指令、算子计划、读取位置及使用显式历史需求构造取数指令。B 接入实际取数与现有预热需求，C 验收完整计算。阶段 A 的配置来源、验收和业务隔离见 [实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md#阶段-a-的实施边界)。
 
-上证接线从内核同批已校验的目标行情取得图上开高低收，从当前环境的同一普通指数日线数据集按日期取得量额、昨收和涨跌字段。前置根数继续用于区分指标合法空值和异常缺失。读取错误保留约定的主信息和原因，按现有产品格式返回。字段映射和内部交接见 [实施 LLD §5.2](technical-indicator-operator-library-implementation-lld-v1.md#52-上证综指日线和已有通用调用)。
+股票详情日线的图上开高低收取同批前复权计算结果。业务层从股票不复权日线取昨收、涨跌额和涨跌幅，从股票每日指标取换手率和量比，按股票代码和交易日匹配。股票日线技术因子文件和表退出该分支的行情及辅助字段读取。 [实施 LLD §5.1 的 DG、Prod 取数位置](technical-indicator-operator-library-implementation-lld-v1.md#51-股票详情日线)
+
+右侧报价的换手率和量比由业务按股票代码和报价实际的交易日读取股票每日指标。缺值在接口中保留为 `null`，页面显示 `--`，有值时按现有格式显示，零值也按数字显示。 [实施 LLD 的右侧报价规则](technical-indicator-operator-library-implementation-lld-v1.md#右侧报价的换手率和量比)
+
+股票日线九转的结果只从 `core_serving.equity_qfq_nineturn_daily` 读取。业务复用股票日 K 的日期定位规则，按本页实际存在的日 K 日期分页和检查缺失。某日确有日 K 而九转表没有该日记录时，才计为缺失。读取范围限本页日 K 日期和对应的九转结果。 [实施 LLD 的股票日线九转规则](technical-indicator-operator-library-implementation-lld-v1.md#股票日线九转)
+
+上证接线从内核同批已校验的目标行情取得图上开高低收，从当前环境的同一普通指数日线数据集按日期取得量额、昨收和涨跌字段。页面翻页下限继续为 DG `2000-01-04`、Prod `2010-01-04`，Prod 更早的普通日线可按需参与预热。前置根数继续用于区分指标合法空值和异常缺失。读取错误保留约定的主信息和原因，按现有产品格式返回。 [实施 LLD §5.2 的页面边界与内部交接](technical-indicator-operator-library-implementation-lld-v1.md#52-上证综指日线和已有通用调用)
 
 股票日线后复权和常规股票分钟复权各自核验后启用。股票周/月复权、股票 `90m/120m` 合成和 ETF 另行评审。
 

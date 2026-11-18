@@ -17,7 +17,7 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
 from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
-from ..technical_indicator_stock_daily import daily_price_projection, require_stock_daily
+from ..technical_indicator_stock_daily import daily_adjustment_paths, daily_price_projection
 from ..technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
 from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA
 from .technical_indicator_price_source import _arrow, _matches_type
@@ -413,8 +413,9 @@ class LakePriceLocator:
                 volume_unit = index_minute_volume_unit(request, "dg")
                 schema = (*MINUTE_SCHEMA, ("freq", "INTEGER"))
                 project = index_minute_projection
+                adjustments = (("none", "none"),)
             else:
-                require_stock_daily(request, "dg")
+                adjustments = daily_adjustment_paths(request, "dg")
                 volume_unit, schema, project = "lot", DAILY_SCHEMA, daily_price_projection
             self.control.check_active()
             self._root = self.source._root()
@@ -425,15 +426,22 @@ class LakePriceLocator:
             paths, selection, groups = self._select(paths, schema, projection, standard,
                                                     price_projection=price_projection)
             self._validate_selected_price_groups(groups)
+            converted = request.target_adjustment == "qfq"
+            factor_paths = ()
+            if converted and selection.target_rows:
+                factor_target = self.context.config.resolve_dataset_location("stock_adj_factor")
+                factor_paths = tuple((day, self.source._safe_path(self._root, path)) for day, path in
+                                     self.source._dated_partitions(self._root, factor_target, date.max, self.control))
             return SourceDescription(
                 source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
-                basis_rule=None, basis_date=None, basis_value=None,
-                price_unit="index_point" if minute else "CNY", volume_unit=volume_unit,
+                basis_rule="latest_available_factor" if converted else None, basis_date=None, basis_value=None,
+                price_unit="index_point" if minute or request.target.dataset_id == "index_daily" else "CNY",
+                volume_unit=volume_unit,
                 amount_unit="CNY" if minute else "thousand_CNY", timezone="Asia/Shanghai",
                 period_label_rule="trade_time" if minute else "period_start",
                 history_origin_rule="earliest_available_formal_partition", available_through=None,
-                supports_partial_period=False, supported_adjustment_paths=(("none", "none"),), converted=False,
-                selection=selection, price_paths=paths,
+                supports_partial_period=False, supported_adjustment_paths=adjustments, converted=converted,
+                selection=selection, price_paths=paths, factor_paths=factor_paths,
                 source_projection=price_projection, standard_projection=price_standard,
             )
         except TechnicalIndicatorError:

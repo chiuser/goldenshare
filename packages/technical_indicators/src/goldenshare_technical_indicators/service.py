@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+from math import isfinite
 from typing import TYPE_CHECKING
 from time import monotonic
 
 from .configuration.settings import KernelConfig
-from .errors import ResourceCleanupError, _clear_error_frames
+from .errors import OutputContractError, ResourceCleanupError, _clear_error_frames
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
 from .request_parser import CalculationRequestParser, _build_read_requirement
@@ -79,7 +81,7 @@ class TechnicalIndicatorService:
         try:
             control.check_active()
             prepared = self._prepare_calculation(request)
-            return self._calculate_library(prepared, control=control)
+            return self._calculate_library(prepared, control=control)[0]
         finally:
             prepared = None
 
@@ -87,18 +89,20 @@ class TechnicalIndicatorService:
         """Prepare parameters and resolve the dataset without opening resources."""
         return self.parser.parse(request)
 
-    def _build_input_session(self, prepared, engine, executor, read_context):
+    def _build_input_session(self, prepared, engine, executor, read_context, *, collect_target_ohlc=False):
         from .sources.session import PriceInputSession
 
         engine.prepare()
         history = engine.resolve_history_requirement(self.config.max_input_rows)
+        if collect_target_ohlc:
+            history = replace(history, fields=history.fields | {"open", "high", "low", "close"})
         requirement = _build_read_requirement(prepared, history, batch_rows=self.config.batch_rows)
         return PriceInputSession(executor, self.source, requirement, read_context=read_context)
 
-    def _calculate_library(self, prepared, *, control):
+    def _calculate_library(self, prepared, *, control, collect_target_ohlc=False):
         result = None
         try:
-            result = self._calculate_result(prepared, control=control)
+            result = self._calculate_result(prepared, control=control, collect_target_ohlc=collect_target_ohlc)
             control.check_active()
             return result
         except BaseException as error:
@@ -108,9 +112,10 @@ class TechnicalIndicatorService:
         finally:
             result = prepared = None
 
-    def _calculate_result(self, prepared, *, control):
+    def _calculate_result(self, prepared, *, control, collect_target_ohlc=False):
         """Own the single calculation and cleanup flow, without JSON encoding."""
         from .calculation.engine import CalculationEngine
+        from .calculation.calculation import SqlStep
         from .contracts import CalculationStatistics
         from .output.collector import OutputCollector
         from .sources.read_context import SourceReadContext
@@ -119,11 +124,13 @@ class TechnicalIndicatorService:
         read_context = SourceReadContext(self.config)
         connection = executor = inputs = engine = output = None
         result = primary_error = None
+        target_ohlc = [] if collect_target_ohlc else None
         try:
             control.check_active()
             connection, executor = self._open_execution(control)
             engine = CalculationEngine(executor, plan)
-            inputs = self._build_input_session(prepared, engine, executor, read_context)
+            inputs = self._build_input_session(prepared, engine, executor, read_context,
+                                               collect_target_ohlc=collect_target_ohlc)
             inputs.prepare()
             description = inputs.resolved_description()
             output = OutputCollector(
@@ -137,6 +144,16 @@ class TechnicalIndicatorService:
                     break
                 engine.consume(batch)
                 output.append_new_rows(engine.output_for(batch))
+                if target_ohlc is not None:
+                    start = max(description.selection.preceding_rows + 1, batch.new_first_seq)
+                    if start <= batch.new_last_seq:
+                        target_ohlc.extend(executor.read_result(SqlStep(
+                            "collect_target_ohlc",
+                            f"SELECT open, high, low, close FROM {batch.table_name} "
+                            "WHERE seq BETWEEN ? AND ? ORDER BY seq",
+                            (start, batch.new_last_seq), (batch.table_name,), (), batch.new_row_count,
+                        ), expected_columns=tuple((name, "DOUBLE") for name in ("open", "high", "low", "close")),
+                            max_rows=batch.new_last_seq - start + 1))
                 inputs.retain_required_history()
                 engine.release_batch_tables()
                 inputs.finish_batch()
@@ -155,6 +172,14 @@ class TechnicalIndicatorService:
                 description, statistics,
                 read_start=inputs.read_start, read_end=inputs.read_end,
             )
+            if target_ohlc is not None and len(target_ohlc) != len(result.times):
+                raise OutputContractError("Target OHLC and calculated dates differ", reason="count_mismatch",
+                                          stage="collect_target_ohlc")
+            if target_ohlc is not None and any(
+                value is None or not isfinite(value) for row in target_ohlc for value in row
+            ):
+                raise OutputContractError("Target OHLC must be finite", reason="invalid_value",
+                                          stage="collect_target_ohlc")
             control.check_active()
         except BaseException as exc:
             primary_error = exc
@@ -167,7 +192,7 @@ class TechnicalIndicatorService:
         try:
             raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
             control.check_active()
-            return result
+            return result, description.selection.preceding_rows, None if target_ohlc is None else tuple(target_ohlc)
         finally:
             result = output = inputs = engine = executor = connection = prepared = plan = None
 

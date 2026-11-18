@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_qfq_nineturn_daily import (
     EquityQfqNineTurnDaily,
@@ -13,7 +13,7 @@ from src.foundation.models.core_serving.security_serving import Security
 def _ensure_tables(db_session) -> None:
     bind = db_session.get_bind()
     for table in (
-        EquityFactorPro.__table__,
+        EquityDailyBar.__table__,
         EquityQfqNineTurnDaily.__table__,
     ):
         table.create(bind, checkfirst=True)
@@ -46,10 +46,10 @@ def _seed_stock(db_session, *, missing_dates: set[date] | None = None) -> None:
     counts = (1, 9, 10)
     for trade_date, count in zip(trade_dates, counts, strict=True):
         db_session.add(
-            EquityFactorPro(
+            EquityDailyBar(
                 ts_code="000001.SZ",
                 trade_date=trade_date,
-                close_qfq=10.0 + count,
+                close=10.0 + count,
                 source="tushare",
             )
         )
@@ -229,7 +229,22 @@ def test_page_init_announces_daily_nine_turn_only_in_non_local_env(
     app_client,
     db_session,
 ) -> None:
+    from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+    from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+
     _seed_stock(db_session)
+    for model in (EquityFactorPro, EquityDailyBasic):
+        model.__table__.create(db_session.get_bind(), checkfirst=True)
+    # The quote is one day behind the page. Use the daily basic row for the quote's date.
+    db_session.add(EquityFactorPro(
+        ts_code="000001.SZ", trade_date=date(2026, 8, 12), close_qfq=11,
+        turnover_rate=99, volume_ratio=99, source="tushare",
+    ))
+    db_session.add_all([
+        EquityDailyBasic(ts_code="000001.SZ", trade_date=date(2026, 8, 12), turnover_rate=0, volume_ratio=None),
+        EquityDailyBasic(ts_code="000001.SZ", trade_date=date(2026, 8, 13), turnover_rate=1, volume_ratio=2),
+    ])
+    db_session.commit()
 
     response = app_client.get(
         "/api/v1/wealth/market/stock-detail/page-init",
@@ -237,6 +252,10 @@ def test_page_init_announces_daily_nine_turn_only_in_non_local_env(
     )
 
     assert response.status_code == 200
+    quote = response.json()["quote"]
+    assert quote["tradeDate"] == "2026-08-12"
+    assert quote["turnoverRate"] == 0
+    assert quote["volumeRatio"] is None
     capabilities = response.json()["capabilities"]
     assert capabilities["supportsNineTurn"] is True
     assert capabilities["nineTurnPeriods"] == ["day"]

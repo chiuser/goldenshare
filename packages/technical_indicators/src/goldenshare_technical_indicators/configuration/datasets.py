@@ -18,6 +18,14 @@ DATASET_LOCATIONS = {
         "dg": {"relative_path": "silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet"},
         "prod_pg": {"schema": "core_serving", "relation": "equity_daily_bar"},
     },
+    "stock_adj_factor": {
+        "dg": {"relative_path": "silver/quote/adj_factor/trade_date={trade_date}/part-000.parquet"},
+        "prod_pg": {"schema": "core", "relation": "equity_adj_factor"},
+    },
+    "stock_daily_basic": {
+        "dg": {"relative_path": "raw/tushare/daily_basic/trade_date={trade_date}/part-000.parquet"},
+        "prod_pg": {"schema": "core_serving", "relation": "equity_daily_basic"},
+    },
     "stock_weekly": {
         "dg": {"relative_path": "silver/quote/stock_weekly/week_end={week_end}/part-000.parquet"},
         "prod_pg": {"schema": "core_serving", "relation": "stk_period_bar_adj", "filters": {"freq": "week"}},

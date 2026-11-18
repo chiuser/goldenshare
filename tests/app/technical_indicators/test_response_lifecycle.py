@@ -38,7 +38,7 @@ def test_response_lifecycle(monkeypatch):
 
                 created = install_control(monkeypatch, on_create=on_create)
                 monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result",
-                                    lambda service, prepared, *, control: literal_result())
+                                    lambda service, prepared, *, control: (literal_result(), 0, None))
                 original_release = rt.admission.release
 
                 def release(lease):
@@ -108,7 +108,7 @@ def test_response_lifecycle(monkeypatch):
                 try:
                     assert release_worker.wait(1), "Test did not release its controlled HTTP worker"
                     service.control.check_active()
-                    return literal_result()
+                    return literal_result(), 0, None
                 finally:
                     order.append("worker_exit")
 
@@ -165,7 +165,7 @@ def test_response_lifecycle(monkeypatch):
             original_error.add_note("controlled fixture note")
             sent, released = [], []
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result",
-                                lambda service, prepared, *, control: literal_result())
+                                lambda service, prepared, *, control: (literal_result(), 0, None))
 
             def failing_encoder(payload, *, control):
                 result = payload

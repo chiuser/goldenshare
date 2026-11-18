@@ -1,6 +1,7 @@
 """Prepare detached business facts and map kernel results to the unchanged DTO."""
 
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import replace
 from datetime import date
 from typing import Any
 
@@ -23,11 +24,15 @@ from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlineRe
 from .stock_detail_field_mapper import build_data_status, build_kline_bar, build_page_context, to_float
 
 
-def _contract_error(reason, *, instance_id=None, **diagnostics):
+def _contract_error(reason, *, calculation_index=None, **diagnostics):
     return OutputContractError(
         "Stock daily result does not match the response contract", reason=reason,
-        stage="stock_daily_assemble", instance_id=instance_id, **diagnostics,
+        stage="stock_daily_assemble", calculation_index=calculation_index, **diagnostics,
     )
+
+
+def _calculation_key(calculation_id, parameters):
+    return calculation_id, tuple(sorted(dict(parameters).items()))
 
 
 class StockDailyKlineService:
@@ -54,28 +59,26 @@ class StockDailyKlineService:
         if (result.range.count != len(times) or result.range.actual_start != times[0]
                 or result.range.actual_end != times[-1]):
             raise _contract_error("count_mismatch", expected=len(times), actual=result.range.count)
-        expected = {item.instance_id: item for item in STOCK_DAILY_CALCULATIONS}
-        ids = [item.instance_id for item in result.calculations]
-        if len(ids) != len(expected) or set(ids) != set(expected):
-            raise _contract_error("instances_mismatch", expected=len(expected), actual=len(ids))
-        for item in result.calculations:
-            definition = expected[item.instance_id]
-            parameters = dict(item.parameters)
-            if (item.calculation_id != definition.calculation_id
-                    or item.algorithm_version != STOCK_DAILY_ALGORITHM_VERSIONS[definition.calculation_id]
-                    or len(parameters) != len(item.parameters)
-                    or parameters != dict(definition.parameters)):
-                raise _contract_error("definition_mismatch", instance_id=item.instance_id)
+        expected = {_calculation_key(item["calculation_id"], item["parameters"])
+                    for item in STOCK_DAILY_CALCULATIONS}
+        keys = [_calculation_key(item.calculation_id, item.parameters) for item in result.calculations]
+        if len(keys) != len(expected) or set(keys) != expected:
+            raise _contract_error("instances_mismatch", expected=len(expected), actual=len(keys))
+        for index, item in enumerate(result.calculations):
+            if item.algorithm_version != STOCK_DAILY_ALGORITHM_VERSIONS[item.calculation_id]:
+                raise _contract_error("definition_mismatch", calculation_index=index)
             fields = [name for name, _ in item.fields]
-            required = STOCK_DAILY_OUTPUT_FIELDS[definition.calculation_id]
+            required = STOCK_DAILY_OUTPUT_FIELDS[item.calculation_id]
             if len(fields) != len(required) or set(fields) != set(required):
-                raise _contract_error("fields_mismatch", instance_id=item.instance_id)
+                raise _contract_error("fields_mismatch", calculation_index=index)
             for name, values in item.fields:
                 if len(values) != len(times):
-                    raise _contract_error("value_count_mismatch", instance_id=item.instance_id,
+                    raise _contract_error("value_count_mismatch", calculation_index=index,
                                           field=name, expected=len(times), actual=len(values))
-                if item.calculation_id in ("macd", "kdj") and any(value is None for value in values):
-                    raise _contract_error("unexpected_null", instance_id=item.instance_id, field=name)
+                if (item.calculation_id in ("macd", "kdj")
+                        or item.calculation_id == "price" and name in ("open", "high", "low", "close")):
+                    if any(value is None for value in values):
+                        raise _contract_error("unexpected_null", calculation_index=index, field=name)
 
     def assemble(
         self, source: StockDailyKlineInput, result: CalculationResult | None,
@@ -87,27 +90,34 @@ class StockDailyKlineService:
             raise _contract_error("count_mismatch", expected=0,
                                   actual=len(result.times) if isinstance(result, CalculationResult) else 0)
         # Values remain references to validated, immutable tuples; no full-column copies.
-        fields = ({item.instance_id: dict(item.fields) for item in result.calculations}
+        fields = ({_calculation_key(item.calculation_id, item.parameters): dict(item.fields)
+                   for item in result.calculations}
                   if result is not None else {})
         issues = None
         try:
             bars = []
+            fixed_fields = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
             for index, row in enumerate(source.bars):
                 factors = StockKlineFactorDto(
                     ma=StockMovingAverageDto(**{
-                        name: to_float(fields[name]["value"][index])
-                        for name in ("ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250")
+                        f"ma{period}": to_float(fields[("ma", (("period", period),))]["value"][index])
+                        for period in (5, 10, 20, 30, 60, 90, 250)
                     }),
-                    boll=StockBollDto(**{name: to_float(fields["boll"][name][index])
+                    boll=StockBollDto(**{name: to_float(fixed_fields["boll"][name][index])
                                        for name in ("upper", "middle", "lower")}),
                     macd=StockMacdDto(
-                        dif=to_float(fields["macd"]["dif"][index]),
-                        dea=to_float(fields["macd"]["dea"][index]),
-                        macd=to_float(fields["macd"]["hist"][index]),
+                        dif=to_float(fixed_fields["macd"]["dif"][index]),
+                        dea=to_float(fixed_fields["macd"]["dea"][index]),
+                        macd=to_float(fixed_fields["macd"]["hist"][index]),
                     ),
-                    kdj=StockKdjDto(**{name: to_float(fields["kdj"][name][index])
+                    kdj=StockKdjDto(**{name: to_float(fixed_fields["kdj"][name][index])
                                      for name in ("k", "d", "j")}),
                 )
+                price = fixed_fields["price"]
+                volume, amount = price["volume"][index], price["amount"][index]
+                row = replace(row, **{name + "_qfq": price[name][index] for name in ("open", "high", "low", "close")},
+                              vol=None if volume is None else volume / 100,
+                              amount=None if amount is None else amount / 1000)
                 bars.append(build_kline_bar(row, factors))
             request = source.request
             observed = source.bars[-1].trade_date if source.bars else None

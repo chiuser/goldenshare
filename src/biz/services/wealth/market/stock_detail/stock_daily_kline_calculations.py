@@ -1,25 +1,32 @@
 """The stock daily API's fixed requests; no indicator arithmetic or source access."""
 
+from datetime import datetime, time
 from types import MappingProxyType
+from zoneinfo import ZoneInfo
 
-from goldenshare_technical_indicators.contracts import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.contracts import CalculationRequest
 
 from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlineRequest
 
 
+def _item(calculation_id, **parameters):
+    return MappingProxyType({"calculation_id": calculation_id, "parameters": MappingProxyType(parameters)})
+
+
 STOCK_DAILY_CALCULATIONS = (
-    *(CalculationInstance(f"ma{period}", "ma", {"period": period})
-      for period in (5, 10, 20, 30, 60, 90, 250)),
-    CalculationInstance("boll", "boll", {"period": 20, "multiplier": 2}),
-    CalculationInstance("macd", "macd", {"fast": 12, "slow": 26, "signal": 9}),
-    CalculationInstance("kdj", "kdj", {"window": 9, "k_period": 3, "d_period": 3}),
+    *(_item("ma", period=period) for period in (5, 10, 20, 30, 60, 90, 250)),
+    _item("boll", period=20, multiplier=2),
+    _item("macd", fast=12, slow=26, signal=9),
+    _item("kdj", window=9, k_period=3, d_period=3),
+    _item("price"),
 )
 STOCK_DAILY_ALGORITHM_VERSIONS = MappingProxyType({
-    "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0",
+    "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
 })
 STOCK_DAILY_OUTPUT_FIELDS = MappingProxyType({
     "ma": ("value",), "boll": ("middle", "upper", "lower"),
     "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
+    "price": ("open", "high", "low", "close", "volume", "amount"),
 })
 
 
@@ -43,6 +50,6 @@ def build_calculation_request(source: StockDailyKlineInput) -> CalculationReques
     return CalculationRequest(
         security_type="stock", ts_code=source.ts_code, period="day", adjustment="qfq",
         calculations=STOCK_DAILY_CALCULATIONS,
-        start=source.bars[0].trade_date, end=source.bars[-1].trade_date,
-        limit=len(source.bars), before=None,
+        start=datetime.combine(source.bars[0].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
+        end=datetime.combine(source.bars[-1].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
     )
