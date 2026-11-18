@@ -198,7 +198,6 @@ def test_complete_contract_and_source_request(
         assets.raw_index_weekly if period == INDEX_WEEKLY else assets.raw_index_monthly
     )
     assert asset.partitions_def == partition
-    assert asset.op.pool == period.raw_pool
     entries = {entry.asset_key: entry for entry in list_lake_asset_catalog_entries()}
     entry = entries[period.raw_asset]
     assert entry.event_policy.value == "dagster_run_only"
@@ -412,7 +411,7 @@ def test_reject_unbounded_or_wrong_time_before_source(task):
     "period,partition",
     [(INDEX_WEEKLY, cn_a_index_week_ends), (INDEX_MONTHLY, cn_a_index_months)],
 )
-def test_silver_catalog_schema_pool_and_dependencies(period, partition):
+def test_silver_catalog_schema_and_dependencies(period, partition):
     from orchestrator.defs.bootstrap import index_period_history
     from orchestrator.defs.jobs import index_period_update
 
@@ -427,7 +426,7 @@ def test_silver_catalog_schema_pool_and_dependencies(period, partition):
         else assets.silver_index_monthly
     )
     spec = asset.get_asset_spec()
-    assert asset.partitions_def == partition and asset.op.pool == period.silver_pool
+    assert asset.partitions_def == partition
     assert spec.metadata["goldenshare/source_system"] == "derived"
     assert (
         spec.metadata["goldenshare/data_contract"] == period.dataset_id + "_silver_v1"

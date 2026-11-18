@@ -54,7 +54,10 @@ def load_prod_index_period_relation(connection, resource, period, layer):
     with open_prod_index_period_rows(resource, period=period, layer=layer) as cursor:
         while rows := cursor.fetchmany(cursor.itersize):
             # 有界来源批次的列式传输；业务转换与历史处理在DuckDB完成。
-            batch = pd.DataFrame.from_records(rows, columns=[c.name for c in schema])
+            # 小数先精确传为文本，再按来源schema解析，避免DataFrame抽样推窄精度。
+            batch = pd.DataFrame.from_records(
+                rows, columns=[c.name for c in schema]
+            ).astype({c.name: "string" for c in schema if c.type.startswith("DECIMAL(")})
             connection.register("index_period_prod_batch", batch)
             connection.execute(
                 f"INSERT INTO {relation} SELECT {index_period_projection(schema)} FROM index_period_prod_batch"

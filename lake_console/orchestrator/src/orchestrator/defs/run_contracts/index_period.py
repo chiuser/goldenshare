@@ -35,10 +35,6 @@ class IndexPeriod:
         return f"{self.raw_asset}_file_contract_check"
 
     @property
-    def raw_pool(self) -> str:
-        return f"{self.raw_asset}_writer"
-
-    @property
     def raw_contract(self) -> str:
         return f"{self.dataset_id}_raw_v1"
 
@@ -49,10 +45,6 @@ class IndexPeriod:
     @property
     def silver_check(self) -> str:
         return f"{self.silver_asset}_file_contract_check"
-
-    @property
-    def silver_pool(self) -> str:
-        return f"{self.silver_asset}_writer"
 
     @property
     def silver_contract(self) -> str:

@@ -1,7 +1,7 @@
 """四来源字段传输、四候选、2N原生事件；全部来源和instance均隔离。"""
 
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 
 import dagster as dg
@@ -97,6 +97,71 @@ class TemporaryDuckDB:
     def connect(self):
         with duckdb.connect() as connection:
             yield connection
+
+
+@pytest.mark.parametrize("layer", ["raw", "serving"])
+def test_prod_load_preserves_large_decimal_outside_pandas_type_sample(layer):
+    # 字段顺序／类型依据Prod投影；人工周期日期只用于搬运，不验收交易日历。
+    # DuckDB 1.5.2默认取样1000；2000行中的索引1001不在该类型样本内。
+    fields = (
+        ("ts_code", "trade_date", "close", "open", "high", "low", "pre_close",
+         "change", "pct_chg", "vol", "amount")
+        if layer == "raw" else
+        ("ts_code", "period_start_date", "trade_date", "open", "high", "low",
+         "close", "pre_close", "change_amount", "pct_chg", "vol", "amount")
+    )
+    rows = []
+    for index in range(2000):
+        day = (date(1991, 7, 19) if index < 1000 else date(1995, 1, 27)) + timedelta(weeks=index % 1000)
+        values = {
+            "ts_code": "000001.SH" if index < 1000 else "399001.SZ",
+            "period_start_date": day - timedelta(days=4),
+            "trade_date": day.strftime("%Y%m%d") if layer == "raw" else day,
+            **dict(zip(
+                ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"),
+                map(Decimal, ("100.0000", "109.0000", "98.0000", "104.0000", "100.0000", "4.0000", "0.0400", "12345.6789", "98765.4321")),
+                strict=True,
+            )),
+        }
+        if index == 1001:
+            values.update(zip(
+                ("open", "high", "low", "close", "pre_close", "change", "pct_chg", "vol", "amount"),
+                map(Decimal, ("1000.0000", "1100.0000", "990.0000", "1011.3470", "1000.0000", "11.3470", "0.0113", "9999999999999999.9999", "9999999999999999.9999")),
+                strict=True,
+            ))
+        values["change_amount"] = values["change"]
+        rows.append(tuple(values[name] for name in fields))
+
+    class Source(SyntheticProd):
+        @contextmanager
+        def cursor(self, *, name):
+            batches = iter((rows, []))
+
+            class Cursor:
+                itersize = 2000
+
+                def execute(self, sql, parameters):
+                    pass
+
+                def fetchmany(self, size):
+                    assert size == 2000
+                    return next(batches)
+
+            yield Cursor()
+
+    with duckdb.connect() as connection:
+        relation, count = history.load_prod_index_period_relation(
+            connection, Source(), writer.INDEX_WEEKLY, layer
+        )
+        assert count == 2000
+        assert connection.execute(
+            f'SELECT "close",vol,amount FROM {relation} WHERE "close"=1011.3470'
+        ).fetchall() == [
+            (Decimal("1011.3470"), Decimal("9999999999999999.9999"), Decimal("9999999999999999.9999"))
+        ]
+        assert connection.execute(
+            f'SELECT count(*) FROM {relation} WHERE "close"=104.0000'
+        ).fetchone()[0] == 1999
 
 
 def apply(tmp_path, instance, source, operation="bootstrap"):

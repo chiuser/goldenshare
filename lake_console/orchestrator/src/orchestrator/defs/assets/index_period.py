@@ -126,7 +126,6 @@ def _update_raw_index_period(context, period):
     config_schema={},
     deps=["silver_trade_calendar"],
     required_resource_keys={"lake_root", "duckdb"},
-    pool=INDEX_WEEKLY.raw_pool,
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
         dataset_id=INDEX_WEEKLY.dataset_id,
@@ -152,7 +151,6 @@ def raw_index_weekly(context: dg.AssetExecutionContext):
     config_schema={},
     deps=["silver_trade_calendar"],
     required_resource_keys={"lake_root", "duckdb"},
-    pool=INDEX_MONTHLY.raw_pool,
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
         dataset_id=INDEX_MONTHLY.dataset_id,
@@ -265,7 +263,6 @@ def _update_silver_index_period(context, config, period):
         "silver_index_basic",
     ],
     required_resource_keys={"lake_root", "duckdb"},
-    pool=INDEX_WEEKLY.silver_pool,
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
         dataset_id=INDEX_WEEKLY.dataset_id,
@@ -295,7 +292,6 @@ def silver_index_weekly(
         "silver_index_basic",
     ],
     required_resource_keys={"lake_root", "duckdb"},
-    pool=INDEX_MONTHLY.silver_pool,
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
     metadata=build_asset_definition_metadata(
         dataset_id=INDEX_MONTHLY.dataset_id,
