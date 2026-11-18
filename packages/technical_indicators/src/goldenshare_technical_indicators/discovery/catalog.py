@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from ..calculation.calculation import CalculationDefinition
 from ..calculation.registry import CalculationRegistry
+from ..configuration.settings import KernelConfig
 from ..contracts import Adjustment, Period, SecurityType
 
 
@@ -35,11 +36,21 @@ def _describe(
     return CalculationDescription(definition, supported, bool(supported))
 
 
+def _source_capabilities(config: KernelConfig | None) -> tuple[SourceCapability, ...]:
+    if config is None:
+        return ()
+    return tuple(
+        SourceCapability(security_type, period, adjustment, dataset_id)
+        for (security_type, period), dataset_id in config.market_datasets.items()
+        for adjustment in sorted(config.enabled_adjustments(dataset_id))
+    )
+
+
 def list_calculations(
-    registry: CalculationRegistry, *, source_capabilities: tuple[SourceCapability, ...] = (),
+    registry: CalculationRegistry, *, config: KernelConfig | None = None,
 ) -> tuple[CalculationDescription, ...]:
-    """No source declaration means unsupported; discovery performs no I/O."""
-    capabilities = tuple(source_capabilities)
+    """Describe calculations using the selected backend's enabled sources."""
+    capabilities = _source_capabilities(config)
     return tuple(_describe(item, capabilities) for item in registry.public_definitions())
 
 
@@ -47,6 +58,6 @@ def describe_calculation(
     registry: CalculationRegistry,
     calculation_id: str,
     *,
-    source_capabilities: tuple[SourceCapability, ...] = (),
+    config: KernelConfig | None = None,
 ) -> CalculationDescription:
-    return _describe(registry.resolve(calculation_id), tuple(source_capabilities))
+    return _describe(registry.resolve(calculation_id), _source_capabilities(config))

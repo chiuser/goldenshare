@@ -45,12 +45,12 @@ def isolated_configuration(monkeypatch, tmp_path):
 
 
 def default_config() -> KernelConfig:
-    return technical_indicator_config_from_settings(Settings(_env_file=None))
+    return technical_indicator_config_from_settings(Settings(_env_file=None), data_location="prod_pg")
 
 
 def test_all_confirmed_defaults_and_existing_lake_root_are_copied():
     settings = Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT="/not-opened/data_lake")
-    config = technical_indicator_config_from_settings(settings)
+    config = technical_indicator_config_from_settings(settings, data_location="dg")
 
     assert len(EXPECTED_DEFAULTS) == 17
     assert "max_output_bytes" not in {field.name for field in fields(KernelConfig)}
@@ -84,7 +84,7 @@ def test_each_settings_field_can_be_changed(name):
         values["TECHNICAL_INDICATOR_TOTAL_TARGET_MS"] = 16000
     settings = Settings(_env_file=None, **values)
 
-    assert getattr(technical_indicator_config_from_settings(settings), name) == new_value
+    assert getattr(technical_indicator_config_from_settings(settings, data_location="prod_pg"), name) == new_value
 
 
 @pytest.mark.parametrize("name", tuple(EXPECTED_DEFAULTS))
@@ -147,13 +147,13 @@ def test_from_settings_does_not_read_environment_or_files(monkeypatch):
     settings = Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT="/not-mounted/anywhere")
     monkeypatch.setenv("TECHNICAL_INDICATOR_BATCH_ROWS", "17")
     monkeypatch.setenv("GOLDENSHARE_LAKE_ROOT", "/different/root")
-    config = technical_indicator_config_from_settings(settings)
+    config = technical_indicator_config_from_settings(settings, data_location="dg")
 
     assert config.batch_rows == 8192
     assert config.goldenshare_lake_root == "/not-mounted/anywhere"
     settings.technical_indicator_batch_rows = 18
     assert config.batch_rows == 8192
-    assert technical_indicator_config_from_settings(settings).batch_rows == 18
+    assert technical_indicator_config_from_settings(settings, data_location="dg").batch_rows == 18
 
 
 def test_env_file_precedes_environment_restores_it_and_cache_remains(monkeypatch, tmp_path):
@@ -168,7 +168,7 @@ def test_env_file_precedes_environment_restores_it_and_cache_remains(monkeypatch
     monkeypatch.setenv("GOLDENSHARE_LAKE_ROOT", "/environment/root")
 
     first = get_settings()
-    config = technical_indicator_config_from_settings(first)
+    config = technical_indicator_config_from_settings(first, data_location="dg")
     assert config.batch_rows == 31
     assert config.sql_threads == 3
     assert config.goldenshare_lake_root == "/declared/root"
@@ -186,4 +186,4 @@ def test_env_file_precedes_environment_restores_it_and_cache_remains(monkeypatch
 def test_invalid_parsed_configuration_raises_value_error():
     settings = Settings(_env_file=None, TECHNICAL_INDICATOR_MAX_WAITING_REQUESTS=-1)
     with pytest.raises(ValueError, match="max_waiting_requests"):
-        technical_indicator_config_from_settings(settings)
+        technical_indicator_config_from_settings(settings, data_location="prod_pg")

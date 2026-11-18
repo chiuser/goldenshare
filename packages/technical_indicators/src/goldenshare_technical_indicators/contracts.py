@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 import math
@@ -45,38 +45,15 @@ def _freeze_parameters(values) -> Parameters:
     return tuple(copied)
 
 
-@dataclass(frozen=True, slots=True)
-class CalculationInstance:
-    instance_id: str
-    calculation_id: str
-    parameters: Mapping[str, ParameterValue]
-
-    def __post_init__(self) -> None:
-        for value in (self.instance_id, self.calculation_id):
-            if not isinstance(value, str) or _IDENTIFIER.fullmatch(value) is None:
-                raise RequestInvalidError("Calculation identifiers require 1–64 letters, digits, '_' or '-'")
-        if not isinstance(self.parameters, Mapping):
-            raise RequestInvalidError("parameters must be a mapping")
-        copied = dict(self.parameters)
-        for name, value in copied.items():
-            if not isinstance(name, str) or not isinstance(value, (int, float, str, bool, type(None))):
-                raise RequestInvalidError("parameters require named JSON scalar values")
-            if isinstance(value, float) and not math.isfinite(value):
-                raise RequestInvalidError("parameters must be finite")
-        object.__setattr__(self, "parameters", MappingProxyType(copied))
-
-
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class CalculationRequest:
     security_type: SecurityType
     ts_code: str
     period: Period
-    calculations: tuple[CalculationInstance, ...]
-    adjustment: Adjustment = "qfq"
-    start: TimePosition | None = None
-    end: TimePosition | None = None
-    limit: int = _MAX_OUTPUT_ROWS
-    before: TimePosition | None = None
+    adjustment: Adjustment
+    start: datetime
+    end: datetime
+    calculations: Sequence[Mapping[str, object]]
 
     def __post_init__(self) -> None:
         if self.security_type not in ("stock", "index"):
@@ -87,29 +64,37 @@ class CalculationRequest:
             raise RequestInvalidError("Unsupported period")
         if self.adjustment not in ("none", "qfq", "hfq"):
             raise RequestInvalidError("One target adjustment is required")
-        if type(self.limit) is not int or self.limit <= 0:
-            raise RequestInvalidError("limit must be a positive integer")
-        if not isinstance(self.calculations, (tuple, list)) or not self.calculations:
-            raise RequestInvalidError("At least one calculation instance is required")
-        instances = tuple(self.calculations)
-        if not all(isinstance(item, CalculationInstance) for item in instances):
-            raise RequestInvalidError("calculations must contain CalculationInstance objects")
-        if len({item.instance_id for item in instances}) != len(instances):
-            raise RequestInvalidError("Duplicate instance_id")
-        object.__setattr__(self, "calculations", instances)
-        minute = self.period.endswith("m")
-        for name in ("start", "end", "before"):
+        for name in ("start", "end"):
             value = getattr(self, name)
-            if value is None:
-                continue
-            if minute:
-                if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
-                    raise RequestInvalidError("Minute ranges require timezone-aware datetime")
-                object.__setattr__(self, name, value.astimezone(ZoneInfo(TIMEZONE)))
-            elif type(value) is not date:
-                raise RequestInvalidError("Day/week/month ranges require date, not datetime")
-        if self.start is not None and self.end is not None and self.start > self.end:
+            if not isinstance(value, datetime) or value.utcoffset() is None:
+                raise RequestInvalidError("Calculation ranges require timezone-aware datetime")
+            object.__setattr__(self, name, value.astimezone(ZoneInfo(TIMEZONE)))
+        if self.start > self.end:
             raise RequestInvalidError("start must not exceed end")
+
+        if (not isinstance(self.calculations, Sequence)
+                or isinstance(self.calculations, (str, bytes)) or not self.calculations):
+            raise RequestInvalidError("At least one calculation is required")
+        calculations = []
+        for item in self.calculations:
+            if not isinstance(item, Mapping) or item.keys() != {"calculation_id", "parameters"}:
+                raise RequestInvalidError("Each calculation requires only calculation_id and parameters")
+            calculation_id = item["calculation_id"]
+            if not isinstance(calculation_id, str) or _IDENTIFIER.fullmatch(calculation_id) is None:
+                raise RequestInvalidError("Calculation identifiers require 1–64 letters, digits, '_' or '-'")
+            parameters = item["parameters"]
+            if not isinstance(parameters, Mapping):
+                raise RequestInvalidError("parameters must be a mapping")
+            copied = dict(parameters)
+            for name, value in copied.items():
+                if not isinstance(name, str) or not isinstance(value, (int, float, str, bool, type(None))):
+                    raise RequestInvalidError("parameters require named JSON scalar values")
+                if isinstance(value, float) and not math.isfinite(value):
+                    raise RequestInvalidError("parameters must be finite")
+            calculations.append(MappingProxyType({
+                "calculation_id": calculation_id, "parameters": MappingProxyType(copied),
+            }))
+        object.__setattr__(self, "calculations", tuple(calculations))
 
 
 def normalize_request_and_validate_all_instances(
@@ -118,8 +103,6 @@ def normalize_request_and_validate_all_instances(
     """Validate the structural request before registry parameters or any I/O."""
     if not isinstance(request, CalculationRequest):
         raise RequestInvalidError("A CalculationRequest is required")
-    if request.limit > _MAX_OUTPUT_ROWS or request.limit > config.max_output_rows:
-        raise ResourceLimitError("Requested output positions exceed max_output_rows")
     if len(request.calculations) > config.max_indicator_instances:
         raise ResourceLimitError("Calculation instances exceed max_indicator_instances")
     return request

@@ -1,6 +1,6 @@
 # 技术指标算子库整体详细设计 v1
 
-**状态：待评审。已有计算内核、指标算子和输出检查；新的计算指令、统一取数配置及 Prod 读取链尚未实施。** 本文只供设计评审，不授权修改 API、启动正式任务或写入数据。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 继续描述现行内核和已验收的算法合同；本文明确下一版要改的地方，不把目标写成现状。
+**状态：阶段 A 已在独立工作树实现并通过隔离验证。** 正式运行仍是现行内核。新版读取、输出接线及业务迁移留在 B–D，Prod 首批来源尚待真实验收。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 继续描述现行内核和已验收的算法规则。
 
 ## 1. 目标和模块分工
 
@@ -126,7 +126,7 @@ class KernelConfig:
     control_poll_ms: int                # 20 毫秒，停止监控间隔。
     monitor_join_target_ms: int         # 200 毫秒，等待监控线程结束的目标。
 
-    def __init__(self, data_location, goldenshare_lake_root, dataset_locations, market_datasets,
+    def __init__(self, *, data_location, goldenshare_lake_root, dataset_locations, market_datasets,
                  max_concurrent_requests, max_waiting_requests, max_wait_ms, sql_threads,
                  batch_rows, query_memory_bytes, request_memory_bytes, deployment_reserve_bytes,
                  total_target_ms, cleanup_reserve_ms, max_input_rows, max_source_files,
@@ -152,6 +152,10 @@ class KernelConfig:
     def resolve_dataset_location(self, dataset_id: str) -> DatasetReadTarget:
         # DG 代入固定分区，保留动态日期占位符；PG 返回表和固定条件。
         # 未登记或当前环境为 null 就报不支持；不访问源，也不切换环境。
+        ...
+
+    def _location(self, dataset_id: str) -> Mapping[str, object] | None:
+        # 取当前环境的已冻结位置记录，供位置和启用口径查询复用。
         ...
 ~~~
 
@@ -662,6 +666,8 @@ result = service.calculate(request)
 | B. 不复权取数 | 改造 DG 读取器，新增 PG 有界只读读取，按数据集落实输入校验 | 股票日线和指数 5 分钟在两端各有真实小样本。500 根目标上限、分钟跳点照算、整段无行情报错、读取失败只留在当前来源均通过验证 |
 | C. 独立算子库验收 | 复用现有算子和输出检查，验证预热、同批共享、跨批状态、取消及错误后的清理 | 新旧用相同行情对照，数值符合原验收标准。结果仅包含目标区间。通过后完成首轮 |
 | D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归后再评估发布 |
+
+阶段 A–C 在独立工作树实施。A 验收计算指令、算子计划、读取位置及使用显式历史需求构造取数指令。B 接入实际取数与现有预热需求，C 验收完整计算。阶段 A 的配置来源、验收和业务隔离见 [实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md#阶段-a-的实施边界)。
 
 上证接线从内核同批已校验的目标行情取得图上开高低收，从当前环境的同一普通指数日线数据集按日期取得量额、昨收和涨跌字段。前置根数继续用于区分指标合法空值和异常缺失。读取错误保留约定的主信息和原因，按现有产品格式返回。字段映射和内部交接见 [实施 LLD §5.2](technical-indicator-operator-library-implementation-lld-v1.md#52-上证综指日线和已有通用调用)。
 

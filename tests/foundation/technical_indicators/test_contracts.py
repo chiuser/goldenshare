@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators import CalculationRequest
 from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationValues, normalize_request_and_validate_all_instances,
 )
@@ -22,25 +22,31 @@ from goldenshare_technical_indicators.errors import (
 
 def request(**kwargs):
     values = dict(security_type="stock", ts_code="600000.SH", period="day",
-                  calculations=(CalculationInstance("default", "macd", {}),))
+                  adjustment="none",
+                  start=datetime(2026, 10, 23, tzinfo=timezone.utc),
+                  end=datetime(2026, 10, 24, tzinfo=timezone.utc),
+                  calculations=({"calculation_id": "macd", "parameters": {}},))
     return CalculationRequest(**(values | kwargs))
 
 
-def test_default_and_each_explicit_single_adjustment():
-    assert request() == request(adjustment="qfq")
-    assert request().limit == 500
+def test_each_adjustment_is_structurally_valid_and_all_fields_are_required():
     for adjustment in ("none", "qfq", "hfq"):
         assert request(adjustment=adjustment).adjustment == adjustment
-    assert request(security_type="index", ts_code="000001.SH").adjustment == "qfq"
+    original = request()
+    values = {field.name: getattr(original, field.name) for field in fields(CalculationRequest)}
+    assert set(values) == {"security_type", "ts_code", "period", "adjustment", "start", "end", "calculations"}
+    for field in values:
+        with pytest.raises(TypeError):
+            CalculationRequest(**{key: value for key, value in values.items() if key != field})
 
 
 @pytest.mark.parametrize("kwargs", [
     {"adjustment": ["qfq", "hfq"]}, {"adjustment": "bad"},
     {"security_type": "fund"}, {"ts_code": "600000"}, {"period": "year"},
-    {"limit": True}, {"limit": 0}, {"limit": -1}, {"calculations": ()},
+    {"calculations": ()},
     {"calculations": ("macd",)},
-    {"start": date(2026, 2, 1), "end": date(2026, 1, 1)},
-    {"calculations": (CalculationInstance("same", "ma", {}), CalculationInstance("same", "boll", {}))},
+    {"calculations": ({"calculation_id": "ma", "parameters": {}, "instance_id": "custom"},)},
+    {"calculations": ({"calculation_id": "ma"},)},
 ])
 def test_invalid_request_fails_without_io(kwargs):
     with pytest.raises(RequestInvalidError):
@@ -48,54 +54,52 @@ def test_invalid_request_fails_without_io(kwargs):
 
 
 def test_unknown_request_options_and_budget_override_rejected():
-    for key in ("bars", "sql", "allow_gap", "source_path", "max_output_rows", "basis_date"):
+    for key in ("bars", "sql", "allow_gap", "source_path", "max_output_rows", "basis_date", "before", "limit"):
         with pytest.raises(TypeError):
             request(**{key: 1})
 
 
-def test_time_contracts_and_legitimate_paging_intersection():
-    instant = datetime(2026, 10, 23, 2, 0, tzinfo=timezone.utc)
-    assert request(period="30m", start=instant).start.isoformat() == "2026-10-23T10:00:00+08:00"
-    for value in (date(2026, 10, 23), datetime(2026, 10, 23)):
-        with pytest.raises(RequestInvalidError):
-            request(period="30m", start=value)
-    with pytest.raises(RequestInvalidError):
-        request(start=instant)
-    # A before bound preceding start describes an empty page, not an invalid request.
-    assert request(start=date(2026, 10, 20), before=date(2026, 10, 1)).before == date(2026, 10, 1)
-    for period in ("day", "week", "month"):
-        assert request(period=period, end=date(2026, 10, 23)).end == date(2026, 10, 23)
+@pytest.mark.parametrize("period", ("day", "week", "month", "1m", "5m", "15m", "30m", "60m", "90m", "120m"))
+def test_time_contract_requires_aware_bounds_for_every_period(period):
+    instant = datetime(2026, 10, 22, 16, 0, tzinfo=timezone.utc)
+    assert request(period=period, start=instant).start.isoformat() == "2026-10-23T00:00:00+08:00"
+    assert request(period=period, start=instant, end=instant).start == instant
+    for field in ("start", "end"):
+        for value in (date(2026, 10, 23), datetime(2026, 10, 23), None):
+            with pytest.raises(RequestInvalidError, match="timezone-aware"):
+                request(period=period, **{field: value})
+    with pytest.raises(RequestInvalidError, match="start must not exceed end"):
+        request(period=period, end=instant)
 
 
-def test_instances_are_independent_and_immutable():
+def test_calculation_records_are_independent_and_immutable():
     original = {"fast": 9}
-    instance = CalculationInstance("custom", "macd", original)
+    item = {"calculation_id": "macd", "parameters": original}
+    items = [item]
+    directive = request(calculations=items)
+    item["calculation_id"] = "ma"
+    items.clear()
     original["fast"] = 100
-    assert instance.parameters["fast"] == 9
+    assert directive.calculations == ({"calculation_id": "macd", "parameters": {"fast": 9}},)
     with pytest.raises(TypeError):
-        instance.parameters["fast"] = 10
+        directive.calculations[0]["parameters"]["fast"] = 10
+    with pytest.raises(TypeError):
+        directive.calculations[0]["calculation_id"] = "other"
     with pytest.raises(FrozenInstanceError):
-        instance.instance_id = "other"
+        directive.period = "week"
     for value in (float("inf"), float("nan"), [], {}):
         with pytest.raises(RequestInvalidError):
-            CalculationInstance("id", "ma", {"period": value})
+            request(calculations=({"calculation_id": "ma", "parameters": {"period": value}},))
 
 
-def test_capacity_boundaries_respect_hard_limit_and_tighter_runtime_config():
-    config = SimpleNamespace(max_output_rows=500, max_indicator_instances=16)
-    instances = tuple(CalculationInstance(str(i), "ma", {}) for i in range(16))
-    original = request(calculations=instances, limit=500)
+def test_capacity_bound_checks_requested_items_before_planning():
+    config = SimpleNamespace(max_indicator_instances=16)
+    item = {"calculation_id": "ma", "parameters": {}}
+    instances = (item,) * 16
+    original = request(calculations=instances)
     assert normalize_request_and_validate_all_instances(original, config) is original
     with pytest.raises(ResourceLimitError):
-        normalize_request_and_validate_all_instances(request(limit=501), config)
-    with pytest.raises(ResourceLimitError):
-        normalize_request_and_validate_all_instances(request(calculations=instances + (CalculationInstance("17", "ma", {}),)), config)
-    with pytest.raises(ResourceLimitError):
-        normalize_request_and_validate_all_instances(request(limit=10001), SimpleNamespace(max_output_rows=10001, max_indicator_instances=16))
-    tighter = SimpleNamespace(max_output_rows=250, max_indicator_instances=16)
-    assert normalize_request_and_validate_all_instances(request(limit=250), tighter).limit == 250
-    with pytest.raises(ResourceLimitError):
-        normalize_request_and_validate_all_instances(request(), tighter)
+        normalize_request_and_validate_all_instances(request(calculations=instances + (item,)), config)
 
 
 @pytest.mark.parametrize("module,identifier,parameters,outputs", [
@@ -177,6 +181,7 @@ def test_d1_has_no_fake_calculation_or_source_import_side_effects():
     from goldenshare_technical_indicators.calculation import calculation
 
     assert not hasattr(package, "calculate")
+    assert not hasattr(package, "CalculationInstance")
     assert "OutputField" in vars(calculation)
     assert "OutputField" not in vars(importlib.import_module(package.__name__ + ".contracts"))
     # D3 publishes the complete service operation, while keeping the package

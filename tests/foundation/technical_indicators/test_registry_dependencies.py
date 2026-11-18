@@ -7,6 +7,7 @@ examples of the declared dependency rules.
 """
 
 from dataclasses import FrozenInstanceError, dataclass, replace
+from datetime import datetime, timezone
 
 import pytest
 
@@ -23,7 +24,7 @@ from goldenshare_technical_indicators.calculation.history import (
     combine_history_and_fields,
 )
 from goldenshare_technical_indicators.calculation.registry import CalculationRegistry
-from goldenshare_technical_indicators.contracts import CalculationInstance, CalculationRequest, Parameters
+from goldenshare_technical_indicators.contracts import CalculationRequest, Parameters
 from goldenshare_technical_indicators.discovery import (
     SourceCapability,
     describe_calculation,
@@ -31,6 +32,7 @@ from goldenshare_technical_indicators.discovery import (
 )
 from goldenshare_technical_indicators.errors import CalculationUnsupportedError, RequestInvalidError
 from goldenshare_technical_indicators.sources.contracts import PriceBatch
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 
 
 FIELD = OutputField("value", "close", "DOUBLE", False, "Every current bar")
@@ -80,11 +82,15 @@ def definition(calculation_id="custom", *, public=True, version="1.0.0", periods
 
 
 def request(*instances, period="day"):
-    return CalculationRequest("stock", "000001.SZ", period, instances)
+    instant = datetime(2026, 10, 23, tzinfo=timezone.utc)
+    return CalculationRequest(
+        security_type="stock", ts_code="000001.SZ", period=period, adjustment="none",
+        start=instant, end=instant, calculations=instances,
+    )
 
 
-def instance(identity="one", calculation_id="custom", **parameters):
-    return CalculationInstance(identity, calculation_id, parameters)
+def instance(calculation_id="custom", **parameters):
+    return {"calculation_id": calculation_id, "parameters": parameters}
 
 
 def frozen_registry(*registrations):
@@ -137,10 +143,10 @@ def test_public_and_internal_resolution_enforce_visibility_and_exact_version():
 
 
 @pytest.mark.parametrize("bad_instance", [
-    instance("bad", period=0),
-    instance("bad", period=True),
-    instance("bad", unknown=12),
-    instance("bad", calculation_id="missing"),
+    instance(period=0),
+    instance(period=True),
+    instance(unknown=12),
+    instance("missing"),
 ])
 def test_all_public_requests_are_validated_before_any_factory(bad_instance):
     created = []
@@ -151,7 +157,7 @@ def test_all_public_requests_are_validated_before_any_factory(bad_instance):
 
     registry = frozen_registry((definition(), factory))
     with pytest.raises((RequestInvalidError, CalculationUnsupportedError)):
-        registry.expand_dependencies(request(instance("good"), bad_instance))
+        registry.expand_dependencies(request(instance(), bad_instance))
     assert created == []
 
 
@@ -194,7 +200,7 @@ def test_factory_precedes_dependency_declaration_and_parameters_are_normalized()
     assert plan.nodes[0].parameters == expected
 
 
-def test_request_local_sharing_retains_instance_identity_and_stable_dependency_order():
+def test_request_local_sharing_retains_request_order_and_stable_dependency_order():
     calls = []
 
     def factory_for(identity, dependencies=()):
@@ -210,14 +216,14 @@ def test_request_local_sharing_retains_instance_identity_and_stable_dependency_o
         (definition("window_mean", public=False), factory_for("window_mean")),
     )
     plan = registry.expand_dependencies(request(
-        instance("ma20", "ma"), instance("boll20", "boll", period=20),
-        instance("ma20_again", "ma", period=20), instance("ma21", "ma", period=21),
+        instance("ma"), instance("boll", period=20),
+        instance("ma", period=20), instance("ma", period=21),
     ))
     assert [node.definition.calculation_id for node in plan.nodes] == [
         "window_mean", "ma", "boll", "window_mean", "ma",
     ]
     assert [node.node_index for node in plan.nodes] == [0, 1, 2, 3, 4]
-    assert plan.instances == (("ma20", 1), ("boll20", 2), ("ma20_again", 1), ("ma21", 4))
+    assert plan.instances == ((0, 1), (1, 2), (2, 1), (3, 4))
     assert dict(plan.nodes[1].dependencies) == {"mean": 0}
     assert dict(plan.nodes[2].dependencies) == {"mean": 0}
     assert dict(plan.nodes[4].dependencies) == {"mean": 3}
@@ -349,14 +355,29 @@ def test_discovery_uses_registry_definition_objects_hides_internal_steps_and_doe
 
 def test_discovery_reports_only_explicit_matching_source_declarations():
     registry = frozen_registry((definition(periods=("week",)), BorrowedPriceCalculation))
-    daily = SourceCapability("stock", "day", "qfq", "gold_stock_day")
-    weekly = SourceCapability("stock", "week", "qfq", "configured_week_source")
-    declaration = [daily, weekly]
-    description = describe_calculation(registry, "custom", source_capabilities=declaration)
-    declaration.clear()
+    weekly = SourceCapability("stock", "week", "none", "stock_weekly")
+    config = technical_indicator_config_from_settings(
+        Settings(_env_file=None), data_location="prod_pg",
+        market_datasets={("stock", "day"): "stock_daily", ("stock", "week"): "stock_weekly"},
+        dataset_locations={
+            "stock_daily": {
+                "dg": None,
+                "prod_pg": {"schema": "core_serving", "relation": "equity_daily_bar", "enabled_adjustments": ("none",)},
+            },
+            "stock_weekly": {
+                "dg": None,
+                "prod_pg": {
+                    "schema": "core_serving", "relation": "stk_period_bar_adj", "filters": {"freq": "week"},
+                    "enabled_adjustments": ("none",),
+                },
+            },
+        },
+    )
+    description = describe_calculation(registry, "custom", config=config)
     assert description.source_capabilities == (weekly,)
     assert description.source_supported is True
-    assert describe_calculation(registry, "custom", source_capabilities=(daily,)).source_supported is False
+    only_daily = replace(config, market_datasets={("stock", "day"): "stock_daily"})
+    assert describe_calculation(registry, "custom", config=only_daily).source_supported is False
     with pytest.raises(FrozenInstanceError):
         weekly.period = "day"
     with pytest.raises(FrozenInstanceError):

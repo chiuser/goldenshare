@@ -31,7 +31,7 @@ class CalculationNode:
 @dataclass(frozen=True, slots=True)
 class CalculationPlan:
     nodes: tuple[CalculationNode, ...]
-    instances: tuple[tuple[str, int], ...]
+    instances: tuple[tuple[int, int], ...]
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "nodes", tuple(self.nodes))
@@ -44,11 +44,11 @@ def expand_dependencies(registry: CalculationRegistry, normalized: CalculationRe
         raise RequestInvalidError("A CalculationRequest is required")
     validated = []
     for instance in normalized.calculations:
-        definition = registry.resolve(instance.calculation_id)
+        definition = registry.resolve(instance["calculation_id"])
         if normalized.period not in definition.supported_periods:
             raise CalculationUnsupportedError("Calculation does not support the requested period")
-        parameters = definition.validate_parameters(instance.parameters)
-        validated.append((instance.instance_id, definition, parameters))
+        parameters = definition.validate_parameters(instance["parameters"])
+        validated.append((definition, parameters))
 
     context = (normalized.security_type, normalized.ts_code, normalized.period, normalized.adjustment)
     completed: dict[tuple, int] = {}
@@ -89,5 +89,8 @@ def expand_dependencies(registry: CalculationRegistry, normalized: CalculationRe
         completed[key] = node_index
         return node_index
 
-    instances = tuple((instance_id, visit(definition, parameters)) for instance_id, definition, parameters in validated)
+    instances = tuple(
+        (index, visit(definition, parameters))
+        for index, (definition, parameters) in enumerate(validated)
+    )
     return CalculationPlan(tuple(nodes), instances)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import fields
+from collections.abc import Mapping
 from functools import lru_cache
 from pathlib import Path
 
@@ -9,7 +9,9 @@ from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from goldenshare_technical_indicators.configuration import KernelConfig
-from goldenshare_technical_indicators.contracts import _MAX_OUTPUT_ROWS
+from goldenshare_technical_indicators.configuration.datasets import DATASET_LOCATIONS, MARKET_DATASETS
+from goldenshare_technical_indicators.configuration.settings import DataLocation
+from goldenshare_technical_indicators.contracts import Period, SecurityType, _MAX_OUTPUT_ROWS
 
 
 class Settings(BaseSettings):
@@ -147,15 +149,26 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(extra="ignore")
 
 
-def technical_indicator_config_from_settings(settings: Settings) -> KernelConfig:
-    """复制已解析字段。路径由读取模块检查。"""
+def technical_indicator_config_from_settings(
+    settings: Settings, *,
+    data_location: DataLocation,
+    dataset_locations: Mapping[str, Mapping[str, Mapping[str, object] | None]] | None = None,
+    market_datasets: Mapping[tuple[SecurityType, Period], str] | None = None,
+) -> KernelConfig:
+    """合并已解析的运行设置、明确的环境和部署所选的行情目录。"""
 
+    prefix = "technical_indicator_"
     values = {
-        field.name: getattr(settings, f"technical_indicator_{field.name}")
-        for field in fields(KernelConfig)
-        if field.name != "goldenshare_lake_root"
+        name.removeprefix(prefix): getattr(settings, name)
+        for name in Settings.model_fields if name.startswith(prefix)
     }
-    return KernelConfig(goldenshare_lake_root=settings.goldenshare_lake_root, **values)
+    return KernelConfig(
+        goldenshare_lake_root=settings.goldenshare_lake_root,
+        data_location=data_location,
+        dataset_locations=DATASET_LOCATIONS if dataset_locations is None else dataset_locations,
+        market_datasets=MARKET_DATASETS if market_datasets is None else market_datasets,
+        **values,
+    )
 
 
 def _load_env_file_values(env_file: str) -> dict[str, str]:
