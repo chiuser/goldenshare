@@ -1,9 +1,11 @@
 """Bounded PostgreSQL input for the technical indicator kernel."""
 
 from contextlib import contextmanager
+from datetime import time
 from itertools import groupby
 from operator import itemgetter
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -13,7 +15,12 @@ from goldenshare_technical_indicators.errors import (
 )
 from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceBatch, SourceDescription
 
+from .technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
 from .technical_indicator_stock_daily import daily_price_projection, full_day_suspension, require_stock_daily, scheduled_stock_days
+
+
+_SHANGHAI = ZoneInfo("Asia/Shanghai")
+_OPENING_BAR = "b.trade_time::time = TIME '09:35'"
 
 
 def _identifier(value):
@@ -22,6 +29,46 @@ def _identifier(value):
 
 def _relation(target):
     return ".".join(_identifier(target.location[key]) for key in ("schema", "relation"))
+
+
+def _price_scope(requirement, *, requested_columns=()):
+    relation = _relation(requirement.target)
+    if requirement.period == "day":
+        return f"{relation} AS b", "b.ts_code = %s", (requirement.ts_code,)
+    # One indexed lookup for a requested opening bar. The backing table has
+    # one row per (ts_code, freq, trade_time). LIMIT keeps the lateral lookup
+    # gated by the 09:35 timestamp in PostgreSQL's execution plan.
+    auction_columns = ["a.trade_time"]
+    if {"open", "high", "low"} & set(requested_columns):
+        auction_columns.append("a.close")
+    auction_columns.extend(f'a."{name}"' for name in ("vol", "amount") if name in requested_columns)
+    source = f"""{relation} AS b
+        LEFT JOIN LATERAL (
+            SELECT {", ".join(auction_columns)} FROM {relation} AS a
+            WHERE {_OPENING_BAR} AND a.ts_code = b.ts_code AND a.freq = b.freq
+            AND a.trade_time = b.trade_time - INTERVAL '5 minutes' LIMIT 1
+        ) AS auction ON TRUE"""
+    filters = f"""b.ts_code = %s AND b.freq = %s
+        AND b.trade_time::time <> TIME '09:30'
+        AND (NOT ({_OPENING_BAR}) OR auction.trade_time IS NOT NULL)"""
+    return source, filters, (requirement.ts_code, requirement.target.location["filters"]["freq"])
+
+
+def _minute_price_column(name):
+    column = f"b.{_identifier(name)}"
+    if name == "open":
+        combined = "auction.close"
+    elif name in ("high", "low"):
+        operation = "GREATEST" if name == "high" else "LEAST"
+        combined = (f"CASE WHEN {column} > '-Infinity'::float8 AND {column} < 'Infinity'::float8 "
+                    "AND auction.close > '-Infinity'::float8 AND auction.close < 'Infinity'::float8 "
+                    f"THEN {operation}({column}, auction.close) END")
+    elif name in ("vol", "amount"):
+        combined = (f"CASE WHEN {column} IS NULL THEN auction.{name} "
+                    f"WHEN auction.{name} IS NULL THEN {column} ELSE {column} + auction.{name} END")
+    else:
+        return column
+    return f"CASE WHEN {_OPENING_BAR} THEN {combined} ELSE {column} END AS {_identifier(name)}"
 
 
 @contextmanager
@@ -74,20 +121,30 @@ class PostgresTechnicalIndicatorPriceSource:
         return connection
 
     def create_locator(self, executor, requirement, *, read_context):
-        require_stock_daily(requirement, "prod_pg")
+        if requirement.period.endswith("m"):
+            index_minute_volume_unit(requirement, "prod_pg")
+        else:
+            require_stock_daily(requirement, "prod_pg")
         return _PostgresPriceLocator(self, requirement, read_context, executor.control)
 
     def open(self, executor, description, requirement, *, read_context):
         connection = self._connection(read_context, executor.control)
         selection = description.selection
-        columns = ", ".join(_identifier(name) for name in description.source_projection)
+        minute = requirement.period.endswith("m")
+        project = _minute_price_column if minute else _identifier
+        columns = ", ".join(project(name) for name in description.source_projection)
+        relation, filters, identity = _price_scope(requirement, requested_columns=description.source_projection)
+        position = "b.trade_time" if minute else "b.trade_date"
+        start, end = selection.read_start, selection.read_end
+        if minute:
+            start, end = start.replace(tzinfo=None), end.replace(tzinfo=None)
         statement = (
-            f"SELECT {columns} FROM {_relation(requirement.target)} "
-            "WHERE ts_code = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date"
+            f"SELECT {columns} FROM {relation} "
+            f"WHERE {filters} AND {position} BETWEEN %s AND %s ORDER BY {position}"
         )
         return _PostgresPriceStream(
-            connection, statement, (requirement.ts_code, selection.read_start, selection.read_end),
-            description, read_context, executor.control, requirement.batch_rows,
+            connection, statement, (*identity, start, end),
+            description, read_context, executor.control, requirement.batch_rows, minute=minute,
         )
 
     def expected_positions(self, requirement, selection, *, read_context, control):
@@ -138,14 +195,20 @@ class _PostgresPriceLocator:
         self._described = True
         requirement, config = self._requirement, self._read_context.config
         connection = self._source._connection(self._read_context, self._control)
-        relation = _relation(requirement.target)
-        count, first, last = _query(connection, self._control, f"""
-            SELECT count(*), min(trade_date), max(trade_date) FROM (
-                SELECT trade_date FROM {relation}
-                WHERE ts_code = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date LIMIT %s
+        minute = requirement.period.endswith("m")
+        relation, filters, identity = _price_scope(requirement)
+        position = "b.trade_time" if minute else "b.trade_date"
+        start, end = requirement.start, requirement.end
+        if minute:
+            start, end = start.replace(tzinfo=None), end.replace(tzinfo=None)
+        auction_keys = "count(*) FILTER (WHERE position::time = TIME '09:35')" if minute else "0"
+        count, first, last, extra_keys = _query(connection, self._control, f"""
+            SELECT count(*), min(position), max(position), {auction_keys} FROM (
+                SELECT {position} AS position FROM {relation}
+                WHERE {filters} AND {position} BETWEEN %s AND %s ORDER BY {position} LIMIT %s
             ) AS target
-        """, (requirement.ts_code, requirement.start, requirement.end, config.max_output_rows + 1))[0]
-        self._read_context.record_locator_rows(count)
+        """, (*identity, start, end, config.max_output_rows + 1))[0]
+        self._read_context.record_locator_rows(count + extra_keys)
         if count > config.max_output_rows:
             raise ResourceLimitError("Target positions exceed max_output_rows")
         selection = PriceReadSelection(None, None, None, None, 0, 0, False, ())
@@ -156,24 +219,29 @@ class _PostgresPriceLocator:
             history = requirement.history
             needs_origin = history.requires_source_origin or history.warmup_rows > available
             wanted = available if needs_origin else history.warmup_rows
-            scanned, oldest = _query(connection, self._control, f"""
-                SELECT count(*), min(trade_date) FILTER (WHERE ordinal <= %s) FROM (
-                    SELECT trade_date, row_number() OVER (ORDER BY trade_date DESC) AS ordinal
-                    FROM {relation} WHERE ts_code = %s AND trade_date < %s
-                    ORDER BY trade_date DESC LIMIT %s
+            scanned, oldest, extra_keys = _query(connection, self._control, f"""
+                SELECT count(*), min(position) FILTER (WHERE ordinal <= %s), {auction_keys} FROM (
+                    SELECT {position} AS position, row_number() OVER (ORDER BY {position} DESC) AS ordinal
+                    FROM {relation} WHERE {filters} AND {position} < %s
+                    ORDER BY {position} DESC LIMIT %s
                 ) AS preceding
-            """, (wanted, requirement.ts_code, first, wanted + 1))[0]
-            self._read_context.record_locator_rows(scanned)
+            """, (wanted, *identity, first, wanted + 1))[0]
+            self._read_context.record_locator_rows(scanned + extra_keys)
             if needs_origin and scanned > wanted:
                 raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
+            if minute:
+                first, last = first.replace(tzinfo=_SHANGHAI), last.replace(tzinfo=_SHANGHAI)
+                oldest = oldest.replace(tzinfo=_SHANGHAI) if oldest is not None else None
             selection = PriceReadSelection(first, last, oldest or first, last, count, min(scanned, wanted),
                                            scanned <= wanted, ())
-        physical, standard = daily_price_projection(requirement.history.fields)
+        project = index_minute_projection if minute else daily_price_projection
+        physical, standard = project(requirement.history.fields)
+        volume_unit = index_minute_volume_unit(requirement, "prod_pg") if minute else "lot"
         return SourceDescription(
             source_id=requirement.target.dataset_id, contract_version="1", input_adjustment="none",
-            basis_rule=None, basis_date=None, basis_value=None, price_unit="CNY",
-            volume_unit="lot", amount_unit="thousand_CNY", timezone="Asia/Shanghai",
-            period_label_rule="period_start", history_origin_rule="earliest_available_formal_row",
+            basis_rule=None, basis_date=None, basis_value=None, price_unit="index_point" if minute else "CNY",
+            volume_unit=volume_unit, amount_unit="CNY" if minute else "thousand_CNY", timezone="Asia/Shanghai",
+            period_label_rule="trade_time" if minute else "period_start", history_origin_rule="earliest_available_formal_row",
             available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "none"),),
             converted=False, selection=selection, source_projection=physical, standard_projection=standard,
         )
@@ -183,7 +251,7 @@ class _PostgresPriceLocator:
 
 
 class _PostgresPriceStream:
-    def __init__(self, connection, sql, params, description, read_context, control, batch_rows):
+    def __init__(self, connection, sql, params, description, read_context, control, batch_rows, *, minute):
         import pyarrow as pa
 
         self._connection, self._sql, self._params = connection, sql, params
@@ -191,7 +259,14 @@ class _PostgresPriceStream:
         self._columns, self._batch_rows = description.source_projection, batch_rows
         types = {"trade_date": pa.date32(), "ts_code": pa.string(), "vol": pa.decimal128(20, 4),
                  "amount": pa.decimal128(20, 4)}
-        self._schema = pa.schema((name, types.get(name, pa.decimal128(18, 4))) for name in self._columns)
+        fallback = pa.decimal128(18, 4)
+        self._minute_time_index = None
+        if minute:
+            types = {"trade_date": pa.date32(), "trade_time": pa.timestamp("us"),
+                     "ts_code": pa.string(), "freq": pa.string()}
+            fallback = pa.float64()
+            self._minute_time_index = self._columns.index("trade_time")
+        self._schema = pa.schema((name, types.get(name, fallback)) for name in self._columns)
         self._cursor: Any = None
         self._current = None
         self._delivered = 0
@@ -213,7 +288,10 @@ class _PostgresPriceStream:
         if not rows:
             self._exhausted = True
             return None
-        self._context.record_price_rows(len(rows))
+        auction_rows = 0
+        if self._minute_time_index is not None:
+            auction_rows = sum(row[self._minute_time_index].time() == time(9, 35) for row in rows)
+        self._context.record_price_rows(len(rows), additional_source_rows=auction_rows)
         try:
             columns = [pa.array([row[i] for row in rows], type=field.type) for i, field in enumerate(self._schema)]
             self._current = pa.RecordBatch.from_arrays(columns, schema=self._schema)
@@ -221,7 +299,7 @@ class _PostgresPriceStream:
             raise SourceContractError("PostgreSQL prices do not match their declared fields") from exc
         first = self._delivered + 1
         self._delivered += len(rows)
-        return SourceBatch(self._current, first, self._delivered, len(rows), len(rows), 0, 0)
+        return SourceBatch(self._current, first, self._delivered, len(rows) + auction_rows, len(rows), 0, 0)
 
     def release_current_batch(self):
         self._current = None

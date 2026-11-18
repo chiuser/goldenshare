@@ -52,7 +52,7 @@ def _table_name(name):
 
 
 def _matches_type(pa, actual, expected):
-    types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"),
+    types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"), "INTEGER": pa.int32(),
              "DOUBLE": pa.float64(), "DECIMAL(18,4)": pa.decimal128(18, 4),
              "DECIMAL(20,4)": pa.decimal128(20, 4)}
     return actual == types[expected]
@@ -91,6 +91,7 @@ class LakeTechnicalIndicatorPriceSource:
         self._safe_path(root, base)
         control.check_active()
         result = []
+        through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
         try:
             with os.scandir(base) as entries:
                 for entry in entries:
@@ -99,7 +100,7 @@ class LakeTechnicalIndicatorPriceSource:
                     if match is None:
                         continue
                     partition_day = date.fromisoformat(match.group(1))
-                    if partition_day <= requirement.end:
+                    if partition_day <= through:
                         path = Path(str(template).replace("{trade_date}", partition_day.isoformat()))
                         if path.is_file():
                             result.append((partition_day, path))
@@ -270,8 +271,12 @@ class _LakePriceStream:
         self._current_path = path
         predicate = ds.field("ts_code") == self._requirement.ts_code
         selection = self._description.selection
-        predicate &= ds.field("trade_date") >= selection.read_start
-        predicate &= ds.field("trade_date") <= selection.read_end
+        if self._requirement.period.endswith("m"):
+            predicate &= ds.field("trade_time") >= selection.read_start.replace(tzinfo=None)
+            predicate &= ds.field("trade_time") <= selection.read_end.replace(tzinfo=None)
+        else:
+            predicate &= ds.field("trade_date") >= selection.read_start
+            predicate &= ds.field("trade_date") <= selection.read_end
         self._fragment = ds.ParquetFileFormat().make_fragment(
             str(path), filesystem=fs.LocalFileSystem(), row_groups=list(self._row_groups[path]))
         self._scanner = ds.Scanner.from_fragment(

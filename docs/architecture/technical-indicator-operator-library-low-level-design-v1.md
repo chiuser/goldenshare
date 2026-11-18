@@ -1,6 +1,6 @@
 # 技术指标算子库整体详细设计 v1
 
-**状态：阶段 A 已通过隔离验证，阶段 B 的通用读取和股票不复权日线已完成 DG、Prod 只读复核，待 review。** 指数 5 分钟线待本步通过后实施。对上结果验证和正式业务迁移分别在 C、D 阶段。[实施 LLD 的核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述现行内核和已验收的算法规则。
+**状态为阶段 B 待 review。** 通用读取、股票不复权日线及指数不复权 5 分钟线均已完成 DG、Prod 只读复核。对上结果验证和正式业务迁移分别在 C、D 阶段。[实施 LLD 的核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述现行内核和已验收的算法规则。
 
 ## 1. 目标和模块分工
 

@@ -14,6 +14,7 @@ class SourceReadContext:
         self.config = config
         self._files: dict[Path, int] = {}
         self._source_rows = 0
+        self._input_rows = 0
         self._locator_rows = 0
         self._source_file_bytes = 0
         self._sql_texts: dict[tuple[str, str], str] = {}
@@ -61,16 +62,16 @@ class SourceReadContext:
             self._files[path] = size_bytes
             self._source_file_bytes += size_bytes
 
-    def record_price_rows(self, rows: int) -> None:
-        """Charge a first physical read once, before copying or delivery.
+    def record_price_rows(self, rows: int, *, additional_source_rows: int = 0) -> None:
+        """Charge new business rows against the input budget once.
 
-        Delivering a buffered remainder does not charge it again. A rejected
-        over-limit read is not admitted to this counter; diagnostics separately
-        record actual reader rows, including that rejected read.
+        The source row count additionally includes auction rows used to build
+        a business bar. A buffered remainder is already accounted for.
         """
-        if self._source_rows + rows > self.config.max_input_rows:
+        if self._input_rows + rows > self.config.max_input_rows:
             raise ResourceLimitError("Source price rows exceed max_input_rows")
-        self._source_rows += rows
+        self._input_rows += rows
+        self._source_rows += rows + additional_source_rows
 
     @property
     def locator_rows(self) -> int:
