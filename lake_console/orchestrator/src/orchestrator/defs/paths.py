@@ -175,6 +175,16 @@ def silver_trade_calendar_path(root: Path) -> Path:
     return lake_path(root, SILVER, "calendar", "trade_calendar", "full", "part-000.parquet")
 
 
+def trade_calendar_staging_path(root: Path, run_id: str, layer: str) -> Path:
+    if layer not in (RAW, SILVER):
+        raise ValueError(f"Unsupported trade calendar layer: {layer}")
+    staging_root = Path(DEFAULT_LAKE_STAGING_ROOT)
+    if root != Path(DEFAULT_LAKE_ROOT):
+        staging_root = root.parent / staging_root.name
+    run_directory = _safe_run_id_part(run_id, asset_family="trade_calendar")
+    return staging_root / "trade_calendar" / run_directory / layer / "part-000.parquet"
+
+
 def raw_stock_basic_path(root: Path) -> Path:
     return lake_path(root, RAW, "tushare", "stock_basic", "full", "part-000.parquet")
 

@@ -22,15 +22,25 @@
 
 | 位置 | 实现 |
 | --- | --- |
-| [`assets/calendar.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/assets/calendar.py#L105) | 删除 `TRADE_CALENDAR_START_DATE`、按运行年份算出的 `end_date` 及对应请求日志。Raw 请求固定 `exchange=SSE`，显式投影 `exchange, cal_date, is_open, pretrade_date`。Raw 和 Silver 均先写 run-scoped staging 候选并校验，再发布。日志报告候选和正式文件实际起止日、行数、实际页数及耗时 |
-| [`tushare_api_io.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/tushare_api_io.py#L468) | 沿用已实测的 6,000 条页长及现有短页结束规则。保留其他接口的现有行为。日历候选须核对日期连续性、最新和历史边界及唯一键，防止漏页、重复页或提前截断形成可发布文件 |
-| [`paths.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py#L150)、[`catalog/lake_assets.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py#L1986) | 统一定义本次日历候选路径，并校准两个资产的写入、性能及合同说明。正式日历路径沿用现有 helper，字段合同沿用 `RAW_TUSHARE_TRADE_CALENDAR_SCHEMA`、`SILVER_TRADE_CALENDAR_SCHEMA` |
-| [`calendar_update_job`](../../../../lake_console/orchestrator/src/orchestrator/defs/jobs/calendar_update.py#L6)、[`checks/calendar_checks.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/checks/calendar_checks.py#L163) | 继续选择两层资产及三项正式检查。执行顺序为 Raw 发布、Raw 检查、Silver 发布、两项 Silver 检查。对候选的文件完整性检查复用现有检查的稳定规则。Raw 与 Silver 的一致性在发布前验证，正式检查及运行记录仍发出 |
+| [`assets/calendar.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/assets/calendar.py#L367) | Raw 请求固定 `exchange=SSE`，显式投影 `exchange, cal_date, is_open, pretrade_date`。Raw 和 Silver 均先写本次 Run 的候选并校验，再发布。日志报告实际起止日、行数、实际页数及耗时 |
+| [`tushare_api_io.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/tushare_api_io.py#L195) | 沿用已实测的 6,000 条页长及现有短页结束规则。共用方法允许调用方提供写入前的源记录检查，本期由交易日历传入开市标记检查，其他调用沿用原行为 |
+| [`paths.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py#L178)、[`catalog/lake_assets.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py#L1986) | 统一定义本次日历候选路径，并校准两个资产的写入、性能及合同说明。正式日历路径沿用现有方法，字段合同沿用 `RAW_TUSHARE_TRADE_CALENDAR_SCHEMA`、`SILVER_TRADE_CALENDAR_SCHEMA` |
+| [`calendar_update_job`](../../../../lake_console/orchestrator/src/orchestrator/defs/jobs/calendar_update.py#L8)、[`checks/calendar_checks.py`](../../../../lake_console/orchestrator/src/orchestrator/defs/checks/calendar_checks.py#L164) | 继续选择两层资产及三项正式检查。执行顺序为 Raw 发布、Raw 检查、Silver 发布、两项 Silver 检查。发布 Silver 前逐行核对与 Raw 的一致性 |
 
-候选读取和发布由日历资产负责。Job 继续负责选择资产和检查。测试与正式执行均使用相同的资产逻辑，分别注入临时目录和正式路径。
+候选读取和发布由日历资产负责。Job 继续负责选择资产和检查。测试与正式执行均使用相同的资产逻辑，分别注入临时目录和正式路径。本阶段沿用共用分页与现有串行队列。验证完成的文件，用日期键、连续性和正式历史对账防止残缺候选被发布。执行预计三次源请求，正式窗口的用量以隔离验证和来源核验确认。
+
+每层的候选和发布记录保存到 `data_lake_staging/trade_calendar/run_id=<run_id>/<layer>/`，分别命名 `part-000.parquet`、`publication.json`。发布记录含正式路径、实际日期范围、行数、文件摘要及发布状态。先记候选已校验，再替换正式文件，随后记已发布。Silver 在正常 Job 与从失败重执行时核对正式 Raw 与本次或父 Run 的 Raw 发布记录，沿父链向上查找最近一次 Raw 发布；匹配后继续 Silver，不重新取 Tushare。已有仅生成 Silver 的资产调用继续读取校验过的正式 Raw。中断后如上次记录仍是「已校验」、候选已经移动且正式文件摘要一致，复用这个已发布文件并补齐记录。摘要差异或候选仍在时，不能把它判断成已发布。
+
+首次正式补数通过 Raw 的 Run 参数 `minimum_end_date=2027-12-31` 指定最低验收日期。该参数默认 `null`，只在当前 Run 的发布前验证候选最大日期，始终不传给 Tushare。它记录在 Dagster 的 Run 配置中，消费者只有日历 Raw 资产，重新运行时取该 Run 的配置。来源若已发布更远日期全部保留。测试覆盖无参数、尾端不足、刚好达标和超出验收日期。Raw 写文件前检查源开市标记，允许整数 0/1 和文档中的字符串 0/1，避免 DuckDB 把小数转换成有效开市值。两层文件校验逐日比对上一交易日与前方最近开市日期。已对当前正式 Silver 做只读计数校验，13,162 条均符合该规则。
+
+隔离验收从 `lake_console/orchestrator` 用项目 `.venv` 运行 `test_trade_calendar_update.py` 和相邻基础资产治理回归。Dagster 用隔离 instance，Tushare 用预先核实字段和页界的替身，DuckDB、候选和 Parquet 使用 `/private/tmp` 下的临时目录。
 
 ```python
-@dataclass(frozen=True, slots=True)
+class TradeCalendarUpdateConfig(dg.Config):
+    # 本次运行的发布验收下限，ISO 日期。不发送给 Tushare。
+    minimum_end_date: str | None = None
+
+@dataclass(frozen=True)
 class CalendarFileStats:
     path: Path
     first_date: date
@@ -38,12 +48,16 @@ class CalendarFileStats:
     row_count: int
     sha256: str
 
-# 拟在日历资产内部补充。候选须唯一，且属于本次 Job 运行。
-def calendar_candidate_path(staging_root: Path, run_id: str, layer: str) -> Path: ...
-def inspect_calendar_candidate(path: Path, *, layer: str) -> CalendarFileStats: ...
-def verify_calendar_coverage(
-    candidate: CalendarFileStats, *, current: CalendarFileStats | None
-) -> None: ...
+# 按运行编号和层生成候选路径。
+def trade_calendar_staging_path(root: Path, run_id: str, layer: str) -> Path: ...
+
+# 校验物理字段、交易所、日期键、连续性和上一交易日。
+def inspect_calendar_candidate(connection, path: Path, *, layer: str) -> CalendarFileStats: ...
+
+# 核对旧文件日期键，记录开休市和上一交易日修订的行数。
+def _compare_published_history(
+    connection, candidate: CalendarFileStats, target: Path, *, layer: str
+): ...
 ```
 
 ### 2.2 源请求、日期范围与完整性
@@ -61,14 +75,14 @@ def verify_calendar_coverage(
 
 总计取到 14 条样本，跨越现有 6,000、12,000 分页位置，且末条日期的上一交易日为 `NULL`。首尾跨度按自然日计算为 13,527 天，与末尾偏移吻合。正式发布前仍要对候选文件检查连续性与重复键。另用相同四列发送一次无日期请求，参数为 `exchange=SSE, offset=0, limit=6000`。实际返回 **6,000 条**，按日期倒序从 **2027-12-31** 到 **2011-07-29**，6,000 个日期互异且逐日连续，所有记录的交易所和开休市标记符合合同，页内相邻记录的上一交易日一致。该次响应体为 192,190 字节，请求和读取共 378 毫秒。单次耗时只作抽查记录。
 
-1. **分页合同。** `trade_cal` 请求保留 `exchange=SSE` 和四个显式字段，省略 `start_date/end_date`。沿用共用分页方法，以 `limit=6000` 从 `offset=0` 取数，每个满页后按实际约定增加 6,000，遇合法短页结束。完整候选经 §2.3 校验后才发布。6,000 是已验证可用页长。
-2. **生成 Raw 候选。** 正式取数以源实际发布范围为准，程序不根据本地年份裁剪 `start_date/end_date`。以实测的有效 `limit` 分页，每页字段和交易所一致。校验日期有效、序列和页间边界符合已验证的方向，且 `(exchange, cal_date)` 无重复。请求失败、字段缺失、重复页、意外空页和超出实测预算均作为取数失败。用一次聚合核对 `distinct_date_count == (last_date - first_date).days + 1`，同时确认无 NULL 主键及非法开市标记。
+1. **分页合同。** `trade_cal` 请求保留 `exchange=SSE` 和四个显式字段，省略 `start_date/end_date`。沿用共用分页方法，以 `limit=6000` 从 `offset=0` 取数，每个满页后按实际约定增加 6,000，遇合法短页结束。完整候选经 §2.3 校验后才发布。6,000 是已验证可用页长。该共用分页方法也供股票、指数、ETF 基础信息等资产使用。本期的日期顺序、覆盖校验与回归仅针对交易日历。正式日历 Job 的 3 条历史运行均成功，最近一次使用带日期请求。本次无日期样本也表明偏移正常推进。重复返回同一个完整页属于异常反例，这些样本无法估计其发生率。
+2. **生成 Raw 候选。** 正式取数以源实际发布范围为准，程序不根据本地年份裁剪 `start_date/end_date`。以实测的有效 `limit` 分页，每页字段和交易所一致。已实测源按日期倒序及偏移分页。候选按日期键检查连续性和重复，排序只用于核验和读取。请求失败、缺列、空候选和重复日期导致取数或校验失败。用一次聚合核对 `distinct_date_count == (last_date - first_date).days + 1`，同时确认无 NULL 主键及非法开市标记。
 3. **与现有文件对账。** Raw 候选必须包含原日历的日期范围及日期键。记录开休市或上一交易日的变化，用源记录核对不能解释的差异。检查历史事实的业务抽样，并抽检跨年、开市、休市的 `pretrade_date`。源真实修订可随更新写入，运行前核对本次切换要求的日期及状态，发现所需范围尚未由源发布时，记录缺口并暂停本次正式补数与读取切换。日常候选发布比较已有正式文件的范围及键，2027-12-31 用于这次迁移验收。
 4. **生成 Silver 候选。** 调用 [`silver_trade_calendar_select`](../../../../lake_console/orchestrator/src/orchestrator/defs/duckdb_sql.py#L168) 将 `cal_date` 转为 `trade_date: DATE`，将 `is_open` 的 0/1 转为 `BOOLEAN`，将 `pretrade_date` 转为可空 `DATE`。Raw 保留原 `YYYYMMDD` 字符串和整型开市标记。Silver 候选与 Raw 规范化后以日期键双向比对，行数相等且字段逐日对应。首条历史记录允许源合同中的空上一交易日。非法日期或无效开市值报错，不填默认值。
 
 ### 2.3 发布、失败恢复与执行预算
 
-- 在维护窗口查询正式 DG 同一资产是否有排队或在跑的运行。确认正式 Lake 和 staging 挂载、可写、同文件系统、存在可用空间，且只有本次 `calendar_update_job` 是这两张文件的写入者。通过正式 Dagster UI 触发，也通过同一实例读回运行和检查结果。正式执行时另按已批准的执行窗口操作。
+- 正式 DG 已配置 `QueuedRunCoordinator`，实际配置 `concurrency.runs.max_concurrent_runs=1`。日历更新沿用同一串行队列。启动时确认正式 Lake 和 staging 挂载、可写、同文件系统并有可用空间。通过正式 Dagster UI 触发，也通过同一实例读回运行和检查结果。正式执行时另按已批准的执行窗口操作。
 - staging 位于 `/Volumes/datasource/data_lake_staging`。候选完整通过后分别用 `os.replace` 提升为正式文件。每次提升后记录 run ID、层、路径、行数、范围、摘要及状态到该次运行的物化信息与 staging 的检查点。检查点写不完整时，用正式文件读回、摘要和 Dagster 检查交叉确认完成位置。正式路径分别为 `raw/tushare/trade_calendar/full/part-000.parquet` 和 `silver/calendar/trade_calendar/full/part-000.parquet`，根目录为 `/Volumes/datasource/data_lake`。
 - Raw 未发布就按源错误处理，已经发布的正式文件保留。Raw 已更新且通过检查、Silver 未完成时，以该 Raw 为输入，在现有 Job 的失败重执行路径补齐 Silver 及其检查。重执行前复核 Raw 未被改写，读回摘要与记录一致。若失败发生在文件替换后、记录完成前，先对照候选、正式文件及检查结果再决定重做的步骤。两层检查和读回复核全部通过才允许本地日历切换。
 - 验收留存实际文件构成和两层起止日期、行数、重复键数、缺日期数、差异数、开休市与上一交易日样本、Job run ID 和三个 check 结果。覆盖至少达到 2027-12-31，该日期只用于本次切换下限。下游日期范围照原产品条件查询。
@@ -79,6 +93,15 @@ def verify_calendar_coverage(
 | 读写量 | 当前已知正式 Silver 为 89,590 字节、13,162 行。一次正常 Job 生成一个 Raw 候选、一个 Silver 候选，最多各提升一次。按来源页、候选、检查及最后读回分别记录文件字节、投影行数、SQL 次数；检查用聚合与小样本，禁止逐日打开文件或逐日请求 |
 | 中断恢复 | 源尚未完成的失败重执行最多重做当前一次完整 Raw 取数及后续步骤。Raw 已核实的 Silver 恢复不发 Tushare 请求，只增加一次 Raw 读取、Silver 生成与两层对账。实测记录正常和断点恢复的请求数、DuckDB 用时、staging 峰值、检查和读回用时 |
 | 正式运行停止条件 | 页长、覆盖、预计页数、文件空间与耗时先用有界探测和隔离验证确定。正式开始前以实测补齐预算记录，当前文档不把估算作为运行耗时承诺。发现未解释的截断、缺口、正式目标冲突或空间/耗时超出核准预算时停止发布 |
+
+### 2.4 阶段 1 验证记录
+
+- **隔离回归。** 交易日历、相邻基础信息合同和 ETF 基础资产共 36 项测试、40 项子测试通过。用 13,527 条模拟数据执行现有 Job，确认请求偏移为 0、6,000、12,000，两个文件的日期覆盖为 1990-12-19 至 2027-12-31，三项检查通过。两次完整样本的 Raw 耗时 1,555–1,636 毫秒、Silver 耗时 23–24 毫秒，文件分别为 96,334 和 108,961 字节。耗时取自两个资产日志，包含本地文件处理，源请求使用替身。用 6 条样本在持久化的隔离 Dagster 实例验证两次失败重执行，Raw 替换后记录写入失败和 Silver 校验失败均可恢复，无额外源请求。当正式 Raw 的文件摘要不匹配时，隔离重执行拒绝覆盖 Silver。
+- **独立复核与静态检查。** 复核确认最低覆盖校验仅作用于发布、开市标记先校验再转型、上一交易日逐日核对，两种重执行路径都有隔离证据。文档完整性检查和本阶段代码语法检查通过。共用取数文件仍有两个已有 Ruff 问题，扩大运行的两组资产治理测试仍有七个失败，均在 `995fa46c8` 上复现。
+- **正式执行。** 2026-11-19 按批准窗口重新加载 `orchestrator`，核对新版 Job 定义后仅提交一次 `calendar_update_job`。Run ID 为 [`a818321d-5d93-481d-97fc-695a43964246`](http://127.0.0.1:3000/runs/a818321d-5d93-481d-97fc-695a43964246)，运行于当日 21:40:42–21:40:53（上海时间），状态 `SUCCESS`，耗时约 11.54 秒。Raw 请求参数仅含交易所 SSE 和共用分页参数，物化记录为每页上限 6,000 条、共 3 页、13,527 条。最低验收日期为 `2027-12-31`。Raw 和 Silver 资产日志耗时分别为 1,583 和 31 毫秒，包含各自的取数或生成、校验和发布。
+- **正式检查与读回。** Raw 合同、Silver 唯一键、Silver 必填列三项检查全部通过。Raw 为 88,084 字节，Silver 为 92,061 字节。两层各 13,527 条，覆盖 **1990-12-19 至 2027-12-31**。原有 13,162 个自然日全部保留，新增 2027 年 365 个自然日。运行记录显示已发布历史的开休市和上一交易日均无变化。对两个正式 Parquet 独立读回，重复日期、缺失日期、非法记录、上一交易日错误均为 0，标准化后双向逐行比对差异为 0，两层文件摘要均与发布记录和物化记录吻合。样本中 2027-01-01 休市、2027-01-04 开市，上一交易日均为 2026-12-31。两层读回共约 251 毫秒。
+
+阶段 1 正式验收通过。阶段 2 按 §3、§4 推进本地后端读取迁移。
 
 ## 3. 本地证券和日历的读取合同
 
@@ -297,12 +320,12 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 | 阶段 | 代码落点及测试 | 完成凭据 |
 | --- | --- | --- |
-| 1. 日历取数与 Job | §2 的文件及资产。加一个专用隔离回归，例如 `lake_console/orchestrator/tests/test_trade_calendar_update.py`。固定不同年份，断言请求仅有 SSE、字段和分页参数；有效短尾页、整页续请求、重复页、漏日、无效类型、历史缩水、源修订、Raw 已完成后恢复 Silver 均需覆盖。用现有 Job 执行两层及校验，不用仅 materialize 资产代替 | 通过独立项目现有环境的目标 pytest、Ruff，按 §2.3 核对页数、时间、空间和恢复预算。正式一次执行后给出 run ID，两文件对账和三项 check。正式运行需按单独已批准窗口执行 |
+| 1. 日历取数与 Job | §2 的文件及资产。专用 [隔离回归](../../../../lake_console/orchestrator/tests/test_trade_calendar_update.py) 验证请求只有 SSE、字段和分页参数。覆盖整页续取、短尾页、重复日期、漏日、无效类型、历史或最新覆盖不足、源修订、Raw 已完成后的恢复。用现有 Job 执行两层及检查 | 运行独立项目现有环境的目标 pytest、Ruff，按 §2.3 核对页数、时间、空间和恢复预算。正式一次执行后给出 run ID、两文件对账和三项 check。正式运行需按单独已批准窗口执行 |
 | 2. 本地后端读取迁移 | §3、§4 的文件。读层用临时 Parquet，以真实 Raw/Silver 字段构造夹具。覆盖前导零、退市、缺代码、缺列、非法日期、主键重复、开休市和日期范围。用 [`test_wealth_market_page_context_query.py`](../../../../tests/test_wealth_market_page_context_query.py) 扩充 PG/DG 日期对照，固定时钟和 DB 路径对照。每个联表用 PG 只读 SELECT 验证空关系、原 left/inner join、排序、游标和聚合，再用本地真实入口旧表拒绝测试证明没有隐式回读 | 提交一份守卫覆盖清单。按 §4 核对所有读取点，指定 Prod 连接与 PG 写入业务继续通过原回归。DG 证券计数差异、异常记录及有效窗口现场证据可复查 |
 | 3. 首屏接口和前端 | §5 的 DTO、组装、App 路由、页面和 hooks。扩充 [股票 HTTP 测试](../../../../tests/web/test_wealth_stock_detail_api.py)、[日 K 集成](../../../../tests/app/technical_indicators/test_stock_daily_integration.py)、[首屏页面测试](../../../src/pages/stock-detail/StockDetailPage.test.tsx)、[新闻面板测试](../../../src/features/stock-detail/news/StockDetailNewsPanel.test.tsx) 和 [ViewModel 测试](../../../src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts)。断言本地初始化和完整首屏都禁止旧因子表，K 线只算一次，延迟、错误、休市、无目标和翻页各有样本。比较末根日 K 与盘口的每个字段，包括 null 与非空单位 | 本地与 Prod 的真实路由合同、OpenAPI、认证和错误包络均通过。Wealth typecheck、定向 Vitest、build 通过，浏览器网络核对无锚点时无日期请求、各请求同一 D、不同锚点下旧响应无法回写 |
 | 4. 联调、验收与本地切换 | 真实 DG 有界窗口选在市 `600519.SH`、退市 `600005.SH`、不存在代码、开市和休市，以及 2027 边界。以同一锚点检查日线及辅助字段实际来源，核对分钟/九转和指数原有行为。测量相同请求重复、断开后恢复、两个同到请求，检查名额、连接、事务清理。只读对照 Prod 的已知样本，保持输入和回包的原合同 | 本地两来源替换与首屏同时通过，按阶段记录实际文件、请求参数、计数、耗时和未覆盖场景。有任一依赖差异尚未解释，暂停对应切换 |
 
-阶段 1 的源分页已实测，正式运行窗口和发布验收仍按 §2.3 执行。阶段 2 的证券差异已有核验结论，完整读路径按 §4 验收。首屏 UI 的实现可用隔离数据和明确合同开发。真实整体验收依赖阶段 1、2 的来源就绪。
+阶段 1 的源分页和隔离测试见 §2.2、§2.4，正式运行和发布验收按 §2.3 执行。阶段 2 的证券差异已有核验结论，完整读路径按 §4 验收。首屏 UI 可用隔离数据开发。真实整体验收依赖阶段 1、2 的来源就绪。
 
 首屏日 K 预算沿用现有部署设置。默认产品上限 500 根，内核配置可设更低；并行 2、等待 2、排队上限 2 秒、请求总目标 8 秒含 2 秒清理预留，数值见 [Settings](../../../../src/foundation/config/settings.py#L72)。此前一次 DG 两条并发实测为 5.64/5.74 秒，距离 6 秒工作窗口较近。改造后抓取单次、双并发和断开重试的实际响应，分别记录 page-init、日 K、DG 文件读取次数、一次计算、会话清理及重试后的资源归零。先用单代码和限量窗口做验证；失败时定位哪个步骤超预算，保留既有产品和内核阈值。 [历史验收样本](../../../../docs/architecture/technical-indicator-operator-library-implementation-lld-v1.md#L318)
 

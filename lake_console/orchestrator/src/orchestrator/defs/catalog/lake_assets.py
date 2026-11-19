@@ -1997,6 +1997,8 @@ LAKE_ASSET_CATALOG = (
         source_doc="docs/sources/tushare/股票数据/基础数据/0026_交易日历.md",
         blocking_check_names=RAW_TRADE_CALENDAR_CHECKS,
         batch_grain="single_file",
+        source_request_policy="SSE; no date filters; 6000 rows/page; stop on short page",
+        performance_notes="每次写一个 staging 候选。校验实际日期范围后原子发布，并记录发布摘要。",
     ),
     _derived_entry(
         asset_key="silver_trade_calendar",
@@ -2013,6 +2015,7 @@ LAKE_ASSET_CATALOG = (
         blocking_check_names=SILVER_TRADE_CALENDAR_CHECKS,
         batch_grain="single_file",
         write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+        notes="读取已校验 Raw，按日期对账后原子发布单文件，失败可从 Silver 续跑。",
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_stock_basic",

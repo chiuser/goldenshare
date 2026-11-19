@@ -1,7 +1,8 @@
 import os
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
@@ -15,7 +16,6 @@ from orchestrator.defs.run_contracts.configs import (
     MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT,
 )
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
-
 
 TUSHARE_API_SOURCE_METHOD = "tushare_api"
 TUSHARE_API_PAGE_LIMIT = 6000
@@ -203,6 +203,7 @@ def fetch_tushare_full_file_to_raw(
     target_path: Path,
     allow_empty: bool,
     limit: int = TUSHARE_API_PAGE_LIMIT,
+    validate_source_rows: Callable[[Sequence[Mapping[str, Any]]], None] | None = None,
 ) -> dict[str, Any]:
     field_names = tuple(fields)
     _validate_contract(field_names, column_types)
@@ -220,6 +221,9 @@ def fetch_tushare_full_file_to_raw(
             f"Tushare {api_name} returned 0 rows; raw source mirror will not write "
             "an empty full-file asset."
         )
+
+    if validate_source_rows is not None:
+        validate_source_rows(rows)
 
     _write_rows_to_parquet(
         duckdb=duckdb,
