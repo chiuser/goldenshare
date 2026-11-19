@@ -8,8 +8,8 @@
 | --- | --- | --- |
 | DG 交易日历 | 上交所 `SSE` 取消本地起止日期限制。复用现有 Job 手动更新一次 Raw、Silver | 两层覆盖至少到 2027-12-31，并保留原有历史。之后源继续提供更远日期则照常收入 |
 | 本地证券和日历 | 阶段 2 覆盖本地 Web 请求实际读取的两类业务事实，包含业务与运维 API。有效文件里查不到记录时沿用各入口原来的缺失处理 | §4 中由本地 Web 请求实际执行的读取换源。读 PostgreSQL 的两张旧表会报错的测试环境下，本地调用仍可走通 |
-| 股票详情 | `/page-init` 的 `pageContext.tradeDate` 是整页最新日期。日 K 和指标只算一次，首屏盘口复用同一次的末根日 K | 每条后续日期请求都使用该日期，实际行情滞后和历史翻页不改变页面日期或盘口 |
-| Prod 与后续期 | Prod 继续使用现行 PostgreSQL、原响应模型和原参数行为。股票、指数分钟线的行情来源与指标升级放到下一期 | 共用前端分别验证两种首屏回包。原 Prod 响应 JSON 字段集合、值与 OpenAPI 模型通过回归 |
+| 股票详情 | `/page-init` 的 `pageContext.tradeDate` 是整页最新日期。本地首屏用现有 `tradeDate` 和 `endDate` 传同一日期，只算一次日 K 和指标，盘口复用末根日 K | 每条后续日期请求都使用该日期。即使实际行情滞后，页面日期仍取初始化结果 |
+| Prod 与后续事项 | Prod 继续使用现行 PostgreSQL、原响应模型和原参数行为。股票、指数分钟线的行情来源与指标升级放到下一期。股票日 K 向前翻页在本期完成后单独开发，见 §5.4 | 共用前端分别验证两种首屏回包。原 Prod 响应 JSON 字段集合、值与 OpenAPI 模型通过回归 |
 
 下列核验记录交易日历接口的实际行为和证券来源切换口径。
 
@@ -258,7 +258,7 @@ def build_reference_data(settings: Settings) -> ReferenceData | None: ...
 
 ### 5.1 现有 URL 和回包结构
 
-保留两条 GET。App 在 [`src/app/api/v1/router.py`](../../../../src/app/api/v1/router.py#L107) 装配对应环境的 [股票详情路由](../../../../src/biz/api/wealth/market/stock_detail.py)。参照同文件的指数路由，由股票详情提供 `build_router(..., local: bool)` 注册两条路径及对应 `response_model`。选用与 §3 相同的部署模式。环境在组合根确定，仅注册一组路由，Prod 的 OpenAPI 与现有两个响应模型保持一致。本地 `/kline` 的 OpenAPI 使用 `LocalStockDetailFirstKlineResponseDto | StockDetailKlineResponseDto`。现有 ASGI 响应由后端选择具体 DTO 后序列化，首屏 `quote:null` 必须保留，普通页不输出该键。认证依赖及参数校验沿用。
+保留两条 GET 及现有请求参数。App 在 [`src/app/api/v1/router.py`](../../../../src/app/api/v1/router.py#L107) 装配对应环境的 [股票详情路由](../../../../src/biz/api/wealth/market/stock_detail.py)。参照指数路由，由股票详情提供 `build_router(..., local: bool)` 注册两条路径及对应 `response_model`。选用与 §3 相同的部署模式。环境在组合根确定，仅注册一组路由，Prod 的 OpenAPI 与现有两个响应模型保持一致。本地 `/kline` 的 OpenAPI 使用 `LocalStockDetailFirstKlineResponseDto | StockDetailKlineResponseDto`。现有 ASGI 响应由后端选择具体 DTO 后序列化，首屏空结果保留 `quote: null`，普通请求的回包省略该字段。认证依赖及参数校验沿用。
 
 ```python
 class LocalStockDetailPageInitResponseDto(BaseModel):
@@ -275,7 +275,7 @@ class LocalStockDetailFirstKlineResponseDto(StockDetailKlineResponseDto):
     quote: StockQuoteSnapshotDto | None
 
 def is_stock_detail_first_page(request: StockDailyKlineRequest) -> bool:
-    # 沿用现有 tradeDate 与 endDate 参数，用两个相等的值表达首屏。
+    # 只在本地调用。页面日期与日 K 截止日相同，且未指定区间起点。
     return (
         request.trade_date is not None
         and request.end_date == request.trade_date
@@ -287,9 +287,11 @@ def is_stock_detail_first_page(request: StockDailyKlineRequest) -> bool:
 | --- | --- | --- |
 | `/page-init?tsCode=…&tradeDate=…` | `LocalStockDetailPageInitResponseDto`。省略可选请求日期沿用 §5.2。不返回 `quote`、`dataStatus` | `StockDetailPageInitResponseDto`，继续提供 `quote` 和 `dataStatus` |
 | `/kline?tsCode=…&tradeDate=D&endDate=D&period=day&adjustment=forward&limit=500` | 识别为首屏。回 `LocalStockDetailFirstKlineResponseDto` | 原 `StockDetailKlineResponseDto`，按现有 `endDate` 优先语义读取 |
-| 历史 `/kline` 或普通区间 `/kline` | 继续提供原 K 线响应和区间状态。若页面随请求带 `tradeDate=D`，实际续页仍用早于 D 的 `endDate`。没有显式首屏合同的调用维持原回包 | 原 `StockDetailKlineResponseDto` |
+| 其他 `/kline` 请求，包括仅传 `endDate`、两日期不同或显式指定 `startDate` | 原 `StockDetailKlineResponseDto`，沿用现有查询区间和状态，回包省略 `quote` | 原 `StockDetailKlineResponseDto` |
 
-第一个请求的输入仍由 URL 决定，两个日期相等的约定只用于辨认本地首屏，旧的请求字段和窗口优先级保持。共用前端在两种回包下都使用页面日期锚定后续日期窗口，Prod 单独调用各接口时的默认行为保持。共用前端只给新本地合同发送首屏日期组合，Prod 仍使用原请求参数。已有股票页面当前只有首屏请求，若已有客户端按区间读取历史，继续沿用其原合同，本期不增加股票图表分页功能。Prod 的首屏 `quote: null` 仍是现有字段存在的结果，前端通过字段是否存在区别两种合同。
+**2026-11-20 确认。** 前端先请求 `/page-init`，可从页面 URL 向它传可选的 `tradeDate`。后端确定页面日期后，在 `pageContext.tradeDate` 返回 D。前端请求本地首屏 `/kline` 时，从这个回包取 D 同时填写现有的两个参数，`tradeDate` 表示整页的日期，`endDate` 表示这批日 K 的截止日，包含当天。两日期相等且省略 `startDate` 时，本地返回首屏结构。手动打开历史日期同样以当次 `/page-init` 返回的 D 判定。有效截止日仍以 `endDate` 优先。
+
+共用前端通过 `/page-init` 回包是否有 `quote` 键来区分本地新合同和 Prod 合同。Prod 即使回 `quote: null`，也有该键，前端继续只传原有日 K 日期参数。两种环境的后续日期请求都以各自 `/page-init` 返回的 D 为准。本期股票页面每次打开只请求一批日 K。股票日 K 的交互翻页留到 §5.4。
 
 ### 5.2 日期解析与后端接线
 
@@ -322,13 +324,28 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 | 位置 | 具体改法 |
 | --- | --- |
 | [`WealthRouter.tsx`](../../../src/app/routes/WealthRouter.tsx#L56) | 将 `location.search` 内的显式交易日和 debug 传入 `StockDetailPage`，作为页面加载的依赖。股票代码或显式日期改变，以及用户刷新页面时开始新的加载轮次。保留现有路由和 URL 参数 |
-| [`StockDetailPage.tsx`](../../../src/pages/stock-detail/StockDetailPage.tsx#L60) | 使用当前证券与 URL 日期初始化一次请求。先发 page-init，成功即存 `pageInit` 和 `pageContext.tradeDate`，再发日 K。新轮次清除旧锚点、盘口、图层和挂起请求。渲染时只使用本次证券与显式日期的结果，响应落状态前同时核对当前轮次和 AbortSignal，避免相同证券不同日期的上一轮结果短暂显示或回写 |
+| [`StockDetailPage.tsx`](../../../src/pages/stock-detail/StockDetailPage.tsx#L60) | 用当前证券与 URL 日期请求 `/page-init`，成功即存 `pageInit` 和页面日期 D，再发日 K。本地发送 `tradeDate=D&endDate=D`，Prod 沿用仅传日期参数 `endDate=D` 的方式。新轮次清除旧锚点、盘口、图层和挂起请求。渲染只使用本次证券和显式日期的结果，响应落状态前同时核对当前轮次和 AbortSignal，避免同一证券的上一日期结果短暂显示或回写 |
 | [API 类型](../../../src/features/stock-detail/api/stockDetailApiTypes.ts) 与 [`buildStockDetailViewModel`](../../../src/features/stock-detail/api/stockDetailViewModelAdapter.ts#L62) | `pageInit` 类型区分 Prod 有 `quote/dataStatus` 键与本地无这两个键的合同。`kline` 支持首屏可出现的 `quote`。用键存在检查选择来源，本地只使用首屏 K 线回包中的盘口和状态，Prod 继续使用旧初始化盘口。K 线空数组用当前空态。非空本地首屏缺少盘口属于接口结果不匹配，交给现有页面加载失败状态 |
 | [`useMajorIndexTickers`](../../../src/features/major-indices/model/useMajorIndexTickers.ts) | 为 hook 增加调用级的 `enabled` 参数，既有调用默认启用，只有股票详情在拿到有效 `pageInit` 之前传 false。启动后向现有指数接口显式传 `tradeDate=D`，锚点切换时取消旧请求，其他页面的默认加载时机照旧 |
 | [`StockInfoRail.tsx`](../../../src/features/stock-detail/sidebar/StockInfoRail.tsx)、[`StockDetailNewsPanel.tsx`](../../../src/features/stock-detail/news/StockDetailNewsPanel.tsx) | 由页面直接沿 props 传 `D`。新闻面板以 `tsCode+D` 为缓存和请求标识，激活时使用 `endAt=上海 D 次日 00:00:00+08:00`，含下界、排除该上界。换日期时取消旧请求并清缓存。客户端以日期加一天计算日历边界，结果不受浏览器所在时区影响；如 D=2026-11-15，传 `2026-11-16T00:00:00+08:00`。原详情新闻的默认回看、去重和 50 条面板上限维持 |
 | 分钟 K 线和指标、九转、趋势通道 | 继续使用同一个 `D`。分钟缓存以证券、D、频率随加载轮次隔离，九转和趋势通道的 `endDate` 只从有效页上下文取。历史窗口或换周期不能改变首屏盘口。自选组和交易助手表单的非日期参数保持现行合同 |
 
-具体日期和状态断言如下。若显式选休市日 2026-11-15，后续日 K、顶部指数、新闻窗口和图层都以 11-15 为边界。若首屏在 DG 查到的最新目标日 K 是 11-13，则 `quote.tradeDate=2026-11-13`，`dataStatus.expectedTradeDate=2026-11-15`、`observedTradeDate=2026-11-13`、`status=DELAYED`。通过既有交互重试日 K 或单个图层时使用相同的 D。若用户主动刷新整个页面，才允许重新发 page-init 并取新的默认日期。
+具体日期和状态断言如下。若显式选休市日 2026-11-15，本地首屏日 K 的 `tradeDate` 和 `endDate` 都是 11-15，顶部指数、新闻窗口和图层也以 11-15 为边界。若首屏在 DG 查到的最新目标日 K 是 11-13，则 `quote.tradeDate=2026-11-13`，`dataStatus.expectedTradeDate=2026-11-15`、`observedTradeDate=2026-11-13`、`status=DELAYED`。同一轮重新请求日 K 或重试图层时沿用 D。用户主动刷新整个页面时，可以重新发 `/page-init` 并取新的默认日期。
+
+### 5.4 后续事项：股票日 K 向前翻页
+
+本期完成后单独开发。当前个股图只拖动已经加载的日 K。本期的本地首屏请求仍按 §5.1，`/kline` 的 `meta` 沿用现有字段。
+
+后续沿用上证综指 [用 `nextEndDate` 请求下一批](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L161) 的方式。后端在每批日 K 的 `meta.nextEndDate` 中返回下一批可用的截止日，必须早于本批最早一根日 K。没有更早可读的数据时返回 `null`，前端停止翻页。翻页请求使用同一个 `/kline`，`tradeDate` 始终等于最初的页面日期，`endDate` 取上一批返回的 `nextEndDate`。
+
+例如，页面日期是 2026-11-18，首批最早日期是 2024-10-28，后端给出 `nextEndDate=2024-10-25`。前端按下表传参。
+
+| 请求 | `tradeDate` | `endDate` | 回包中的盘口 |
+| --- | --- | --- | --- |
+| 首屏 | 2026-11-18 | 2026-11-18 | 有 `quote`，无目标日 K 时值为 `null` |
+| 向前翻页 | 2026-11-18 | 2024-10-25 | 使用普通日 K 回包，省略 `quote` |
+
+前端把续页的日 K 和指标接到图表左侧。页面日期和右侧盘口仍用首屏结果。后续开发时验收固定页面日期、每次取数截止日正确、相邻批次日期无重叠、续页回包省略 `quote`、右侧盘口稳定以及 `nextEndDate=null` 后停止请求。
 
 ## 6. 开发顺序和验收清单
 
@@ -336,7 +353,7 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 | --- | --- | --- |
 | 1. 日历取数与 Job | §2 的文件及资产。专用 [隔离回归](../../../../lake_console/orchestrator/tests/test_trade_calendar_update.py) 验证请求只有 SSE、字段和分页参数。覆盖整页续取、短尾页、重复日期、漏日、无效类型、历史或最新覆盖不足、源修订、Raw 已完成后的恢复。用现有 Job 执行两层及检查 | 运行独立项目现有环境的目标 pytest、Ruff，按 §2.3 核对页数、时间、空间和恢复预算。正式一次执行后给出 run ID、两文件对账和三项 check。正式运行需按单独已批准窗口执行 |
 | 2. 本地后端读取迁移 | §3、§4 的文件。读层用临时 Parquet，以真实 Raw/Silver 字段构造夹具。覆盖前导零、退市、缺代码、缺列、非法日期、主键重复、开休市和日期范围。用 [`test_wealth_market_page_context_query.py`](../../../../tests/test_wealth_market_page_context_query.py) 扩充 PG/DG 日期对照，固定时钟和 DB 路径对照。每个联表用 PG 只读 SELECT 验证空关系、原 left/inner join、排序、游标和聚合，再用本地真实入口旧表拒绝测试证明没有隐式回读 | 提交一份守卫覆盖清单。按 §4 核对所有读取点，指定 Prod 连接与 PG 写入业务继续通过原回归。DG 证券计数差异、异常记录及有效窗口现场证据可复查 |
-| 3. 首屏接口和前端 | §5 的 DTO、组装、App 路由、页面和 hooks。扩充 [股票 HTTP 测试](../../../../tests/web/test_wealth_stock_detail_api.py)、[日 K 集成](../../../../tests/app/technical_indicators/test_stock_daily_integration.py)、[首屏页面测试](../../../src/pages/stock-detail/StockDetailPage.test.tsx)、[新闻面板测试](../../../src/features/stock-detail/news/StockDetailNewsPanel.test.tsx) 和 [ViewModel 测试](../../../src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts)。断言本地初始化和完整首屏都禁止旧因子表，K 线只算一次，延迟、错误、休市、无目标和翻页各有样本。比较末根日 K 与盘口的每个字段，包括 null 与非空单位 | 本地与 Prod 的真实路由合同、OpenAPI、认证和错误包络均通过。Wealth typecheck、定向 Vitest、build 通过，浏览器网络核对无锚点时无日期请求、各请求同一 D、不同锚点下旧响应无法回写 |
+| 3. 首屏接口和前端 | §5.1–5.3 的 DTO、组装、App 路由、页面和 hooks。扩充 [股票 HTTP 测试](../../../../tests/web/test_wealth_stock_detail_api.py)、[日 K 集成](../../../../tests/app/technical_indicators/test_stock_daily_integration.py)、[首屏页面测试](../../../src/pages/stock-detail/StockDetailPage.test.tsx)、[新闻面板测试](../../../src/features/stock-detail/news/StockDetailNewsPanel.test.tsx) 和 [ViewModel 测试](../../../src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts)。断言本地初始化和完整首屏都不读取旧股票日线技术因子表，有目标日 K 时只算一次，覆盖延迟、错误、休市、无目标和普通区间请求。比较末根日 K 与盘口的每个字段，包括 null 与非空单位 | 本地与 Prod 的真实路由合同、OpenAPI、认证和错误包络均通过。Wealth typecheck、定向 Vitest、build 通过。浏览器核对无锚点时无日期请求、本地首屏两个日期均为 D、其他日期请求沿用 D，以及上一日期的响应无法回写 |
 | 4. 联调、验收与本地切换 | 真实 DG 有界窗口选在市 `600519.SH`、退市 `600005.SH`、不存在代码、开市和休市，以及 2027 边界。以同一锚点检查日线及辅助字段实际来源，核对分钟/九转和指数原有行为。测量相同请求重复、断开后恢复、两个同到请求，检查名额、连接、事务清理。只读对照 Prod 的已知样本，保持输入和回包的原合同 | 本地两来源替换与首屏同时通过，按阶段记录实际文件、请求参数、计数、耗时和未覆盖场景。有任一依赖差异尚未解释，暂停对应切换 |
 
 阶段 1 的源分页和隔离测试见 §2.2、§2.4，正式运行和发布验收按 §2.3 执行。阶段 2 的证券差异已有核验结论，完整读路径按 §4 验收。首屏 UI 可用隔离数据开发。真实整体验收依赖阶段 1、2 的来源就绪。
@@ -372,5 +389,5 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 ### 核心测试和通过标准
 
-- **后端真实路由。** 使用现有 Web 测试环境，运行 `python -B -m pytest -q -p no:cacheprovider tests/test_wealth_market_page_context_query.py tests/web/test_wealth_stock_detail_api.py tests/app/technical_indicators/test_stock_daily_integration.py`，测试临时产物按仓库规则放到 `/private/tmp`。在既有 DG、Prod 只读合同样本上分别请求相同日期。本地 init 检查 `pageContext.tradeDate`、证券身份、图表默认项和能力开关，确认省略 `quote/dataStatus`。本地首屏检查 `quote` 的日期和全部价格、量额、方向和股票每日指标，与末根 K 线逐项匹配。检查 `dataStatus` 的预期和实际日期，以及图表消费的 MA、BOLL、MACD、KDJ。旧代码样本在本地返回 `404001`，Prod 保留现行响应。历史页保留区间、排序、状态和根数，且不返回盘口。验证源错误用既有包络，取消、超时和重试后连接及计算名额正常归还。
+- **后端真实路由。** 使用现有 Web 测试环境，运行 `python -B -m pytest -q -p no:cacheprovider tests/test_wealth_market_page_context_query.py tests/web/test_wealth_stock_detail_api.py tests/app/technical_indicators/test_stock_daily_integration.py`，测试临时产物按仓库规则放到 `/private/tmp`。在既有 DG、Prod 只读合同样本上分别请求相同日期。本地 init 检查 `pageContext.tradeDate`、证券身份、图表默认项和能力开关，确认省略 `quote/dataStatus`。本地首屏用 `tradeDate=D&endDate=D` 请求，核对 `quote` 的日期、价格、量额及股票每日指标与末根 K 线一致，方向按末根 K 线的涨跌幅校验，空态显式返回 `quote: null`。普通请求分别覆盖仅传 `endDate`、两日期不同、两日期相同但指定 `startDate`，确认原区间、排序、根数与状态沿用，回包省略 `quote`。检查 `dataStatus` 的预期和实际日期，以及图表消费的 MA、BOLL、MACD、KDJ。旧代码样本在本地返回 `404001`，Prod 保留现行响应。验证源错误用既有包络，取消、超时和重试后连接及计算名额正常归还。
 - **前端页面。** 运行 `npm --prefix wealth run typecheck`、`npm --prefix wealth run test -- src/pages/stock-detail/StockDetailPage.test.tsx src/features/stock-detail/news/StockDetailNewsPanel.test.tsx src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts` 和 `npm --prefix wealth run build`。浏览器连接真实本地接口，确认先有 page-init 回包再有日期请求。按 §5.3 对照网络参数、页面状态和末根日 K 的实际盘口，覆盖退市、空态、旧响应取消和新闻时间边界。Prod 回包夹具用于类型和消费回归，另在 Prod 合同的真实路由上做只读对照。
