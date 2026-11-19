@@ -2,7 +2,7 @@
 
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
-> 接手当前项目请从 [r4 当前交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff) 开始。以下日期及开发停点仅描述旧研究阶段。
+> 接手当前项目请从[当前交接](xxm-research-and-implementation-v0.6.md#xxm-current-handoff)开始。以下日期及开发停点仅描述旧研究阶段。
 
 > 2026-10-28最新产品方向见[顶底识别产品文档](wealth-top-bottom-recognition-product-v1.md)及[技术方案](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)：唯一正式r4，独立日线/峰谷核验基建保留并仅debug按需加载；依赖r2的两位及旧算法执行代码在迁移验收后清退，历史设计/开发文档保留。本文旧“代码封存保留”不再约束该次清退；当前代码尚未删除。
 

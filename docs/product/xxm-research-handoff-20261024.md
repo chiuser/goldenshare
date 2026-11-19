@@ -2,7 +2,7 @@
 
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
-> 接手当前项目请从 [r4 当前交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff) 开始，查看已验收成果、现行代码和待研究问题。以下保留冻结时点及之后的历史记录。
+> 接手当前项目请从[当前交接](xxm-research-and-implementation-v0.6.md#xxm-current-handoff)开始，查看已验收成果、现行代码和待研究问题。以下保留冻结时点及之后的历史记录。
 
 冻结时点：首批第1、2、9项开发之前。本文件保存这一时点的研究进度，不代替之后修订的实施方案，也不表示首批已经开发或验收。
 

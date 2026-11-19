@@ -1,6 +1,20 @@
 # 徐小明研究、算法与实施文档 v0.6
 
-2026-11-08，r4.1 已通过本地验收。当前版本的规则、案例和验收入口见[定量结构方法研究](quantitative-structure-method-research.md)。本文先记录截至 2026-11-05 的 r4 基线状态、验收依据和待研究问题。[分类导航](#分类导航)以下保留研究演进和原始记录，里面的“当前”“下一步”“通过”均指对应历史时点。日期沿用原节或正文明确记录的研究日期，原节号和已清退文件的路径仅用于追溯。
+接手项目先看[当前交接](#xxm-current-handoff)。随后是截至 2026-11-05 的 [r4 基线交接](#r4-current-handoff)和[分类导航](#分类导航)。历史记录中的“当前”“下一步”“通过”均指对应时点，原节号和已清退文件的路径用于追溯。
+
+<a id="xxm-current-handoff"></a>
+
+## r4.1 当前交接（2026-11-08）
+
+**本地验收通过，已收尾。** 当前识别版本为 `xxm-direction-v0.5-r4.1`，预判版本为 `xxm-key-point-forecast-v0.7-r4.1`。实现提交为 `f9f0cc2e4`，验收文档提交为 `372325a8a`。适用范围沿用本机九指数详情页，覆盖日线及 30、60、90、120 分钟。生产仍按原门禁。 [产品方案 §12](wealth-top-bottom-recognition-product-v1.md#r41-product) · [LLD 验收收尾](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-acceptance-closeout)
+
+| 环节 | r4.1 的处理 | 查阅入口 |
+|---|---|---|
+| 识别 | 考核中的结构以近参照 B 形成，当前 K 线仍在同一逻辑色段且 DIF 严格击穿 B 时，当根先取消旧结构，再独立检查远参照 A。A 合格要求当根收盘严格越过 B 和 A 的价格门槛，当根 DIF 相对 A 仍背离，且本段从未严格击穿 A。有色柱根数和顶部 DIF 资格沿用 r4。A 合格时当根形成新钝化，状态为 `DULL/A`。A 缺失或不合格时只取消旧结构。 | [识别代码](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/calculator.py) · [LLD §23.1–23.2](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld) |
+| 历史查询和显示 | 若更早的独立跟踪结构也在当根因价格取消，事件顺序为「价格取消 → DIF 取消 → 新钝化」，两条取消各自关联原结构。历史窗口从事件根开始时仍返回完整事件。普通图表及悬停按后端标志显示，同方向且满足配对条件的取消可以隐藏，异方向价格取消仍可见。debug 可查全部事件。 | [显示投影](../../src/biz/services/wealth/market/index_detail_xxm/response_projection.py) |
+| 下一根预判 | 主参照仍是 B。只有「B 被击穿」与「仍在同一逻辑色段」存在可能交集，且存在未失效的 A，才检查 A。分别给出「直接取消」和「取消后按 A 新钝化」的互斥收盘区间，临界未决范围单列。独立跟踪结构的价格预判仍单列。 | [预判求解](../../src/biz/services/wealth/market/index_detail_xxm/forecast_next.py) · [技术方案 §25](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical) |
+
+上证 90 分钟案例中，11 月 3 日 15:00 按 B 形成旧结构。按 r4.1 规则，11 月 4 日 11:00 取消该结构并按 A 新钝化，14:00 翻红后按 A 形成一笔新结构。开发回归使用研究文档中的关键 K 线及人工补齐的历史前缀。管理员已确认本地整体验收通过，逐请求耗时、实际输入根数和截图明细未随确认提供。 [定量结构方法研究](quantitative-structure-method-research.md) · [开发回归及验收记录](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-development-handoff)
 
 2026-11-10，上证 90 分钟案例已核对并关闭。管理员确认 11 月 4 日 11:00 为「钝化」、14:00 为「结构形成」，与本机 r4.1 的可见结果一致。本案采用取消 B 的旧结构、同根按 A 新建钝化、首次翻红后形成新结构的解释。 [90 分钟核对及原图](quantitative-structure-method-research.md#xxm-m90-closeout-20261110)
 
