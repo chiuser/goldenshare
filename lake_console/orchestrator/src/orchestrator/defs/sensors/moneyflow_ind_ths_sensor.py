@@ -67,7 +67,7 @@ def cn_a_moneyflow_ind_ths_trade_day_sensor(
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="22:00后最近10日一次提交一日Raw，临时源错误有限重试，每日最多复核一次。",
+    description="22:00后优先补当日Raw，再补最近10日未完成日期；已就绪不重复下载，临时源错误有限重试。",
 )
 def raw_tushare_moneyflow_ind_ths_update_job_sensor(
     context: dg.SensorEvaluationContext,

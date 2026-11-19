@@ -648,3 +648,63 @@ def test_unknown_or_cross_dataset_automation_contract_fails_closed(change):
         require_moneyflow_automation_contract(foreign)
     with pytest.raises(MoneyflowContractError, match="automation_dataset"):
         _ = foreign.event_revision
+
+
+@pytest.mark.parametrize("future_day", [10, 12])
+@pytest.mark.parametrize("old_cursor", [False, True])
+def test_successful_raw_is_not_downloaded_again_after_date_changes(
+    env, future_day, old_cursor
+):
+    # The existing per-source native job/Parquet fixtures were published on Oct 9.
+    # Oct 10 is a weekend; Oct 12 is the next open day. Neither makes Oct 9 missing.
+    import json
+
+    ctx = context(env)
+    publish(env, silver=False)
+    initial = sensors.evaluate_concept_moneyflow_ths(ctx, NOW)
+    if old_cursor:
+        payload = load_sensor_cursor(initial.cursor)
+        payload["details"].setdefault("runtime_state", {})["dates"] = {
+            DAY: {"verified_on": "2026-10-09", "attempt": 1,
+                  "attempt_date": "2026-10-09"}
+        }
+        ctx.cursor = json.dumps(payload)
+    calls = list(env.source.calls)
+    result = sensors.evaluate_concept_moneyflow_ths(ctx, NOW.replace(day=future_day))
+    assert decision(result) == "all_ready"
+    assert not result.run_requests
+    assert env.source.calls == calls
+    ctx.cursor = None
+    replay = sensors.evaluate_concept_moneyflow_ths(ctx, NOW.replace(day=future_day))
+    assert decision(replay) == "all_ready" and not replay.run_requests
+    assert env.source.calls == calls
+
+
+def test_successful_raw_with_later_failed_recheck_still_skips(env):
+    ctx = context(env)
+    publish(env, silver=False)
+    failed = env.instance.create_run_for_job(
+        env.defs.resolve_job_def(sensors.RAW_JOB), tags={"dagster/partition": DAY}
+    )
+    env.instance.report_run_failed(failed)
+    calls = list(env.source.calls)
+    result = sensors.evaluate_concept_moneyflow_ths(ctx, NOW.replace(day=12))
+    assert decision(result) == "all_ready" and not result.run_requests
+    assert env.instance.get_run_by_id(failed.run_id).status == dg.DagsterRunStatus.FAILURE
+    assert env.source.calls == calls
+
+
+def test_missing_today_first_then_missing_older_day(env):
+    ctx = context(env, dates=("2026-10-08", DAY))
+    first = sensors.evaluate_concept_moneyflow_ths(ctx, NOW)
+    assert decision(first) == "request_run"
+    assert len(first.run_requests) == 1 and first.run_requests[0].partition_key == DAY
+    assert not env.source.calls
+    publish(env, silver=False)
+    calls = list(env.source.calls)
+    ctx.cursor = first.cursor
+    second = sensors.evaluate_concept_moneyflow_ths(ctx, NOW)
+    assert decision(second) == "request_run"
+    assert len(second.run_requests) == 1
+    assert second.run_requests[0].partition_key == "2026-10-08"
+    assert env.source.calls == calls
