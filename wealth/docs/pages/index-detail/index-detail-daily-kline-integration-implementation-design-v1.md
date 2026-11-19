@@ -1,6 +1,6 @@
 # 上证指数详情页日线接入方案 v1
 
-> 第4步已于 2026-11-08 收尾。管理员确认上证普通日线本地页面 5 项验收通过。Prod 接口首屏通过，续页和起点检查暂缓。
+> 第4步已于 2026-11-08 收尾。管理员确认上证普通日线本地页面 5 项验收通过。Prod 接口首屏通过，续页复验未通过，起点检查待执行。
 >
 > 范围：上证指数（`000001.SH`）普通日K、七条MA及BOLL、MACD、KDJ、同页九转和趋势通道，以及股票和指数普通日线图表请求量统一。
 >
@@ -12,11 +12,11 @@
 
 | 环节 | 已核实的当前实现 | 本方案的接入位置 |
 |---|---|---|
-| 普通日K首屏 | 先请求 `page-init`，取 `asOfTradeDate`，再请求 `kline`。股票页面传300，指数页面传1000。 | 普通页面显式请求500，沿用原路由和K线字段。上证新分支在 `meta` 补续页日期，边界见第8节。 |
+| 普通日K首屏 | 先请求 `page-init`，取 `asOfTradeDate`，再请求 `kline`。股票和指数普通日线页面均显式传500。 | 普通页面显式请求500，沿用原路由和K线字段。上证新分支在 `meta` 补续页日期，边界见第8节。 |
 | 日K数据和随附指标 | 上证日K新分支已实现。DG 和 Prod 均复用当页行情，只补读更早的预热数据，再用内核结果填回原指标字段。 | 前端沿用原行情和指标字段，并使用 `meta.nextEndDate` 续页。 |
 | 九转与趋势 | 九转已有起止日期参数。上证趋势通道接口已补可选起始日期。 | 首屏沿用原触发时机，只改请求量为500。上证历史日K成功后，用实际首末日期请求同页图层。 |
-| 图表 | 数据数组改变会重新创建日K、MACD、成交量和KDJ四张图。当前拖动到最早位置后，可见范围会被固定在边界。 | 历史左插在原图实例上更新，按交易日期保持可见范围。重试取自用户真实拖动，即使已经拖不动。 |
-| 计算内核 | 现有服务通过 `PriceSource` 接收输入，现有 Lake 读取实现没有指数日线。 | 增加上证指数日线输入，直接复用当页K线。需要预热时，内核只向本环境补读缺少的前置K线。 |
+| 图表 | 上证历史加载使用原图实例更新，按日期保持可见范围；未启用历史回调的股票图表仍走原生命周期。 | 历史左插在原图实例上更新，按交易日期保持可见范围。重试取自用户真实拖动，即使已经拖不动。 |
+| 计算内核 | 共享包服务通过 `PriceSource` 接收输入；上证已用 `IndexDailyPriceSource` 适配接口当页行情和同源预热回读函数。 | 已直接复用当页K线，需要预热时只向本环境补读当页首根之前的数据。 |
 
 代码依据见 [首屏控制器](../../../src/features/index-detail/controller/useIndexDetailController.ts#L63)、[指数日K路由](../../../../src/biz/api/wealth/market/index_detail.py#L132)、[日K两条读取分支](../../../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L86)、[图表更新](../../../src/shared/charts/detail-workspace/DetailChartWorkspace.tsx#L654)和[内核当前取数规则](../../../../src/foundation/clients/local_lake/technical_indicator_contracts.py#L51)。
 
@@ -97,7 +97,7 @@
 3. **回填后用本次数据检查并按原方式组包。** 先逐日核对内核结果和 `rows`，再把16个结果写回原行中对应的指标字段。MACD的 `hist` 写入 `macd_bfq`，KDJ的 `j` 写入 `kdj_bfq`。有效根数是实际交给内核的预热根数，加上当页从首根到当前这根的已校验根数。MA 和 BOLL 窗口尚未满时保留合法空值。上证新分支使用本次交易日核对结果确定数据状态，旧分支沿用原查询。价格、量额、涨跌等字段继续从原行组包。内核原有 `price` 输出能力保留，本次业务只使用四组指标结果。日期对不上、结果字段不齐或计算失败时，整页报错。
 4. **正常两页的指标数值验收采用新旧对照。** 每个环境各用本环境原路径的16个指标值和内核结果逐日、逐字段对照。非空原值的绝对差不超过 `0.0005`，即小数点后第三位的半个单位。日期、字段、根数及空值位置必须一致。该上限只用于验收，发现超限记录交易日、指标、原始新旧值和绝对差。各环境最早三根的短页另核指标初始化，见 §7.1。
 
-参考 [日K取数与缺项检查](../../../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L86)、[内核确定预热需求](../../../../src/foundation/technical_indicators/service.py#L135)、[数据交接接口](../../../../src/foundation/technical_indicators/sources/contracts.py#L138)和[日K字段映射](../../../../src/biz/services/wealth/market/index_detail/index_detail_field_mapper.py#L113)。
+参考 [日K取数与缺项检查](../../../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L86)、[内核确定预热需求](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L135)、[数据交接接口](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/contracts.py#L138)和[日K字段映射](../../../../src/biz/services/wealth/market/index_detail/index_detail_field_mapper.py#L113)。
 
 ## 6. Figma 需要补齐的内容
 
@@ -130,7 +130,7 @@
 
 ### 7.1 历史起点、固定样本与读取上限
 
-2026-11-05 只读核实。**DG 上证日K从 `2000-01-04` 开始，Prod 从 `2010-01-04` 开始。** DG 的正式因子目录最早分区就是 `2000-01-04`，读取最早三份文件均有上证行情。Prod 在 `core_serving.index_factor_pro` 按上证代码用索引取最早三行，首行为 `2010-01-04`。两边的上交所日历都确认了各自起点开市。实际读取位置、查询范围和抽样结果见[LLD §27.5.1](index-detail-low-level-design-v1.md#sse-daily-kline-acceptance-samples)。
+2026-11-05 只读核实。**DG 上证日K从 `2000-01-04` 开始，Prod 从 `2010-01-04` 开始。** DG 的正式指数日线技术因子目录最早分区就是 `2000-01-04`，读取最早三份文件均有上证行情。Prod 在 `core_serving.index_factor_pro` 按上证代码用索引取最早三行，首行为 `2010-01-04`。两边的上交所日历都确认了各自起点开市。实际读取位置、查询范围和抽样结果见[LLD §27.5.1](index-detail-low-level-design-v1.md#sse-daily-kline-acceptance-samples)。
 
 | 正常对照样本 | 请求 `endDate` | 应返回的交易日（含首末日） | 前置预热（含首末日） |
 |---|---|---|---|
@@ -151,9 +151,9 @@
 | 本地 DG 真实接口与数值对照 | 首屏、续页、起点短页和空页完成核对。全历史对照覆盖 6,503 个交易日、104,048 项指标值，管理员接受已记录的初始化差异与浮点尾差。 |
 | 前端开发检查 | 类型检查、187 个测试文件的 1,624 项测试和构建通过。受控浏览器另检查了历史页接入、左端加载提示和图层重试。收尾提交前，141 项定向测试、类型检查和构建再次通过。 |
 | 本地真实页面人工验收 | 管理员确认 5 项通过。MACD、KDJ 和基本历史拖动，MA、BOLL 切换和画面保持，续页日期与缓存，九转和趋势通道，历史起点短页、指标留空和到头停止。 |
-| Prod 只读接口对照 | 首屏 500 根的 8,000 项指标值均通过。续页补读预热行情时超时，续页复验和起点短页、空页检查暂缓。 |
+| Prod 只读接口对照 | 首屏 500 根的 8,000 项指标值均通过。原验收在续页预热查询时超时。2026-11-08 复验在续页当页查询时被取消，起点短页和空页待检查。 |
 
-后端与 Prod 样本见 [LLD §27.5.3](index-detail-low-level-design-v1.md#sse-daily-kline-step-2-result)。前端实现、相关测试与本次验收记录一并提交。发布准备阶段补做暂缓的 Prod 只读检查。上证日线徐小明识别由另一个线程处理和验收。本地人工验收和后续顺序见 [LLD §27.5.5](index-detail-low-level-design-v1.md#sse-daily-kline-step-4-result)。
+前端实现、相关测试与本次本地验收记录一并提交。发布准备先处理 Prod 续页查询失败，再补起点检查。上证普通结构识别已由后续独立专题接入Gold结果，2026-11-10本地验收通过，见[普通与核验请求拆分LLD](index-detail-debug-separation-low-level-design-v1.md)。后端样本、本地人工验收和 Prod 复验分别见 [LLD §27.5.3](index-detail-low-level-design-v1.md#sse-daily-kline-step-2-result)、[§27.5.5](index-detail-low-level-design-v1.md#sse-daily-kline-step-4-result) 和 [§27.5.6](index-detail-low-level-design-v1.md#sse-daily-kline-prod-retry)。
 
 ### 实施前检查
 
@@ -172,4 +172,4 @@
 
 股票及指数普通日线页面显式传 `limit=500`。股票日K API 仍按现行默认500、范围1～500处理。指数日K API 仍按现行默认300、范围1～2000处理。标准化后的 `tsCode=000001.SH` 且 `period=day`、`limit≤500` 时，非空日K页一次调用内核。直接请求上证501～2000根或请求其它指数时，从入口按现有查询处理。已经进入内核计算的请求如遇失败，按原错误合同返回。
 
-参考 [当前日K接口参数](../../../../src/biz/api/wealth/market/index_detail.py#L67)和[内核输出上限](../../../../src/foundation/technical_indicators/contracts.py#L115)。
+参考 [当前日K接口参数](../../../../src/biz/api/wealth/market/index_detail.py#L67)和[内核输出上限](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/contracts.py#L115)。

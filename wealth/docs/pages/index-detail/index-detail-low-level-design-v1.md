@@ -1731,9 +1731,11 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 该批交付时，指数详情页普通日线与研究核对K线、趋势和指数日线九转统一显式请求1000根。研究按实际日期范围，普通右栏和预测沿用普通日期。股票当时传300，分钟传500。普通日线后续的500根改动以 [§27](#sse-daily-kline-integration) 为准。该批研究约定、依赖、失败处理、预算及验收见[定量结构下一阶段LLD §15.7](index-detail-xxm-next-implementation-low-level-design-v0.6.md#xxm-daily-wave-batch-four)及其15.4—15.6。此前各节300根实测属于历史证据。该批代码、自动测试及真实只读API核对已完成，当时尚未完成浏览器验收，实际结果见该文§15.7.1。
 
 <a id="sse-daily-kline-integration"></a>
-## 27. 上证日线接入与普通日线500根请求（设计）
+## 27. 上证日线接入与普通日线500根请求（已实现，本地验收完成）
 
 依据[上证指数日线接入方案](index-detail-daily-kline-integration-implementation-design-v1.md)。本节覆盖上证 `000001.SH` 日线指标接入、上证普通日线分页与图层衔接，以及股票和指数普通日线图表请求量统一为500。股票本步只改普通日K、日线九转、日线趋势三处请求量。股票分页和空状态按[股票专项 LLD §16.5](../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-daily-frontend)另行推进。
+
+2026-11-12按当前代码补充目录和调用差异。通用计算已迁到 `packages/technical_indicators/src/goldenshare_technical_indicators/`。后续普通与核验请求拆分保留本节的上证计算回调，普通 `/kline` 不再接收 `debug` 参数，核验改用 `/debug/kline`；App的可选 `project` 负责同一计算结果的核验投影，不增加第二次计算。下表的共享业务方法现为 `query_kline() -> (response, missing_count)`，普通 `build_kline()` 取第一个结果，核验投影只在显式核验入口调用。完整接口变更见普通与核验请求拆分LLD，不恢复旧debug参数。
 
 ### 27.1 后端分支和输入
 
@@ -1741,8 +1743,8 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 |---|---|
 | `src/biz/api/wealth/market/index_detail.py` | `build_router()` 接收 App 提供的上证日K执行函数。原 `/kline` 路由保留鉴权、参数、默认300和合法范围1～2000，按原规则解析并校验一次，再用标准化代码、周期和 `limit` 选分支。只有 `000001.SH/day` 且 `limit≤500` 走 App 执行函数。路由改为异步，旧分支用现有请求 Session 在线程中执行原 `build_kline()`。 |
 | `src/app/api/v1/router.py`、新增 `src/app/dependencies/index_daily_technical_indicators.py` | 装配时把执行函数和既有 DG reader 传给指数路由。执行函数从 `request.app.state.technical_indicator_runtime` 取运行对象，调用 `execution._execute(runtime, arrived_at=arrived_at, validate_before_wait=..., work=..., receive=request.receive)`。`validate_before_wait` 直接交付路由已校验的参数，`work(parsed_request, control)` 执行同步查询并按 §27.2.1 返回最终 JSON 字节，路由直接发送这些字节。沿用现有名额、请求截止和断开后的停止处理。App 缺装配时按查询错误处理。 |
-| `src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py`、`index_detail_query.py`、`src/foundation/clients/local_lake/index_daily_reader.py` | 在 `build_kline()` 增加可选的指标计算回调，本地新分支可传 `session=None`，PG 分支使用 App 传入的 Session。上证新分支沿用原行情来源，查询一次当页日期和现有行情字段，校验后把 `rows` 和同源补读函数交给回调。合法空页直接组包。旧指标列只在原分支和验收对照时读取。 |
-| 新增 `src/foundation/technical_indicators/sources/index_daily.py` | 实现 `IndexDailyPriceSource`。App 回调在拿到当页 `rows` 后创建，每请求一个。来源接收当页交易日、高、低、收及同源补读函数。App 通过现有计算入口取得结果，指标对象及算法沿用原实现。 |
+| `src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py`、`index_detail_query.py`、`src/foundation/clients/local_lake/index_daily_reader.py` | 在共享 `query_kline()` 接收可选的指标计算回调，`build_kline()`直接返回其普通DTO，本地新分支可传 `session=None`，PG 分支使用 App 传入的 Session。上证新分支沿用原行情来源，查询一次当页日期和现有行情字段，校验后把 `rows` 和同源补读函数交给回调。合法空页直接组包。旧指标列只在原分支和验收对照时读取。 |
+| 新增 `packages/technical_indicators/src/goldenshare_technical_indicators/sources/index_daily.py` | 实现 `IndexDailyPriceSource`。App 回调在拿到当页 `rows` 后创建，每请求一个。来源接收当页交易日、高、低、收及同源补读函数。App 通过现有计算入口取得结果，指标对象及算法沿用原实现。 |
 | `src/biz/services/wealth/market/index_detail/index_detail_field_mapper.py` | 继续使用 `build_kline_bar(row)`。业务组包只消费内核的16个指标值。开高低收、昨收、涨跌、成交量额仍按原行情行生成。内核已有 `price` 能力和输出合同保留。 |
 
 工作函数与来源按以下顺序交接：
@@ -1771,12 +1773,12 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 
 正式字段和错误形状以[日K合同 §5.5](index-detail-api-contract-v1.md#sse-daily-kline-api)为准。实现按以下顺序：
 
-1. **路由选择。** `index_detail.py` 进入处理函数时记录 `monotonic()`。复用 `_validate_query_shape()`、`_normalize_ts_code()`、`_parse_date()`、`_parse_limit()`、`_parse_debug()`，省略 `period` 时仍用 `day`。把解析后的参数传入选中的分支。上证且 `day`、`limit≤500` 时，在 App 排队和读取前拒绝显式起始日晚于显式截止日的请求，沿用 `ID_REQUEST_INVALID` 及消息「startDate 不能晚于 endDate」。其余请求进入原 `build_kline()`。新分支失败时使用现有错误映射。
+1. **路由选择。** `index_detail.py` 进入处理函数时记录 `monotonic()`。复用 `_validate_query_shape()`、`_normalize_ts_code()`、`_parse_date()`、`_parse_limit()`，省略 `period` 时仍用 `day`。把解析后的参数传入选中的分支。上证且 `day`、`limit≤500` 时，在 App 排队和读取前拒绝显式起始日晚于显式截止日的请求，沿用 `ID_REQUEST_INVALID` 及消息「startDate 不能晚于 endDate」。其余请求进入原 `build_kline()`。新分支失败时使用现有错误映射。
 2. **计算本页应有日期。** `build_kline()` 的新分支用 `query_end_date = end_date or context.trade_date` 保留原查询上界。若该日开市，`expected_end` 取查询上界，否则取同环境日历中的上一开市日。窗口下界取已核实的同源行情起点与显式 `start_date` 中较晚者，省略起始日时仅用同源起点。从 SSE 日历读取此窗口内最新至多 `limit` 个开市日及其 `pretrade_date`，按日期正序保留。该组日期同时用于当页读取边界、校验、状态与续页。日历读取失败进入查询错误。
    - DG 复用 `IndexDailyLakeReader.calendar_rows()`。显式截止日在窗口下界内时，传 `end=截止日`、`start=窗口下界`、`recent_open_days=limit`。显式截止日早于窗口下界时，仅按原上下文需要取得截止日的日历信息，直接得出空窗口。省略截止日用上海当天和 `recent_open_days=limit+1`，其中多一个开市日是为兼容原上下文在收盘数据切换前锚定上一交易日。把同一批日历记录交给 `MarketPageContextQuery.resolve_local_context(calendar_rows=...)`，再按已解析窗口筛出本页应有日期。附加的是日历日期，行情仍只读本页应有根数。
    - Prod 在 `market_page_context_query.py` 增加上证新分支使用的查询，复用 `resolve_context()` 的上界计算。用同一条 SQL 返回上下文和窗口日期：先得到唯一的 `resolved_anchor`，用锚点的 `is_open/pretrade_date` 得到有效上界，再对 `core_serving.trade_calendar` 取 `exchange='SSE'`、`is_open=true`、窗口下界至有效上界的 `trade_date/pretrade_date`，倒序取 `limit` 后按正序交回。窗口为空仍返回锚点上下文。旧分支继续直接调用 `resolve_context()`。
 3. **一次读取当页并校验。** 应有日期为空时直接组包 EMPTY，跳过当页行情、预热和指标计算。非空时，PG 按代码和应有首末日期从 `core_serving.index_factor_pro` 读取当页，DG 把应有日期传给现有 `factor_rows()`。两条路径都按 `trade_date` 正序，只投影 `ts_code/trade_date/open/high/low/close/pre_close/change/pct_change/vol/amount`。按实际返回日期顺序与应有日期比较。缺失报告应有但未返回的交易日，重复、乱序或超出范围报告对应日期及原因。在这一步同时检查四价均为有限数值，字段检查顺序为开盘、最高、最低、收盘。空值报「收盘价缺失」等具体字段，非有限值报「收盘价无效」等。DG 行情读取失败时可用本次选定的文件路径定位缺文件的日期，正常路径无需逐文件再查一次。
-4. **回填与状态。** 当页通过校验后执行 §27.1 的一次计算，按 §27.2 的日期、实例编号和字段表回填。可定位到交易日的失败使用 `IndexDetailQueryError`，消息格式为「指数代码 交易日 具体原因」，例如「000001.SH 2026-10-15 收盘价缺失」，由 `_raise_http_error()` 返回原 HTTP 500 / `ID_QUERY_FAILED`。读取或计算异常无法定位到单日时，消息给出指数代码及失败环节。新分支沿用既有 `PARTIAL` 缺项语义和成功状态组包，`expectedTradeDate = expected_end or query_end_date`，`observedTradeDate = rows[-1].trade_date`（空页为 `None`）。启用 debug 时，调试模块使用同一组日期与状态。
+4. **回填与状态。** 当页通过校验后执行 §27.1 的一次计算，按 §27.2 的日期、实例编号和字段表回填。可定位到交易日的失败使用 `IndexDetailQueryError`，消息格式为「指数代码 交易日 具体原因」，例如「000001.SH 2026-10-15 收盘价缺失」，由 `_raise_http_error()` 返回原 HTTP 500 / `ID_QUERY_FAILED`。读取或计算异常无法定位到单日时，消息给出指数代码及失败环节。新分支沿用既有 `PARTIAL` 缺项语义和成功状态组包，`expectedTradeDate = expected_end or query_end_date`，`observedTradeDate = rows[-1].trade_date`（空页为 `None`）。显式请求 `/debug/kline` 时，核验投影使用同一组日期与状态；普通 `/kline` 不读取debug参数。
 5. **构造分页字段。** 只有 `len(rows) == limit` 时，从本页最早交易日已读取的日历记录中取 `pretrade_date`。没有该值，或早于显式 `start_date` 时，传 `None`。短页和空页同样传 `None`。该字段和 `pageContext.prevTradeDate` 分别对应本页首根与请求上界，组包时各用各自的来源。
 
 `src/biz/schemas/wealth/market/index_detail.py` 保留四字段的 `IndexDetailKlineMetaDto`，增加 `IndexDetailSseKlineMetaDto(IndexDetailKlineMetaDto)`，声明必填的 `nextEndDate: date | None`，字段没有默认值。将 `IndexDetailKlineResponseDto.meta` 声明为 `IndexDetailSseKlineMetaDto | IndexDetailKlineMetaDto`，两个类型沿用 `extra="forbid"`。新分支明确构造前者，旧分支仍构造后者并沿用原响应模型序列化。新分支保留 `"nextEndDate": null`，旧分支省略该键，两者都保留 `"debugInfo": null`。
@@ -1886,7 +1888,7 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 |---|---|
 | `tests/app/technical_indicators/test_index_daily_kline_integration.py` | 用周一、上周五和周四的交易日记录验证顺序。上证请求周一 `limit=1`，该页只返回周一、`nextEndDate` 为周五。续页传周五，只返回周五。直接传周日时，`meta.endDate` 仍是周日，预期、观测与调试模块用周五，状态沿用原逻辑。达到显式起始日时满页的 `nextEndDate` 为 `null`。省略 `limit` 走新分支，`meta.limit=300`。 |
 | 同一上证日K测试文件 | 短页按实际数量返回且 `nextEndDate=null`。日历确认无应有日期时响应为 EMPTY，断言没有行情读取和内核调用。存在应有交易日但没有对应行情，以及该日收盘价为空，均断言 HTTP 500、`code/message/request_id` 和具体交易日，且没有执行内核。用既有正常回包样本同时核对原字段及 `debugInfo` 保留、最终编码函数只调用一次。 |
-| `tests/web/test_wealth_index_detail_api.py` | 保留上证大于500和其它指数的旧路径用例。断言 `meta` 仅有原四字段，`debug=0` 时保留 `debugInfo:null`。 |
+| `tests/web/test_wealth_index_detail_api.py` | 保留上证大于500和其它指数的旧路径用例。断言 `meta` 仅有原四字段，普通请求省略debug参数并保留 `debugInfo:null`。 |
 | `tests/web/test_wealth_index_detail_xxm_local_routes.py` | 现有两处用于核对旧日K行为的上证请求显式传 `limit=501`。新分支的日K和调试字段用专门的上证日K测试覆盖。 |
 | `tests/web/test_quote_trend_channel_api.py` | 在既有切片样本上追加 `start_date`。验证起止日均包含、范围内超过 `limit` 时下一截止日仍在范围内、仅范围外有更早数据时分页为 `false/null`。有源但范围为空时检查 `no_rows_in_requested_range`，旧请求继续使用原空结果说明。显式日期倒序时断言 HTTP 400 和 `INVALID_DATE_RANGE`，查询服务未被调用。 |
 | `useIndexDetailController.test.tsx`、`IndexDetailPage.test.tsx` | 核对首屏三路仍按原触发顺序，历史日K使用回包给出的周五截止日，两路历史图层分别发送其规定字段名并使用当页实际日期。核对历史空页、只重试失败的图层及原日期、过期回包丢弃、迟到的趋势回包保留已有 BOLL 选择。 |
@@ -1960,7 +1962,7 @@ Prod 第一次核对旧参考时，使用只读事务及5秒语句上限，合�
 
 Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预热行情时，`2020-08-10` 至 `2022-08-29` 的查询耗时5.809秒且没有返回，整次请求6.051秒后返回 HTTP 500（`ID_QUERY_FAILED`）。对该查询仅执行 `EXPLAIN`，显示使用同一主键按代码和日期范围逆序扫描。数据库具体耗时原因尚未查明。两次新接口请求实际返回1500根源行情，另一次预热查询的实际读取量无法由回包确认。接口验收证据保存在 `prod_acceptance_closeout.json`。
 
-**当前决定（2026-11-06）。** 管理员确认 Prod 已有延迟问题，暂缓本次续页复验及起点短页、空页接口检查。Prod 的通过范围为首屏。凭已获认可的 DG 验收和 Prod 首屏结果推进第3步。第4步按 §27.4.1 交付本地真实页面。
+**2026-11-06 决定。** 管理员确认 Prod 已有延迟问题，当时暂缓续页复验及起点短页、空页接口检查。凭已获认可的 DG 验收和 Prod 首屏结果推进第3步。第4步按 §27.4.1 交付本地真实页面。后续 Prod 复验见 §27.5.6。
 
 <a id="sse-daily-kline-step-3-result"></a>
 #### 27.5.4 第三步开发与检查记录（2026-11-06）
@@ -1994,6 +1996,15 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 第2步接口及数值对照见 §27.5.3。第3步自动测试、左端加载和图层重试的受控浏览器记录见 §27.5.4。两处记录保留各自的日期、样本和环境。
 
 1. **整理提交。** 后端已提交为 `2e08c4121`。本次提交包含前端实现、相关测试和验收文档。提交前复核 11 个测试文件的 141 项定向测试，覆盖上证日线请求、续页缓存、图表和图层、共用图表的分钟线用法及股票日线请求量，均通过。类型检查、前端构建和文档检查通过。
-2. **发布准备。** Prod 已通过首屏接口对照。恢复发布准备时，优先用 §27.5.1 的固定日期复验续页预热查询及日期衔接，再补起点短页和空页。通过后按 [正式发版流程](../../../../docs/release/release-process-v1.md) 安排发布和线上验收。
+2. **发布准备。** Prod 已通过首屏接口对照。续页复验结果见 §27.5.6。续页通过后补起点短页和空页，再按 [正式发版流程](../../../../docs/release/release-process-v1.md) 安排发布和线上验收。
 
-上证日线徐小明识别由另一个线程处理并单独验收。
+后续普通结构识别已在提交 `260d18907` 中切换为读取Gold结果，并于2026-11-10完成本地验收，见[普通与核验请求拆分LLD](index-detail-debug-separation-low-level-design-v1.md)。该专题单独提供识别副图所用MACD，普通页不再与日K内核MACD作逐项完全相等校验。核验入口保持其独立计算和查询。
+
+<a id="sse-daily-kline-prod-retry"></a>
+#### 27.5.6 Prod 续页只读复验（2026-11-08）
+
+通过本地装配的实际日K路由连接 Prod PostgreSQL，确认 `transaction_read_only=on`。复用此前首屏返回的 `nextEndDate=2024-09-20` 及保存的旧指标参考，对 `000001.SH`、`period=day`、`limit=500` 只发起一次续页请求。
+
+请求在 6.114 秒后返回 HTTP 500，错误码为 `ID_QUERY_FAILED`。当页查询范围为 `2022-08-30` 至 `2024-09-20`，上限 500 根，执行 5.395 秒后被 PostgreSQL 取消（`SQLSTATE 57014`），应用收到 0 根。预热查询与指标对照尚未开始。本次查询被取消的直接位置是当页查询，2026-11-06 的失败发生在预热查询，数据库内耗时原因待查。
+
+本次续页复验未通过。起点短页和空页留待续页通过后检查。此次请求与读数记录见 `/private/tmp/sse-prod-retry.lmRPtG/prod_acceptance_closeout.json`。
