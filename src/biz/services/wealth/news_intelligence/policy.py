@@ -213,6 +213,12 @@ _TOPIC_RULES = (
             "股票",
             "关税",
             "地产",
+            "财政",
+            "预算",
+            "税收",
+            "原油",
+            "汇率",
+            "兑美元",
         ),
     ),
     _Rule(
@@ -248,7 +254,7 @@ _EVENT_RULES = (
     _Rule(
         "LAW_REGULATION_RELEASE", ("新规", "监管规则", "法律修订", "条例", "办法发布")
     ),
-    _Rule("MACRO_DATA_RELEASE", ("GDP", "CPI", "PPI", "PMI", "就业数据", "进出口")),
+    _Rule("MACRO_DATA_RELEASE", ("GDP", "CPI", "PPI", "PMI", "就业数据", "进出口", "公共预算收入", "财政收入")),
     _Rule("EARNINGS_GUIDANCE", ("财报", "业绩预告", "净利润", "营业收入", "盈利")),
     _Rule("CORPORATE_FINANCE", ("增发", "发债", "回购", "分红", "减持", "增持")),
     _Rule(
@@ -278,6 +284,7 @@ _EVENT_RULES = (
 )
 
 _FOCUSED_RULES = (
+    _Rule("ECONOMY.FISCAL_POLICY", ("财政", "公共预算", "税收", "专项债")),
     _Rule(
         "ECONOMY.MONETARY_POLICY", ("央行", "降准", "降息", "公开市场操作", "准备金")
     ),

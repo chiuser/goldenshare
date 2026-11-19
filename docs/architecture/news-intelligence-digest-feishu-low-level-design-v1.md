@@ -286,6 +286,10 @@ M0 的硬结论：
 
 新增配置审计：taxonomy=`news-taxonomy-v3-m1-candidate-1`、industry=`news-industry-v1-m1-candidate-1`、interest=`news-interest-v1-m1-candidate-1`、schema=`news-intelligence-review-v3`，均在离线版本化策略中持久化，由审核构造器、Argilla导入导出及评估消费，按新任务生效，不修改旧记录；测试必须覆盖父子约束、空值语义、接受/修改/未决、盲标无建议、版本冲突和原文证据。不新增生产Settings或服务端口。新表单及机器预标注仍须真实导入/导出验证，文档修订不等于部署完成。M1后回写策略；质量或性能未过门槛不得进入M2。
 
+预标注输入修正：Biz `build_review_input`作为App请求组装和预测构造的唯一清洗入口；stdlib HTMLParser提取可见文本后再截取标题80/导语240字符。空可见内容拒绝进入模型；规则候选及行业/兴趣触发均使用可见文本。原始title/content、sample_id/input_hash和原文证据校验不变；解码后的触发词保存为 `normalized_triggers`，不是原始引文。提示词版本由 `PROMPT_VERSION` 从 `news-review-nli-v3-demo-1`升至`news-review-nli-v3-demo-2`，声明于Biz预标注器，消费为App演示manifest及Argilla冻结预测；仅新实验生效，不修改旧任务，无env/Settings或生产配置变化。财政、原油、汇率候选召回补齐，宏观数据事件补公共预算/财政收入；不改变分类code、阈值或候选上限，不把低分改成强制分类。真实NLI复测仍待执行，静态/假模型回归不是质量准入。
+
+后续实测已完成（M1执行记录§6.8）：输入与候选修正未解决所有误分类，分类、排名、摘要和整窗准入均未通过，不能扩大试审。§6.9的9题表单仅为待确认投影提案，不改变当前v3代码/schema；新schema需批准后审计所有实现方、消费者及新配置版本，定义控制值到业务字段的唯一映射并迁移新主链，旧冻结任务保持历史事实。不得在未获批准时更新现有Argilla数据集、迁移答案或部署新表单。
+
 ---
 
 ## 11. 编码门禁矩阵

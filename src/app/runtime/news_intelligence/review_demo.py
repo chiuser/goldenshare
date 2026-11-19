@@ -14,7 +14,7 @@ from src.biz.services.wealth.news_intelligence.policy import (
 from src.biz.services.wealth.news_intelligence.review_policy import SUBTOPICS
 from src.biz.services.wealth.news_intelligence.review_prelabel import (
     NLI_REVISION, PROMPT_VERSION, SUBTOPIC_TRIGGERS, _literal_matches,
-    build_demo_prediction,
+    build_demo_prediction, build_review_input,
 )
 from .argilla_review import VERSIONS, prepare_review_record
 from .artifact_store import AtomicArtifactWriter, REQUIRED_ARTIFACTS, verify_artifact_directory
@@ -47,11 +47,11 @@ def prepare_review_demo(*, input_experiment: Path, output_root: Path,
     requests = {}
     for row in selected:
         title, content = row["fields"]["title"], row["fields"]["content"]
-        premise = title[:80] + "\n" + content[:240]
-        candidates = build_label_candidates(title, content)
+        clean_title, clean_content, premise = build_review_input(title, content)
+        candidates = build_label_candidates(clean_title, clean_content)
         hypotheses = [tuple(topic_hypothesis(c) for c in candidates.primary_topics),
                       tuple(event_type_hypothesis(c) for c in candidates.event_types)]
-        matched = _literal_matches(title + "\n" + content, SUBTOPIC_TRIGGERS)
+        matched = _literal_matches(clean_title + "\n" + clean_content, SUBTOPIC_TRIGGERS)
         for parent in ("ECONOMY_BUSINESS_FINANCE", "SCIENCE_TECHNOLOGY"):
             paths = [code for code in matched if SUBTOPICS[code][0] == parent][:3]
             hypotheses.append(tuple(f"这条新闻主要报道{SUBTOPICS[c][1]}。" for c in paths))

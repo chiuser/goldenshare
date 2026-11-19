@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import math
+from html.parser import HTMLParser
 from typing import Callable, Mapping
 
 from .policy import build_label_candidates, event_type_hypothesis, topic_hypothesis
 from .review_policy import REVIEW_FIELDS, SUBTOPICS, validate_prediction
 
-PROMPT_VERSION = "news-review-nli-v3-demo-1"
+PROMPT_VERSION = "news-review-nli-v3-demo-2"
 NLI_REVISION = "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli@8adb042d524ecd5c26d3e3ba0e3fbcf7e2d0864c"
 
 # Conservative literal triggers; all are visible, versioned demo suggestions.
@@ -62,12 +63,54 @@ def _literal_matches(text: str, triggers: Mapping[str, tuple[str, ...]]) -> dict
             for code, words in triggers.items() if any(word in text for word in words)}
 
 
+class _VisibleNewsText(HTMLParser):
+    """Ignore markup, attributes and non-visible code, without fetching links."""
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.parts = []
+        self.hidden = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag in {"script", "style", "template"}:
+            self.hidden.append(tag)
+        elif not self.hidden:
+            self.parts.append(" ")
+
+    def handle_endtag(self, tag):
+        if self.hidden and tag == self.hidden[-1]:
+            self.hidden.pop()
+        if not self.hidden:
+            self.parts.append(" ")
+
+    def handle_startendtag(self, tag, attrs):
+        if not self.hidden:
+            self.parts.append(" ")
+
+    def handle_data(self, data):
+        if not self.hidden:
+            self.parts.append(data)
+
+
+def build_review_input(title: str, content: str) -> tuple[str, str, str]:
+    """Shared by request assembly and prediction; truncation follows cleaning."""
+    def visible(raw):
+        parser = _VisibleNewsText()
+        parser.feed(raw)
+        parser.close()
+        return " ".join("".join(parser.parts).split())
+    clean_title, clean_content = visible(title), visible(content)
+    if not (clean_title or clean_content):
+        raise ValueError("review input has no visible news text")
+    return clean_title, clean_content, clean_title[:80] + "\n" + clean_content[:240]
+
+
 def build_demo_prediction(*, title: str, content: str,
                           infer: Callable[[str, tuple[str, ...]], tuple[float, ...]]) -> dict[str, object]:
     source = title + "\n" + content
     # Small bounded premise. The review UI still displays the complete original.
-    premise = title[:80] + "\n" + content[:240]
-    candidates = build_label_candidates(title, content)
+    clean_title, clean_content, premise = build_review_input(title, content)
+    visible_source = clean_title + "\n" + clean_content
+    candidates = build_label_candidates(clean_title, clean_content)
     scores_by_axis = {}
 
     def best(axis, codes, hypotheses):
@@ -84,13 +127,13 @@ def build_demo_prediction(*, title: str, content: str,
 
     topic = best("primary", candidates.primary_topics,
                  [topic_hypothesis(code) for code in candidates.primary_topics])
-    paths = [code for code in _literal_matches(source, SUBTOPIC_TRIGGERS)
+    paths = [code for code in _literal_matches(visible_source, SUBTOPIC_TRIGGERS)
              if SUBTOPICS[code][0] == topic][:3]
     subtopic = best("subtopic", paths, [f"这条新闻主要报道{SUBTOPICS[code][1]}。" for code in paths])
     event = best("event", candidates.event_types,
                  [event_type_hypothesis(code) for code in candidates.event_types])
-    industries = _literal_matches(source, INDUSTRY_TRIGGERS)
-    interests = _literal_matches(source, INTEREST_TRIGGERS)
+    industries = _literal_matches(visible_source, INDUSTRY_TRIGGERS)
+    interests = _literal_matches(visible_source, INTEREST_TRIGGERS)
     values = {
         "classification_status": "CLASSIFIED" if topic else "UNRESOLVED",
         "topic_path": subtopic or topic, "secondary_topics": [],
@@ -101,7 +144,7 @@ def build_demo_prediction(*, title: str, content: str,
         # Do not invent a seven-dimensional production judgment from classification scores.
         "importance_tier": "UNKNOWN",
     }
-    evidence = {field: {"source": "RULE", "quote": premise[:80] or content[:80]}
+    evidence = {field: {"source": "RULE", "quote": title[:80] or content[:80]}
                 for field in REVIEW_FIELDS}
     for field in ("classification_status", "topic_path", "event_type_status", "primary_event_type"):
         axis = "primary" if field in {"classification_status", "topic_path"} else "event"
@@ -109,12 +152,14 @@ def build_demo_prediction(*, title: str, content: str,
                            "quote": title[:80] or content[:80]}
     for field, matches in (("industries", industries), ("interest_tags", interests)):
         if matches:
-            evidence[field]["quote"] = next(iter(matches.values()))
-            evidence[field]["matched_quotes"] = matches
+            evidence[field]["quote"] = next((word for word in matches.values() if word in source),
+                                              title[:80] or content[:80])
+            evidence[field]["normalized_triggers"] = matches
     prediction = {
         "status": "COMPLETE", "prompt_version": PROMPT_VERSION, "model_revision": NLI_REVISION,
         "values": values, "evidence": evidence, "nli_scores": scores_by_axis,
         "coverage": "TITLE_AND_LEAD_ONLY", "importance_status": "NOT_ASSESSED",
+        "input_policy": "VISIBLE_TEXT_BEFORE_TRUNCATION_V1",
         "warnings": ["仅供表单演示；0.5为临时阈值；行业与关注标签是字面规则建议；重要度未评估。"],
     }
     return validate_prediction(prediction, source)
