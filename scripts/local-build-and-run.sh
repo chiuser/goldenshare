@@ -20,6 +20,7 @@ START_FRONTEND=1
 
 WEB_PID=""
 FRONTEND_PID=""
+SERVICES_READY=0
 
 log() {
   echo "[$(date '+%F %T')] $*"
@@ -150,26 +151,63 @@ parse_args() {
   done
 }
 
+process_exited() {
+  local pid="$1"
+  local name="$2"
+  local status=0
+  wait "${pid}" || status=$?
+  log "${name} 进程已退出，状态码=${status}"
+  if [[ "${SERVICES_READY}" == "0" && "${status}" == "0" ]]; then
+    cleanup 1
+  fi
+  cleanup "${status}"
+}
+
+check_processes() {
+  if [[ -n "${WEB_PID}" ]] && ! kill -0 "${WEB_PID}" 2>/dev/null; then
+    process_exited "${WEB_PID}" "Web"
+  fi
+  if [[ -n "${FRONTEND_PID}" ]] && ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
+    process_exited "${FRONTEND_PID}" "Frontend"
+  fi
+}
+
+port_is_listening() {
+  python3 - "$1" "$2" <<'PY'
+import socket
+import sys
+
+host, port = sys.argv[1:]
+host = {"0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
+try:
+    with socket.create_connection((host, int(port)), timeout=1):
+        pass
+except (OSError, ValueError):
+    sys.exit(1)
+PY
+}
+
+require_free_port() {
+  if port_is_listening "$2" "$3"; then
+    log "$1 端口已在监听（$2:$3），启动终止"
+    cleanup 1
+  fi
+}
+
+wait_for_listener() {
+  while true; do
+    check_processes
+    if port_is_listening "$1" "$2"; then
+      check_processes
+      return
+    fi
+    sleep 1
+  done
+}
+
 monitor_processes() {
   while true; do
-    if [[ -n "${WEB_PID}" ]] && ! kill -0 "${WEB_PID}" 2>/dev/null; then
-      local status=0
-      if ! wait "${WEB_PID}"; then
-        status=$?
-      fi
-      log "Web 进程已退出，状态码=${status}"
-      cleanup "${status}"
-    fi
-
-    if [[ -n "${FRONTEND_PID}" ]] && ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
-      local status=0
-      if ! wait "${FRONTEND_PID}"; then
-        status=$?
-      fi
-      log "Frontend 进程已退出，状态码=${status}"
-      cleanup "${status}"
-    fi
-
+    check_processes
     sleep 1
   done
 }
@@ -230,30 +268,24 @@ main() {
   fi
 
   if [[ "${START_WEB}" == "1" ]]; then
+    require_free_port "Web" "${WEB_HOST}" "${WEB_PORT}"
     log "6/6 启动 Web: http://${WEB_HOST}:${WEB_PORT}"
     GOLDENSHARE_ENV_FILE="${ENV_FILE}" PYTHONPATH="${indicator_pythonpath}" \
       python3 -m src.app.web.run --host "${WEB_HOST}" --port "${WEB_PORT}" --no-reload &
     WEB_PID=$!
-    sleep 2
-    if ! kill -0 "${WEB_PID}" 2>/dev/null; then
-      wait "${WEB_PID}" || true
-      echo "Web 启动失败。"
-      cleanup 1
-    fi
+    wait_for_listener "${WEB_HOST}" "${WEB_PORT}"
   fi
 
   if [[ "${START_FRONTEND}" == "1" ]]; then
+    require_free_port "Frontend" "${FRONTEND_HOST}" "${FRONTEND_PORT}"
     log "启动 Frontend: http://${FRONTEND_HOST}:${FRONTEND_PORT}"
-    npm --prefix frontend run dev -- --host "${FRONTEND_HOST}" --port "${FRONTEND_PORT}" &
+    npm --prefix frontend run dev -- --host "${FRONTEND_HOST}" --port "${FRONTEND_PORT}" --strictPort &
     FRONTEND_PID=$!
-    sleep 2
-    if ! kill -0 "${FRONTEND_PID}" 2>/dev/null; then
-      wait "${FRONTEND_PID}" || true
-      echo "Frontend 启动失败。"
-      cleanup 1
-    fi
+    wait_for_listener "${FRONTEND_HOST}" "${FRONTEND_PORT}"
   fi
 
+  check_processes
+  SERVICES_READY=1
   echo ""
   echo "已启动服务："
   if [[ -n "${WEB_PID}" ]]; then
