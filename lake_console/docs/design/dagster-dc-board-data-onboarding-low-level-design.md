@@ -1510,3 +1510,9 @@ Tushare 仍是日常 Raw 的内容来源；prod 仍只提供完成时机与差�
 - 单事务删除严格为：`core_serving.dc_member` 1 条、`core_serving.dc_index` 1 条，`core_serving.dc_daily` 0 条。事务内删除数和闭环校验均通过。
 - 提交后目标记录均为 0；同日剩余 `dc_index=1030`、`dc_member=93176`、`dc_daily=1030`，成员孤儿数为 0，占位行数为 0。
 - 提交后审计报告为 `/private/tmp/dc_board_prod_cleanup_post_audit_20260829.json`。本次没有修改 Lake、Dagster、Tushare 或动态分区。
+
+## 2026年11月18日板块成分恢复登记
+
+本步原方案§13及quote-availability LLD§11完整规定目标、当前实现、同日范围、原任务/配置、读写、失败重跑、资源和验收。只恢复当日成分Raw/Silver，不修改源契约、代码、Prod或历史；执行结果落回该LLD第11节。
+
+**18日成分恢复结果。** 原Raw/Silver均SUCCESS且核心检查绑定通过，100,425行与同日参照成分键一致，原两条sensor恢复。完整结果与运行ID见quote-availability LLD第11节执行结果。

@@ -319,6 +319,14 @@ Readiness 只读最近 10 个 expected dates，使用 ClickHouse 分区查询和
 - 物理数据验收已通过；P5B-4 事件补录和 P5B-5 sensor 运行验收分开执行。
 - P5B-4 `ch_dc_daily_technical` 事件补录已完成：历史 611 个 materialization 全量存在，最近 20 个交易日的 20 个 `ch_dc_daily_technical_core_check` 全量存在；只读预检报告为 `/private/tmp/ch_dc_daily_technical_event_backfill_preflight_20260717.json`，正式补录及 post 验收报告为 `/private/tmp/ch_dc_daily_technical_event_backfill_apply_20260717.json`。
 - P5B-4 验收结果：611/611 materialization、20/20 partitioned check，未分区 check=0、check 绑定错误=0、失败 check=0、目标 materialization 不匹配=0；ClickHouse 业务表前后均为 611 个交易日、596,200 行；active runs=0，`prod_ch_dc_daily_technical` 未被触碰。
+
+## 13. 2026-11-18服务副本缺口恢复（2026-11-19）
+
+管理员已明确要求查清18日14项缺口，源就绪后调用已有指令补齐。本组只恢复本机及Prod的`goldenshare_serving.board_fact_technical_daily`中18日分区，不修改代码、公式、schema、配置、其他日期或Gold文件。当前Gold为1081行/155201B，原`gold_dc_daily_technical_core_check`已通过并绑定物化8195953（run `7a37a95d-5cb3-4012-95c1-812d37b9f9a2`，check8195962）；两服务表当日均0行。
+
+当前本机发布sensor错误地先被19日缺Gold的frontier挡住，尽管Gold已ready至18日、服务副本只ready至17日；Prod随后因本机18日未ready而等待。本次手动精确推进18日，不将自动选择逻辑修改混入补数。仅暂停原RUNNING的`ch_dc_daily_technical_update_job_sensor`和`prod_ch_dc_daily_technical_continuity_sensor`，保留原cursor；无活动冲突后按LLD第15节顺序执行本机和Prod原job，完整原检查通过后恢复原开关。
+
+验收为两run SUCCESS、两次物化及各自blocking check绑定本run/18日，完整业务列、NULL、版本及本机/Prod内容一致。仅复用原检查及本日计数，不做全目录/历史重扫；失败保留现场并停止后续，不通过runless事件或修改数据凑通过。执行记录统一回本计划与原LLD，临时控制材料只在`/private/tmp/dg-gaps-20261118-recovery-20261119`。
 - P5B-5 才执行 sensor 启用和至少 3 个真实交易日的运行观察。
 
 ## 11. 验收标准
@@ -343,3 +351,5 @@ P5B-3 和 P5B-4 已按 LLD 完成。下一阶段只处理 sensor 启用与运行
 1. P5B-5 是否单独批准并启用 sensor，观察至少 3 个真实交易日。
 
 已确认：表名 `goldenshare_serving.board_fact_technical_daily`、两阶段 serving 架构、`updated_at` serving 字段、materialization 全历史补齐与 check event 最近 20 日保留口径。
+
+**13节恢复结果。** 18日本地/Prod原job均SUCCESS，各1,081行，两项原核心检查准确绑定并通过，两条sensor恢复RUNNING。实际运行与物化证据见原LLD第15节执行结果；未修改自动选日逻辑，不以本次人工成功证明后续自动任务不再出现同类遗漏。

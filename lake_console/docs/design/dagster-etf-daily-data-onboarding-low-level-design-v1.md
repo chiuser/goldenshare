@@ -2016,3 +2016,9 @@ git diff --check
 8. Silver Plan 的 Raw manifest、coverage policy、Basic 或目标漂移：停止 Silver apply，只重做 Silver Plan，不回滚 Raw。
 
 P1—P5 的本地开发完成不授权任何正式执行动作。P6 必须按 Raw Plan、Raw apply、Raw audit/review、Silver Plan、Silver apply、物理审计、events plan/apply/post-audit 和 Sensor 启用逐阶段审批；任何现实与本文不符都必须停下来等待 review。
+
+## 2026年11月18日基金复权因子缺口判断更正（2026-11-19，只读）
+
+本轮14项报告中把raw_tushare_fund_adj缺少530080.SH也作为本地不全，是判断口径过宽：Raw当前合同是全源镜像，其三项原检查是字段/分区/主键；ETF对象池覆盖发生在Silver，不应把两者混为一谈。19日按原每页2,000分页规则仅取18日代码/日期，两页2,000+219=2,219个唯一代码，与本地Raw2,219个代码双向差集均0。源与Raw均无530080.SH，不能认定DG漏采了已发布代码；撤回此Raw本地缺口判断。该核验只比较代码/日期，不声称全部数值内容新旧一致或重跑全部质量检查。
+
+仍未满足的是silver_etf_adj_factor的完整ETF覆盖：18日源站对530080.SH未返回复权因子，现行Silver覆盖检查需要完整适用ETF对象；不能仅凭当日零成交推定复权因子无需提供，也不能把历史512390.SH特批补值扩展到530080.SH或新日期。本轮没有手工补因子、改对象池/例外/门槛或启动重复Raw镜像任务；Silver尚未齐备，Tushare内部未返回的原因未获权威说明。保留原审计报告，以本更正限定其Raw结论。

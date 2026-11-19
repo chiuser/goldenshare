@@ -486,3 +486,17 @@ Remaining approval:
 1. Approve Prod DDL separately from code development.
 
 Confirmed: table name `goldenshare_serving.board_fact_technical_daily`; use the two-stage local ClickHouse -> Prod ClickHouse serving architecture; accept the serving-only `updated_at` column; backfill all materializations but retain only the latest 20 days of checks.
+
+## 15. 2026-11-18本机及Prod服务副本恢复执行LLD
+
+目标及授权见原计划第13节。CodeGraph已核当前`ch_dc_daily_technical`、`prod_ch_dc_daily_technical`、`_read_gold_rows`、`replace_dc_daily_technical_partition`、jobs及core checks的真实调用和写入范围；本轮无业务代码开发。日期固定2026-11-18，来源为本日Gold1081行/155201B及原检查8195962/物化8195953，写入仅两端`goldenshare_serving.board_fact_technical_daily`该日1081行。保持MA/BOLL预热NULL及现行`updated_at`规则，不重算公式。
+
+1. 工作目录固定`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用现有`.venv/bin/python3 -B`。只通过既有`http://127.0.0.1:3000/graphql`正式队列及官方`DagsterGraphQLClient.submit_job_execution`提交，location=`orchestrator`、repository=`__repository__`，run config均为空，partition tag为18日；不使用本地in-process的`dg launch`另开执行环境。
+2. 保存并暂停计划所列两条原RUNNING sensor、保留cursor/lastRunKey，不操作其他开关、日期分区或daemon。核无活动/queued冲突和目标日期当前计数，先提交`ch_dc_daily_technical_update_job`；SUCCESS且原core check完整通过并绑定当日物化后，才提交`prod_ch_dc_daily_technical_sync_job`。逐次保存run ID，响应不明先查原run，不重复提交。
+3. 原writer按日执行同步DELETE、确认0行、显式列INSERT、读回计数；这是原单日替换语义，不是多库事务。正常检查进一步比较Gold/本机及本机/Prod完整业务值、主键、schema、参数版本和NULL。没有DDL、表重建、索引/权限变化、旧湖、Kopia或备份。
+4. 性能范围由当前事实限定为单日1081行。Gold读取仅155201B目标文件及其schema/聚合；本机和Prod读取均有18日过滤，原检查会再读该日业务列进行比较，不读历史分区。原writer每端SET、DELETE、删后COUNT、INSERT、写后COUNT各一次；正常各写1081行。实际网络字节及耗时未测，不制造上限，也不调整线程、内存、spill、超时或限流。
+5. 失败或中断保留已成功的一端，先核已提交run、当日物理行及失败阶段，不自动重复成功阶段或跨日补数；插入在删除之后失败时沿原同日人工恢复规则重新确认范围后处理。源或目标身份改变先复核。最终复用两次原检查和两份实际run记录、必要本日计数及开关读回；无代码变化，不新增隔离测试或性能样本。按原状态恢复两sensor，确认cursor未reset、无冲突活动和重复run后收尾。
+
+执行记录待实际完成后追加；方案本身不代表已补齐。
+
+**15节执行结果（2026-11-19）。** 原本地任务4ee547c7-0632-4b61-a46e-598bc63a1a71 SUCCESS，运行7.267208秒，物化8197411、核心check8197420通过并绑定同run/物化；原Prod任务c265f8aa-26c1-4884-a18c-1a12c855ae4f SUCCESS，运行6.883053秒，物化8197439、check8197448通过并准确绑定。两份服务表18日各1,081行，原完整内容/NULL一致性检查通过，缺失、额外、重复、无效、内容与元数据错误均0。原两条sensor已恢复RUNNING，未改游标或代码。此为18日恢复结果，不表示19日Gold已就绪或自动选日逻辑已修复。

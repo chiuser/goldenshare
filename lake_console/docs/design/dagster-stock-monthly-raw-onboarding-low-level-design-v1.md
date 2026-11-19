@@ -321,7 +321,9 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 ## 11. 当月全市场单点预检与日更
 
-**2026-11-16跨日日期修正。** 原月线日更使用`intent=daily`和原`automatic_intent_date`重跑时，业务日只表示最低覆盖日，正式21列响应的`end_date`允许更晚，但不得晚于实际执行日的上海日期。例如原业务日11月9日、上海11月10日执行，仍请求`trade_date=20261130`，允许`end_date=20261110`。同日sensor只检查当天，因此同日预检仍要求当天覆盖。闭合月保持每股在周期内最后应更新日；人工完整月历史不增加逐条等于业务日或执行日的条件。原业务日、源日期及真实完成时间分别保留；不新增快照。代码、消费者、夹具、失败与资源边界见[周月线LLD第13.22节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-cross-day-daily-date-fix)。本次只开发和隔离验证，不操作正式DG。
+**2026-11-16跨日日期修正。** 原月线日更使用`intent=daily`和原`automatic_intent_date`重跑时，业务日只表示最低覆盖日，正式21列响应的`end_date`允许更晚，但不得晚于实际执行日的上海日期。例如原业务日11月9日、上海11月10日执行，仍请求`trade_date=20261130`，允许`end_date=20261110`。同日sensor只检查当天，因此同日预检仍要求当天覆盖。闭合月保持每股在周期内最后应更新日；人工完整月历史不增加逐条等于业务日或执行日的条件。原业务日、源日期及真实完成时间分别保留；不新增快照。代码、消费者、夹具、失败与资源边界见[周月线LLD第13.22节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-cross-day-daily-date-fix)。代码开发和隔离验证阶段未操作正式DG；当晚同日日更正式只读验收结果如下，跨日重跑尚未正式验收。
+
+**11月16日月线同日日更验收通过（20:12）。** 月线sensor于20:00:54确认应更新5,572只源已齐备并自然提交，月Raw `2e5b2aa2-85d3-4ad2-bf32-ecbc6f151ef7`于20:01:04成功，月Silver日更接续 `6f1184f7-1e02-441a-be7e-1f3a51f2a935`于20:03:00成功。3只股票复权因子变化的独立回刷 `1d1c2c1a-2a47-413f-be51-7b98437d549c`交付119份月Raw，月Silver历史接续 `b0bdcaa2-f47c-4bfc-8729-7e35afa58374`于20:05:28成功。月退市清理 `fcc85a54-f0fb-4077-87ae-41ef9fdbb956`为零新增、零命中。11月当期Raw/Silver各5,576行，应更新5,572只均截至16日，另4条全日停牌有效旧记录分别截至9日、11日、12日、13日；应有缺失、过旧、重复及未来日期记录均为0。当期两层共6项原检查通过且准确绑定物化，实际文件及Silver来源版本一致，业务键、日期和频率的双向差异计数为0。两频九笔运行和完整验收边界统一见[周月线LLD第13.22.5节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-20261116-same-day-acceptance)，不将本次同日成功记为跨日重跑正式通过。
 
 本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。第3阶段独立回刷和第4阶段单频退市清理亦已实现并独立审计，同频Silver可完整接续；新sensor代码默认STOPPED，正式实际状态见下文结果。旧Silver日更私有回执与续跑分支已移除；第5阶段已接入人工维护并清零旧Raw离线入口、共享索引和日常交接，首次建库本次恢复及原Silver审计合同保留；实际测试、独立审计修正及当时全局门禁的历史失败见[周月线LLD第13.17节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)。该全局suite已在11月12日开工审计完整复核通过，第6阶段细则见[第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)，开发和隔离结果见[第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。正式切换及11月11日补数亦已完成，实际结果见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。
 
@@ -362,3 +364,11 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 - 新月Silver累计结果从真实新任务核对取得，不承接旧月Raw清理check的已清理名单；无候选不扫历史，零命中仍登记实际结果。成本按共享N/F/W公式分别核定月线实际数量，不借周线实测代替。
 
 开发时须迁移月线专属真实文件、sensor、原检查、清空文件及失败父运行用例，并验证普通月Silver消费不因清理新物化重复或卡住。正式切换和任何全局明细读取/正式写入另行明确范围和批准。本步月线代码已完成并通过共享LLD第13.23.11节所列隔离测试：月线实际N=5、F=W=3，删除3行，保留其他行21列原值；零行文件schema、完整父范围重跑、前次失败未补齐时启动失败及Raw身份/摘要不变均已验证。未停止旧清理、重载正式定义、运行正式DG任务或操作正式Lake。正式环境尚未应用新行为；不能将隔离结果当作正式清理结果。
+
+## 13. 2026年11月18日当月Raw及Silver恢复（2026-11-19）
+
+本步目标、授权、实现审计、当期范围、配置、暂停/恢复、失败整批新跑、正常与中断及末次验收成本统一见共享周线LLD第13.24节、原方案10.22。业务日2026-11-18，实际月分区2026-11；只运行原月线Raw daily和引用本笔完成事实的Silver update，不进行历史维护或退市清理。有效原源预检必需5,573、可选7，返回必需5,573/可选4，排除1，缺失/过旧/重复0。首次临时入口错误结果作废，不能作为源站未齐的证据。执行结果回填共享LLD，保留原审计历史。
+
+**第13节执行结果。** 月Raw c7db419a-492a-4ac5-91d5-5d5476633bcd、Silver 195660c9-0f91-451b-924d-c6d1817d6513均SUCCESS，6项原检查绑定通过；各5,577行，其中应更新5,573个代码全部达到18日，4条最终全日停牌股票合法保留较早日期。日期与源投影、物化及性能结果见共享LLD13.24执行结果；月线历史回刷尚未执行。
+
+**18日六股历史下游完成。** 已批准的原两频Raw历史运行c0efe01c-b463-44c7-8a71-a3152861a8ce完成月Raw322份，原月Silver 6b249139-9ff1-46b4-882b-e435ff9f9df2接续155份（2014-01至2026-11），均SUCCESS。月Raw三类逐文件966项、汇总1项、Silver465项原检查均通过；原消费读取方确认完整、游标无pending。唯一未重写月2006-04已定点核实六股旧行0，无需更新；没有据此猜测停牌或放宽合同。全范围运行、资源/读取边界与结果见共享周线LLD13.25执行结果。

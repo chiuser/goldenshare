@@ -1291,3 +1291,19 @@ Raw仍须携带原门禁生成的`prod_completion_reference`，不能因时间�
 按18.6授权和LLD八步顺序，八个原job均SUCCESS，本日37项物化及117项原检查/repair completion通过；两次repair真实名单均为原产物3股，2014-01-02至2026-11-02七频历史及共享state合并完成，其他股票保留。Raw/Silver两层五频都已替换，时间点无缺口/重复；成交额Gold/Prod、七频前复权、MACD/KDJ与state、四频九转全部完成。八条相关sensor已按原RUNNING状态恢复，cursor/lastRunKey保留，恢复后一次回查无活动或重复run。
 
 最终run、时间、具体计数、repair事件身份及收尾边界统一见[LLD21.13](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#recovery-20261102-complete)。只复用原job结果、必要计数和小范围stat，没有全目录或额外年度明细审计，没有新开发、性能测试或新增运行限制。旧失败run保留历史。本轮仅更新原方案与LLD，未提交或推送，其他工作区修改保留。
+
+## 19. 2026-11-11股票分钟链逐job补齐（2026-11-12）
+
+**状态：已完成。** 本轮八个原job均SUCCESS，本日37项产物与117项原检查/repair completion通过，两次修复完整门槛ready；八条本轮暂停sensor已恢复原RUNNING状态。最新验收、run及清理见[LLD22.13](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#recovery-20261111-complete)，以下保留准备、授权和DG后台阻塞的经过。
+
+管理员明确要求先读AGENTS，再直接驱动DG原job，逐个补齐11月11日股票分钟线及下游。本轮只操作本日，沿用已有Raw、Silver、前复权、因子repair、MACD/KDJ日更及必要repair、分钟九转入口，不开发业务代码、不改公式、schema、配置默认值或运行限制。执行LLD及本轮结果统一见[第22节](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#recovery-20261111)。
+
+00:25只读准备确认：正式DG为1.13.26，原job已加载；无活动run，八条本链sensor原为RUNNING。Prod任务19265在11月12日00:15:10完成，原完成门禁及五频代码覆盖通过，目标股票5580只。Raw分区已注册、Silver共用分区尚缺11月11日；两层十份目标文件均不存在。前一交易日11月10日；相邻两日复权因子比较发现8股变化，仅用作后续历史范围预算，正式repair仍由原job重新识别。
+
+本轮原生提交和逐个等待属于上述执行授权；为保证顺序，保存八条sensor原状态后暂停本链自动触发，结束时按原状态恢复且保留cursor/lastRunKey，只补缺失的本日Silver共用分区。先执行已获准的本日Raw、Silver；年度/全历史读取和成交额Prod发布的具体范围另在LLD明确并按根AGENTS取得确认后再进入依赖步骤。旧日期的400/70/128GiB预算不直接套用本日，也不将文件体积当实际设备I/O。
+
+管理员收到22.5具体范围及Raw/Silver完成结果后明确回复“确认。继续推进吧。”，本日必要年度/历史读取、实际8股修复、成交额生产快照五行发布及原job串行推进据此获准。执行结果追加至LLD22.7以后；不重跑已经完成的A/B。
+
+继续时C原run已提交但停在QUEUED，DG网页可用而后台daemon已不工作，未产生本次业务写入；D—H未提交。服务恢复属于原方案“不重启DG”之外的额外操作，具体只读证据、保留队列及沿原入口恢复的边界见LLD22.8，待服务重启确认或管理员恢复，不重复提交C或绕过原队列。
+
+管理员随后自行重启DG；C原排队run正常完成，未重发。后续按原job逐个完成前复权、8股必要历史前复权修复、MACD/KDJ日更及同8股历史指标/state修复、四频九转；成交额Gold/Prod五行发布完成。只复用本次原事件、检查/receipt证据和22份规范路径stat收尾，没有额外全目录审计或年度正文读取。业务代码、公式、配置默认值及依赖未改；原方案与LLD记录本次结果，未提交或推送。
