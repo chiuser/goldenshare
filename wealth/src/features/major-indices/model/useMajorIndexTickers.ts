@@ -6,24 +6,29 @@ import {
 } from "../api/marketMajorIndicesAdapter";
 import type { TopMarketTicker } from "../../../shared/ui/top-market-bar/topMarketBarTypes";
 
-export function useMajorIndexTickers(tradeDate?: string) {
-  const [tickers, setTickers] = useState<readonly TopMarketTicker[]>([]);
+const EMPTY_TICKERS: readonly TopMarketTicker[] = [];
+
+export function useMajorIndexTickers(tradeDate?: string, enabled = true) {
+  const [snapshot, setSnapshot] = useState<{
+    tradeDate: string | undefined;
+    tickers: readonly TopMarketTicker[];
+  } | null>(null);
   useEffect(() => {
+    setSnapshot(null);
+    if (!enabled) return;
     const controller = new AbortController();
-    setTickers([]);
     void fetchMarketMajorIndices({ tradeDate }, { signal: controller.signal })
       .then((response) => {
-        if (!controller.signal.aborted)
-          setTickers(
-            buildTopMarketTickersFromMajorIndices(
-              buildMajorIndicesViewModelFromApi(response),
-            ),
-          );
+        if (controller.signal.aborted) return;
+        setSnapshot({
+          tradeDate,
+          tickers: buildTopMarketTickersFromMajorIndices(buildMajorIndicesViewModelFromApi(response)),
+        });
       })
       .catch(() => {
-        if (!controller.signal.aborted) setTickers([]);
+        if (!controller.signal.aborted) setSnapshot(null);
       });
     return () => controller.abort();
-  }, [tradeDate]);
-  return tickers;
+  }, [enabled, tradeDate]);
+  return enabled && snapshot && snapshot.tradeDate === tradeDate ? snapshot.tickers : EMPTY_TICKERS;
 }

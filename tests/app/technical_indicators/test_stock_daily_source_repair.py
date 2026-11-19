@@ -9,22 +9,20 @@ from fastapi.testclient import TestClient
 import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
 from src.app.auth.dependencies import require_quote_access
+from src.app.dependencies.db import get_db_session
 from src.app.dependencies import stock_daily_technical_indicators as wiring
+from src.app.exceptions import install_exception_handlers
+from src.app.runtime.reference_data import build_reference_data
 from src.app.web.middleware.access_log import AccessLogMiddleware
-from src.biz.api.wealth.market.stock_detail import router
+from src.biz.api.wealth.market.stock_detail import build_router
 from src.foundation.config.settings import Settings
-from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.models.core_serving.security_serving import Security
-from goldenshare_technical_indicators.errors import SourceContractError, SourceReadError
+from goldenshare_technical_indicators.errors import SourceContractError
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 PATH = "/api/v1/wealth/market/stock-detail/kline"
+INIT_PATH = "/api/v1/wealth/market/stock-detail/page-init"
 CODE = "600000.SH"
 START = date(2026, 1, 5)
 DAYS = tuple(START + timedelta(days=i) for i in range(29) if i % 7 < 5)
@@ -59,29 +57,32 @@ def source_client(tmp_path, monkeypatch):
                          ("suspend_type", pa.string()), ("suspend_timing", pa.string())])
     for day in DAYS:
         write_table(root, f"silver/quote/stock_suspend_daily/trade_date={day}/part-000.parquet", [], suspend)
-    calendar = [
-        {"exchange": "SSE", "trade_date": START + timedelta(days=i), "is_open": i % 7 < 5}
-        for i in range((OTHER_DAY - START).days + 1)
-    ]
+    previous_open = None
+    calendar = []
+    for i in range((OTHER_DAY - START).days + 1):
+        day = START + timedelta(days=i)
+        is_open = i % 7 < 5
+        calendar.append({"exchange": "SSE", "trade_date": day, "is_open": is_open,
+                         "pretrade_date": previous_open})
+        if is_open:
+            previous_open = day
     write_table(root, "silver/calendar/trade_calendar/full/part-000.parquet", calendar)
+    # Formal DG stock_basic Raw has VARCHAR fields, including YYYYMMDD dates.
+    security = {
+        "ts_code": CODE, "name": "浦发银行", "symbol": "600000", "exchange": "SSE",
+        "list_status": "L", "list_date": "19991110", "market": "主板",
+        "area": "上海", "industry": "银行", "curr_type": "CNY",
+        **dict.fromkeys(("fullname", "enname", "cnspell", "delist_date",
+                         "is_hs", "act_name", "act_ent_type")),
+    }
+    write_table(root, "raw/tushare/stock_basic/full/part-000.parquet", [security],
+                pa.schema([(name, pa.string()) for name in security]))
+    write_table(root, "raw/tushare/daily_basic/trade_date=2026-02-02/part-000.parquet", [{
+        "ts_code": CODE, "trade_date": "20260202", "turnover_rate": "1.25", "volume_ratio": "0.80",
+    }])
 
-    engine = create_engine("sqlite+pysqlite://", poolclass=StaticPool,
-                           connect_args={"check_same_thread": False})
-    with engine.begin() as connection:
-        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS core_serving")
-        for model in (Security, TradeCalendar):
-            model.__table__.create(connection)
-    factory = sessionmaker(bind=engine, autoflush=False)
-    with factory() as session:
-        session.add(Security(ts_code=CODE, name="浦发银行"))
-        session.add_all(TradeCalendar(**row) for row in calendar)
-        session.commit()
-
-    @contextmanager
-    def read_session(session_factory, control):
-        control.check_active()
-        with session_factory() as session:
-            yield session
+    def reject_pg(*args, **kwargs):
+        pytest.fail("本地股票详情业务不应创建 PostgreSQL 会话")
 
     original_calculate = TechnicalIndicatorService.calculate
     calculations = []
@@ -91,7 +92,7 @@ def source_client(tmp_path, monkeypatch):
         calculations.append(result)
         return result
 
-    monkeypatch.setattr(wiring, "open_stock_daily_read_session", read_session)
+    monkeypatch.setattr(wiring, "open_stock_daily_read_session", reject_pg)
     monkeypatch.setattr(TechnicalIndicatorService, "calculate", calculate)
 
     @contextmanager
@@ -99,23 +100,23 @@ def source_client(tmp_path, monkeypatch):
         @asynccontextmanager
         async def lifespan(app):
             settings = Settings(_env_file=None, APP_ENV=env, GOLDENSHARE_LAKE_ROOT=str(source_root))
+            app.state.reference_data = build_reference_data(settings)
             async with wiring.stock_daily_technical_indicators_lifespan(
-                app, settings_provider=lambda: settings, session_factory_provider=lambda: factory,
+                app, settings_provider=lambda: settings, session_factory_provider=reject_pg,
             ):
                 yield
 
         app = FastAPI(lifespan=lifespan)
-        app.include_router(router, prefix="/api/v1")
+        app.include_router(build_router(local=True), prefix="/api/v1")
+        install_exception_handlers(app)
         app.add_middleware(AccessLogMiddleware)
         app.dependency_overrides[require_quote_access] = lambda: None
+        app.dependency_overrides[get_db_session] = reject_pg
         wiring.install_stock_daily_technical_indicators(app)
         with TestClient(app) as client:
             yield client
 
-    try:
-        yield SimpleNamespace(client_for=client_for, calculations=calculations, root=root)
-    finally:
-        engine.dispose()
+    return SimpleNamespace(client_for=client_for, calculations=calculations, root=root)
 
 
 def request(client, **params):
@@ -129,6 +130,58 @@ def check_values(payload, days):
         assert (bar["open"], bar["high"], bar["low"], bar["close"], bar["vol"], bar["amount"]) == (10, 10, 10, 10, 100, 1000)
         assert bar["factors"]["macd"] == {"dif": 0, "dea": 0, "macd": 0}
         assert bar["factors"]["kdj"] == {"k": 50, "d": 50, "j": 50}
+
+
+def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_client):
+    with source_client.client_for() as client:
+        init = client.get(INIT_PATH, params={"tsCode": CODE, "tradeDate": OTHER_DAY.isoformat(), "debug": 1})
+        assert init.status_code == 200, init.text
+        page = init.json()
+        assert set(page) == {"pageContext", "stock", "chartDefaults", "capabilities", "debugInfo"}
+        assert page["stock"]["name"] == "浦发银行"
+        assert page["debugInfo"]["sourceTables"] == ["raw/tushare/stock_basic", "silver/calendar/trade_calendar"]
+        day = page["pageContext"]["tradeDate"]
+        assert day == "2026-02-03"
+        assert not source_client.calculations
+        response = request(client, tradeDate=day, endDate=day, limit=2)
+        assert response.status_code == 200, response.text
+        schema = client.get("/openapi.json").json()["paths"][PATH]["get"]
+    assert {item["name"] for item in schema["parameters"] if item["in"] == "query"} == {
+        "tsCode", "period", "adjustment", "tradeDate", "startDate", "endDate", "limit", "debug",
+    }
+    assert {item["$ref"].rsplit("/", 1)[-1] for item in
+            schema["responses"]["200"]["content"]["application/json"]["schema"]["anyOf"]} == {
+        "LocalStockDetailFirstKlineResponseDto", "StockDetailKlineResponseDto",
+    }
+    payload = response.json()
+    check_values(payload, DAYS[-2:])
+    assert payload["pageContext"]["tradeDate"] == day
+    assert payload["dataStatus"]["expectedTradeDate"] == day
+    assert payload["dataStatus"]["observedTradeDate"] == "2026-02-02"
+    assert payload["dataStatus"]["status"] == "DELAYED"
+    latest = payload["bars"][-1]
+    assert payload["quote"] == {
+        "tradeDate": "2026-02-02", "price": 10, "close": 10, "open": 10, "high": 10, "low": 10,
+        "preClose": 10, "change": 0, "changePct": 0, "direction": "FLAT",
+        "vol": 100, "volDisplay": latest["volDisplay"], "amount": 1000,
+        "turnoverRate": 1.25, "volumeRatio": 0.80,
+    }
+    for field in ("tradeDate", "open", "high", "low", "close", "preClose", "change",
+                  "changePct", "vol", "volDisplay", "amount", "turnoverRate", "volumeRatio"):
+        assert payload["quote"][field] == latest[field]
+    assert "nextEndDate" not in payload["meta"]
+    assert len(source_client.calculations) == 1
+
+
+@pytest.mark.parametrize("params", [{}, {"tradeDate": "2026-02-03"},
+                                     {"tradeDate": "2026-02-02", "startDate": "2026-02-02"}])
+def test_local_ordinary_daily_requests_keep_original_shape(source_client, params):
+    with source_client.client_for() as client:
+        response = request(client, **params)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert "quote" not in payload and "nextEndDate" not in payload["meta"]
+    check_values(payload, DAYS[-1:] if "startDate" in params else DAYS)
 
 
 def test_stock_uses_latest_basis_even_on_an_older_page(source_client):
@@ -146,7 +199,8 @@ def test_stock_uses_latest_basis_even_on_an_older_page(source_client):
     assert first.source.id == previous.source.id == "stock_daily"
     assert first.price_adjustment.basis_date == previous.price_adjustment.basis_date == OTHER_DAY
     assert payload["debugInfo"]["sourceTables"] == [
-        "core_serving.security_serving", "silver/quote/stock_daily", "silver/quote/adj_factor", "raw/tushare/daily_basic",
+        "raw/tushare/stock_basic", "silver/calendar/trade_calendar",
+        "silver/quote/stock_daily", "silver/quote/adj_factor", "raw/tushare/daily_basic",
     ]
 
 
@@ -172,13 +226,20 @@ def test_dg_skips_unrelated_file(source_client):
 
 def test_empty_and_missing_source(source_client):
     with source_client.client_for() as client:
-        response = request(client, endDate="1900-01-01")
+        response = request(client, tradeDate="1900-01-01", endDate="1900-01-01")
         assert response.status_code == 200
         assert response.json()["bars"] == []
         assert response.json()["dataStatus"]["status"] == "EMPTY"
+        assert "quote" in response.json() and response.json()["quote"] is None
+        for path in (INIT_PATH, PATH):
+            assert client.get(path, params={"tsCode": "T00018.SH"}).json()["code"] == "404001"
     with source_client.client_for(source_root=source_client.root / "absent") as client:
-        with pytest.raises(SourceReadError, match="Lake root is not readable"):
-            request(client)
+        for path in (INIT_PATH, PATH):
+            response = client.get(path, params={"tsCode": CODE})
+            assert response.status_code == 500
+            assert response.json()["code"] == "internal_error"
+            assert "读取数据失败" in response.json()["message"]
+            assert "silver/calendar/trade_calendar" in response.json()["message"]
     assert not source_client.calculations
 
 

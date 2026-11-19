@@ -30,12 +30,22 @@ import {
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import type { StockDetailViewModel, StockPeriodKey } from "../../features/stock-detail/model/stockDetailTypes";
-import type { StockDetailPageInitResponseDto, StockMinuteFrequency } from "../../features/stock-detail/api/stockDetailApiTypes";
+import type { StockDetailPageInitResponseDto } from "../../features/stock-detail/api/stockDetailApiTypes";
 import type { StockMinuteChartViewModel } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
 import "./stock-detail-page.css";
 
 interface StockDetailPageProps {
   tsCode: string;
+  tradeDate?: string;
+  debug?: 1;
+}
+
+interface StockDetailLoad {
+  requestKey: string;
+  state: "loading" | "ready" | "empty" | "error";
+  pageInit?: StockDetailPageInitResponseDto;
+  viewModel?: StockDetailViewModel;
+  errorMessage?: string;
 }
 
 const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
@@ -51,23 +61,27 @@ const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
   }, options);
 };
 
-export function StockDetailPage({ tsCode }: StockDetailPageProps) {
+export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPageProps) {
+  const requestKey = JSON.stringify([tsCode, tradeDate, debug]);
+  const activeRequestKey = useRef(requestKey);
+  activeRequestKey.current = requestKey;
   const indicatorControls = useDetailChartIndicatorControls(tsCode);
-  const tickers = useMajorIndexTickers();
-  const [viewModel, setViewModel] = useState<StockDetailViewModel | null>(null);
-  const [pageInit, setPageInit] = useState<StockDetailPageInitResponseDto | null>(null);
+  const [load, setLoad] = useState<StockDetailLoad | null>(null);
+  const currentLoad = load?.requestKey === requestKey ? load : null;
+  const activePageInit = currentLoad?.pageInit ?? null;
+  const viewModel = currentLoad?.viewModel ?? null;
+  const loadState = currentLoad?.state ?? "loading";
+  const errorMessage = currentLoad?.errorMessage ?? "";
+  const tickers = useMajorIndexTickers(activePageInit?.pageContext.tradeDate, activePageInit !== null);
   const [activePeriod, setActivePeriod] = useState<StockPeriodKey>("day");
   const [minuteChart, setMinuteChart] = useState<StockMinuteChartViewModel | null>(null);
   const [minuteLoadState, setMinuteLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [minuteError, setMinuteError] = useState("");
-  const minuteCacheRef = useRef(new Map<StockMinuteFrequency, StockMinuteChartViewModel>());
+  const minuteCacheRef = useRef(new Map<string, StockMinuteChartViewModel>());
   const minuteControllerRef = useRef<AbortController | null>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "empty" | "error">("loading");
-  const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const [ruleEntry, setRuleEntry] = useState<"PLAN" | "ALERT" | null>(null);
-  useEffect(() => setRuleEntry(null), [tsCode]);
-  const activePageInit = pageInit?.stock.tsCode === tsCode ? pageInit : null;
+  useEffect(() => setRuleEntry(null), [requestKey]);
   const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
   const trendChannel = useStockTrendChannel({
@@ -101,14 +115,10 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    const searchParams = new URLSearchParams(window.location.search);
-    const tradeDate = searchParams.get("tradeDate") ?? undefined;
-    const debug = searchParams.get("debug") === "1" ? 1 : undefined;
+    const isCurrent = () => !controller.signal.aborted && activeRequestKey.current === requestKey;
 
-    setLoadState("loading");
-    setErrorMessage("");
-    setViewModel(null);
-    setPageInit(null);
+    setLoad({ requestKey, state: "loading" });
+    setActivePeriod("day");
     setMinuteChart(null);
     setMinuteLoadState("idle");
     setMinuteError("");
@@ -116,37 +126,39 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     minuteControllerRef.current?.abort();
 
     async function loadStockDetail() {
+      let pageInit: StockDetailPageInitResponseDto | undefined;
       try {
-        const pageInit = await fetchStockDetailPageInit({ tsCode, tradeDate, debug }, { signal: controller.signal });
-        if (controller.signal.aborted) return;
+        pageInit = await fetchStockDetailPageInit({ tsCode, tradeDate, debug }, { signal: controller.signal });
+        if (!isCurrent()) return;
+        setLoad({ requestKey, state: "loading", pageInit });
+        const anchor = pageInit.pageContext.tradeDate;
+        const local = !("quote" in pageInit);
         const kline = await fetchStockDetailKline(
           {
             tsCode,
             period: "day",
             adjustment: "forward",
-            endDate: pageInit.pageContext.tradeDate,
+            tradeDate: local ? anchor : undefined,
+            endDate: anchor,
             limit: DAILY_CHART_PAGE_SIZE,
             debug,
           },
           { signal: controller.signal },
         );
-        if (controller.signal.aborted) return;
-        if (kline.bars.length === 0) {
-          setPageInit(pageInit);
-          setViewModel(null);
-          setActivePeriod("day");
-          setLoadState("empty");
+        if (!isCurrent()) return;
+        if (kline.bars.length === 0 || (local && kline.dataStatus.status === "EMPTY")) {
+          setLoad({ requestKey, state: "empty", pageInit });
           return;
         }
         const nextViewModel = buildStockDetailViewModel(pageInit, kline);
-        setPageInit(pageInit);
-        setViewModel(nextViewModel);
         setActivePeriod(nextViewModel.activePeriod);
-        setLoadState("ready");
+        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel });
       } catch (error) {
-        if (controller.signal.aborted) return;
-        setErrorMessage(error instanceof Error ? error.message : "股票详情数据加载失败");
-        setLoadState("error");
+        if (!isCurrent()) return;
+        setLoad({
+          requestKey, state: "error", pageInit,
+          errorMessage: error instanceof Error ? error.message : "股票详情数据加载失败",
+        });
       }
     }
 
@@ -156,7 +168,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
       controller.abort();
       minuteControllerRef.current?.abort();
     };
-  }, [tsCode]);
+  }, [requestKey, tsCode, tradeDate, debug]);
 
   async function handlePeriodChange(period: StockPeriodKey) {
     setActivePeriod(period);
@@ -169,8 +181,11 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     }
 
     const frequency = minuteFrequencyFromPeriodKey(period);
-    if (!frequency || !pageInit?.capabilities.supportsMinute) return;
-    const cached = minuteCacheRef.current.get(frequency);
+    if (!frequency || !activePageInit?.capabilities.supportsMinute) return;
+    const endDate = activePageInit.pageContext.tradeDate;
+    const cacheKey = `${tsCode}|${endDate}|${frequency}`;
+    minuteControllerRef.current?.abort();
+    const cached = minuteCacheRef.current.get(cacheKey);
     if (cached) {
       setMinuteChart(cached);
       setMinuteLoadState("ready");
@@ -178,7 +193,6 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
       return;
     }
 
-    minuteControllerRef.current?.abort();
     const controller = new AbortController();
     minuteControllerRef.current = controller;
     setMinuteChart(null);
@@ -188,7 +202,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     const params = {
       tsCode,
       freq: frequency,
-      endDate: pageInit.pageContext.tradeDate,
+      endDate,
       limit: 500,
     } as const;
     try {
@@ -196,13 +210,13 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
         fetchStockMinuteBars(params, { signal: controller.signal }),
         fetchStockMinuteIndicators(params, { signal: controller.signal }),
       ]);
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || activeRequestKey.current !== requestKey) return;
       const nextMinuteChart = buildStockMinuteChartViewModel(bars, indicators);
-      minuteCacheRef.current.set(frequency, nextMinuteChart);
+      minuteCacheRef.current.set(cacheKey, nextMinuteChart);
       setMinuteChart(nextMinuteChart);
       setMinuteLoadState("ready");
     } catch (error) {
-      if (controller.signal.aborted) return;
+      if (controller.signal.aborted || activeRequestKey.current !== requestKey) return;
       setMinuteLoadState("error");
       setMinuteError(error instanceof Error ? error.message : "分钟数据加载失败");
     }
@@ -226,7 +240,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     navigateWealth(buildIndexDetailPath(indexCode));
   }
 
-  if (loadState !== "ready" || viewModel === null) {
+  if (loadState !== "ready" || viewModel === null || activePageInit === null) {
     return (
       <div className="stock-detail-app">
         <TopMarketBar
@@ -291,6 +305,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           />
         )}
         <StockInfoRail onAction={showToast} viewModel={viewModel} watchlist={watchlist}
+          tradeDate={activePageInit.pageContext.tradeDate}
           onCreatePlan={activePageInit?.capabilities.userActions.tradePlan ? () => setRuleEntry("PLAN") : undefined}
           onCreateAlert={activePageInit?.capabilities.userActions.alert ? () => setRuleEntry("ALERT") : undefined} />
       </main>

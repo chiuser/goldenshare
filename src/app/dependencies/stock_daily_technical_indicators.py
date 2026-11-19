@@ -21,12 +21,12 @@ from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS,
-    build_calculation_request, validate_stock_daily_request,
+    build_calculation_request, is_stock_detail_first_page, validate_stock_daily_request,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
 from src.db import get_session_factory
-from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION
-from src.foundation.clients.reference_data import bind_reference_data
+from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION
+from src.foundation.clients.reference_data import ReferenceDataReadError
 from src.foundation.config.settings import get_settings
 from goldenshare_technical_indicators.errors import (
     CalculationDeadlineError, CalculationUnsupportedError, ResourceCleanupError,
@@ -151,15 +151,15 @@ class StockDailyKlineAppBackend:
     def __init__(self, runtime, session_factory_provider=get_session_factory, *, reference_data=None):
         self.runtime = runtime
         self.session_factory_provider = session_factory_provider
-        self.service = StockDailyKlineService()
+        self.service = StockDailyKlineService(reference_data)
         self._price_query = StockDetailQuery()
         self._use_dg = runtime.config.data_location == "dg"
-        self._reference_data = reference_data
         self._source_tables = (
-            STOCK_BASIC_LOCATION if reference_data is not None else "core_serving.security_serving",
-            *(("silver/quote/stock_daily", "silver/quote/adj_factor", "raw/tushare/daily_basic")
-              if self._use_dg else
-              ("core_serving.equity_daily_bar", "core.equity_adj_factor", "core_serving.equity_daily_basic")),
+            (STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION,
+             "silver/quote/stock_daily", "silver/quote/adj_factor", "raw/tushare/daily_basic")
+            if self._use_dg else
+            ("core_serving.security_serving", "core_serving.equity_daily_bar",
+             "core.equity_adj_factor", "core_serving.equity_daily_basic")
         )
         for item in STOCK_DAILY_CALCULATIONS:
             definition = self.runtime.registry.resolve(item["calculation_id"])
@@ -186,21 +186,26 @@ class StockDailyKlineAppBackend:
             control.check_active()
             return control.work_until - control.clock()
 
-        with open_stock_daily_read_session(self.session_factory_provider(), control) as session:
-            bind_reference_data(session, self._reference_data)
+        if self._use_dg:
             try:
+                snapshot = self.service.prepare(
+                    None, request,
+                    load_rows=lambda code, end, start, count: self._load_page_fields(
+                        None, code, end, start, count, control,
+                    ),
+                    remaining_seconds=remaining_seconds,
+                )
+            except TimeoutError as error:
+                control.check_active()
+                raise CalculationDeadlineError("stock_daily_reference_data/deadline") from error
+        else:
+            with open_stock_daily_read_session(self.session_factory_provider(), control) as session:
                 snapshot = self.service.prepare(
                     session, request,
                     load_rows=lambda code, end, start, count: self._load_page_fields(
                         session, code, end, start, count, control,
                     ),
-                    **({"remaining_seconds": remaining_seconds} if self._reference_data is not None else {}),
                 )
-            except TimeoutError as error:
-                if self._reference_data is None:
-                    raise
-                control.check_active()
-                raise CalculationDeadlineError("stock_daily_reference_data/deadline") from error
         control.check_active()
         calculation = build_calculation_request(snapshot)
         result = None
@@ -209,7 +214,10 @@ class StockDailyKlineAppBackend:
                 source=self.runtime.source, registry=self.runtime.registry,
                 config=self.runtime.config, control=control,
             ).calculate(calculation)
-        dto = self.service.assemble(snapshot, result, source_tables=self._source_tables)
+        dto = self.service.assemble(
+            snapshot, result, source_tables=self._source_tables,
+            include_quote=self._use_dg and is_stock_detail_first_page(request),
+        )
         control.check_active()
         return dto.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
 
@@ -255,6 +263,9 @@ class StockDailyKlineResponse(Response):
         except StockDetailNotFoundError as error:
             raise WebAppError(status_code=404, code="404001",
                               message=str(error)) from error
+        except ReferenceDataReadError as error:
+            raise WebAppError(status_code=500, code="internal_error",
+                              message=f"读取数据失败：{error}") from error
 
 
 def provide_stock_daily_kline_backend(request: Request) -> StockDailyKlineBackend:

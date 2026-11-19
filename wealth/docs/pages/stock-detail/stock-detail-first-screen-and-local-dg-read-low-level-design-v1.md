@@ -391,3 +391,11 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 - **后端真实路由。** 使用现有 Web 测试环境，运行 `python -B -m pytest -q -p no:cacheprovider tests/test_wealth_market_page_context_query.py tests/web/test_wealth_stock_detail_api.py tests/app/technical_indicators/test_stock_daily_integration.py`，测试临时产物按仓库规则放到 `/private/tmp`。在既有 DG、Prod 只读合同样本上分别请求相同日期。本地 init 检查 `pageContext.tradeDate`、证券身份、图表默认项和能力开关，确认省略 `quote/dataStatus`。本地首屏用 `tradeDate=D&endDate=D` 请求，核对 `quote` 的日期、价格、量额及股票每日指标与末根 K 线一致，方向按末根 K 线的涨跌幅校验，空态显式返回 `quote: null`。普通请求分别覆盖仅传 `endDate`、两日期不同、两日期相同但指定 `startDate`，确认原区间、排序、根数与状态沿用，回包省略 `quote`。检查 `dataStatus` 的预期和实际日期，以及图表消费的 MA、BOLL、MACD、KDJ。旧代码样本在本地返回 `404001`，Prod 保留现行响应。验证源错误用既有包络，取消、超时和重试后连接及计算名额正常归还。
 - **前端页面。** 运行 `npm --prefix wealth run typecheck`、`npm --prefix wealth run test -- src/pages/stock-detail/StockDetailPage.test.tsx src/features/stock-detail/news/StockDetailNewsPanel.test.tsx src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts` 和 `npm --prefix wealth run build`。浏览器连接真实本地接口，确认先有 page-init 回包再有日期请求。按 §5.3 对照网络参数、页面状态和末根日 K 的实际盘口，覆盖退市、空态、旧响应取消和新闻时间边界。Prod 回包夹具用于类型和消费回归，另在 Prod 合同的真实路由上做只读对照。
+
+### 阶段 3 实施核对记录
+
+2026-11-20 · 本地首屏已实现，待 review。阶段 4 的联调和切换另行验收。
+
+- **本地合同。** [隔离路由回归](../../../../tests/app/technical_indicators/test_stock_daily_source_repair.py) 对本地股票详情业务禁用 PostgreSQL 会话，使用符合正式 DG 字段的临时数据。首屏两日期相同时，日 K 有结果只计算一次，末根日 K 与盘口逐字段一致。空首屏明确返回 `quote: null`，普通区间省略 `quote`。覆盖查无标的和 DG 读失败。
+- **正式 DG 只读样本。** 浏览器通过本地实际两个股票详情路由打开贵州茅台，将页面日期明确设为 2026-11-15。初始化先返回页面日期，随后两日期均为该日的日 K 请求返回 500 根。末根和盘口日期为 2026-11-13，状态为 `DELAYED`，右侧显示 1435.26，与末根收盘和源文件按复权因子重算的价格一致。测得一次算子调用 3.68 秒，此数值是该样本的计算时间。浏览器环境的登录与其他模块响应使用隔离夹具，已核到顶部指数、九转和新闻请求使用页面锚点，新闻上界为上海时间 2026-11-16 00:00。
+- **回归。** 75 项后端定向测试、78 项前端定向测试、Wealth 类型检查和构建通过。Prod 两个股票详情接口的 OpenAPI 路径和 20 个相关 schema 与改动前完全相同，隔离路由回归覆盖原回包和 500 根上限。保留股票日 K 元数据原字段。向前翻页仍按 §5.4 作为后续事项。

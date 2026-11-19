@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from datetime import date, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -236,16 +235,14 @@ def test_trading_assistant_keeps_query_failed_error_for_missing_dg_stock(tmp_pat
 
 def test_stock_daily_reference_reads_share_the_existing_deadline(lake, monkeypatch):
     backend = object.__new__(stock_daily.StockDailyKlineAppBackend)
-    backend._reference_data = build_reference_data(local_settings(lake))
-    backend.service = StockDailyKlineService()
-    backend.session_factory_provider = lambda: None
+    backend._use_dg = True
+    backend.service = StockDailyKlineService(build_reference_data(local_settings(lake)))
 
-    @contextmanager
-    def read_session(*args):
-        with Session() as session:
-            yield session
+    def reject_pg(*args):
+        pytest.fail("DG reference reads must not open a PostgreSQL session")
 
-    monkeypatch.setattr(stock_daily, "open_stock_daily_read_session", read_session)
+    backend.session_factory_provider = reject_pg
+    monkeypatch.setattr(stock_daily, "open_stock_daily_read_session", reject_pg)
     read = reference_data_reader._read
     requested = []
 

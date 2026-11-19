@@ -72,15 +72,21 @@ export interface StockDetailDataStatusDto {
   note?: string | null;
 }
 
-export interface StockDetailPageInitResponseDto {
+interface StockDetailPageInitFields {
   pageContext: StockDetailPageContextDto;
   stock: StockDetailStockIdentityDto;
-  quote?: StockQuoteSnapshotDto | null;
   chartDefaults: StockChartDefaultsDto;
   capabilities: StockDetailCapabilitiesDto;
-  dataStatus: StockDetailDataStatusDto;
   debugInfo?: unknown;
 }
+
+export interface StockDetailProdPageInitResponseDto extends StockDetailPageInitFields {
+  quote: StockQuoteSnapshotDto | null;
+  dataStatus: StockDetailDataStatusDto;
+}
+
+export type StockDetailPageInitResponseDto = StockDetailProdPageInitResponseDto
+  | (StockDetailPageInitFields & { quote?: never; dataStatus?: never });
 
 export interface StockKlineBarDto {
   tradeDate: string;
@@ -135,6 +141,7 @@ export interface StockDetailKlineResponseDto {
   adjustment: "forward";
   sourceAdjustment: "qfq";
   bars: StockKlineBarDto[];
+  quote?: StockQuoteSnapshotDto | null;
   meta: {
     count: number;
     limit: number;

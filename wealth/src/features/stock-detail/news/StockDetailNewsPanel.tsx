@@ -11,37 +11,47 @@ type NewsPanelState = "idle" | "loading" | "ready-empty" | "ready-items" | "erro
 
 interface StockDetailNewsPanelProps {
   tsCode: string;
+  tradeDate: string;
   active: boolean;
 }
 
-export function StockDetailNewsPanel({ tsCode, active }: StockDetailNewsPanelProps) {
+function newsWindowEnd(tradeDate: string): string {
+  const nextDay = new Date(`${tradeDate}T00:00:00Z`);
+  nextDay.setUTCDate(nextDay.getUTCDate() + 1);
+  return `${nextDay.toISOString().slice(0, 10)}T00:00:00+08:00`;
+}
+
+export function StockDetailNewsPanel({ tsCode, tradeDate, active }: StockDetailNewsPanelProps) {
+  const key = `${tsCode}|${tradeDate}`;
   const [state, setState] = useState<NewsPanelState>("idle");
   const [items, setItems] = useState<StockDetailNewsItemViewModel[]>([]);
   const [errorMessage, setErrorMessage] = useState("");
-  const loadedTsCodeRef = useRef<string | null>(null);
-  const requestedTsCodeRef = useRef<string | null>(null);
+  const loadedKeyRef = useRef<string | null>(null);
+  const requestedKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    loadedTsCodeRef.current = null;
-    requestedTsCodeRef.current = null;
+    loadedKeyRef.current = null;
+    requestedKeyRef.current = null;
     setState("idle");
     setItems([]);
     setErrorMessage("");
-  }, [tsCode]);
+  }, [key]);
 
   useEffect(() => {
-    if (!active || loadedTsCodeRef.current === tsCode) return;
+    if (!active || loadedKeyRef.current === key) return;
 
     const controller = new AbortController();
-    requestedTsCodeRef.current = tsCode;
+    requestedKeyRef.current = key;
     setState("loading");
     setItems([]);
     setErrorMessage("");
 
-    void fetchStockDetailNews({ tsCode, limit: 50 }, { signal: controller.signal })
+    void fetchStockDetailNews(
+      { tsCode, endAt: newsWindowEnd(tradeDate), limit: 50 }, { signal: controller.signal },
+    )
       .then((response) => {
         if (controller.signal.aborted) return;
-        loadedTsCodeRef.current = tsCode;
+        loadedKeyRef.current = key;
         const nextItems = adaptStockDetailNews(response);
         setItems(nextItems);
         setState(nextItems.length > 0 ? "ready-items" : "ready-empty");
@@ -53,10 +63,10 @@ export function StockDetailNewsPanel({ tsCode, active }: StockDetailNewsPanelPro
       });
 
     return () => controller.abort();
-  }, [active, tsCode]);
+  }, [active, key, tsCode, tradeDate]);
 
-  const currentState: NewsPanelState = requestedTsCodeRef.current === tsCode ? state : active ? "loading" : "idle";
-  const currentItems = loadedTsCodeRef.current === tsCode ? items : [];
+  const currentState: NewsPanelState = requestedKeyRef.current === key ? state : active ? "loading" : "idle";
+  const currentItems = loadedKeyRef.current === key ? items : [];
 
   return (
     <section className="stock-detail-news-panel" data-state={currentState} aria-label="个股新闻">

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto } from "./stockDetailApiTypes";
+import type { StockDetailKlineResponseDto, StockDetailProdPageInitResponseDto } from "./stockDetailApiTypes";
 import { getStockDetailViewModel } from "./stockDetailMockAdapter";
 import { buildStockDetailViewModel } from "./stockDetailViewModelAdapter";
 
@@ -61,7 +61,7 @@ describe("buildStockDetailViewModel", () => {
   });
 });
 
-function makePageInit(): StockDetailPageInitResponseDto {
+function makePageInit(): StockDetailProdPageInitResponseDto {
   return {
     pageContext: {
       market: "CN_A",

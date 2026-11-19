@@ -9,13 +9,14 @@ import { StockWatchlistGroupPicker } from "../../watchlist/ui/StockWatchlistGrou
 
 interface StockInfoRailProps {
   viewModel: StockDetailViewModel;
+  tradeDate: string;
   onAction: (message: string) => void;
   watchlist: ReturnType<typeof useStockWatchlistGroups>;
   onCreatePlan?: () => void;
   onCreateAlert?: () => void;
 }
 
-export function StockInfoRail({ viewModel, onAction, watchlist, onCreatePlan, onCreateAlert }: StockInfoRailProps) {
+export function StockInfoRail({ viewModel, tradeDate, onAction, watchlist, onCreatePlan, onCreateAlert }: StockInfoRailProps) {
   const [activeTab, setActiveTab] = useState<"quote" | "profile" | "news">("quote");
   const quoteDirection = directionClass(viewModel.quote.direction);
 
@@ -100,7 +101,7 @@ export function StockInfoRail({ viewModel, onAction, watchlist, onCreatePlan, on
           </section>
         )}
         <div className="stock-detail-news-tab-pane" hidden={activeTab !== "news"}>
-          <StockDetailNewsPanel tsCode={viewModel.stock.tsCode} active={activeTab === "news"} />
+          <StockDetailNewsPanel tsCode={viewModel.stock.tsCode} tradeDate={tradeDate} active={activeTab === "news"} />
         </div>
       </div>
     </aside>

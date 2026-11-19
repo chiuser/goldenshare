@@ -8,7 +8,7 @@ from sqlalchemy import and_, case, func, literal, select, true
 from sqlalchemy.orm import Session, aliased
 
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
-from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.clients.reference_data import ReferenceData, local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -41,18 +41,19 @@ class MarketPageContextQuery:
 
     def resolve_context(
         self,
-        session: Session,
+        session: Session | None,
         *,
         market: str,
         requested_trade_date: date | None,
         now: datetime | None = None,
         timeout_seconds: float | None = None,
+        reference_data: ReferenceData | None = None,
     ) -> MarketPageContext:
         if market != "CN_A":
             raise ValueError(f"unsupported market: {market}")
 
         local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
-        reference = local_reference_data(session)
+        reference = reference_data or local_reference_data(session)
         if reference is not None:
             calendar = reference.calendar.context_rows(
                 exchange="SSE", end=requested_trade_date or local_now.date(), recent_open_days=2,

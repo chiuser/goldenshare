@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "../../features/auth/model/AuthProvider";
@@ -51,6 +51,8 @@ describe("StockDetailPage", () => {
     failWatchlist = false,
     empty = false,
     emptyQuote = false,
+    local = false,
+    missingLocalQuote = false,
   }: {
     fail?: boolean;
     failTrend?: boolean;
@@ -60,6 +62,8 @@ describe("StockDetailPage", () => {
     failWatchlist?: boolean;
     empty?: boolean;
     emptyQuote?: boolean;
+    local?: boolean;
+    missingLocalQuote?: boolean;
   } = {}) {
     const pageInit = {
       pageContext: {
@@ -347,6 +351,7 @@ describe("StockDetailPage", () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const url = String(input);
       const requestedCode = new URL(url).searchParams.get("tsCode");
+      const requestedDay = new URL(url).searchParams.get("tradeDate") ?? "2026-05-31";
       const otherStock = requestedCode === "601878.SH"
         ? { tsCode: "601878.SH", symbol: "601878", name: "浙商证券" }
         : null;
@@ -361,13 +366,28 @@ describe("StockDetailPage", () => {
         return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
       }
       if (url.includes("/page-init")) {
+        if (local) {
+          const { quote, dataStatus, ...localInit } = pageInit;
+          return Response.json({ ...localInit, pageContext: { ...pageInit.pageContext, tradeDate: requestedDay } });
+        }
         if (emptyQuote) return Response.json({ ...pageInit, quote: null,
           dataStatus: { ...pageInit.dataStatus, status: "EMPTY", observedTradeDate: null } });
         return Response.json(otherStock ? { ...pageInit, stock: { ...pageInit.stock, ...otherStock } } : pageInit);
       }
       if (url.includes("/kline")) {
         if (empty) return Response.json({ ...kline, bars: [], meta: { ...kline.meta, count: 0 },
+          ...(local ? { quote: null } : {}),
           dataStatus: { ...kline.dataStatus, status: "EMPTY", observedTradeDate: null } });
+        if (local && !missingLocalQuote) {
+          const latest = { ...kline.bars.at(-1)!, close: 21.34 };
+          return Response.json({
+            ...kline,
+            pageContext: { ...pageInit.pageContext, tradeDate: requestedDay },
+            bars: [...kline.bars.slice(0, -1), latest],
+            quote: { ...pageInit.quote, price: latest.close, close: latest.close },
+            dataStatus: { ...kline.dataStatus, status: "DELAYED", expectedTradeDate: requestedDay },
+          });
+        }
         return Response.json(otherStock ? { ...kline, stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : kline);
       }
       if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
@@ -424,6 +444,66 @@ describe("StockDetailPage", () => {
     expect(urls.some(url => url.includes("/nine-turn") || url.includes("/trend-channel"))).toBe(false);
   });
 
+  it("waits for the local page date, requests one daily batch, and displays the K-line quote", async () => {
+    const detailFetch = mockStockDetailFetch({ local: true });
+    const pageInit = deferred<Response>();
+    const fetchMock = vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/page-init")) return pageInit.promise;
+      if (url.pathname === MAJOR_INDICES_PATH) return Promise.resolve(majorIndicesResponse());
+      return detailFetch(input, options);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname))
+      .toEqual(["/api/v1/wealth/market/stock-detail/page-init"]);
+    pageInit.resolve(await detailFetch(fetchMock.mock.calls[0][0]));
+
+    expect(await screen.findByText("21.34", { selector: ".price" })).toBeInTheDocument();
+    const matching = (suffix: string) => fetchMock.mock.calls
+      .map(([input]) => new URL(String(input))).filter((url) => url.pathname.endsWith(suffix));
+    expect(matching("/kline")).toHaveLength(1);
+    expect(matching("/kline")[0].searchParams.get("tradeDate")).toBe("2026-05-31");
+    expect(matching("/kline")[0].searchParams.get("endDate")).toBe("2026-05-31");
+    expect(matching("/major-indices")[0].searchParams.get("tradeDate")).toBe("2026-05-31");
+    fireEvent.click(screen.getByRole("tab", { name: "新闻" }));
+    await screen.findByText("第三条新闻");
+    expect(matching("/news")[0].searchParams.get("endAt")).toBe("2026-06-01T00:00:00+08:00");
+  });
+
+  it("ignores a delayed daily response after changing the same stock's explicit date", async () => {
+    const detailFetch = mockStockDetailFetch({ local: true });
+    const oldKline = deferred<Response>();
+    let oldSignal: AbortSignal | null | undefined;
+    const fetchMock = vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/kline") && url.searchParams.get("endDate") === "2026-05-30") {
+        oldSignal = options?.signal;
+        return oldKline.promise;
+      }
+      return detailFetch(input, options);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const view = render(<StockDetailPage tsCode="603806.SH" tradeDate="2026-05-30" />);
+    await waitFor(() => expect(oldSignal).toBeDefined());
+    view.rerender(<StockDetailPage tsCode="603806.SH" tradeDate="2026-05-31" />);
+    await screen.findByText("21.34", { selector: ".price" });
+    expect(oldSignal?.aborted).toBe(true);
+    await act(async () => oldKline.resolve(Response.json({ message: "上一日期不能覆盖当前页面" }, { status: 500 })));
+    expect(screen.queryByText("上一日期不能覆盖当前页面")).not.toBeInTheDocument();
+    expect(screen.getByText("21.34", { selector: ".price" })).toBeInTheDocument();
+  });
+
+  it("separates a local empty response from a nonempty response missing its quote", async () => {
+    mockStockDetailFetch({ local: true, empty: true });
+    const emptyView = render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByLabelText("暂无行情信息")).toBeInTheDocument();
+    emptyView.unmount();
+    mockStockDetailFetch({ local: true, missingLocalQuote: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByText("股票日 K 首屏缺少盘口数据")).toBeInTheDocument();
+  });
+
   it("loads ticker data from the API independently after opening a stock from the default watchlist", async () => {
     const detailFetch = mockStockDetailFetch();
     const watchlistItem = item();
@@ -462,7 +542,7 @@ describe("StockDetailPage", () => {
     expect(within(index).getByText("+0.45%")).toHaveClass("up");
     const indicesCalls = fetchMock.mock.calls.map(([url]) => new URL(String(url)))
       .filter(({ pathname }) => pathname === MAJOR_INDICES_PATH);
-    expect(indicesCalls.map(({ search }) => search)).toEqual(["", ""]);
+    expect(indicesCalls.map(({ search }) => search)).toEqual(["", "?tradeDate=2026-05-29"]);
   });
 
   it.each(["failed", "empty"])("keeps stock content available when the index response is %s", async (outcome) => {
@@ -759,12 +839,16 @@ describe("StockDetailPage", () => {
     });
   });
 
-  it("keeps index data visible when the stock API fails", async () => {
-    const detailFetch = mockStockDetailFetch({ fail: true });
-    vi.stubGlobal("fetch", (input: RequestInfo | URL, options?: RequestInit) =>
-      new URL(String(input)).pathname === MAJOR_INDICES_PATH
-        ? Promise.resolve(majorIndicesResponse())
-        : detailFetch(input, options));
+  it("keeps the anchored index data visible when daily K-line fails after page-init", async () => {
+    const detailFetch = mockStockDetailFetch();
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, options?: RequestInit) => {
+      const { pathname } = new URL(String(input));
+      if (pathname === MAJOR_INDICES_PATH) return Promise.resolve(majorIndicesResponse());
+      if (pathname.endsWith("/kline")) {
+        return Promise.resolve(Response.json({ message: "接口失败" }, { status: 500 }));
+      }
+      return detailFetch(input, options);
+    });
 
     render(<StockDetailPage tsCode="603806.SH" />);
 
@@ -772,5 +856,13 @@ describe("StockDetailPage", () => {
     expect(screen.getByText("接口失败")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByLabelText("K线主图")).not.toBeInTheDocument());
     expect(await screen.findByRole("button", { name: /上证指数/ })).toHaveTextContent("3825.76");
+  });
+
+  it("sends no dated follow-up requests when page-init fails", async () => {
+    const fetchMock = mockStockDetailFetch({ fail: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByLabelText("股票详情加载失败")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.map(([input]) => new URL(String(input)).pathname))
+      .toEqual(["/api/v1/wealth/market/stock-detail/page-init"]);
   });
 });

@@ -9,7 +9,7 @@ describe("StockDetailNewsPanel", () => {
   });
 
   it("does not request while inactive and preserves the API array order after activation", async () => {
-    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => new Response(JSON.stringify({
       stockRef: { tsCode: "603806.SH", name: "福斯特" },
       items: [
         { newsId: "3", publishTime: "2026-05-29T16:00:03+08:00", title: "第三条" },
@@ -20,13 +20,15 @@ describe("StockDetailNewsPanel", () => {
     })));
     vi.stubGlobal("fetch", fetchMock);
 
-    const view = render(<StockDetailNewsPanel tsCode="603806.SH" active={false} />);
+    const view = render(<StockDetailNewsPanel tsCode="603806.SH" tradeDate="2026-05-31" active={false} />);
     expect(fetchMock).not.toHaveBeenCalled();
 
-    view.rerender(<StockDetailNewsPanel tsCode="603806.SH" active />);
+    view.rerender(<StockDetailNewsPanel tsCode="603806.SH" tradeDate="2026-05-31" active />);
     await waitFor(() => expect(screen.getByText("第三条")).toBeInTheDocument());
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get("endAt"))
+      .toBe("2026-06-01T00:00:00+08:00");
     expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
       "第三条05-29",
       "第一条05-29",
@@ -44,13 +46,13 @@ describe("StockDetailNewsPanel", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ message: "接口失败" }), { status: 500 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const view = render(<StockDetailNewsPanel tsCode="603806.SH" active />);
+    const view = render(<StockDetailNewsPanel tsCode="603806.SH" tradeDate="2026-05-29" active />);
     await waitFor(() => expect(screen.getByText("暂无相关新闻")).toBeInTheDocument());
-    view.rerender(<StockDetailNewsPanel tsCode="000001.SZ" active />);
+    view.rerender(<StockDetailNewsPanel tsCode="000001.SZ" tradeDate="2026-05-29" active />);
     await waitFor(() => expect(screen.getByText("接口失败")).toBeInTheDocument());
   });
 
-  it("aborts the old request when the stock changes", async () => {
+  it("aborts the old request and uses a new window when the date changes for the same stock", async () => {
     const requestSignals: (AbortSignal | null | undefined)[] = [];
     const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
       requestSignals.push(init?.signal);
@@ -58,10 +60,13 @@ describe("StockDetailNewsPanel", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const view = render(<StockDetailNewsPanel tsCode="603806.SH" active />);
+    const view = render(<StockDetailNewsPanel tsCode="603806.SH" tradeDate="2026-05-29" active />);
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    view.rerender(<StockDetailNewsPanel tsCode="000001.SZ" active />);
+    view.rerender(<StockDetailNewsPanel tsCode="603806.SH" tradeDate="2026-05-30" active />);
     await act(async () => Promise.resolve());
     expect(requestSignals[0]?.aborted).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("endAt"))
+      .toBe("2026-05-31T00:00:00+08:00");
   });
 });

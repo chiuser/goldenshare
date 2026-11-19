@@ -55,7 +55,14 @@ export function WealthRouter() {
 
   const stockDetailTsCode = parseStockDetailTsCode(location.pathname);
   if (stockDetailTsCode) {
-    return <StockDetailPage tsCode={stockDetailTsCode} />;
+    const params = new URLSearchParams(location.search);
+    return (
+      <StockDetailPage
+        tsCode={stockDetailTsCode}
+        tradeDate={params.get("tradeDate") ?? undefined}
+        debug={params.get("debug") === "1" ? 1 : undefined}
+      />
+    );
   }
 
   const indexDetailTsCode = parseIndexDetailTsCode(location.pathname);

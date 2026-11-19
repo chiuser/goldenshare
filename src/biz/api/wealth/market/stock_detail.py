@@ -15,6 +15,8 @@ from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service impor
     StockDetailQueryService,
 )
 from src.biz.schemas.wealth.market.stock_detail import (
+    LocalStockDetailFirstKlineResponseDto,
+    LocalStockDetailPageInitResponseDto,
     StockDetailKlineResponseDto,
     StockDetailPageInitResponseDto,
 )
@@ -22,14 +24,10 @@ from src.biz.api.wealth.market.stock_detail_dependencies import (
     StockDailyKlineBackend, get_stock_daily_kline_backend,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlineRequest
+from src.foundation.clients.reference_data import ReferenceDataReadError
 
 
-router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
-
-
-@router.get("/page-init", response_model=StockDetailPageInitResponseDto)
 def get_stock_detail_page_init(
-    request: Request,
     ts_code: str = Query(alias="tsCode"),
     trade_date: date | None = Query(default=None, alias="tradeDate"),
     debug: int = Query(default=0, ge=0, le=1),
@@ -37,15 +35,11 @@ def get_stock_detail_page_init(
     session: Session = Depends(get_db_session),
 ) -> StockDetailPageInitResponseDto:
     try:
-        runtime = getattr(request.app.state, "technical_indicator_runtime", None)
-        lake = runtime.source if runtime is not None and runtime.config.data_location == "dg" else None
         return StockDetailQueryService().build_page_init(
             session,
             ts_code=ts_code.strip().upper(),
             trade_date=trade_date,
             debug=bool(debug),
-            daily_lake=lake,
-            kernel_config=runtime.config if lake is not None else None,
         )
     except StockDetailNotFoundError as exc:
         raise WebAppError(status_code=404, code="404001", message=str(exc)) from exc
@@ -53,7 +47,27 @@ def get_stock_detail_page_init(
         raise WebAppError(status_code=400, code="400001", message=str(exc)) from exc
 
 
-@router.get("/kline", response_model=StockDetailKlineResponseDto, response_class=JSONResponse)
+def get_local_stock_detail_page_init(
+    request: Request,
+    ts_code: str = Query(alias="tsCode"),
+    trade_date: date | None = Query(default=None, alias="tradeDate"),
+    debug: int = Query(default=0, ge=0, le=1),
+    _user: AuthenticatedUser | None = Depends(require_quote_access),
+) -> LocalStockDetailPageInitResponseDto:
+    try:
+        return StockDetailQueryService(request.app.state.reference_data).build_local_page_init(
+            ts_code=ts_code.strip().upper(), trade_date=trade_date, debug=bool(debug),
+        )
+    except StockDetailNotFoundError as exc:
+        raise WebAppError(status_code=404, code="404001", message=str(exc)) from exc
+    except ReferenceDataReadError as exc:
+        raise WebAppError(
+            status_code=500, code="internal_error", message=f"读取数据失败：{exc}",
+        ) from exc
+    except ValueError as exc:
+        raise WebAppError(status_code=400, code="400001", message=str(exc)) from exc
+
+
 async def get_stock_detail_kline(
     request: Request,
     ts_code: str = Query(alias="tsCode"),
@@ -71,3 +85,18 @@ async def get_stock_detail_kline(
         ts_code.strip().upper(), period, adjustment, trade_date, start_date, end_date,
         limit, bool(debug),
     ), arrived_at=request.state.stock_daily_arrived_at)
+
+
+def build_router(*, local: bool) -> APIRouter:
+    router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
+    router.add_api_route(
+        "/page-init", get_local_stock_detail_page_init if local else get_stock_detail_page_init,
+        methods=["GET"],
+        response_model=LocalStockDetailPageInitResponseDto if local else StockDetailPageInitResponseDto,
+    )
+    router.add_api_route(
+        "/kline", get_stock_detail_kline, methods=["GET"], response_class=JSONResponse,
+        response_model=(LocalStockDetailFirstKlineResponseDto | StockDetailKlineResponseDto
+                        if local else StockDetailKlineResponseDto),
+    )
+    return router

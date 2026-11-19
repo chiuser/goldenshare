@@ -63,8 +63,10 @@ export function buildStockDetailViewModel(
   pageInit: StockDetailPageInitResponseDto,
   kline: StockDetailKlineResponseDto,
 ): StockDetailViewModel {
-  if (!pageInit.quote) {
-    throw new Error("暂无股票行情数据");
+  const usesInitQuote = "quote" in pageInit;
+  const quote = usesInitQuote ? pageInit.quote : kline.quote;
+  if (!quote) {
+    throw new Error(usesInitQuote ? "暂无股票行情数据" : "股票日 K 首屏缺少盘口数据");
   }
   if (kline.bars.length === 0) {
     throw new Error("暂无股票K线数据");
@@ -74,7 +76,6 @@ export function buildStockDetailViewModel(
   const availablePeriods = new Set<StockPeriodKey>(pageInit.chartDefaults.availablePeriods);
   const minuteFrequencies = new Set(pageInit.capabilities.minuteFrequencies ?? []);
   const availableIndicators = new Set<string>(pageInit.chartDefaults.availableIndicatorTabs);
-  const quote = pageInit.quote;
 
   return {
     ...scaffold,

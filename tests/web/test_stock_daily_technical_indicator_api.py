@@ -1,11 +1,11 @@
 """LLD §14.1 ordinary API checks. Real SQLite/route; controlled calculation.
 
 P01/R01–R05 are deliberately not executed here. The temporary serving schema
-is the current EquityFactorPro/Security/TradeCalendar producer definition.
+uses the current EquityDailyBar/Security/TradeCalendar producer definition.
 """
 from datetime import date, timedelta
 
-from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.security_serving import Security
 from tests.stock_daily_kline_helpers import backend_for_client
 from tests.web.test_wealth_stock_detail_api import _ensure_stock_detail_tables, _seed_stock_detail_data
@@ -19,10 +19,10 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
     db_session.add(Security(ts_code="600000.SH", symbol="600000", name="浦发银行",
                             security_type="EQUITY", source="tushare"))
     days = tuple(date(2020, 1, 1) + timedelta(days=i) for i in range(500))
-    db_session.add_all(EquityFactorPro(
-        ts_code="600000.SH", trade_date=day, source="tushare", open_qfq=10,
-        high_qfq=11, low_qfq=9, close_qfq=10, pre_close=10, change=0, pct_chg=0,
-        vol=100, amount=1000, turnover_rate=None, volume_ratio=None,
+    db_session.add_all(EquityDailyBar(
+        ts_code="600000.SH", trade_date=day, open=10,
+        high=11, low=9, close=10, pre_close=10, change_amount=0, pct_chg=0,
+        vol=100, amount=1000,
     ) for day in days)
     db_session.commit()
     with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property) as (_, calls, _):
@@ -30,6 +30,8 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
             params = {"tsCode": "600000.SH", "endDate": days[-1].isoformat()}
             if limit is not None:
                 params["limit"] = limit
+            if limit == 1:
+                params["tradeDate"] = params["endDate"]
             expected_limit = 500 if limit is None else limit
             response = app_client.get(PATH, params=params)
             assert response.status_code == 200, response.text
@@ -40,7 +42,10 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
             assert set(payload) == {"pageContext", "stockRef", "period", "adjustment", "sourceAdjustment",
                                     "bars", "meta", "dataStatus", "debugInfo"}
             assert response.headers["content-type"] == "application/json"
-        assert len(calls) == 3 and all(len(item.calculations) == 10 for item in calls)
+        assert len(calls) == 3
+        for item in calls:
+            assert len(item.calculations) == 11
+            assert sum(spec["calculation_id"] == "price" for spec in item.calculations) == 1
     operation = app_client.app.openapi()["paths"][PATH]["get"]
     params = {item["name"]: item["schema"] for item in operation["parameters"] if item["in"] == "query"}
     assert set(params) == {"tsCode", "period", "adjustment", "tradeDate", "startDate", "endDate", "limit", "debug"}

@@ -92,6 +92,26 @@ def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
     )
 
 
+def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
+    return StockQuoteSnapshotDto(
+        tradeDate=bar.tradeDate,
+        price=bar.close,
+        change=bar.change,
+        changePct=bar.changePct,
+        direction=resolve_direction(bar.changePct),  # type: ignore[arg-type]
+        open=bar.open,
+        high=bar.high,
+        low=bar.low,
+        close=bar.close,
+        preClose=bar.preClose,
+        turnoverRate=bar.turnoverRate,
+        volumeRatio=bar.volumeRatio,
+        vol=bar.vol,
+        volDisplay=bar.volDisplay,
+        amount=bar.amount,
+    )
+
+
 def build_kline_bar(row: StockDailyKlineRow, factors: StockKlineFactorDto) -> StockKlineBarDto:
     open_price = to_float(row.open_qfq)
     high_price = to_float(row.high_qfq)

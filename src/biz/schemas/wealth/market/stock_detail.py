@@ -195,6 +195,16 @@ class StockDetailPageInitResponseDto(BaseModel):
     debugInfo: StockDetailDebugInfoDto | None = None
 
 
+class LocalStockDetailPageInitResponseDto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    pageContext: MarketPageContextDto
+    stock: StockDetailStockIdentityDto
+    chartDefaults: StockChartDefaultsDto
+    capabilities: StockDetailCapabilitiesDto
+    debugInfo: StockDetailDebugInfoDto | None = None
+
+
 class StockDetailKlineResponseDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -207,3 +217,7 @@ class StockDetailKlineResponseDto(BaseModel):
     meta: StockKlineMetaDto
     dataStatus: StockDetailDataStatusDto
     debugInfo: StockDetailDebugInfoDto | None = None
+
+
+class LocalStockDetailFirstKlineResponseDto(StockDetailKlineResponseDto):
+    quote: StockQuoteSnapshotDto | None

@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from typing import Any
-from time import monotonic
 
 from sqlalchemy.orm import Session
 
@@ -14,6 +13,7 @@ from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
     STOCK_DAILY_BASIC_FIELDS, StockDetailQuery,
 )
 from src.biz.schemas.wealth.market.stock_detail import (
+    LocalStockDetailPageInitResponseDto,
     StockChartDefaultsDto,
     StockDetailCapabilitiesDto,
     StockDetailDebugInfoDto,
@@ -39,11 +39,11 @@ from src.foundation.config.settings import get_settings
 from src.foundation.config.stock_daily_trend_channel_capability import (
     resolve_stock_daily_trend_channel_capability,
 )
-from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION
-from src.foundation.clients.reference_data import SecurityReferenceRow, local_reference_data
+from src.foundation.clients.local_lake.reference_data_reader import (
+    STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION,
+)
+from src.foundation.clients.reference_data import ReferenceData, SecurityReferenceRow, local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
-from goldenshare_technical_indicators.execution_control import ExecutionControl
-from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
 class StockDetailNotFoundError(ValueError):
@@ -53,9 +53,29 @@ class StockDetailNotFoundError(ValueError):
 class StockDetailQueryService:
     """Assemble wealth stock detail responses from serving facts."""
 
-    def __init__(self) -> None:
+    def __init__(self, reference_data: ReferenceData | None = None) -> None:
+        self._reference_data = reference_data
         self._context_query = MarketPageContextQuery()
         self._query = StockDetailQuery()
+
+    def build_local_page_init(
+        self, *, ts_code: str, trade_date: date | None, debug: bool,
+    ) -> LocalStockDetailPageInitResponseDto:
+        context = self._context_query.resolve_context(
+            None, market="CN_A", requested_trade_date=trade_date, reference_data=self._reference_data,
+        )
+        security = self._load_security_or_raise(None, ts_code=ts_code)
+        chart_defaults, capabilities = self._page_options()
+        return LocalStockDetailPageInitResponseDto(
+            pageContext=build_page_context(context),
+            stock=self._to_stock_identity(security),
+            chartDefaults=chart_defaults,
+            capabilities=capabilities,
+            debugInfo=StockDetailDebugInfoDto(
+                sourceTables=[STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION],
+                query={"tsCode": ts_code, "expectedTradeDate": context.trade_date.isoformat()},
+            ) if debug else None,
+        )
 
     def build_page_init(
         self,
@@ -64,8 +84,6 @@ class StockDetailQueryService:
         ts_code: str,
         trade_date: date | None,
         debug: bool,
-        daily_lake=None,
-        kernel_config=None,
     ) -> StockDetailPageInitResponseDto:
         context = self._context_query.resolve_context(session, market="CN_A", requested_trade_date=trade_date)
         security = self._load_security_or_raise(session, ts_code=ts_code)
@@ -77,17 +95,35 @@ class StockDetailQueryService:
         observed_trade_date = factor_row["trade_date"] if factor_row is not None else None
         basic_source = "core_serving.equity_daily_basic"
         if factor_row is not None:
-            if daily_lake is None:
-                basic = self._query.load_daily_basic(session, ts_code=ts_code, trade_date=observed_trade_date)
-            else:
-                basic_source = "raw/tushare/daily_basic"
-                control = ExecutionControl(arrived_at=monotonic(), config=kernel_config)
-                basic = daily_lake.daily_rows(
-                    "stock_daily_basic", ts_code, (observed_trade_date,), STOCK_DAILY_BASIC_FIELDS,
-                    control=control, read_context=SourceReadContext(kernel_config),
-                ).get(observed_trade_date)
+            basic = self._query.load_daily_basic(session, ts_code=ts_code, trade_date=observed_trade_date)
             factor_row.update({field: basic[field] if basic is not None else None
                                for field in STOCK_DAILY_BASIC_FIELDS})
+        chart_defaults, capabilities = self._page_options()
+        return StockDetailPageInitResponseDto(
+            pageContext=build_page_context(context),
+            stock=self._to_stock_identity(security),
+            quote=build_quote(factor_row) if factor_row is not None else None,
+            chartDefaults=chart_defaults,
+            capabilities=capabilities,
+            dataStatus=build_data_status(
+                expected_trade_date=context.trade_date,
+                observed_trade_date=observed_trade_date,
+            ),
+            debugInfo=self._build_debug_info(
+                ts_code=ts_code,
+                expected_trade_date=context.trade_date,
+                observed_trade_date=observed_trade_date,
+                limit=None,
+                basic_source=basic_source if factor_row is not None else None,
+                security_source=(
+                    STOCK_BASIC_LOCATION if local_reference_data(session) is not None
+                    else "core_serving.security_serving"
+                ),
+            ) if debug else None,
+        )
+
+    @staticmethod
+    def _page_options() -> tuple[StockChartDefaultsDto, StockDetailCapabilitiesDto]:
         minute_capability = resolve_local_minute_capability(get_settings())
         nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
             get_settings()
@@ -96,18 +132,15 @@ class StockDetailQueryService:
             get_settings()
         )
 
-        return StockDetailPageInitResponseDto(
-            pageContext=build_page_context(context),
-            stock=self._to_stock_identity(security),
-            quote=build_quote(factor_row) if factor_row is not None else None,
-            chartDefaults=StockChartDefaultsDto(
+        return (
+            StockChartDefaultsDto(
                 availableMainOverlays=(
                     ["MA", "BOLL", "TREND_CHANNEL"]
                     if trend_channel_capability.enabled
                     else ["MA", "BOLL"]
                 )
             ),
-            capabilities=StockDetailCapabilitiesDto(
+            StockDetailCapabilitiesDto(
                 userActions=StockDetailUserActionsDto(alert=True, tradePlan=True),
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
@@ -119,35 +152,17 @@ class StockDetailQueryService:
                     else ["day"]
                 ),
             ),
-            dataStatus=build_data_status(
-                expected_trade_date=context.trade_date,
-                observed_trade_date=observed_trade_date,
-            ),
-            debugInfo=(
-                self._build_debug_info(
-                    ts_code=ts_code,
-                    expected_trade_date=context.trade_date,
-                    observed_trade_date=observed_trade_date,
-                    limit=None,
-                    basic_source=basic_source if factor_row is not None else None,
-                    security_source=(
-                        STOCK_BASIC_LOCATION if local_reference_data(session) is not None
-                        else "core_serving.security_serving"
-                    ),
-                )
-                if debug
-                else None
-            ),
         )
 
     def prepare_kline_input(
-        self, session: Session, request: StockDailyKlineRequest,
+        self, session: Session | None, request: StockDailyKlineRequest,
         *, load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
         remaining_seconds: Callable[[], float] | None = None,
     ) -> StockDailyKlineInput:
         context = self._context_query.resolve_context(
             session, market="CN_A", requested_trade_date=request.end_date or request.trade_date,
             timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
+            reference_data=self._reference_data,
         )
         security = self._load_security_or_raise(
             session, ts_code=request.ts_code,
@@ -168,9 +183,12 @@ class StockDetailQueryService:
         )
 
     def _load_security_or_raise(
-        self, session: Session, *, ts_code: str, timeout_seconds: float | None = None,
+        self, session: Session | None, *, ts_code: str, timeout_seconds: float | None = None,
     ) -> Security | SecurityReferenceRow:
-        security = self._query.load_security(session, ts_code=ts_code, timeout_seconds=timeout_seconds)
+        if self._reference_data is not None:
+            security = self._reference_data.security.get(ts_code=ts_code, timeout_seconds=timeout_seconds)
+        else:
+            security = self._query.load_security(session, ts_code=ts_code, timeout_seconds=timeout_seconds)
         if security is None:
             raise StockDetailNotFoundError(f"未找到股票标的：{ts_code}")
         return security

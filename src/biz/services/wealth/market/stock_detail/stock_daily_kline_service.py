@@ -10,10 +10,11 @@ from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailQueryService
 from src.biz.schemas.wealth.market.stock_detail import (
-    StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
+    LocalStockDetailFirstKlineResponseDto, StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
     StockDetailStockRefDto, StockKdjDto, StockKlineFactorDto, StockKlineMetaDto,
     StockMacdDto, StockMovingAverageDto,
 )
+from src.foundation.clients.reference_data import ReferenceData
 from goldenshare_technical_indicators.contracts import CalculationResult
 from goldenshare_technical_indicators.errors import OutputContractError
 
@@ -21,7 +22,9 @@ from .stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS, STOCK_DAILY_OUTPUT_FIELDS,
 )
 from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlineRequest
-from .stock_detail_field_mapper import build_data_status, build_kline_bar, build_page_context, to_float
+from .stock_detail_field_mapper import (
+    build_data_status, build_kline_bar, build_page_context, build_quote_from_kline_bar, to_float,
+)
 
 
 def _contract_error(reason, *, calculation_index=None, **diagnostics):
@@ -36,11 +39,11 @@ def _calculation_key(calculation_id, parameters):
 
 
 class StockDailyKlineService:
-    def __init__(self) -> None:
-        self._query = StockDetailQueryService()
+    def __init__(self, reference_data: ReferenceData | None = None) -> None:
+        self._query = StockDetailQueryService(reference_data)
 
     def prepare(
-        self, session: Session, request: StockDailyKlineRequest, *,
+        self, session: Session | None, request: StockDailyKlineRequest, *,
         load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
         remaining_seconds: Callable[[], float] | None = None,
     ) -> StockDailyKlineInput:
@@ -85,7 +88,7 @@ class StockDailyKlineService:
 
     def assemble(
         self, source: StockDailyKlineInput, result: CalculationResult | None,
-        *, source_tables: tuple[str, ...],
+        *, source_tables: tuple[str, ...], include_quote: bool = False,
     ) -> StockDetailKlineResponseDto:
         if source.bars:
             self._validate_result(source, result)
@@ -124,7 +127,7 @@ class StockDailyKlineService:
                 bars.append(build_kline_bar(row, factors))
             request = source.request
             observed = source.bars[-1].trade_date if source.bars else None
-            return StockDetailKlineResponseDto(
+            response_fields = dict(
                 pageContext=build_page_context(source.context),
                 stockRef=StockDetailStockRefDto(tsCode=source.ts_code, name=source.name),
                 period="day", adjustment="forward", sourceAdjustment="qfq", bars=bars,
@@ -138,6 +141,11 @@ class StockDailyKlineService:
                     "limit": request.limit,
                 }) if request.debug else None,
             )
+            if include_quote:
+                return LocalStockDetailFirstKlineResponseDto(
+                    **response_fields, quote=build_quote_from_kline_bar(bars[-1]) if bars else None,
+                )
+            return StockDetailKlineResponseDto(**response_fields)
         except ValidationError as error:
             # Pydantic itself can retain input. Only bounded, input-free diagnostics survive.
             issues = tuple((tuple(item["loc"]), item["type"]) for item in error.errors(

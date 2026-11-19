@@ -43,6 +43,14 @@ def validate_stock_daily_request(request: StockDailyKlineRequest) -> None:
         raise ValueError("startDate 不能晚于 endDate")
 
 
+def is_stock_detail_first_page(request: StockDailyKlineRequest) -> bool:
+    return (
+        request.trade_date is not None
+        and request.end_date == request.trade_date
+        and request.start_date is None
+    )
+
+
 def build_calculation_request(source: StockDailyKlineInput) -> CalculationRequest | None:
     """Use actual returned dates; the kernel determines its own preceding history."""
     if not source.bars:
