@@ -1,0 +1,599 @@
+{
+  "purpose": "D4 static integer row-accounting audit; no project import, SQL, indicator calculation, source data, tests or runtime measurements",
+  "commit": "38193f953857f6e6233d7d91ddd921c6c77c70cf",
+  "saved_d3_evidence": "/Users/congming/github/goldenshare/reports/technical_indicator_kernel_d3_20261025/progress.json",
+  "constants": {
+    "batch_rows": 8192,
+    "history_rows": 249,
+    "output_tail_limit": 1000,
+    "macd_segment_rows": 1024,
+    "kdj_segment_rows": 631,
+    "distinct_ma_windows": 7,
+    "joined_output_tables": 10
+  },
+  "scope": {
+    "included": "current service SqlStep processed_rows and fixed read-result/control counts for 10 fixed instances; D3 calibration adds price",
+    "excluded": "synthetic source generation SQL, factor/anchor SQL, diagnostic/profiling work, actual operator work, timing, RSS, error scheduling",
+    "budget_comparison": "the five mandatory complete 200000-row requests alone exceed 60000000; a cancellation request only adds work",
+    "reference_limitation": "150000 is a six-complete-equivalent upper estimate for these known service steps only, not an upper bound on all execution work and not a proposal to change approved inputs or budget"
+  },
+  "calibrations": [
+    {
+      "input_rows": 10001,
+      "include_price": true,
+      "saved_logical_rows": 608757,
+      "expected_literal": 608757,
+      "estimated_logical_rows": 608757,
+      "matches_saved_report": true,
+      "estimate": {
+        "input_rows": 10001,
+        "include_price": true,
+        "business_instances": 11,
+        "batch_count": 2,
+        "complete_known_service_logical_rows": 608757,
+        "step_group_rows": {
+          "parameter_preparation": 7,
+          "source_session_stage_target_window": 30252,
+          "macd_first_and_output": 8193,
+          "segment_bound_reads": 60,
+          "macd_segments": 69672,
+          "kdj_segments": 111955,
+          "segment_append_and_state_update": 40028,
+          "seven_window_means": 71750,
+          "bollinger_bands": 20251,
+          "kdj_window": 10250,
+          "inspect_columns": 70,
+          "check_batch_rows": 110260,
+          "merge_batch": 110260,
+          "retain_tail": 11001,
+          "rename_output_tail": 2000,
+          "retain_input_history": 10250,
+          "rename_input_history": 498,
+          "final_count_and_fetch": 2000
+        },
+        "batches": [
+          {
+            "batch": 1,
+            "new_rows": 8192,
+            "history_rows": 0,
+            "price_rows": 8192,
+            "macd_segments": 8,
+            "kdj_segments": 13,
+            "logical_rows": 517488
+          },
+          {
+            "batch": 2,
+            "new_rows": 1809,
+            "history_rows": 249,
+            "price_rows": 2058,
+            "macd_segments": 2,
+            "kdj_segments": 3,
+            "logical_rows": 89262
+          }
+        ]
+      }
+    },
+    {
+      "input_rows": 9001,
+      "include_price": true,
+      "saved_logical_rows": 560880,
+      "expected_literal": 560880,
+      "estimated_logical_rows": 560880,
+      "matches_saved_report": true,
+      "estimate": {
+        "input_rows": 9001,
+        "include_price": true,
+        "business_instances": 11,
+        "batch_count": 2,
+        "complete_known_service_logical_rows": 560880,
+        "step_group_rows": {
+          "parameter_preparation": 7,
+          "source_session_stage_target_window": 27252,
+          "macd_first_and_output": 8193,
+          "segment_bound_reads": 56,
+          "macd_segments": 66612,
+          "kdj_segments": 108144,
+          "segment_append_and_state_update": 36026,
+          "seven_window_means": 64750,
+          "bollinger_bands": 18251,
+          "kdj_window": 9250,
+          "inspect_columns": 70,
+          "check_batch_rows": 99260,
+          "merge_batch": 99260,
+          "retain_tail": 10001,
+          "rename_output_tail": 2000,
+          "retain_input_history": 9250,
+          "rename_input_history": 498,
+          "final_count_and_fetch": 2000
+        },
+        "batches": [
+          {
+            "batch": 1,
+            "new_rows": 8192,
+            "history_rows": 0,
+            "price_rows": 8192,
+            "macd_segments": 8,
+            "kdj_segments": 13,
+            "logical_rows": 517488
+          },
+          {
+            "batch": 2,
+            "new_rows": 809,
+            "history_rows": 249,
+            "price_rows": 1058,
+            "macd_segments": 1,
+            "kdj_segments": 2,
+            "logical_rows": 41385
+          }
+        ]
+      }
+    }
+  ],
+  "h_200000": {
+    "estimate": {
+      "input_rows": 200000,
+      "include_price": false,
+      "business_instances": 10,
+      "batch_count": 25,
+      "complete_known_service_logical_rows": 12349955,
+      "step_group_rows": {
+        "parameter_preparation": 7,
+        "source_session_stage_target_window": 605976,
+        "macd_first_and_output": 8193,
+        "segment_bound_reads": 1128,
+        "macd_segments": 1633636,
+        "kdj_segments": 2576892,
+        "segment_append_and_state_update": 800512,
+        "seven_window_means": 1441832,
+        "bollinger_bands": 405976,
+        "kdj_window": 205976,
+        "inspect_columns": 650,
+        "check_batch_rows": 2000000,
+        "merge_batch": 2205976,
+        "retain_tail": 224000,
+        "rename_output_tail": 25000,
+        "retain_input_history": 205976,
+        "rename_input_history": 6225,
+        "final_count_and_fetch": 2000
+      },
+      "batches": [
+        {
+          "batch": 1,
+          "new_rows": 8192,
+          "history_rows": 0,
+          "price_rows": 8192,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 509287
+        },
+        {
+          "batch": 2,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 3,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 4,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 5,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 6,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 7,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 8,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 9,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 10,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 11,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 12,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 13,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 14,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 15,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 16,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 17,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 18,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 19,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 20,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 21,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 22,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 23,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 24,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 25,
+          "new_rows": 3392,
+          "history_rows": 249,
+          "price_rows": 3641,
+          "macd_segments": 4,
+          "kdj_segments": 6,
+          "logical_rows": 175913
+        }
+      ]
+    },
+    "five_complete_requests": 61749775,
+    "six_complete_equivalent_requests": 74099730,
+    "lld_logical_row_budget": 60000000,
+    "five_complete_excess": 1749775,
+    "six_complete_excess": 14099730,
+    "cancellation_and_source_extras_not_in_five": true
+  },
+  "h_150000_reference_only": {
+    "estimate": {
+      "input_rows": 150000,
+      "include_price": false,
+      "business_instances": 10,
+      "batch_count": 19,
+      "complete_known_service_logical_rows": 9259752,
+      "step_group_rows": {
+        "parameter_preparation": 7,
+        "source_session_stage_target_window": 454482,
+        "macd_first_and_output": 8193,
+        "segment_bound_reads": 848,
+        "macd_segments": 1222185,
+        "kdj_segments": 1930126,
+        "segment_append_and_state_update": 600384,
+        "seven_window_means": 1081374,
+        "bollinger_bands": 304482,
+        "kdj_window": 154482,
+        "inspect_columns": 494,
+        "check_batch_rows": 1500000,
+        "merge_batch": 1654482,
+        "retain_tail": 168000,
+        "rename_output_tail": 19000,
+        "retain_input_history": 154482,
+        "rename_input_history": 4731,
+        "final_count_and_fetch": 2000
+      },
+      "batches": [
+        {
+          "batch": 1,
+          "new_rows": 8192,
+          "history_rows": 0,
+          "price_rows": 8192,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 509287
+        },
+        {
+          "batch": 2,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 3,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 4,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 5,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 6,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 7,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 8,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 9,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 10,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 11,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 12,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 13,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 14,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 15,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 16,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 17,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 18,
+          "new_rows": 8192,
+          "history_rows": 249,
+          "price_rows": 8441,
+          "macd_segments": 8,
+          "kdj_segments": 13,
+          "logical_rows": 507076
+        },
+        {
+          "batch": 19,
+          "new_rows": 2544,
+          "history_rows": 249,
+          "price_rows": 2793,
+          "macd_segments": 3,
+          "kdj_segments": 5,
+          "logical_rows": 128166
+        }
+      ]
+    },
+    "six_complete_equivalent_known_service_steps": 55558512,
+    "remaining_to_60000000_before_excluded_work": 4441488,
+    "no_change_recommended_by_this_number": true
+  }
+}

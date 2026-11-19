@@ -1,0 +1,32 @@
+{
+  "status": "passed",
+  "pytest_SQL_calculation_calls": 0,
+  "D4_executed": false,
+  "HTML_unique_ids_internal_anchors_new_links": "passed",
+  "fee_tables_identical": "passed",
+  "approved_fee_JSON_arithmetic": "passed",
+  "current_audited_code_hashes_unchanged": 12,
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/check_docs_integrity.py"
+      ],
+      "returncode": 0,
+      "output": "[PASS] dead-absolute-links\n[PASS] ds-store-noise\n[PASS] tushare-index-consistency\n\nDocs integrity check passed.\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "--",
+        "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+        "docs/architecture/technical-indicator-kernel-low-level-design-v1.html"
+      ],
+      "returncode": 0,
+      "output": ""
+    }
+  ],
+  "elapsed_seconds": 0.1878897501155734
+}

@@ -1,0 +1,116 @@
+{
+  "status": "requires_LLD_refinement_before_D4_coding",
+  "D3_prerequisite_complete": true,
+  "ready_for_D4_implementation": false,
+  "D3_commit": "38193f953857f6e6233d7d91ddd921c6c77c70cf",
+  "committed_files": 21,
+  "pushed": false,
+  "unrelated_changes_preserved_on_commit": true,
+  "scope": "Read-only D4 steps7/8 readiness audit against original design, LLD, current code and saved evidence",
+  "findings": [
+    {
+      "id": 1,
+      "type": "execution_budget_conflict",
+      "LLD_lines": [
+        1880,
+        1891,
+        1907,
+        2072,
+        2079,
+        2104
+      ],
+      "one_complete_H200000_known_logical_rows": 12349955,
+      "five_required_complete_requests_known_logical_rows": 61749775,
+      "six_complete_equivalent_known_logical_rows": 74099730,
+      "current_cap": 60000000,
+      "extras_not_included": [
+        "cancelled request in five-complete figure",
+        "source generation",
+        "factors/anchor",
+        "diagnostics"
+      ],
+      "action": "Fix exact planned inputs and full budget in original documents; review before execution"
+    },
+    {
+      "id": 2,
+      "type": "lightweight_parameter_validation_order",
+      "design_line": 521,
+      "LLD_lines": [
+        1283,
+        1285
+      ],
+      "code": [
+        "contracts.py:80-124",
+        "calculation/dependencies.py:41-50",
+        "service.py:85-86"
+      ],
+      "example": "ma(period=0) can enter admission before calculate validates it",
+      "action": "Specify reuse of existing pure-memory request/Definition checks before acquire; keep calculate validation"
+    },
+    {
+      "id": 3,
+      "type": "error_handoff_retained_result_references",
+      "LLD_lines": [
+        1282,
+        1284
+      ],
+      "code": [
+        "service.py:136-150",
+        "output/encoding.py:49-95"
+      ],
+      "example": "original encoding/limit exception can retain completed frames containing result after local handoff cleared",
+      "action": "Specify clearing ended error-frame references and assertion while preserving original errors before unique release"
+    }
+  ],
+  "new_business_rules_needed": false,
+  "review_required": [
+    "exact fixed D4 inputs and complete execution budget",
+    "three LLD engineering refinements and D4 detailed plan"
+  ],
+  "already_defined": [
+    "D4 four isolated App files and signatures",
+    "2 active/2 waiting/2000ms wait",
+    "6s work/8s total",
+    "FIFO/lease handoff/release/shutdown",
+    "19 existing config fields",
+    "18 separately budgeted real controls",
+    "resource and cancellation targets",
+    "no formal API/page/XXM/DG migration"
+  ],
+  "nonblocking_clarification": "Shutdown during already-started send may drain under original target_finish; no additional cancellation bridge required without explicit rule change",
+  "codegraph_tools": [
+    "codegraph_explore"
+  ],
+  "codegraph_limitations": "Same-name Control hits discarded; actual paths and consumers checked",
+  "library_docs_checked_via_context7": [
+    "/agronholm/anyio: cancellation and thread shielding",
+    "/python/cpython: traceback/frame local references"
+  ],
+  "protected_D3_files_unchanged": 67,
+  "new_pytest_runs": 0,
+  "new_SQL_runs": 0,
+  "new_indicator_calculations": 0,
+  "new_real_controls": 0,
+  "formal_data_reads_or_writes": 0,
+  "project_imports": 0,
+  "dependencies_changed": false,
+  "design_or_LLD_modified_after_commit": false,
+  "D4_development_started": false,
+  "static_integer_accounting": "Derived from current SqlStep row counts; calibrated exactly to saved D3 10001/9001 requests, not a performance run",
+  "report": "README.md",
+  "next": "Refine original design/LLD and review exact D4 execution plan; no coding in this audit",
+  "follow_up_document_revision": {
+    "record": "approved_comments_20261026.md",
+    "LLD_section": "12.4a/12.4b/17.1/18.1/19.31",
+    "prewait_validation_design_complete": true,
+    "error_result_reference_release_design_complete": true,
+    "H200000_not_current_execution_plan": true,
+    "H1000_is_conditional_estimate": true,
+    "actual_input_history_semantics_not_changed": true,
+    "new_resource_execution_plan_frozen": false,
+    "default_output_utf8_bytes": 5000000,
+    "product_code_changed": false,
+    "D4_started": false,
+    "pending": "If1000 becomes total input hard cap, clarify complete history/initialization consequences before freezing execution plan"
+  }
+}

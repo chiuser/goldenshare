@@ -1,0 +1,82 @@
+{
+  "status": "conditional_estimate_only",
+  "condition": "Total actual input including all required history is1000;10 fixed calculations, output1000",
+  "method": "Integer SqlStep accounting only; original helper definitions loaded without main, no project import or SQL/indicator execution",
+  "one_complete_request": {
+    "input_rows": 1000,
+    "include_price": false,
+    "business_instances": 10,
+    "batch_count": 1,
+    "complete_known_service_logical_rows": 47300,
+    "step_group_rows": {
+      "parameter_preparation": 7,
+      "source_session_stage_target_window": 3000,
+      "macd_first_and_output": 1001,
+      "segment_bound_reads": 10,
+      "macd_segments": 1002,
+      "kdj_segments": 2004,
+      "segment_append_and_state_update": 4001,
+      "seven_window_means": 7000,
+      "bollinger_bands": 2000,
+      "kdj_window": 1000,
+      "inspect_columns": 26,
+      "check_batch_rows": 10000,
+      "merge_batch": 11000,
+      "retain_tail": 1000,
+      "rename_output_tail": 1000,
+      "retain_input_history": 1000,
+      "rename_input_history": 249,
+      "final_count_and_fetch": 2000
+    },
+    "batches": [
+      {
+        "batch": 1,
+        "new_rows": 1000,
+        "history_rows": 0,
+        "price_rows": 1000,
+        "macd_segments": 1,
+        "kdj_segments": 2,
+        "logical_rows": 45293
+      }
+    ]
+  },
+  "request_totals": [
+    {
+      "requests": 1,
+      "source_input_rows": 1000,
+      "known_service_logical_rows": 47300
+    },
+    {
+      "requests": 5,
+      "source_input_rows": 5000,
+      "known_service_logical_rows": 236500
+    },
+    {
+      "requests": 6,
+      "source_input_rows": 6000,
+      "known_service_logical_rows": 283800
+    }
+  ],
+  "excluded": [
+    "source generation SQL",
+    "factor/anchor SQL",
+    "diagnostics/profiling"
+  ],
+  "not_measured": [
+    "latency",
+    "RSS",
+    "SQL cancellation"
+  ],
+  "history_rule_unchanged": true,
+  "actual_input_hard_cap_changed": false,
+  "approved_directions": [
+    "pure-memory validation before admission",
+    "failure retains only diagnostic information and no result/body references"
+  ],
+  "current_default_output_utf8_bytes": 5000000,
+  "current_code_config_unmodified": true,
+  "new_SQL_runs": 0,
+  "new_pytest_runs": 0,
+  "new_real_controls": 0,
+  "D4_development_started": false
+}

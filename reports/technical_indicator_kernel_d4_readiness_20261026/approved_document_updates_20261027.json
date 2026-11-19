@@ -1,0 +1,100 @@
+{
+  "scope": "D4费用确认完整录入及已有口径同步；无产品代码/配置修改",
+  "before_document_sha256": {
+    "plan": "386ba4aa05d6c8908df8d79b05ac5aa5e78572a84a8c8aa19cdc0378bd70bd39",
+    "lld": "da02915afa2de1fa620b62d9994f9b457af483a501604813d37cd6fbd544bf87"
+  },
+  "precise_replacements": [
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "<strong>原D4当前建议费用表（待管理员review，未执行）：</strong>",
+      "new": "<strong>原D4当前费用表（2026-10-27管理员已确认，未执行）：</strong>"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "此表不授权本轮执行D4。",
+      "new": "本轮只录入已确认费用并审计开工条件，不执行D4；实际开发按第19.13节步骤7/8推进。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "当前D4建议按LLD17.1固定1000输出＋动态预热、10请求及一次授权节点续跑，总26000输入/96000定位/979780逻辑SQL、120秒，待管理员review后执行。",
+      "new": "当前D4已确认按LLD17.1固定1000输出＋动态预热、10请求及一次授权节点续跑，总26000输入/96000定位/979780逻辑SQL、120秒；本次费用确认不等于已执行。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "<td>原控制小调用66/72，剩6固定为D2余量停止/末次正常2个和D3组合/翻页/两种空输出4个。D2其余来源检查与D3三套参数使用可控停止替身，但Arrow/计算SQL保持真实，不冒充完整取消证据。D4状态检查用真实Admission配合控制替身；真实退出/发送沿原第17节资源场景。该独立范围最多另建18个真实控制，全部真实对象最多90，分别记账，不能当新增90次预算。输入、SQL、时间及额外自动重试0的规则见LLD第18.1节，不增加场景或提高原上限。</td>",
+      "new": "<td>D1—D3原控制对象累计72，原证据保留，不重新分配；第四批及定位错误补测新增真实Control均0。D4状态检查使用真实Admission配合控制替身，原12类、每类至多6次，不读行情或执行SQL。实际计算只按已确认LLD17.1：正常10个真实Control、一次另获授权的失败节点续跑最多2个，项目累计上限84。含来源准备及续跑重建，总输入26000、定位96000、SQL979780、120秒；无自动重试，已通过节点不重跑，末次对账只读保存证据。旧18/90为历史分配，不再执行。</td>"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "额外重试无预算，非预期失败保留证据后停止，不由开发自行抬配置或换方案。",
+      "new": "非预期失败保留证据后停止，不自动重试；D4仅有LLD17.1已确认的一次失败节点续跑预留，仍须另获明确授权，最多2请求及必要的一次来源重建，已通过节点不重跑。超过预留须重新review，不由开发自行抬配置或换方案。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "<h3 id=\"development-details-20261025\">2026-10-25 编码细节补齐及当前执行顺序</h3>",
+      "new": "<h3 id=\"development-details-20261025\">编码细节与执行顺序（D4费用于2026-10-27更新）</h3>"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "本次只更新原方案与原LLD，不开发、不安装、不修改运行配置/现行API、不读正式行情、不提交。D1/D2原阶段已提交，新的合批、D3/D4尚未实现。",
+      "new": "本节保留原编码细节；D1/D2、合批修正、D3及第四批修复均已有完成证据，D4尚未实施。本轮只录入D4已确认费用及同步当前执行顺序，不开发、不安装、不改配置/现行API、不读正式行情、不提交。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+      "old": "本节是当前编码顺序，旧冻结/执行记录不用于跳过D2修正。",
+      "new": "本节总顺序保留阶段依赖；D1—D3及第四批修复不重做，当前只余D4步骤7/8。旧冻结/执行记录不能用于恢复已撤销验收或跳过当前D4检查。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "17.1 原D4固定执行表：本轮提交review，尚未执行",
+      "new": "17.1 原D4固定执行表：管理员已确认，尚未执行"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "<strong>本表是按有限预热重整的建议费用，待管理员review后才可用于D4开发及运行。</strong>",
+      "new": "<strong>管理员于2026-10-27已确认本表全部费用；它是D4唯一当前固定执行表。</strong>"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "产品配置、支持能力及6秒工作/8秒含清理目标不改；本表不授权当前运行D4。",
+      "new": "产品配置、支持能力及6秒工作/8秒含清理目标不改；本轮只完整录入确认并审计开工条件，尚未开发或执行D4。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "本D4建议10＋授权续跑最多2，项目累计建议上限84。",
+      "new": "本D4已确认正常10＋另获授权续跑最多2，项目累计上限84。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "当前D4获review后只按§17.1固定节点执行：",
+      "new": "当前D4只按已确认§17.1固定节点执行："
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "原D4唯一当前建议费用表为<a href=\"#d4-fixed-execution-review-20261027\">17.1</a>，尚待本次review，不据下方历史18个请求分配继续执行。建议正常10个真实Control、一次授权失败节点续跑最多2个，",
+      "new": "原D4唯一当前费用表为<a href=\"#d4-fixed-execution-review-20261027\">17.1</a>，已获管理员确认，不据下方历史18个请求分配继续执行。正常10个真实Control、一次另获授权的失败节点续跑最多2个，"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "计算临时磁盘字节必须0；原生内存限制失败也要核对。",
+      "new": "计算临时磁盘字节必须0；原生内存限制失败的核对复用既有证据，不在D4新增压力场景。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "本节定义四阶段/八步骤的执行顺序。D1、原D2与合批/登记修正现已分别归档，当前阶段收尾见§19.19，不能从下方历史开工记录重复开发D2。下一阶段D3步骤5/6连续实施并独立验收，再进入D4。本轮仅提交、审计及文档收尾，不开发D3，不安装、迁移或停任务。",
+      "new": "本节定义四阶段/八步骤的总顺序。D1、D2及合批/登记修正、D3步骤5/6、第四批有限预热修复及19.34错误分类补测均已有完成证据，不从下方历史记录重复开发或重跑。当前后续阶段为D4步骤7/8，费用以17.1已确认表及18.1为准。本轮仅录入费用、校准文档并审计开工条件，不开发、不安装、不迁移或停任务。"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "原三最小资源场景、读取/批间取消、有限ASGI及容量；scripts/diagnostics/technical_indicator_resources.py与对应测试，范围/计量按§17/18.1",
+      "new": "仅执行17.1已确认的单请求、双并发/健康、停机取消及正常调用、读取取消及正常调用、三个独立HTTP故障；scripts/diagnostics/technical_indicator_resources.py与既定三测试文件负责执行及计量。按17.2复用原生中断、跨批及容量基础证据，不新增正式来源、大容量或长历史批间取消运行"
+    },
+    {
+      "document": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+      "old": "报真实运行时间、峰值/清理后RSS、连接/线程/缓冲、SQL停止与真实归还、临时计算文件0；不同请求不误停；失败如实记录，不用静态检查或替身代替真实运行",
+      "new": "报实际运行时间、峰值/清理后RSS、连接/线程/缓冲、真实worker退出及名额归还、临时计算文件0；原生SQL中断仅列明原D2复用证据，不冒充本轮新测。完整正常10请求/来源准备和最多一次另授权失败续跑，累计上限26000输入/96000定位/979780SQL/12真实Control/120秒；不同请求不误停，首错停止且不自动重跑"
+    }
+  ],
+  "fee_status": "approved_not_executed"
+}

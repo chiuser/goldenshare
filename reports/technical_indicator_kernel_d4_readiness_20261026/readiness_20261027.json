@@ -1,0 +1,99 @@
+{
+  "status": "ready_for_D4_implementation",
+  "date": "2026-10-27",
+  "ready_for_D4_implementation": true,
+  "scope": "原D4步骤7隔离App装配与步骤8固定有限验收；本轮只更新文档并审计",
+  "fees_approved": true,
+  "D4_development_started": false,
+  "D4_execution_started": false,
+  "new_business_decisions_needed": false,
+  "unresolved_design_blockers": [],
+  "prerequisites": {
+    "D1_D2_D3": "已按原阶段完成，证据复用；不重跑",
+    "fourth_batch_fix": "已完成，有限预热/范围/稳定基准按当前代码执行",
+    "locator_error_followup": "3 passed/7调用，累计7输入/10定位/59SQL/0真实Control；当前源码指纹相符",
+    "immutable_prior_evidence_files_verified": 61
+  },
+  "verified_contracts": [
+    "12.4四App文件及创建/持有/关闭签名",
+    "12.4a两个入口先检查现有请求/Definition规则，参数错误不排队",
+    "同一事件循环内FIFO及授予未移交取消、2活动/2等待/2秒",
+    "工作线程沿同一calculate与唯一control/连接，6秒工作/8秒总目标不重置",
+    "12.4b失败清结果/编码引用及已结束异常栈帧，原异常优先",
+    "发送实际退出后execution唯一release，关闭等待真实归还",
+    "17.1固定输入/定位/SQL/准备/取消/失败续跑/最终核对预算",
+    "17.2复用原D2原生中断、跨批基础及既有容量证据，不新增压力运行"
+  ],
+  "wording_defects_resolved": [
+    "固定费用状态由待review改已确认未执行，原两文/JSON同步",
+    "LLD19.13步骤8撤去旧容量/长历史批间取消安排",
+    "组件旧18/90改正常10+授权续跑2、项目累计84",
+    "无自动重试与一次另授权失败节点续跑预留分别说明",
+    "17.4原生低内存失败说明复用证据，不追加压力场景"
+  ],
+  "budget": {
+    "real_controls": 12,
+    "input_rows": 26000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 979780
+  },
+  "normal_budget": {
+    "real_controls": 10,
+    "input_rows": 19000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 811150
+  },
+  "time_limit_seconds": 120,
+  "program_limit_seconds": 30,
+  "files_to_implement": [
+    "src/app/runtime/technical_indicators/__init__.py",
+    "src/app/runtime/technical_indicators/composition.py",
+    "src/app/runtime/technical_indicators/admission.py",
+    "src/app/runtime/technical_indicators/execution.py",
+    "src/app/runtime/technical_indicators/response.py",
+    "tests/app/technical_indicators/test_admission.py",
+    "tests/app/technical_indicators/test_execution_cancellation.py",
+    "tests/app/technical_indicators/test_response_lifecycle.py",
+    "tests/architecture/test_technical_indicator_dependencies.py",
+    "scripts/diagnostics/technical_indicator_resources.py"
+  ],
+  "next_actions": [
+    "按12.4/12.4a/12.4b及19.13先落实隔离装配、队前检查、等待/取消/发送/关闭",
+    "在D4执行目录先保存plan.json，列原固定测试具体函数、夹具/替身、代码指纹和累计预算，不增加场景",
+    "完成步骤7后按17.1唯一表进行步骤8，首错停止，续跑须明确授权",
+    "保存progress/acceptance/audit并逐条对账，未测能力保持未验"
+  ],
+  "no_scope_extension": [
+    "不改正式lifespan/app.state/路由/API/页面/Biz DTO/XXM",
+    "不停止DG、不删除指标数据、不读写正式Lake/DB",
+    "不安装升级、不新增配置、不建立独立服务/计算池",
+    "不以本次静态审计宣布并发/RSS/原生取消/页面性能通过"
+  ],
+  "codegraph": {
+    "tools": [
+      "codegraph_explore"
+    ],
+    "scope": "ExecutionControl、Service相关符号及测试/消费者定位；补读准确路径、实际调用和无正式App接入",
+    "limitation": "模糊搜索出现同名无关命中，均未作为依据；以精确文件内容及消费者搜索核验"
+  },
+  "current_code_sha256": {
+    "src/foundation/technical_indicators/service.py": "df05d0fc806885c5a6ebf9fa8dc5a639aff040ca1223c1df78d27796e2d3ffcc",
+    "src/foundation/technical_indicators/contracts.py": "c76737b121ffb59c0f1284793856771c2d716e5e0efb0e8ba8d327991c65c188",
+    "src/foundation/technical_indicators/execution_control.py": "ebc68c68e09810273a261723d3086eb5230d70ac6d21a8e6541ccc300f40cc2b",
+    "src/foundation/technical_indicators/calculation/registry.py": "aba963003df3768f6b134aee388b63ec0d54480cc3d12edea14a9f3f76a25540",
+    "src/foundation/technical_indicators/calculation/calculation.py": "1354380dc3083313de8a53848fae4172916ec84f1ce895546667c12edbaad0f9",
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py": "c4baaa463bd7163ff9e480127142cda7f1319d08b1dbf36040700ff24fda8cb1",
+    "src/foundation/technical_indicators/configuration/settings.py": "a1000d2465c2ba8b8e5155f299787dd6f32a171663287cb0f48b0f13384178c2",
+    "src/foundation/technical_indicators/output/encoding.py": "13390ef668b035326598478a8177a18ba722575327104132135d934e23069b8d",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+    "src/foundation/config/settings.py": "c2184c066157039fa360d56f43e4a9d8a8a66e23d6205a8b3ebe2de590ca4b4e",
+    "src/app/web/lifespan.py": "85cc7e98b0ff33ef7c1b21c1d3bea365394ba80bd67db4e1ceafe108ec5986f0"
+  },
+  "independent_reviews": {
+    "lifecycle": "无新增合同阻塞；12.4a/b可对接现有Foundation",
+    "budget": "无新增费用缺口；旧文同步后可开工"
+  },
+  "validation": "仅静态和保存证据核对，未运行pytest/SQL/指标调用或创建真实Control",
+  "checks": "document_checks_20261027.json"
+}

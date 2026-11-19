@@ -1,0 +1,210 @@
+{
+  "status": "approved_not_executed",
+  "date": "2026-10-27",
+  "scope": "原D4隔离业务进程装配及运行验收；不接正式路由/页面/XXM，不读取正式Lake，不停DG",
+  "source": "一次生成同已确认定义的4000根股票前复权分钟线，单只600000.SH、单个year=2026文件，单行组；只在拥有的临时目录内使用",
+  "request": {
+    "limit": 1000,
+    "adjustment": "qfq",
+    "calculations": [
+      "macd(12,26,9)",
+      "kdj(9,3,3)",
+      "ma(5)",
+      "ma(10)",
+      "ma(20)",
+      "ma(30)",
+      "ma(60)",
+      "ma(90)",
+      "ma(250)",
+      "boll(20,2)"
+    ],
+    "price_requested": false,
+    "warmup_rows": 500,
+    "actual_price_rows": 1500
+  },
+  "per_request": {
+    "price_input_rows": 1500,
+    "locator_rows_max": 8000,
+    "service_sql_logical_rows": 80314,
+    "closed_connection_rejection_probe_rows": 1,
+    "sql_logical_rows_max": 80315
+  },
+  "derivation": {
+    "saved_default_with_price": 81823,
+    "removed_price_inspect_columns": 9,
+    "removed_price_check_rows": 1500,
+    "price_has_no_extra_join": true,
+    "locator_already_in_service_sql": true
+  },
+  "fixed_execution_rows": [
+    {
+      "name": "单请求",
+      "real_controls": 1,
+      "price_input_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315
+    },
+    {
+      "name": "双并发",
+      "real_controls": 2,
+      "price_input_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 160630
+    },
+    {
+      "name": "停机取消及一次正常重试",
+      "real_controls": 2,
+      "price_input_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 160630
+    },
+    {
+      "name": "读取取消及一次正常重试",
+      "real_controls": 2,
+      "price_input_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 160630
+    },
+    {
+      "name": "慢发送、断开、编码失败",
+      "real_controls": 3,
+      "price_input_rows": 4500,
+      "locator_rows": 24000,
+      "sql_logical_rows": 240945
+    }
+  ],
+  "execution_subtotal": {
+    "real_controls": 10,
+    "price_input_rows": 15000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 803150
+  },
+  "one_fixture_preparation": {
+    "input_rows": 4000,
+    "sql_logical_rows": 8000,
+    "ctas_rows": 4000,
+    "copy_rows": 4000,
+    "real_controls": 0,
+    "locator_rows": 0
+  },
+  "normal_total": {
+    "real_controls": 10,
+    "input_rows": 19000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 811150
+  },
+  "authorized_failure_node_resume_reserve": {
+    "maximum_node_requests": 2,
+    "request_price_rows": 3000,
+    "request_locator_rows": 16000,
+    "request_sql_rows": 160630,
+    "rebuild_fixture_at_most_once": {
+      "input_rows": 4000,
+      "sql_logical_rows": 8000
+    },
+    "total": {
+      "real_controls": 2,
+      "input_rows": 7000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 168630
+    },
+    "automatic_retry": false
+  },
+  "including_reserve_total": {
+    "real_controls": 12,
+    "input_rows": 26000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 979780
+  },
+  "pure_state_checks": {
+    "existing_classes": 12,
+    "max_calls_each": 6,
+    "max_calls": 72,
+    "real_controls": 0,
+    "price_rows": 0,
+    "locator_rows": 0,
+    "sql_rows": 0,
+    "uses": "real AdmissionController, controlled clocks/stop doubles; includes pre-wait validation and error/release references; no synthetic long prices"
+  },
+  "http": {
+    "technical_requests": 6,
+    "health_requests": 3,
+    "total": 9,
+    "notes": "single1+dual2+HTTP faults3; shutdown/read cancellation pairs use internal execute_library; health requests in dual scenario only, no extra control/SQL"
+  },
+  "wallclock_seconds": {
+    "normal_request_targets": 72,
+    "source_preparation": 5,
+    "pure_state_checks": 5,
+    "final_static_reconciliation": 5,
+    "authorized_one_node_resume_including_possible_fixture_rebuild": 30,
+    "startup_and_scheduling_reserve": 3,
+    "total_limit": 120,
+    "per_program_limit": 30,
+    "product_work_ms": 6000,
+    "product_total_target_ms": 8000
+  },
+  "unchanged_memory_targets": {
+    "per_request_incremental_rss_bytes": 268435456,
+    "dual_incremental_rss_bytes": 536870912,
+    "deployment_reserve_bytes": 1073741824,
+    "query_limit_bytes": 134217728,
+    "temporary_compute_disk_bytes": 0,
+    "health_target_ms": 200
+  },
+  "reference_and_existing_evidence": "Reuse existing numerical/finite warmup/8192 batching/native interrupt and setting evidence; no new long reference, no repeat D2/D3 or fourth repair suite.",
+  "cancellation": "Fixed event at live worker read/compute handoff; actual control and worker clean up. Does not claim to newly measure interrupt while SQL running. Native SQL interrupt evidence reused from D2, no repeated attempts to hit a 1500-row query.",
+  "failure_and_resume": "Unexpected failure consumes this ledger then stops. Save case, actual counters and cleanup. A maximum of one failed node may be rerun only after explicit authorization, at most two requests together; passed nodes never rerun. If owned fixture was removed, one 4000-row rebuild is included. Further failure/extra run requires new review; no budget resets.",
+  "final_check": "Read saved records/hashes only, no new calculate/SQL/control. Source and references are never copied from deleted historical pytest paths.",
+  "scope_not_claimed": [
+    "1.5m-row throughput",
+    "new low-memory stress execution",
+    "formal Lake performance",
+    "all custom parameter performance",
+    "new monthly integration acceptance",
+    "production readiness",
+    "P95"
+  ],
+  "real_control_ledger": {
+    "original_small_objects_created": 72,
+    "fourth_repair_created": 0,
+    "this_locator_fix_created": 0,
+    "d4_proposed_normal": 10,
+    "d4_proposed_resume": 2,
+    "proposed_project_max_total": 84
+  },
+  "outstanding_doc_clarifications": [],
+  "clarifications_completed": [
+    "LLD18当前执行顺序仅指向17.1，不新增正式来源或容量运行",
+    "慢发送、断开、编码失败各为独立单请求节点，合并行仅展示费用，最大续跑节点仍双并发2请求"
+  ],
+  "http_fault_nodes": [
+    {
+      "name": "慢发送",
+      "real_controls": 1,
+      "price_input_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315
+    },
+    {
+      "name": "断开",
+      "real_controls": 1,
+      "price_input_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315
+    },
+    {
+      "name": "编码失败",
+      "real_controls": 1,
+      "price_input_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315
+    }
+  ],
+  "approval": {
+    "date": "2026-10-27",
+    "source": "管理员：费用表没问题。完整录入文档吧。然后审计一下是否可以开票推进D4，条件是否具备",
+    "scope": "确认固定费用与边界；本轮只更新文档及审计，未执行D4",
+    "automatic_retry_authorized": false
+  }
+}
