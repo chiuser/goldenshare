@@ -1,0 +1,1725 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="财势乾坤股票详情页逐字段来源清单，按本地后端 DG 和 Prod 后端 PostgreSQL 列出目标来源和现行依据。">
+  <title>股票详情页数据字段来源表</title>
+  <style>
+    :root { color-scheme: light; --ink:#17283c; --muted:#465b71; --line:#d5e0eb; --accent:#075e67; --wash:#eaf5f5; --paper:#fff; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:#f1f5f9; color:var(--ink); font:15px/1.65 system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; }
+    main { max-width:1560px; margin:auto; padding:32px clamp(14px,4vw,64px) 64px; }
+    header { border-left:5px solid var(--accent); padding:4px 0 4px 20px; }
+    h1 { margin:0 0 8px; font-size:clamp(1.7rem,4vw,2.45rem); line-height:1.18; }
+    h2 { margin:32px 0 12px; line-height:1.25; font-size:1.3rem; }
+    p { margin:8px 0; }
+    .meta { color:var(--muted); margin-bottom:8px; }
+    a { color:#075f69; text-decoration-thickness:1px; text-underline-offset:.16em; }
+    a:focus-visible, .scroll:focus-visible { outline:3px solid #147782; outline-offset:3px; }
+    nav { display:flex; flex-wrap:wrap; gap:6px 18px; padding:13px 0; margin:12px 0 4px; border-block:1px solid var(--line); }
+    .scroll { overflow:auto; border:1px solid var(--line); border-radius:8px; background:var(--paper); }
+    table { width:100%; min-width:1140px; border-collapse:collapse; table-layout:fixed; }
+    caption { text-align:left; font-weight:650; padding:12px 16px; }
+    col.field { width:16%; } col.dataset { width:18%; } col.source-field { width:13%; }
+    col.method-col { width:24%; } col.current { width:23%; } col.adjustment-col { width:6%; }
+    th,td { padding:10px 12px; border-bottom:1px solid var(--line); vertical-align:top; text-align:left; overflow-wrap:anywhere; }
+    thead th { background:#1c3448; color:#fff; }
+    tbody tr:nth-child(odd) { background:#f8fafc; }
+    tbody .section th { background:var(--wash); color:#12474d; font-weight:750; border-top:1px solid #9ebdc4; }
+    section, tbody { scroll-margin-top:12px; }
+    tbody th[scope="row"] { font-weight:650; }
+    .source-part + .source-part { border-top:1px solid var(--line); margin-top:7px; padding-top:7px; }
+    .source-part small { display:block; margin-bottom:2px; color:var(--muted); overflow-wrap:anywhere; }
+    .adjustment { text-align:center; }
+    .adjustment.needed { color:#075e67; font-weight:750; }
+    code { color:#283b51; font: .88em/1.5 ui-monospace,Menlo,Consolas,monospace; overflow-wrap:anywhere; }
+    .refs { display:block; font-size:.85rem; margin-top:5px; color:var(--muted); }
+    .checks { margin-bottom:0; padding-left:22px; }
+    .checks li { margin-bottom:8px; }
+    @media print {
+      @page { size:A4 landscape; margin:10mm; }
+      body { background:white; font-size:10pt; }
+      main { max-width:none; padding:0; }
+      table { min-width:0; } .scroll { overflow:visible; border:0; }
+      thead { display:table-header-group; } tr { break-inside:avoid; }
+      th,td { padding:5px 7px; } nav { display:none; } .refs { font-size:8pt; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="meta">财势乾坤 · 股票详情 · 2026-11-18</p>
+    <h1>股票详情页数据字段来源表</h1>
+    <p>本地后端有 DG 来源的字段从 DG 取数，DG 缺少来源的字段沿用 Prod 取数。Prod 后端统一从 Prod PostgreSQL 取数。下表逐字段列出数据集、源字段和计算方式。现行用法一列记录对应后端目前如何取数。</p>
+  </header>
+
+  <nav aria-label="后端与验收">
+    <a href="#local">本地后端 · DG 优先，Prod 补充</a>
+    <a href="#prod">Prod 后端 · PostgreSQL</a>
+    <a href="#verification">样本与验收</a>
+  </nav>
+
+  <p>「是」表示本次需要改动该项的取数、字段计算或组装。「否」表示该项沿用现有实现或当前不在改造范围内。多个字段共用的读取在对应取数行标记，上游切换后的格式化、指标计算和展示规则仍按各自现行逻辑运行。候选数据集供相应功能接入时参考。按配置、请求或用户输入生成的字段在表内注明，数据集「—」表示无直接存储来源。</p>
+  <p>按交易日取数时，先由对应交易所的交易日历确定区间内的开市日期，再用各数据集实际记录的交易日逐项核对。本地使用 DG 交易日历 <code>silver_trade_calendar</code>，Prod 使用 Prod PostgreSQL 交易日历 <code>core_serving.trade_calendar</code>。某只股票在开市日没有记录时，按数据集的适用范围判断是缺失还是合法无数据，例如上市前或停牌。</p>
+
+  <section id="local" aria-labelledby="local-title">
+    <h2 id="local-title">本地后端 · DG 优先，Prod 补充</h2>
+    <p>本地目标根目录为 <code>/Volumes/datasource/data_lake</code>。股票日线读取 DG 股票不复权日线和股票复权因子，由共享技术指标内核生成前复权价格，盘口、日 K 和 MA、BOLL、MACD、KDJ 共用。DG 缺少来源的字段在数据集列标为「Prod 补充」，列明其 Prod PostgreSQL 表和字段，当前包括新闻、自选分组、账户和通知机器人。补充范围按字段所需的数据集和字段确定，同源空值与缺分区按各字段口径处理。<a href="../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py">DG 正式文件路径</a> · <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">股票日线现行读取分支</a></p>
+    <p>本地默认 Web 启动配置连接 Prod PostgreSQL。新闻、自选分组、账户和通知机器人沿用这条现行读取路径，自选、账户和通知机器人按登录用户取数。<a href="../../../../scripts/local-build-and-run.sh">本地 Web 启动入口</a> · <a href="../../../../src/db.py">后端数据库会话</a> · <a href="../../../../src/app/runtime/trading_assistant_lifespan.py">交易助手数据库会话</a></p>
+    <nav aria-label="本地后端 · DG 优先，Prod 补充 · 字段索引">
+      <a href="#local-identity">证券与日期</a>
+      <a href="#local-daily">盘口与日 K</a>
+      <a href="#local-indicators">日线指标</a>
+      <a href="#local-status">首屏状态</a>
+      <a href="#local-layers">分钟及图层</a>
+      <a href="#local-mock">板块、资金及资料</a>
+      <a href="#local-actions">新闻与用户操作</a>
+      <a href="#local-top">顶部指数</a>
+    </nav>
+    <div class="scroll" role="region" aria-label="本地后端 · DG 优先，Prod 补充字段表，可横向滚动" tabindex="0">
+      <table>
+        <caption>本地后端 · DG 优先，Prod 补充 · 字段对照</caption>
+        <colgroup><col class="field"><col class="dataset"><col class="source-field"><col class="method-col"><col class="current"><col class="adjustment-col"></colgroup>
+        <thead><tr>
+          <th scope="col">页面字段与接口字段</th>
+          <th scope="col">数据集</th>
+          <th scope="col">源字段名</th>
+          <th scope="col">计算方式</th>
+          <th scope="col">现行用法与依据</th>
+          <th scope="col" class="adjustment">是否需要调整</th>
+        </tr></thead>
+        <tbody id="local-identity">
+          <tr class="section"><th colspan="6" scope="rowgroup">证券身份与页面日期</th></tr>
+          <tr data-field="1">
+            <th scope="row">股票名称<br><code>stock.name / stockRef.name</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>name</code></div></td>
+            <td>按股票代码查证券名称，页头、面包屑、工具栏及用户表单共用。 在全上市状态文件中按代码匹配，保留退市股票的查询。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。页头、面包屑、图表工具和用户表单使用股票名称。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="2">
+            <th scope="row">股票代码<br><code>stock.tsCode / stockRef.tsCode</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>curr_type</code></div></td>
+            <td>按路由代码查人民币计价股票。以股票代码关联行情、复权因子、每日指标与各图层。</td>
+            <td>股票详情、日线和分钟九转、趋势通道当前查询 PostgreSQL <code>core_serving.security_serving</code> 校验股票。普通分钟行情直接按请求代码查 DG 文件。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a> · <a href="../../../../src/biz/queries/wealth/market/stock_minute_nine_turn/stock_minute_nine_turn_query_service.py">分钟九转的证券校验</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="3">
+            <th scope="row">证券简称代码<br><code>stock.symbol</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>symbol</code></div></td>
+            <td>直接读取。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。当前 API 提供，页面展示的是带交易所后缀的 <code>stock.tsCode</code>。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="4">
+            <th scope="row">市场类型<br><code>stock.market</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>market</code></div></td>
+            <td>直接读取；前端按现行规则显示。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。进入页面模型，缺值时前端用 <code>CN_A</code>；当前主标题不单列市场类型。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="5">
+            <th scope="row">交易所<br><code>stock.exchange</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>exchange</code></div></td>
+            <td>直接读取。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。当前 API 提供，页面没有单独展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="6">
+            <th scope="row">所属行业<br><code>stock.industry</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>industry</code></div></td>
+            <td>直接读取。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。参与图表工具栏和页头标签展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="7">
+            <th scope="row">所属地域<br><code>stock.area</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>area</code></div></td>
+            <td>直接读取。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。参与标签展示，也可作为图表工具栏类别文字。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="8">
+            <th scope="row">上市状态<br><code>stock.listStatus</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>list_status</code></div></td>
+            <td>直接读取。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.security_serving</code>。当前 API 提供，页面没有单独展示。DG 股票基础信息 <code>silver_stock_basic</code> 只保留当前上市股票，切换身份来源前须另核退市和换码覆盖。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="9">
+            <th scope="row">页头标签与工具栏类别<br><code>stock.tags / 前端 stock.sector</code></th>
+            <td><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw_tushare_stock_basic</code></div></td>
+            <td><div class="source-part"><code>industry</code>、<code>area</code></div></td>
+            <td>后端把非空行业、地域依次组为标签。工具栏按行业、地域的顺序选显示值。</td>
+            <td>后端仍用同一份股票身份里的行业、地域组装标签，来源切换见所属行业、所属地域两行。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="10">
+            <th scope="row">请求截止交易日<br><code>pageContext.tradeDate / 请求 endDate</code></th>
+            <td><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>MarketPageContextQuery 结合显式日期和北京时间确定截止交易日。首屏只解析一次，供各部分复用。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.trade_calendar</code>。当前首屏用 <code>/page-init</code> 返回的日期再请求 <code>/kline</code>，改造后首屏只解析一次。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="11">
+            <th scope="row">上一市场交易日<br><code>pageContext.prevTradeDate</code></th>
+            <td><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>pretrade_date</code>、<code>is_open</code></div></td>
+            <td>优先取日历的 pretrade_date。缺少该日期行时由后端取此前最近开市日。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.trade_calendar</code>。这是市场日历日期。个股昨收必须找个股上一根实际 K 线。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="12">
+            <th scope="row">是否开市<br><code>pageContext.isTradingDay</code></th>
+            <td><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>按 SSE 的指定交易日取 is_open。</td>
+            <td>本地当前查 PostgreSQL <code>core_serving.trade_calendar</code>。当前 API 上下文字段。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="13">
+            <th scope="row">时段、市场、时区与时间来源<br><code>pageContext.sessionStatus / market / timezone / generatedAt / source</code></th>
+            <td><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>后端用开市状态与北京时间判时段。market 和 timezone 为固定值，generatedAt 为服务时间，source 取决于是否显式指定日期。</td>
+            <td>时段继续按上面的开市状态和北京时间计算。市场、时区和时间来源按现行规则生成。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-daily">
+          <tr class="section"><th colspan="6" scope="rowgroup">盘口摘要、日 K 线及十字线</th></tr>
+          <tr data-field="14">
+            <th scope="row">实际行情日期<br><code>quote.tradeDate / bars[].tradeDate</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div></td>
+            <td><div class="source-part"><code>trade_date</code></div></td>
+            <td>各根日 K 使用本身日期，摘要复用最后一根日期。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../src/foundation/clients/local_lake/stock_daily_reader.py">本地股票详情现行行情文件读取</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="15">
+            <th scope="row">最新价／收盘价<br><code>quote.price / quote.close / bars[].close</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核计算前复权收盘：原价 × 当日复权因子 ÷ 基准因子。摘要复用最后一根。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。摘要及日 K 当前直接使用各自来源的 <code>close_qfq</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="16">
+            <th scope="row">今开／开盘价<br><code>quote.open / bars[].open</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>open</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核计算前复权开盘：原价 × 当日复权因子 ÷ 基准因子。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前取股票技术面因子 <code>open_qfq</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="17">
+            <th scope="row">最高价<br><code>quote.high / bars[].high</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>high</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核计算前复权最高：原价 × 当日复权因子 ÷ 基准因子。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前取股票技术面因子 <code>high_qfq</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="18">
+            <th scope="row">最低价<br><code>quote.low / bars[].low</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>low</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核计算前复权最低：原价 × 当日复权因子 ÷ 基准因子。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前取股票技术面因子 <code>low_qfq</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="19">
+            <th scope="row">昨收<br><code>quote.preClose / bars[].preClose</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code>、<code>trade_date</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>日线后端用上一根实际个股 K 线的收盘价和该日复权因子，按与当页相同的基准换算。真实历史首根沿用 DG 日线前复权规则，昨收为 0。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前直接取股票技术面因子 <code>pre_close</code>，与前复权收盘可能使用不同基准。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stock_daily_qfq.py">DG 股票日线前复权计算</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="20">
+            <th scope="row">涨跌额<br><code>quote.change / bars[].change</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>日线后端以同一基准的前复权收盘减前复权昨收。真实历史首根按 DG 日线前复权规则取 0。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前直接取股票技术面因子 <code>change</code>；摘要展示该值，日 K 同时返回该字段。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="21">
+            <th scope="row">涨跌幅<br><code>quote.changePct / bars[].changePct</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>日线后端以前复权涨跌额除以前复权昨收，再乘 100。真实历史首根按 DG 日线前复权规则取 0。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前直接取股票技术面因子 <code>pct_chg</code>。单位为百分比值，接口数值 <code>1.5</code> 展示为 <code>1.50%</code>。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="22">
+            <th scope="row">涨跌方向及颜色<br><code>quote.direction / K 线及提示颜色</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>open</code>、<code>high</code>、<code>low</code>、<code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>沿用后端按涨跌幅正负给方向的规则。前端沿用各提示项的价格比较及颜色规则。</td>
+            <td>涨跌方向和颜色沿用现有判断规则，消费前面各行给出的价格和涨跌幅。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="23">
+            <th scope="row">振幅<br><code>bars[].amplitude</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>high</code>、<code>low</code>、<code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>日线后端用（前复权最高 − 前复权最低）÷ 同基准的前复权昨收 × 100。分母为 0 或所需输入为空时返回空。</td>
+            <td>日 K 复用现有 calculate_amplitude，所需最高、最低和昨收由前面各行提供。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="24">
+            <th scope="row">成交量原值<br><code>quote.vol / bars[].vol</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div></td>
+            <td><div class="source-part"><code>vol</code></div></td>
+            <td>直接读取，单位为手；复权时保留量值。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前从股票技术面因子 <code>vol</code> 读取。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="25">
+            <th scope="row">成交量显示文本<br><code>quote.volDisplay / bars[].volDisplay</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div></td>
+            <td><div class="source-part"><code>vol</code></div></td>
+            <td>沿用后端 format_daily_volume_display，将手数除以 10,000 并保留两位。</td>
+            <td>盘口、十字线和成交量副图继续用现有成交量格式化，成交量来源在上一行调整。<span class="refs"><a href="../../../../src/biz/services/wealth/market/detail_volume_display.py">日线成交量文本格式化</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="26">
+            <th scope="row">成交额原值<br><code>quote.amount / bars[].amount</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div></td>
+            <td><div class="source-part"><code>amount</code></div></td>
+            <td>直接读取，单位为千元；复权时保留金额。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前从股票技术面因子 <code>amount</code> 读取。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="27">
+            <th scope="row">成交额显示文本<br><code>盘口 amountText / 日 K 十字线成交额</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div></td>
+            <td><div class="source-part"><code>amount</code></div></td>
+            <td>前端按现行盘口和日 K 十字线规则分别格式化。</td>
+            <td>成交额来源见上一行。盘口和日 K 十字线分别使用现有单位格式化。现有万元显示差异单独记录。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="28">
+            <th scope="row">换手率<br><code>quote.turnoverRate / bars[].turnoverRate</code></th>
+            <td><div class="source-part">DG 每日指标<br><code>raw_tushare_daily_basic</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>turnover_rate</code></div></td>
+            <td>按股票和交易日关联展示范围。把文件内 YYYYMMDD 规范为日期，采用换手率原值。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前取股票技术面因子 <code>turnover_rate</code>。这里使用换手率，<code>turnover_rate_f</code> 是自由流通股换手率。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py">DG 每日指标字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="29">
+            <th scope="row">量比<br><code>quote.volumeRatio / bars[].volumeRatio</code></th>
+            <td><div class="source-part">DG 每日指标<br><code>raw_tushare_daily_basic</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>volume_ratio</code></div></td>
+            <td>按股票和交易日关联展示范围。区分源字段合法为空与文件缺失。</td>
+            <td>当前本地摘要查 PostgreSQL <code>core_serving.equity_factor_pro</code>，本地日 K 查 DG <code>silver/stock_factor_pro</code>。当前取股票技术面因子 <code>volume_ratio</code>。盘口显示该值，日 K API 也提供该字段。源列允许空，相关 UI 当前会把空数值转为 0，验收要识别此行为。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py">DG 每日指标字段定义</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="30">
+            <th scope="row">前复权因子与基准<br><code>内部输入：adj_factor / basis_date / basis_value</code></th>
+            <td><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>adj_factor</code></div></td>
+            <td>共享内核读取各日复权因子，并选同一股票最新可用复权因子为基准。记录基准日期和值；同一数据状态下翻页使用同一基准。</td>
+            <td>现行本地日 K 直接吃已经前复权的价格。复权因子和基准属于内部输入及验收证据。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py">DG 正式文件路径定义</a> · <a href="../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py">不复权行情来源和基准选择</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+        </tbody>
+        <tbody id="local-indicators">
+          <tr class="section"><th colspan="6" scope="rowgroup">日线技术指标</th></tr>
+          <tr data-field="31">
+            <th scope="row">MA5<br><code>bars[].factors.ma.ma5</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 5 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="32">
+            <th scope="row">MA10<br><code>bars[].factors.ma.ma10</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 10 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="33">
+            <th scope="row">MA20<br><code>bars[].factors.ma.ma20</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 20 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="34">
+            <th scope="row">MA30<br><code>bars[].factors.ma.ma30</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 30 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="35">
+            <th scope="row">MA60<br><code>bars[].factors.ma.ma60</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 60 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="36">
+            <th scope="row">MA90<br><code>bars[].factors.ma.ma90</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 90 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="37">
+            <th scope="row">MA250<br><code>bars[].factors.ma.ma250</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MA 算子对 250 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="38">
+            <th scope="row">BOLL 上轨<br><code>bars[].factors.boll.upper</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 BOLL(20,2)，20 根前复权收盘均值加 2 倍总体标准差。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="39">
+            <th scope="row">BOLL 中轨<br><code>bars[].factors.boll.middle</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 BOLL(20,2)，取 20 根前复权收盘均值，与 MA20 共用均值计算。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="40">
+            <th scope="row">BOLL 下轨<br><code>bars[].factors.boll.lower</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 BOLL(20,2)，20 根前复权收盘均值减 2 倍总体标准差。三轨窗口不足均保留空值。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="41">
+            <th scope="row">MACD DIF<br><code>bars[].factors.macd.dif</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MACD(12,26,9)，前复权收盘价的快 EMA 减慢 EMA。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="42">
+            <th scope="row">MACD DEA<br><code>bars[].factors.macd.dea</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MACD(12,26,9)，取 DIF 的 9 周期 EMA，沿现有初始化和预热。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="43">
+            <th scope="row">MACD 柱值<br><code>bars[].factors.macd.macd</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 MACD(12,26,9)，2 ×（DIF − DEA），取内核输出 hist。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="44">
+            <th scope="row">KDJ K<br><code>bars[].factors.kdj.k</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>high</code>、<code>low</code>、<code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，由前复权最高、最低、收盘计算 RSV，再递推 K。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="45">
+            <th scope="row">KDJ D<br><code>bars[].factors.kdj.d</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>high</code>、<code>low</code>、<code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，从 K 递推出 D，沿用现有初值和预热。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="46">
+            <th scope="row">KDJ J<br><code>bars[].factors.kdj.j</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 股票复权因子<br><code>silver_adj_factor</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>high</code>、<code>low</code>、<code>close</code></div><div class="source-part"><small>silver_adj_factor</small><code>adj_factor</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，3 × K − 2 × D。</td>
+            <td>现行日 K 由共享内核现场计算。价格输入在本表股票日线及复权步骤统一调整，本指标继续使用现有算子、参数和响应字段。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-status">
+          <tr class="section"><th colspan="6" scope="rowgroup">首屏状态与能力字段</th></tr>
+          <tr data-field="47">
+            <th scope="row">行情状态<br><code>dataStatus.status / expectedTradeDate / observedTradeDate / note</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver_stock_daily</code></div><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div></td>
+            <td><div class="source-part"><small>silver_stock_daily</small><code>trade_date</code></div><div class="source-part"><small>silver_trade_calendar</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>后端用请求截止日和最后一根实际行情日计算状态。摘要与日 K 复用同一批行情得出的状态；空态、落后、到达日期分别处理。</td>
+            <td>状态仍由现有规则按截止日和实际行情日生成。所用交易日历、日线来源在前面对应行调整。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="48">
+            <th scope="row">日 K 返回范围<br><code>meta.count / limit / startDate / endDate</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>后端用返回根数生成 count，用请求生成 limit、startDate，使用实际截止日作为 endDate。预热根数另计。</td>
+            <td>当前前端首屏显式请求 500 根。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py">股票日线计算和回包组装</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="49">
+            <th scope="row">图表默认口径与按钮<br><code>chartDefaults / period / adjustment / sourceAdjustment</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>股票详情 API 固定日／前复权；菜单从图表默认契约和本地能力生成。</td>
+            <td>前端常量负责按钮名称和样式，并按接口能力启用。周线、月线当前未接页面真实数据。<span class="refs"><a href="../../../../src/biz/schemas/wealth/market/stock_detail.py">股票详情页 API 字段合同</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="50">
+            <th scope="row">分钟、九转、趋势通道及用户动作能力<br><code>capabilities.*</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>股票详情后端按本地配置、数据来源条件及接口默认值生成相应能力。</td>
+            <td>当前没有实时股票报价能力；诊股按钮禁用。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">本地分钟及图层能力配置</a> · <a href="../../../../src/biz/schemas/wealth/market/stock_detail.py">股票详情页 API 字段合同</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-layers">
+          <tr class="section"><th colspan="6" scope="rowgroup">分钟线、九转与趋势通道（现行独立链路）</th></tr>
+          <tr data-field="51">
+            <th scope="row">分钟前复权行情的日期、时间及定位键<br><code>bars[].tsCode / freq / tradeDate / tradeTime / exchange</code></th>
+            <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>freq</code>、<code>trade_date</code>、<code>trade_time</code>、<code>exchange</code></div></td>
+            <td>直接读取。后端统一为北京时间，前端生成图表时间键。</td>
+            <td>仅本地分钟能力启用时读；关联指标按新版时间键和接口身份校验。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py">股票分钟字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts">股票分钟图表字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="52">
+            <th scope="row">分钟开盘／最高／最低／收盘<br><code>bars[].open / high / low / close</code></th>
+            <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq</code></div></td>
+            <td><div class="source-part"><code>open</code>、<code>high</code>、<code>low</code>、<code>close</code></div></td>
+            <td>DG 前复权分钟线任务生成，页面接口读取已算结果。</td>
+            <td>走势图和十字线直接消费复权后的四价。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py">股票分钟字段映射</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq.py">股票分钟前复权计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="53">
+            <th scope="row">分钟成交量<br><code>bars[].vol</code></th>
+            <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq</code></div></td>
+            <td><div class="source-part"><code>vol</code></div></td>
+            <td>直接读取，单位为股。前端按股、万股或亿股格式化。</td>
+            <td>前端按股、万股或亿股格式化。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md">分钟 API 单位合同</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="54">
+            <th scope="row">分钟成交额<br><code>bars[].amount</code></th>
+            <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq</code></div></td>
+            <td><div class="source-part"><code>amount</code></div></td>
+            <td>直接读取，单位为元。前端按元、万元或亿元格式化。</td>
+            <td>前端按元、万元或亿元格式化。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md">分钟 API 单位合同</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="55">
+            <th scope="row">分钟 MACD DIF<br><code>items[].macdDif</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>macd_dif_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成；页面请求读回。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="56">
+            <th scope="row">分钟 MACD DEA<br><code>items[].macdDea</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>macd_dea_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>本地接口读取 DG 股票分钟 MACD/KDJ 任务生成的产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="57">
+            <th scope="row">分钟 MACD 柱值<br><code>items[].macd</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>macd_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>本地接口读取 DG 股票分钟 MACD/KDJ 任务生成的产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="58">
+            <th scope="row">分钟 KDJ K<br><code>items[].kdjK</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>kdj_k_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>本地接口读取 DG 股票分钟 MACD/KDJ 任务生成的产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="59">
+            <th scope="row">分钟 KDJ D<br><code>items[].kdjD</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>kdj_d_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>本地接口读取 DG 股票分钟 MACD/KDJ 任务生成的产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="60">
+            <th scope="row">分钟 KDJ J<br><code>items[].kdjJ</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>kdj_qfq</code></div></td>
+            <td>DG 股票分钟 MACD/KDJ 任务生成，页面接口读取已算结果。</td>
+            <td>本地接口读取 DG 股票分钟 MACD/KDJ 任务生成的产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py">DG 股票分钟 MACD/KDJ 计算</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="61">
+            <th scope="row">分钟指标时间键与版本<br><code>items[].tsCode / freq / tradeDate / tradeTime / paramsKey / indicatorVersion</code></th>
+            <td><div class="source-part">DG 股票分钟前复权 MACD/KDJ<br><code>gold/indicator/stk_mins_qfq_macd_kdj</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>freq</code>、<code>trade_date</code>、<code>trade_time</code>、<code>params_key</code>、<code>indicator_version</code></div></td>
+            <td>直接读取；时间和身份键用于与分钟 K 线对齐。</td>
+            <td>时间键参与和分钟 K 线对齐，版本字段来自产物。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py">股票分钟字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts">股票分钟图表字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="62">
+            <th scope="row">日线九转标记日期<br><code>markers[].tradeDate</code></th>
+            <td><div class="source-part">DG 股票日线前复权九转<br><code>gold_stock_daily_qfq_nineturn</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>按股票代码读取已算好的九转结果，标记日期直接取 <code>trade_date</code>。前端用这个日期在已加载的日 K 中找到对应蜡烛。</td>
+            <td>当前本地接口从 Prod PostgreSQL 读取九转。匹配成功后，响应标记日期与九转结果记录的交易日相同。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">股票日线九转现行查询</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线前复权九转字段定义</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">图表按日期匹配日 K</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="63">
+            <th scope="row">日线九转方向、序号、完成标记<br><code>markers[].direction / sequenceNumber / completed</code></th>
+            <td><div class="source-part">DG 股票日线前复权九转<br><code>gold_stock_daily_qfq_nineturn</code></div></td>
+            <td><div class="source-part"><code>up_count</code>、<code>down_count</code></div></td>
+            <td>DG 提前基于前复权日线收盘价算出计数。接口读取计数，范围为 1 至 9 时返回标记，9 表示完成。</td>
+            <td>本地接口当前从 Prod PostgreSQL 读取已同步的计数。绘图时直接用主图已加载的日 K 高低价确定标记位置。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">股票日线九转现行查询</a> · <a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">九转响应标记转换</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py">DG 日线与分钟九转生产者</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">九转标记与 K 线高低点对齐</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/prod_db/stock_daily_qfq_nineturn.py">DG 日线九转同步查询表</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="96">
+            <th scope="row">日线九转日期覆盖与缺失状态<br><code>dataStatus / meta.sourceRowCount / matchedRowCount / missingRowCount</code></th>
+            <td><div class="source-part">DG 交易日历<br><code>silver_trade_calendar</code></div><div class="source-part">DG 股票日线前复权九转<br><code>gold_stock_daily_qfq_nineturn</code></div></td>
+            <td><div class="source-part"><small>silver_trade_calendar</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div><div class="source-part"><small>gold_stock_daily_qfq_nineturn</small><code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>先取交易日历在请求区间内的开市日期，再按股票及交易日核对九转实际记录。按个股适用范围判断应有记录，计数为 0 的结果也算已覆盖。</td>
+            <td>现行查询从股票技术面因子视图取行情日期，再关联九转结果并统计缺失。换成交易日历基准时，核对现行状态、计数及分页的含义。需要变更接口契约时另行确认。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">九转现行日期来源</a> · <a href="../../../../tests/web/test_wealth_stock_nine_turn_api.py">缺失状态和分页用例</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="64">
+            <th scope="row">分钟九转日期和时间<br><code>markers[].tradeDate / tradeTime</code></th>
+            <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq</code></div></td>
+            <td><div class="source-part"><code>trade_date</code>、<code>trade_time</code></div></td>
+            <td>直接读取，作为分钟九转时间骨架。</td>
+            <td>日期与时间已从 DG 读取。入口的股票校验当前查 PostgreSQL，复用证券身份行的 DG 切换。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_nine_turn_reader.py">本地股票分钟九转读数</a> · <a href="../../../../src/foundation/clients/local_lake/stock_nine_turn_contract.py">股票分钟九转结果字段和路径</a> · <a href="../../../../src/biz/queries/wealth/market/stock_minute_nine_turn/stock_minute_nine_turn_query_service.py">分钟九转的证券校验</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="65">
+            <th scope="row">分钟九转方向、序号、完成标记<br><code>markers[].direction / sequenceNumber / completed</code></th>
+            <td><div class="source-part">DG 股票分钟前复权九转<br><code>gold/indicator/stk_mins_qfq_nineturn</code></div></td>
+            <td><div class="source-part"><code>up_count</code>、<code>down_count</code></div></td>
+            <td>DG 分钟九转任务计算计数。后端按非零计数给方向和序号，序号为 9 时标记完成。</td>
+            <td>前端根据分钟 K 线相应时间的最高或最低定位标记。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_nine_turn_contract.py">股票分钟九转结果字段和路径</a> · <a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">九转响应标记转换</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py">DG 日线与分钟九转生产者</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">九转标记与 K 线高低点对齐</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="66">
+            <th scope="row">趋势通道日期、收盘价<br><code>bars[].tradeDate / close</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>trade_date</code>、<code>close</code></div></td>
+            <td>直接读取趋势通道结果，覆盖日期按交易日历核对。前端按交易日把结果画在对应日 K 上。</td>
+            <td>日期与收盘已从 DG 趋势通道结果读取。入口的证券校验与默认截止日使用本表前面的股票基础信息和交易日历调整。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py">DG 股票日线趋势通道生产者</a> · <a href="../../../../wealth/src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.ts">趋势通道绘图字段映射</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py">趋势通道的证券和交易日查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="67">
+            <th scope="row">趋势通道短线上轨<br><code>bars[].shortChannel.upper</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>short_upper</code></div></td>
+            <td>DG 股票日线趋势通道任务算出轨道值，前端读回画线。</td>
+            <td>前端直接画线。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py">DG 股票日线趋势通道生产者</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="68">
+            <th scope="row">趋势通道短线下轨<br><code>bars[].shortChannel.lower</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>short_lower</code></div></td>
+            <td>DG 股票日线趋势通道任务算出轨道值，前端读回画线。</td>
+            <td>前端直接画线。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py">DG 股票日线趋势通道生产者</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="69">
+            <th scope="row">趋势通道长线上轨<br><code>bars[].longChannel.upper</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>long_upper</code></div></td>
+            <td>DG 股票日线趋势通道任务算出轨道值，前端读回画线。</td>
+            <td>前端直接画线。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py">DG 股票日线趋势通道生产者</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="70">
+            <th scope="row">趋势通道长线下轨<br><code>bars[].longChannel.lower</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>long_lower</code></div></td>
+            <td>DG 股票日线趋势通道任务算出轨道值，前端读回画线。</td>
+            <td>前端直接画线。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py">DG 股票日线趋势通道生产者</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="71">
+            <th scope="row">趋势通道 API 其他行情、通道位置与状态<br><code>bars[].open/high/low / shortChannel.position/state / longChannel.position/state / combinedState</code></th>
+            <td><div class="source-part">DG 股票日线趋势通道结果<br><code>gold/indicator/stock_daily_trend_channel</code></div></td>
+            <td><div class="source-part"><code>open</code>、<code>high</code>、<code>low</code>、<code>short_position</code>、<code>short_state</code>、<code>long_position</code>、<code>long_state</code>、<code>combined_state</code></div></td>
+            <td>DG 趋势通道任务生成结果，接口映射各字段。</td>
+            <td>当前股票详情图层只消费日期、收盘和四条轨道；其余字段在响应合同中。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py">趋势通道文件读取</a> · <a href="../../../../wealth/src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.ts">趋势通道绘图字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-mock">
+          <tr class="section"><th colspan="6" scope="rowgroup">右侧关联板块、个股资金及资料页签</th></tr>
+          <tr data-field="72">
+            <th scope="row">关联板块名称<br><code>rightRail.sectors[].name</code></th>
+            <td><div class="source-part">候选 · 东方财富板块成分<br><code>silver_dc_member</code></div><div class="source-part">候选 · 东方财富板块列表<br><code>silver_dc_index</code></div></td>
+            <td><div class="source-part"><small>silver_dc_member</small><code>con_code</code>、<code>ts_code</code>、<code>trade_date</code></div><div class="source-part"><small>silver_dc_index</small><code>name</code>、<code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>若后续接入，后端先按股票筛成分，再按日期和板块代码关联板块名称。</td>
+            <td>当前取页面固定示例。具体采用哪个板块体系、列表选择规则和日期口径须确认。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="73">
+            <th scope="row">关联板块涨跌幅<br><code>rightRail.sectors[].pct / direction</code></th>
+            <td><div class="source-part">候选 · 东方财富板块日行情<br><code>silver_dc_daily</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>category</code>、<code>pct_change</code></div></td>
+            <td>若后续接入，后端按已确认的分类和日期取涨跌幅，按正负给方向。</td>
+            <td>当前为固定示例，几个示例类别的覆盖需单独核验。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="74">
+            <th scope="row">关联板块家数<br><code>rightRail.sectors[].count</code></th>
+            <td><div class="source-part">候选 · 东方财富板块成分<br><code>silver_dc_member</code></div></td>
+            <td><div class="source-part"><code>trade_date</code>、<code>ts_code</code>、<code>con_code</code></div></td>
+            <td>若确认显示成分股总数，板块后端按日期和板块代码对成分代码去重计数。</td>
+            <td>当前没有该数字的正式定义，不能把上涨、下跌家数相加当成成分总数。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="75">
+            <th scope="row">关联板块类别<br><code>rightRail.sectors[].type</code></th>
+            <td><div class="source-part">候选 · 东方财富板块列表<br><code>silver_dc_index</code></div></td>
+            <td><div class="source-part"><code>idx_type</code>、<code>level</code></div></td>
+            <td>如后续接入，板块后端按已确认的类别映射。</td>
+            <td>当前为固定示例，不能据此认定东方财富有同名“题材”等分类。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="76">
+            <th scope="row">净特大单<br><code>rightRail.moneyFlow[净特大].value</code></th>
+            <td><div class="source-part">候选 · DG 个股资金流向<br><code>silver_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_elg_amount</code>、<code>sell_elg_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。正式资金来源和空值规则待确认。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="77">
+            <th scope="row">净大单<br><code>rightRail.moneyFlow[净大单].value</code></th>
+            <td><div class="source-part">候选 · DG 个股资金流向<br><code>silver_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_lg_amount</code>、<code>sell_lg_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="78">
+            <th scope="row">净中单<br><code>rightRail.moneyFlow[净中单].value</code></th>
+            <td><div class="source-part">候选 · DG 个股资金流向<br><code>silver_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_md_amount</code>、<code>sell_md_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="79">
+            <th scope="row">净小单<br><code>rightRail.moneyFlow[净小单].value</code></th>
+            <td><div class="source-part">候选 · DG 个股资金流向<br><code>silver_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_sm_amount</code>、<code>sell_sm_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="80">
+            <th scope="row">资金条宽度、方向、圆环<br><code>rightRail.moneyFlow[].ratio / direction</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>若后续接入，方向按净额正负给出，条形比例的分母和绝对值规则待确认。圆环为样式绘制。</td>
+            <td>条宽和方向目前来自固定示例，圆环为样式绘制。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx">股票详情右侧栏实际渲染</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="81">
+            <th scope="row">公司资料、财务摘要、公告<br><code>资料页签</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>占位页签待确定展示字段，确定后逐项查 DG，DG 缺少的字段使用 Prod 数据。</td>
+            <td>页头已展示的股票身份见表首。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx">股票详情右侧栏实际渲染</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-actions">
+          <tr class="section"><th colspan="6" scope="rowgroup">新闻、自选与用户操作</th></tr>
+          <tr data-field="82">
+            <th scope="row">新闻标识<br><code>items[].newsId</code></th>
+            <td><div class="source-part">Prod 补充 · 新闻股票关联<br><code>core_serving.news_stock_link</code></div><div class="source-part">Prod 补充 · 新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><small>core_serving.news_stock_link</small><code>ts_code</code>、<code>news_id</code></div><div class="source-part"><small>core_serving_light.news</small><code>row_key_hash</code></div></td>
+            <td>新闻后端按股票筛关联记录，连到新闻，去重后取代表稿标识。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。前端使用此字段作为新闻列表项标识。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="83">
+            <th scope="row">新闻标题<br><code>items[].title</code></th>
+            <td><div class="source-part">Prod 补充 · 新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><code>title</code>、<code>content</code></div></td>
+            <td>新闻后端由原题及正文形成显示标题，按事件去重规则选代表稿。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。新闻页签打开才加载。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a> · <a href="../../../../src/biz/queries/wealth/market/news/news_event_deduplicator.py">股票新闻标题及代表稿</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="84">
+            <th scope="row">新闻发布时间及日期文本<br><code>items[].publishTime</code></th>
+            <td><div class="source-part">Prod 补充 · 新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><code>news_time</code></div></td>
+            <td>新闻后端取代表稿时间并转为北京时间，前端格式化成列表日期。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。页面不把发布时间替换为股票行情日期。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/news/api/stockDetailNewsViewModelAdapter.ts">新闻发布时间前端映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="85">
+            <th scope="row">自选分组 ID、名称、颜色、默认组<br><code>groups[].groupId / name / color / isDefault</code></th>
+            <td><div class="source-part">Prod 补充 · 用户自选分组<br><code>app.wealth_watchlist_group</code></div></td>
+            <td><div class="source-part"><code>id</code>、<code>name</code>、<code>color</code>、<code>is_default</code></div></td>
+            <td>按当前用户直接读取分组数据。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。打开自选分组入口时使用。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/watchlist/watchlist_group_query.py">用户自选分组查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="86">
+            <th scope="row">股票是否属于该自选组<br><code>groups[].selected</code></th>
+            <td><div class="source-part">Prod 补充 · 用户自选分组<br><code>app.wealth_watchlist_group</code></div><div class="source-part">Prod 补充 · 用户自选分组成员<br><code>app.wealth_watchlist_membership</code></div></td>
+            <td><div class="source-part"><small>app.wealth_watchlist_group</small><code>id</code>、<code>user_id</code></div><div class="source-part"><small>app.wealth_watchlist_membership</small><code>group_id</code>、<code>ts_code</code>、<code>id</code></div></td>
+            <td>自选后端联接当前用户的分组和该股票，成员记录存在时为已选。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。前端草稿勾选状态来自返回结果和用户操作。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/watchlist/watchlist_group_query.py">用户自选分组查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="87">
+            <th scope="row">交易计划的账户列表<br><code>accounts[].accountId / name / brokerName</code></th>
+            <td><div class="source-part">Prod 补充 · 交易助手用户账户<br><code>app.wealth_ta_account</code></div></td>
+            <td><div class="source-part"><code>account_id</code>、<code>name</code>、<code>broker_name</code></div></td>
+            <td>账户服务按当前用户直接取数。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。计划窗选择，独立提醒窗不需要账户。<span class="refs"><a href="../../../../src/biz/models/wealth/trading_assistant/accounts.py">交易助手用户账户模型</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="88">
+            <th scope="row">通知机器人名称和标识<br><code>robot.name / robotId</code></th>
+            <td><div class="source-part">Prod 补充 · 交易助手机器人<br><code>app.wealth_ta_robot</code></div><div class="source-part">Prod 补充 · 交易助手机器人配置<br><code>app.wealth_ta_robot_config</code></div></td>
+            <td><div class="source-part"><small>app.wealth_ta_robot</small><code>robot_id</code>、<code>current_config_id</code></div><div class="source-part"><small>app.wealth_ta_robot_config</small><code>config_id</code>、<code>name</code></div></td>
+            <td>机器人设置接口按当前用户配置取名称和标识。</td>
+            <td>本地后端已通过现有 PostgreSQL 查询读取 Prod，沿用现行接口和字段。用于提醒／计划弹窗的通知选择，与日线行情独立。<span class="refs"><a href="../../../../src/biz/models/wealth/trading_assistant/robots.py">交易助手机器人配置模型</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="89">
+            <th scope="row">截止时间、计划方向、通知开关、条件阈值<br><code>deadlineAt / direction / notifyEnabled / priceCondition / volumeCondition</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>用户填写。交易助手处理默认值、校验和条件预览；股票沿用当前页面身份。</td>
+            <td>价格阈值以元为单位，累计成交量阈值以手为单位。<span class="refs"><a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleConditionEditor.tsx">提醒与交易计划的条件字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="local-top">
+          <tr class="section"><th colspan="6" scope="rowgroup">顶部主要指数行情（独立请求）</th></tr>
+          <tr data-field="90">
+            <th scope="row">指数代码与顺序<br><code>subject.subjectCode / ticker.code</code></th>
+            <td><div class="source-part">主要指数策略配置<br><code>major_indices.cn_a.v1.json</code></div></td>
+            <td><div class="source-part"><code>payload.indexCodes</code></div></td>
+            <td>按随部署发布的主要指数策略配置读取展示列表及顺序；按该列表关联 DG 指数行情。</td>
+            <td>顶部指数代码与顺序由现有页面策略配置决定。行情文件按指数代码、交易日提供数值。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query_service.py">顶部主要指数选取及涨跌方向</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json">主要指数策略配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="91">
+            <th scope="row">指数名称<br><code>subject.subjectName / ticker.name</code></th>
+            <td><div class="source-part">DG 指数基本信息<br><code>silver_index_basic</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>name</code></div></td>
+            <td>按指数代码直接读 DG 指数基本信息名称。</td>
+            <td>本地当前读 PostgreSQL <code>core_serving.index_basic</code> 的 <code>name</code>。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 主要指数日线字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="92">
+            <th scope="row">指数点位<br><code>point</code></th>
+            <td><div class="source-part">DG 市场主要指数日线<br><code>gold_market_major_indices_daily</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>close</code></div></td>
+            <td>按指数及交易日直接取收盘点位。</td>
+            <td>本地当前读 PostgreSQL <code>core_serving.index_daily_serving</code>，交易日由 PostgreSQL 日历确定。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 主要指数日线字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="93">
+            <th scope="row">指数涨跌额<br><code>change</code></th>
+            <td><div class="source-part">DG 市场主要指数日线<br><code>gold_market_major_indices_daily</code></div></td>
+            <td><div class="source-part"><code>change_amount</code></div></td>
+            <td>直接读取涨跌额。</td>
+            <td>本地当前读 PostgreSQL <code>core_serving.index_daily_serving</code>，交易日由 PostgreSQL 日历确定。进入顶部栏模型并参与是否展示该条的检查，当前顶部栏直接展示点位和涨跌幅。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/features/major-indices/api/marketMajorIndicesAdapter.ts">主要指数适配到顶部栏</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 主要指数日线字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="94">
+            <th scope="row">指数涨跌幅<br><code>changePct / ticker.pct</code></th>
+            <td><div class="source-part">DG 市场主要指数日线<br><code>gold_market_major_indices_daily</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code></div></td>
+            <td>直接读取涨跌幅。</td>
+            <td>本地当前读 PostgreSQL <code>core_serving.index_daily_serving</code>，交易日由 PostgreSQL 日历确定。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 主要指数日线字段定义</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="95">
+            <th scope="row">指数涨跌方向<br><code>direction</code></th>
+            <td><div class="source-part">DG 市场主要指数日线<br><code>gold_market_major_indices_daily</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code></div></td>
+            <td>主要指数后端按涨跌幅的正负和空值给出方向。</td>
+            <td>后端沿用现有涨跌与空值判断，输入为上一行的涨跌幅。顶部栏按返回方向着色。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query_service.py">顶部主要指数选取及涨跌方向</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 主要指数日线字段定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="prod" aria-labelledby="prod-title">
+    <h2 id="prod-title">Prod 后端 · Prod PostgreSQL</h2>
+    <p>盘口与日 K 从 Prod PostgreSQL 的股票技术面因子（专业版）查询视图 <code>core_serving.equity_factor_pro</code> 读取已前复权的价格。日 K 请求用同一视图的价格和预热数据调用共享内核计算 MA、BOLL、MACD、KDJ。<a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">股票摘要和 Prod 日 K 查询</a> · <a href="../../../../docs/datasets/stk-factor-pro-dataset-development.md">股票技术面因子（专业版）数据集说明</a></p>
+    <nav aria-label="Prod 后端 · Prod PostgreSQL字段索引">
+      <a href="#prod-identity">证券与日期</a>
+      <a href="#prod-daily">盘口与日 K</a>
+      <a href="#prod-indicators">日线指标</a>
+      <a href="#prod-status">首屏状态</a>
+      <a href="#prod-layers">分钟及图层</a>
+      <a href="#prod-mock">板块、资金及资料</a>
+      <a href="#prod-actions">新闻与用户操作</a>
+      <a href="#prod-top">顶部指数</a>
+    </nav>
+    <div class="scroll" role="region" aria-label="Prod 后端 · Prod PostgreSQL字段表，可横向滚动" tabindex="0">
+      <table>
+        <caption>Prod 后端 · Prod PostgreSQL · 字段对照</caption>
+        <colgroup><col class="field"><col class="dataset"><col class="source-field"><col class="method-col"><col class="current"><col class="adjustment-col"></colgroup>
+        <thead><tr>
+          <th scope="col">页面字段与接口字段</th>
+          <th scope="col">数据集</th>
+          <th scope="col">源字段名</th>
+          <th scope="col">计算方式</th>
+          <th scope="col">现行用法与依据</th>
+          <th scope="col" class="adjustment">是否需要调整</th>
+        </tr></thead>
+        <tbody id="prod-identity">
+          <tr class="section"><th colspan="6" scope="rowgroup">证券身份与页面日期</th></tr>
+          <tr data-field="1">
+            <th scope="row">股票名称<br><code>stock.name / stockRef.name</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>name</code></div></td>
+            <td>按股票代码查证券名称，页头、面包屑、工具栏及用户表单共用。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 查询。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="2">
+            <th scope="row">股票代码<br><code>stock.tsCode / stockRef.tsCode</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>ts_code</code></div></td>
+            <td>按路由代码查股票；同一代码用于盘口、日 K 和日线指标查询。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 查询。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="3">
+            <th scope="row">证券简称代码<br><code>stock.symbol</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>symbol</code></div></td>
+            <td>直接读取。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。当前 API 提供，页面展示的是带交易所后缀的 <code>stock.tsCode</code>。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="4">
+            <th scope="row">市场类型<br><code>stock.market</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>market</code></div></td>
+            <td>直接读取；前端按现行规则显示。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。进入页面模型，缺值时前端用 <code>CN_A</code>；当前主标题不单列市场类型。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="5">
+            <th scope="row">交易所<br><code>stock.exchange</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>exchange</code></div></td>
+            <td>直接读取。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。当前 API 提供，页面没有单独展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="6">
+            <th scope="row">所属行业<br><code>stock.industry</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>industry</code></div></td>
+            <td>直接读取。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。参与图表工具栏和页头标签展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="7">
+            <th scope="row">所属地域<br><code>stock.area</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>area</code></div></td>
+            <td>直接读取。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。参与标签展示，也可作为图表工具栏类别文字。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="8">
+            <th scope="row">上市状态<br><code>stock.listStatus</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>list_status</code></div></td>
+            <td>直接读取。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。当前 API 提供，页面没有单独展示。DG 股票基础信息 <code>silver_stock_basic</code> 只保留当前上市股票，切换身份来源前须另核退市和换码覆盖。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票基础信息字段定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="9">
+            <th scope="row">页头标签与工具栏类别<br><code>stock.tags / 前端 stock.sector</code></th>
+            <td><div class="source-part">证券主数据<br><code>core_serving.security_serving</code></div></td>
+            <td><div class="source-part"><code>industry</code>、<code>area</code></div></td>
+            <td>后端把非空行业、地域依次组为标签。工具栏按行业、地域的顺序选显示值。</td>
+            <td>从 Prod PostgreSQL <code>core_serving.security_serving</code> 读取。这里的行业／地域标签与右侧关联板块列表分别取数。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="10">
+            <th scope="row">请求截止交易日<br><code>pageContext.tradeDate / 请求 endDate</code></th>
+            <td><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>首屏和日 K 后端分别结合显式日期和北京时间解析交易日。</td>
+            <td>前端用首屏接口返回的交易日请求日 K，两个接口各自取 Prod 交易日历。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="11">
+            <th scope="row">上一市场交易日<br><code>pageContext.prevTradeDate</code></th>
+            <td><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>pretrade_date</code>、<code>is_open</code></div></td>
+            <td>优先取日历的 pretrade_date。缺少该日期行时由后端取此前最近开市日。</td>
+            <td>从 Prod PostgreSQL 交易日历取得。这是市场日历日期。个股昨收必须找个股上一根实际 K 线。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="12">
+            <th scope="row">是否开市<br><code>pageContext.isTradingDay</code></th>
+            <td><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>按 SSE 的指定交易日取 is_open。</td>
+            <td>从 Prod PostgreSQL 交易日历取得。当前 API 上下文字段。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="13">
+            <th scope="row">时段、市场、时区与时间来源<br><code>pageContext.sessionStatus / market / timezone / generatedAt / source</code></th>
+            <td><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div></td>
+            <td><div class="source-part"><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>后端用开市状态与北京时间判时段。market 和 timezone 为固定值，generatedAt 为服务时间，source 取决于是否显式指定日期。</td>
+            <td>从 Prod PostgreSQL 交易日历取得。用来表达页面日期口径；无需行情表字段。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/context/market_page_context_query.py">交易日期和市场时段查询</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-daily">
+          <tr class="section"><th colspan="6" scope="rowgroup">盘口摘要、日 K 线及十字线</th></tr>
+          <tr data-field="14">
+            <th scope="row">实际行情日期<br><code>quote.tradeDate / bars[].tradeDate</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>trade_date</code></div></td>
+            <td>盘口取截止交易日内最新一条日期，日 K 取每根自身日期。</td>
+            <td>首屏摘要与日 K 分别查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../src/foundation/clients/local_lake/stock_daily_reader.py">本地股票详情现行行情文件读取</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="15">
+            <th scope="row">最新价／收盘价<br><code>quote.price / quote.close / bars[].close</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>直接读前复权收盘价。</td>
+            <td>首屏摘要与日 K 分别查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="16">
+            <th scope="row">今开／开盘价<br><code>quote.open / bars[].open</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>open_qfq</code></div></td>
+            <td>直接读前复权开盘价。</td>
+            <td>首屏摘要与日 K 分别查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="17">
+            <th scope="row">最高价<br><code>quote.high / bars[].high</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>high_qfq</code></div></td>
+            <td>直接读前复权最高价。</td>
+            <td>首屏摘要与日 K 分别查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="18">
+            <th scope="row">最低价<br><code>quote.low / bars[].low</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>low_qfq</code></div></td>
+            <td>直接读前复权最低价。</td>
+            <td>首屏摘要与日 K 分别查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code>。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="19">
+            <th scope="row">昨收<br><code>quote.preClose / bars[].preClose</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>pre_close</code></div></td>
+            <td>直接读昨收。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前直接取股票技术面因子 <code>pre_close</code>，与前复权收盘可能使用不同基准。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="20">
+            <th scope="row">涨跌额<br><code>quote.change / bars[].change</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>change</code></div></td>
+            <td>直接读涨跌额。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前直接取股票技术面因子 <code>change</code>；摘要展示该值，日 K 同时返回该字段。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="21">
+            <th scope="row">涨跌幅<br><code>quote.changePct / bars[].changePct</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code></div></td>
+            <td>直接读涨跌幅，单位为百分比值。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前直接取股票技术面因子 <code>pct_chg</code>。单位为百分比值，接口数值 <code>1.5</code> 展示为 <code>1.50%</code>。<span class="refs"><a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="22">
+            <th scope="row">涨跌方向及颜色<br><code>quote.direction / K 线及提示颜色</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code>、<code>open_qfq</code>、<code>high_qfq</code>、<code>low_qfq</code>、<code>close_qfq</code>、<code>pre_close</code></div></td>
+            <td>后端按涨跌幅正负给盘口方向，前端按价位比较确定十字线提示颜色。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。K 线提示开盘和最低与昨收比较，收盘和最高与开盘比较；这是展示逻辑。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="23">
+            <th scope="row">振幅<br><code>bars[].amplitude</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>high_qfq</code>、<code>low_qfq</code>、<code>pre_close</code></div></td>
+            <td>日 K 后端算（最高 − 最低）÷ 昨收 × 100。任一输入为空或昨收为零时返回空。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前由 <code>calculate_amplitude</code> 算，分母仍取源端 <code>pre_close</code>。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="24">
+            <th scope="row">成交量原值<br><code>quote.vol / bars[].vol</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>vol</code></div></td>
+            <td>直接读成交量，单位为手。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前从股票技术面因子 <code>vol</code> 读取。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="25">
+            <th scope="row">成交量显示文本<br><code>quote.volDisplay / bars[].volDisplay</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>vol</code></div></td>
+            <td>后端把手数除以 10,000 并保留两位。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。盘口、十字线和成交量副图复用同一文本。<span class="refs"><a href="../../../../src/biz/services/wealth/market/detail_volume_display.py">日线成交量文本格式化</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="26">
+            <th scope="row">成交额原值<br><code>quote.amount / bars[].amount</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>amount</code></div></td>
+            <td>直接读成交额，单位为千元。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前从股票技术面因子 <code>amount</code> 读取。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 股票日线及复权因子字段定义</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="27">
+            <th scope="row">成交额显示文本<br><code>盘口 amountText / 日 K 十字线成交额</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>amount</code></div></td>
+            <td>前端按现行盘口和日 K 十字线规则分别格式化。</td>
+            <td>现行盘口小于 100,000 千元时直接拼“万”，十字线在万元分支已除以 10。此格式化差异独立于 Prod 读取环境。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">日线图表及十字线显示</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="28">
+            <th scope="row">换手率<br><code>quote.turnoverRate / bars[].turnoverRate</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>turnover_rate</code></div></td>
+            <td>直接读换手率。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前取股票技术面因子 <code>turnover_rate</code>。这里使用换手率，<code>turnover_rate_f</code> 是自由流通股换手率。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py">DG 每日指标字段定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="29">
+            <th scope="row">量比<br><code>quote.volumeRatio / bars[].volumeRatio</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>volume_ratio</code></div></td>
+            <td>直接读量比。</td>
+            <td>输入由 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 提供。当前取股票技术面因子 <code>volume_ratio</code>。盘口显示该值，日 K API 也提供该字段。源列允许空，相关 UI 当前会把空数值转为 0，验收要识别此行为。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py">DG 每日指标字段定义</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="30">
+            <th scope="row">前复权因子与基准<br><code>内部输入：adj_factor / basis_date / basis_value</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>请求直接使用股票技术面因子查询视图的前复权四价，无请求内复权步骤。</td>
+            <td>当前查询 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格，供日 K 和指标使用。<span class="refs"><a href="../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py">DG 正式文件路径定义</a> · <a href="../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py">不复权行情来源和基准选择</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-indicators">
+          <tr class="section"><th colspan="6" scope="rowgroup">日线技术指标</th></tr>
+          <tr data-field="31">
+            <th scope="row">MA5<br><code>bars[].factors.ma.ma5</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 5 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_5</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="32">
+            <th scope="row">MA10<br><code>bars[].factors.ma.ma10</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 10 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_10</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="33">
+            <th scope="row">MA20<br><code>bars[].factors.ma.ma20</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 20 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_20</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="34">
+            <th scope="row">MA30<br><code>bars[].factors.ma.ma30</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 30 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_30</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="35">
+            <th scope="row">MA60<br><code>bars[].factors.ma.ma60</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 60 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_60</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="36">
+            <th scope="row">MA90<br><code>bars[].factors.ma.ma90</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 90 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_90</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="37">
+            <th scope="row">MA250<br><code>bars[].factors.ma.ma250</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MA 算子对 250 根前复权收盘价求简单平均。完整窗口不足时为空。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前也由内核现算；股票技术面因子 <code>ma_qfq_250</code> 可用于对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/moving_average.py">共享内核 MA</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="38">
+            <th scope="row">BOLL 上轨<br><code>bars[].factors.boll.upper</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 BOLL(20,2)，20 根前复权收盘均值加 2 倍总体标准差。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>boll_upper_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="39">
+            <th scope="row">BOLL 中轨<br><code>bars[].factors.boll.middle</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 BOLL(20,2)，取 20 根前复权收盘均值，与 MA20 共用均值计算。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>boll_mid_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="40">
+            <th scope="row">BOLL 下轨<br><code>bars[].factors.boll.lower</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 BOLL(20,2)，20 根前复权收盘均值减 2 倍总体标准差。三轨窗口不足均保留空值。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>boll_lower_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/bollinger_bands.py">共享内核 BOLL</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="41">
+            <th scope="row">MACD DIF<br><code>bars[].factors.macd.dif</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MACD(12,26,9)，前复权收盘价的快 EMA 减慢 EMA。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>macd_dif_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="42">
+            <th scope="row">MACD DEA<br><code>bars[].factors.macd.dea</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MACD(12,26,9)，取 DIF 的 9 周期 EMA，沿现有初始化和预热。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>macd_dea_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="43">
+            <th scope="row">MACD 柱值<br><code>bars[].factors.macd.macd</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>close_qfq</code></div></td>
+            <td>共享内核 MACD(12,26,9)，2 ×（DIF − DEA），取内核输出 hist。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>macd_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/macd.py">共享内核 MACD</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="44">
+            <th scope="row">KDJ K<br><code>bars[].factors.kdj.k</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>high_qfq</code>、<code>low_qfq</code>、<code>close_qfq</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，由前复权最高、最低、收盘计算 RSV，再递推 K。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>kdj_k_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="45">
+            <th scope="row">KDJ D<br><code>bars[].factors.kdj.d</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>high_qfq</code>、<code>low_qfq</code>、<code>close_qfq</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，从 K 递推出 D，沿用现有初值和预热。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>kdj_d_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="46">
+            <th scope="row">KDJ J<br><code>bars[].factors.kdj.j</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div></td>
+            <td><div class="source-part"><code>high_qfq</code>、<code>low_qfq</code>、<code>close_qfq</code></div></td>
+            <td>共享内核 KDJ(9,3,3)，3 × K − 2 × D。</td>
+            <td>日 K 用 Prod PostgreSQL <code>core_serving.equity_factor_pro</code> 的前复权价格和预热数据调用共享技术指标内核。当前由内核现算；股票技术面因子 <code>kdj_qfq</code> 对照。<span class="refs"><a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py">共享内核 KDJ</a> · <a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py">股票日线指标参数</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-status">
+          <tr class="section"><th colspan="6" scope="rowgroup">首屏状态与能力字段</th></tr>
+          <tr data-field="47">
+            <th scope="row">行情状态<br><code>dataStatus.status / expectedTradeDate / observedTradeDate / note</code></th>
+            <td><div class="source-part">股票技术面因子（专业版）查询视图<br><code>core_serving.equity_factor_pro</code></div><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div></td>
+            <td><div class="source-part"><small>core_serving.equity_factor_pro</small><code>trade_date</code></div><div class="source-part"><small>core_serving.trade_calendar</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
+            <td>首屏和日 K 分别比较请求期望交易日与最后一根实际行情日，各自生成空、落后或就绪状态。</td>
+            <td>摘要和日 K 查询 Prod PostgreSQL，各自生成状态。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">摘要、日 K 和数据状态映射</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="48">
+            <th scope="row">日 K 返回范围<br><code>meta.count / limit / startDate / endDate</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>后端用返回根数生成 count，用请求生成 limit、startDate，使用实际截止日作为 endDate。预热根数另计。</td>
+            <td>当前前端首屏显式请求 500 根。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py">股票日线计算和回包组装</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="49">
+            <th scope="row">图表默认口径与按钮<br><code>chartDefaults / period / adjustment / sourceAdjustment</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>股票日 K 固定日／前复权，主图叠加选项由股票详情 API 提供。</td>
+            <td>前端常量负责按钮名称和样式，并按接口能力启用。周线、月线当前未接页面真实数据。<span class="refs"><a href="../../../../src/biz/schemas/wealth/market/stock_detail.py">股票详情页 API 字段合同</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页面编排</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="50">
+            <th scope="row">分钟、九转、趋势通道及用户动作能力<br><code>capabilities.*</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>Prod 后端返回日线九转可用，分钟行情、分钟指标、分钟九转和趋势通道未开放；用户操作能力采用接口默认值。</td>
+            <td>当前没有实时股票报价能力；诊股按钮禁用。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">股票摘要、身份和上下文组装</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">本地分钟及图层能力配置</a> · <a href="../../../../src/biz/schemas/wealth/market/stock_detail.py">股票详情页 API 字段合同</a> · <a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-layers">
+          <tr class="section"><th colspan="6" scope="rowgroup">分钟线、九转与趋势通道（现行独立链路）</th></tr>
+          <tr data-field="51">
+            <th scope="row">分钟前复权行情的日期、时间及定位键<br><code>bars[].tsCode / freq / tradeDate / tradeTime / exchange</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="52">
+            <th scope="row">分钟开盘／最高／最低／收盘<br><code>bars[].open / high / low / close</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="53">
+            <th scope="row">分钟成交量<br><code>bars[].vol</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="54">
+            <th scope="row">分钟成交额<br><code>bars[].amount</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="55">
+            <th scope="row">分钟 MACD DIF<br><code>items[].macdDif</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="56">
+            <th scope="row">分钟 MACD DEA<br><code>items[].macdDea</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="57">
+            <th scope="row">分钟 MACD 柱值<br><code>items[].macd</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="58">
+            <th scope="row">分钟 KDJ K<br><code>items[].kdjK</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="59">
+            <th scope="row">分钟 KDJ D<br><code>items[].kdjD</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="60">
+            <th scope="row">分钟 KDJ J<br><code>items[].kdjJ</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="61">
+            <th scope="row">分钟指标时间键与版本<br><code>items[].tsCode / freq / tradeDate / tradeTime / paramsKey / indicatorVersion</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟行情和指标接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="62">
+            <th scope="row">日线九转标记日期<br><code>markers[].tradeDate</code></th>
+            <td><div class="source-part">股票日线前复权九转查询表<br><code>core_serving.equity_qfq_nineturn_daily</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>标记日期使用九转结果的交易日。前端用日期在已加载的日 K 中定位蜡烛。</td>
+            <td>现行 SQL 在按股票代码及交易日匹配九转后，返回股票技术面因子视图中同一天的日期。日期覆盖需调整的部分见下方对应行。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">股票日线九转现行查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="63">
+            <th scope="row">日线九转方向、序号、完成标记<br><code>markers[].direction / sequenceNumber / completed</code></th>
+            <td><div class="source-part">股票日线前复权九转查询表<br><code>core_serving.equity_qfq_nineturn_daily</code></div></td>
+            <td><div class="source-part"><code>up_count</code>、<code>down_count</code></div></td>
+            <td>从 Prod PostgreSQL 读计数，范围为 1 至 9 时返回标记，9 表示完成。</td>
+            <td>DG 日线九转任务生成的计数同步至 Prod PostgreSQL，前端按对应日 K 的高低点定位标记。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">股票日线九转现行 SQL</a> · <a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">九转响应标记转换</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py">DG 日线与分钟九转生产者</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">九转标记与 K 线高低点对齐</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/prod_db/stock_daily_qfq_nineturn.py">DG 日线九转同步查询表</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="96">
+            <th scope="row">日线九转日期覆盖与缺失状态<br><code>dataStatus / meta.sourceRowCount / matchedRowCount / missingRowCount</code></th>
+            <td><div class="source-part">交易日历<br><code>core_serving.trade_calendar</code></div><div class="source-part">股票日线前复权九转查询表<br><code>core_serving.equity_qfq_nineturn_daily</code></div></td>
+            <td><div class="source-part"><small>core_serving.trade_calendar</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div><div class="source-part"><small>core_serving.equity_qfq_nineturn_daily</small><code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>在 Prod PostgreSQL 取区间内的开市日期，按股票及交易日核对 Prod 九转记录并判断覆盖。</td>
+            <td>当前 Prod 用交易日历解析截止日，区间内则用股票技术面因子的行情日期统计九转缺失。调整的是区间日期的判断依据，取数仍在 Prod PostgreSQL。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query_service.py">九转截止日和状态组装</a> · <a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">九转现行日期来源</a></span></td>
+            <td class="adjustment needed">是</td>
+          </tr>
+          <tr data-field="64">
+            <th scope="row">分钟九转日期和时间<br><code>markers[].tradeDate / tradeTime</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟九转接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="65">
+            <th scope="row">分钟九转方向、序号、完成标记<br><code>markers[].direction / sequenceNumber / completed</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票分钟九转接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/local_minute_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="66">
+            <th scope="row">趋势通道日期、收盘价<br><code>bars[].tradeDate / close</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="67">
+            <th scope="row">趋势通道短线上轨<br><code>bars[].shortChannel.upper</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="68">
+            <th scope="row">趋势通道短线下轨<br><code>bars[].shortChannel.lower</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="69">
+            <th scope="row">趋势通道长线上轨<br><code>bars[].longChannel.upper</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="70">
+            <th scope="row">趋势通道长线下轨<br><code>bars[].longChannel.lower</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="71">
+            <th scope="row">趋势通道 API 其他行情、通道位置与状态<br><code>bars[].open/high/low / shortChannel.position/state / longChannel.position/state / combinedState</code></th>
+            <td>Prod 未开放</td>
+            <td>—</td>
+            <td>Prod 无对应的页面取数和计算入口。</td>
+            <td>Prod 路由未注册股票趋势通道接口。<span class="refs"><a href="../../../../src/app/api/v1/router.py">按环境注册股票行情 API</a> · <a href="../../../../src/foundation/config/stock_daily_trend_channel_capability.py">能力配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-mock">
+          <tr class="section"><th colspan="6" scope="rowgroup">右侧关联板块、个股资金及资料页签</th></tr>
+          <tr data-field="72">
+            <th scope="row">关联板块名称<br><code>rightRail.sectors[].name</code></th>
+            <td><div class="source-part">候选 · 东方财富板块成分<br><code>core_serving.dc_member</code></div><div class="source-part">候选 · 东方财富板块列表<br><code>core_serving.dc_index</code></div></td>
+            <td><div class="source-part"><small>core_serving.dc_member</small><code>con_code</code>、<code>ts_code</code>、<code>trade_date</code></div><div class="source-part"><small>core_serving.dc_index</small><code>name</code>、<code>ts_code</code>、<code>trade_date</code></div></td>
+            <td>若后续接入，后端先按股票筛成分，再按日期和板块代码关联板块名称。</td>
+            <td>当前取页面固定示例。具体采用哪个板块体系、列表选择规则和日期口径须确认。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a> · <a href="../../../../src/foundation/datasets/definitions/board_hotspot.py">东方财富板块数据集定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="73">
+            <th scope="row">关联板块涨跌幅<br><code>rightRail.sectors[].pct / direction</code></th>
+            <td><div class="source-part">候选 · 东方财富板块日行情<br><code>core_serving.dc_daily</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>category</code>、<code>pct_change</code></div></td>
+            <td>若后续接入，后端按已确认的分类和日期取涨跌幅，按正负给方向。</td>
+            <td>当前为固定示例，几个示例类别的覆盖需单独核验。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a> · <a href="../../../../src/foundation/datasets/definitions/board_hotspot.py">东方财富板块数据集定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="74">
+            <th scope="row">关联板块家数<br><code>rightRail.sectors[].count</code></th>
+            <td><div class="source-part">候选 · 东方财富板块成分<br><code>core_serving.dc_member</code></div></td>
+            <td><div class="source-part"><code>trade_date</code>、<code>ts_code</code>、<code>con_code</code></div></td>
+            <td>若确认显示成分股总数，板块后端按日期和板块代码对成分代码去重计数。</td>
+            <td>当前没有该数字的正式定义，不能把上涨、下跌家数相加当成成分总数。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a> · <a href="../../../../src/foundation/datasets/definitions/board_hotspot.py">东方财富板块数据集定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="75">
+            <th scope="row">关联板块类别<br><code>rightRail.sectors[].type</code></th>
+            <td><div class="source-part">候选 · 东方财富板块列表<br><code>core_serving.dc_index</code></div></td>
+            <td><div class="source-part"><code>idx_type</code>、<code>level</code></div></td>
+            <td>如后续接入，板块后端按已确认的类别映射。</td>
+            <td>当前为固定示例，不能据此认定东方财富有同名“题材”等分类。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 东方财富板块列表、板块日行情、板块成分字段</a> · <a href="../../../../src/foundation/datasets/definitions/board_hotspot.py">东方财富板块数据集定义</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="76">
+            <th scope="row">净特大单<br><code>rightRail.moneyFlow[净特大].value</code></th>
+            <td><div class="source-part">候选 · 个股资金流向<br><code>core_serving.equity_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_elg_amount</code>、<code>sell_elg_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。正式资金来源和空值规则待确认。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a> · <a href="../../../../src/foundation/models/core/equity_moneyflow.py">Prod 个股资金流向字段模型</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="77">
+            <th scope="row">净大单<br><code>rightRail.moneyFlow[净大单].value</code></th>
+            <td><div class="source-part">候选 · 个股资金流向<br><code>core_serving.equity_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_lg_amount</code>、<code>sell_lg_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a> · <a href="../../../../src/foundation/models/core/equity_moneyflow.py">Prod 个股资金流向字段模型</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="78">
+            <th scope="row">净中单<br><code>rightRail.moneyFlow[净中单].value</code></th>
+            <td><div class="source-part">候选 · 个股资金流向<br><code>core_serving.equity_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_md_amount</code>、<code>sell_md_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a> · <a href="../../../../src/foundation/models/core/equity_moneyflow.py">Prod 个股资金流向字段模型</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="79">
+            <th scope="row">净小单<br><code>rightRail.moneyFlow[净小单].value</code></th>
+            <td><div class="source-part">候选 · 个股资金流向<br><code>core_serving.equity_moneyflow</code></div></td>
+            <td><div class="source-part"><code>buy_sm_amount</code>、<code>sell_sm_amount</code></div></td>
+            <td>若后续接入，资金流后端用买入金额减卖出金额，单位万元。</td>
+            <td>当前为固定示例。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py">DG 个股资金流向字段</a> · <a href="../../../../src/foundation/models/core/equity_moneyflow.py">Prod 个股资金流向字段模型</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="80">
+            <th scope="row">资金条宽度、方向、圆环<br><code>rightRail.moneyFlow[].ratio / direction</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>若后续接入，方向按净额正负给出，条形比例的分母和绝对值规则待确认。圆环为样式绘制。</td>
+            <td>条宽和方向目前来自固定示例，圆环为样式绘制。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/api/stockDetailMockAdapter.ts">右侧栏的页面示例字段</a> · <a href="../../../../wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx">股票详情右侧栏实际渲染</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="81">
+            <th scope="row">公司资料、财务摘要、公告<br><code>资料页签</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>待明确具体展示字段和来源。</td>
+            <td>页头已展示的股票身份见表首。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/sidebar/StockInfoRail.tsx">股票详情右侧栏实际渲染</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-actions">
+          <tr class="section"><th colspan="6" scope="rowgroup">新闻、自选与用户操作</th></tr>
+          <tr data-field="82">
+            <th scope="row">新闻标识<br><code>items[].newsId</code></th>
+            <td><div class="source-part">新闻股票关联<br><code>core_serving.news_stock_link</code></div><div class="source-part">新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><small>core_serving.news_stock_link</small><code>ts_code</code>、<code>news_id</code></div><div class="source-part"><small>core_serving_light.news</small><code>row_key_hash</code></div></td>
+            <td>新闻后端按股票筛关联记录，连到新闻，去重后取代表稿标识。</td>
+            <td>数据由 Prod PostgreSQL 提供。前端使用此字段作为新闻列表项标识。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="83">
+            <th scope="row">新闻标题<br><code>items[].title</code></th>
+            <td><div class="source-part">新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><code>title</code>、<code>content</code></div></td>
+            <td>新闻后端由原题及正文形成显示标题，按事件去重规则选代表稿。</td>
+            <td>数据由 Prod PostgreSQL 提供。新闻页签打开才加载。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a> · <a href="../../../../src/biz/queries/wealth/market/news/news_event_deduplicator.py">股票新闻标题及代表稿</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="84">
+            <th scope="row">新闻发布时间及日期文本<br><code>items[].publishTime</code></th>
+            <td><div class="source-part">新闻查询视图<br><code>core_serving_light.news</code></div></td>
+            <td><div class="source-part"><code>news_time</code></div></td>
+            <td>新闻后端取代表稿时间并转为北京时间，前端格式化成列表日期。</td>
+            <td>数据由 Prod PostgreSQL 提供。页面不把发布时间替换为股票行情日期。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_detail/news_query.py">股票新闻查询和字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/news/api/stockDetailNewsViewModelAdapter.ts">新闻发布时间前端映射</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="85">
+            <th scope="row">自选分组 ID、名称、颜色、默认组<br><code>groups[].groupId / name / color / isDefault</code></th>
+            <td><div class="source-part">用户自选分组<br><code>app.wealth_watchlist_group</code></div></td>
+            <td><div class="source-part"><code>id</code>、<code>name</code>、<code>color</code>、<code>is_default</code></div></td>
+            <td>按当前用户直接读取分组数据。</td>
+            <td>数据由 Prod PostgreSQL 提供。打开自选分组入口时使用。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/watchlist/watchlist_group_query.py">用户自选分组查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="86">
+            <th scope="row">股票是否属于该自选组<br><code>groups[].selected</code></th>
+            <td><div class="source-part">用户自选分组<br><code>app.wealth_watchlist_group</code></div><div class="source-part">用户自选分组成员<br><code>app.wealth_watchlist_membership</code></div></td>
+            <td><div class="source-part"><small>app.wealth_watchlist_group</small><code>id</code>、<code>user_id</code></div><div class="source-part"><small>app.wealth_watchlist_membership</small><code>group_id</code>、<code>ts_code</code>、<code>id</code></div></td>
+            <td>自选后端联接当前用户的分组和该股票，成员记录存在时为已选。</td>
+            <td>数据由 Prod PostgreSQL 提供。前端草稿勾选状态来自返回结果和用户操作。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/watchlist/watchlist_group_query.py">用户自选分组查询</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="87">
+            <th scope="row">交易计划的账户列表<br><code>accounts[].accountId / name / brokerName</code></th>
+            <td><div class="source-part">交易助手用户账户<br><code>app.wealth_ta_account</code></div></td>
+            <td><div class="source-part"><code>account_id</code>、<code>name</code>、<code>broker_name</code></div></td>
+            <td>账户服务按当前用户直接取数。</td>
+            <td>数据由 Prod PostgreSQL 提供。计划窗选择，独立提醒窗不需要账户。<span class="refs"><a href="../../../../src/biz/models/wealth/trading_assistant/accounts.py">交易助手用户账户模型</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="88">
+            <th scope="row">通知机器人名称和标识<br><code>robot.name / robotId</code></th>
+            <td><div class="source-part">交易助手机器人<br><code>app.wealth_ta_robot</code></div><div class="source-part">交易助手机器人配置<br><code>app.wealth_ta_robot_config</code></div></td>
+            <td><div class="source-part"><small>app.wealth_ta_robot</small><code>robot_id</code>、<code>current_config_id</code></div><div class="source-part"><small>app.wealth_ta_robot_config</small><code>config_id</code>、<code>name</code></div></td>
+            <td>机器人设置接口按当前用户配置取名称和标识。</td>
+            <td>数据由 Prod PostgreSQL 提供。用于提醒／计划弹窗的通知选择，与日线行情独立。<span class="refs"><a href="../../../../src/biz/models/wealth/trading_assistant/robots.py">交易助手机器人配置模型</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="89">
+            <th scope="row">截止时间、计划方向、通知开关、条件阈值<br><code>deadlineAt / direction / notifyEnabled / priceCondition / volumeCondition</code></th>
+            <td>—</td>
+            <td>—</td>
+            <td>用户填写。交易助手处理默认值、校验和条件预览；股票沿用当前页面身份。</td>
+            <td>价格阈值以元为单位，累计成交量阈值以手为单位。<span class="refs"><a href="../../../../wealth/src/features/trading-assistant/ui/RuleCreateDialog.tsx">提醒和交易计划表单</a> · <a href="../../../../wealth/src/features/trading-assistant/ui/RuleConditionEditor.tsx">提醒与交易计划的条件字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+        <tbody id="prod-top">
+          <tr class="section"><th colspan="6" scope="rowgroup">顶部主要指数行情（独立请求）</th></tr>
+          <tr data-field="90">
+            <th scope="row">指数代码与顺序<br><code>subject.subjectCode / ticker.code</code></th>
+            <td><div class="source-part">主要指数策略配置<br><code>major_indices.cn_a.v1.json</code></div></td>
+            <td><div class="source-part"><code>payload.indexCodes</code></div></td>
+            <td>后端按随部署发布的策略配置读取指数列表和顺序。指数事实字段来自 Prod PostgreSQL。</td>
+            <td>用于顶部指数项识别和点击跳转。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query_service.py">顶部主要指数选取及涨跌方向</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a> · <a href="../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json">主要指数策略配置</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="91">
+            <th scope="row">指数名称<br><code>subject.subjectName / ticker.name</code></th>
+            <td><div class="source-part">指数基本信息<br><code>core_serving.index_basic</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>name</code></div></td>
+            <td>按指数代码直接取名称。</td>
+            <td>指数事实读取 Prod PostgreSQL。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="92">
+            <th scope="row">指数点位<br><code>point</code></th>
+            <td><div class="source-part">指数日线行情<br><code>core_serving.index_daily_serving</code></div></td>
+            <td><div class="source-part"><code>ts_code</code>、<code>trade_date</code>、<code>close</code></div></td>
+            <td>按指数及交易日直接取收盘点位。</td>
+            <td>指数事实读取 Prod PostgreSQL。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="93">
+            <th scope="row">指数涨跌额<br><code>change</code></th>
+            <td><div class="source-part">指数日线行情<br><code>core_serving.index_daily_serving</code></div></td>
+            <td><div class="source-part"><code>change_amount</code></div></td>
+            <td>直接读取涨跌额。</td>
+            <td>指数事实读取 Prod PostgreSQL。进入顶部栏模型并参与是否展示该条的检查，当前顶部栏直接展示点位和涨跌幅。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/features/major-indices/api/marketMajorIndicesAdapter.ts">主要指数适配到顶部栏</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="94">
+            <th scope="row">指数涨跌幅<br><code>changePct / ticker.pct</code></th>
+            <td><div class="source-part">指数日线行情<br><code>core_serving.index_daily_serving</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code></div></td>
+            <td>直接读取涨跌幅。</td>
+            <td>指数事实读取 Prod PostgreSQL。顶部栏展示。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query.py">主要指数名称及日线行情字段</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+          <tr data-field="95">
+            <th scope="row">指数涨跌方向<br><code>direction</code></th>
+            <td><div class="source-part">指数日线行情<br><code>core_serving.index_daily_serving</code></div></td>
+            <td><div class="source-part"><code>pct_chg</code></div></td>
+            <td>主要指数后端按涨跌幅的正负和空值给出方向。</td>
+            <td>指数事实读取 Prod PostgreSQL。顶部栏用方向给点位和涨跌幅着色。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/major_indices/major_indices_query_service.py">顶部主要指数选取及涨跌方向</a> · <a href="../../../../wealth/src/shared/ui/top-market-bar/TopMarketBar.tsx">顶部栏实际显示字段</a></span></td>
+            <td class="adjustment">否</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="verification" aria-labelledby="verification-title">
+    <h2 id="verification-title">样本与验收</h2>
+    <ul class="checks">
+      <li><strong>本地日线源字段读回。</strong> 已在 DG 只读核对浦发银行 <code>600000.SH</code> 的 2026-07-15、07-16、11-12 三个交易日，三个数据集均命中。7 月 15 日至 16 日，收盘由 9.31 元变为 8.85 元，同时复权因子由 16.5935 变为 17.3774；对应的换手率是 0.3145% 和 0.2269%，量比是 1.55 和 0.98。另抽查 11 月 12 日的该股板块成分和资金流向字段，作为候选可用的样本。</li>
+      <li><strong>复权结果验收。</strong> 用跨除权日样本分别核对 OHLC、同基准昨收、涨跌及指标，再核对摘要取自最后一根日 K。统一复权模块目前提供 OHLC 和量额，原详细设计须明确如何把同基准上一根收盘价交给行情组装。<a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/price_adjustment.py">共享内核价格复权模块</a> · <a href="../../../../lake_console/docs/design/dagster-stock-daily-qfq-asset-design.md">DG 股票日线前复权方案</a></li>
+      <li><strong>读取与空值验收。</strong> 记录当页、预热和实际文件打开次数，验证一份结果供摘要、图表和指标共用。换手率、量比只关联展示日期。区分合法空值、历史预热不足与上游缺文件，核对页面没有把这些情况统一显示成 0。<a href="../../../../lake_console/orchestrator/src/orchestrator/defs/daily_basic_contract.py">DG 每日指标字段定义</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">股票详情前端字段映射</a></li>
+      <li><strong>本地其他数据集对账。</strong> DG 样本包含浦发银行与退市的武钢股份，上市状态分别为 <code>L</code>、<code>D</code>。已读取 2026-11-12 的 SSE 交易日历、浦发银行日线九转、上证指数日线及名称。改造验收以交易日历列出的开市日期为准，分别核对日 K、九转、趋势通道等数据的日期覆盖。</li>
+      <li><strong>日期覆盖验收。</strong> 核对休市、开市但个股停牌、开市且应有记录但数据缺失三种情况。以交易日历列出的日期逐项核对各数据集。九转标记仍用结果记录的交易日在图上定位。</li>
+      <li><strong>本地 Prod 来源核对。</strong> 已核对默认本地 Web 启动配置的数据库目标与现有 Prod 一致，新闻、自选分组、账户和通知机器人沿用现行查询。实施后可按原接口核对这些字段的返回。</li>
+      <li><strong>Prod 取数验收。</strong> 核对首屏、日 K、日线九转、新闻和顶部指数使用 Prod PostgreSQL，日 K 以该库前复权行情作为指标输入。核对现有开放接口和响应口径。</li>
+    </ul>
+    <p class="meta">核对依据为当前工作区的页面、后端查询、数据集字段合同和上述 DG 只读样本。Prod 表根据现行代码填写，Prod 数据库读回和改造后的请求验收尚待执行。</p>
+  </section>
+</main>
+</body>
+</html>

@@ -146,6 +146,7 @@ docs/
 - [市场总览 Figma 像素级执行运行手册 v1](./pages/market-overview/market-overview-figma-pixel-execution-runbook-v1.md)
 - [股票详情页标杆需求 v1](./pages/stock-detail/stock-detail-benchmark-requirement-v1.md)
 - [股票详情页技术实施方案 v1](./pages/stock-detail/stock-detail-implementation-design-v1.md)
+- [股票详情页数据字段来源表（HTML）](./pages/stock-detail/stock-detail-field-source-audit-v1.html)
 - [股票详情页 M2 编码前门禁 v1](./pages/stock-detail/stock-detail-m2-coding-gate-v1.md)
 - [股票详情分钟线与分钟技术指标 API 标杆需求 v1](./pages/stock-detail/stock-detail-minutes-api-benchmark-requirement-v1.md)
 - [股票详情分钟线与分钟技术指标 API 技术实施方案 v1](./pages/stock-detail/stock-detail-minutes-api-implementation-design-v1.md)
