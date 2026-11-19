@@ -2136,6 +2136,46 @@ class StkFactorProBootstrapApproval:
 
 
 @dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapSourceTimeoutApproval:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    source_statement_timeout_ms: int
+    approved_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _digest(self.approval_digest)
+        _instant(self.approved_at)
+        if (
+            type(self.source_statement_timeout_ms) is not int
+            or self.source_statement_timeout_ms <= 0
+        ):
+            raise ValueError("bootstrap语句超时必须是正精确整数")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapSourceWindowApproval:
+    record_version: int
+    operation_id: str
+    approval_digest: str
+    source_maintenance_start: datetime
+    source_maintenance_end: datetime
+    approved_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        validate_stk_factor_pro_identifier(self.operation_id)
+        _digest(self.approval_digest)
+        _instant(self.approved_at)
+        _instant(self.source_maintenance_start)
+        _instant(self.source_maintenance_end)
+        if self.source_maintenance_start >= self.source_maintenance_end:
+            raise ValueError("bootstrap续跑窗口必须先开始后结束")
+
+
+@dataclass(frozen=True, slots=True)
 class StkFactorProBootstrapSourceEvidence:
     record_version: int
     operation_id: str

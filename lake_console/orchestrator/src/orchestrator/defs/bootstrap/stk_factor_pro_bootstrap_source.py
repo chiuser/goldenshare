@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import replace
@@ -91,10 +92,43 @@ def validate_stk_factor_pro_bootstrap_approval(*, approval, now, source_identity
     return planned
 
 
-def require_stk_factor_pro_bootstrap_source_window(*, approval, now):
+def require_stk_factor_pro_bootstrap_source_window(
+    *, approval, now, staging_root=None, known_records=None
+):
     if not isinstance(now, datetime) or now.utcoffset() is None:
         raise ValueError("bootstrap当前时间必须带时区")
-    if not approval.source_maintenance_start <= now < approval.source_maintenance_end:
+    start, end = approval.source_maintenance_start, approval.source_maintenance_end
+    if staging_root is not None:
+        path = records.operation_path(
+            staging_root, approval, "source-window-approval.json"
+        )
+        first_read = path not in known_records
+        updated = records.read_json(
+            path,
+            C.StkFactorProBootstrapSourceWindowApproval,
+            known_records=known_records,
+        )
+        if updated is not None:
+            if (updated.operation_id, updated.approval_digest) != (
+                approval.operation_id,
+                records.approval_sha(
+                    staging_root, approval, known_records=known_records
+                ),
+            ):
+                raise ValueError("bootstrap续跑窗口授权不属于本operation或原批准")
+            start, end = (
+                updated.source_maintenance_start,
+                updated.source_maintenance_end,
+            )
+            if first_read:
+                logging.getLogger(__name__).info(
+                    "股票技术因子bootstrap续跑窗口 operation_id=%s start=%s end=%s approval_sha256=%s",
+                    approval.operation_id,
+                    start.isoformat(),
+                    end.isoformat(),
+                    known_records[path][1],
+                )
+    if not start <= now < end:
         raise ValueError("bootstrap原Prod维护窗口已结束或尚未开始")
 
 
@@ -228,6 +262,30 @@ def _projection():
     return sql.SQL(",").join(
         sql.Identifier(name) for name in C.STK_FACTOR_PRO_SOURCE_COLUMNS
     )
+
+
+def approved_source_statement_timeout(*, staging_root, approval, known_records):
+    """Keep original data approval references intact when a timeout is reapproved."""
+    path = records.operation_path(
+        staging_root, approval, "source-timeout-approval.json"
+    )
+    updated = records.read_json(
+        path, C.StkFactorProBootstrapSourceTimeoutApproval, known_records=known_records
+    )
+    if updated is None:
+        return approval.source_statement_timeout_ms
+    if (updated.operation_id, updated.approval_digest) != (
+        approval.operation_id,
+        records.approval_sha(staging_root, approval, known_records=known_records),
+    ):
+        raise ValueError("bootstrap查询超时授权不属于本operation或原批准")
+    logging.getLogger(__name__).info(
+        "股票技术因子bootstrap查询超时 operation_id=%s source_statement_timeout_ms=%s approval_sha256=%s",
+        approval.operation_id,
+        updated.source_statement_timeout_ms,
+        known_records[path][1],
+    )
+    return updated.source_statement_timeout_ms
 
 
 def require_stk_factor_pro_bootstrap_resource_identity(
@@ -384,7 +442,15 @@ def export_stk_factor_pro_bootstrap_month(
         progress.start_attempt(attempt_id)
     if not selected_dates:
         return C.StkFactorProBootstrapMonthResult(month, attempt_id, 0, (), (), (), ())
-    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
+    require_stk_factor_pro_bootstrap_source_window(
+        approval=approval,
+        now=_now(),
+        staging_root=staging_root,
+        known_records=known_records,
+    )
+    statement_timeout_ms = approved_source_statement_timeout(
+        staging_root=staging_root, approval=approval, known_records=known_records
+    )
     fragments, audits, completed = [], [], []
     references = {day: [] for day in selected_dates}
     actual_counts = Counter()
@@ -392,7 +458,12 @@ def export_stk_factor_pro_bootstrap_month(
 
     def complete(day, reason, following):
         nonlocal open_day
-        require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
+        require_stk_factor_pro_bootstrap_source_window(
+            approval=approval,
+            now=_now(),
+            staging_root=staging_root,
+            known_records=known_records,
+        )
         if counts[day] == 0:
             _empty_day_source(connection)
 
@@ -452,7 +523,7 @@ def export_stk_factor_pro_bootstrap_month(
         with records.resource_cleanup(control.close):
             control.execute(
                 "SELECT set_config('statement_timeout', %s, true)",
-                (str(approval.source_statement_timeout_ms),),
+                (str(statement_timeout_ms),),
             )
             cursor = remote.cursor(
                 name=f"stk_factor_bootstrap_{attempt_id}",
@@ -476,7 +547,10 @@ def export_stk_factor_pro_bootstrap_month(
                 )
                 while True:
                     require_stk_factor_pro_bootstrap_source_window(
-                        approval=approval, now=_now()
+                        approval=approval,
+                        now=_now(),
+                        staging_root=staging_root,
+                        known_records=known_records,
                     )
                     check_space(
                         "领取下一批源前",
@@ -492,7 +566,10 @@ def export_stk_factor_pro_bootstrap_month(
                         )
                     )
                     require_stk_factor_pro_bootstrap_source_window(
-                        approval=approval, now=_now()
+                        approval=approval,
+                        now=_now(),
+                        staging_root=staging_root,
+                        known_records=known_records,
                     )
                     if _description(cursor) != C.STK_FACTOR_PRO_SOURCE_COLUMNS:
                         raise ValueError("bootstrap服务端游标未返回完整有序261字段")

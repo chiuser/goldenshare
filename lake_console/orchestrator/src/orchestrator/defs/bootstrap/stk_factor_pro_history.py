@@ -578,7 +578,12 @@ def process_stk_factor_pro_bootstrap_complete_date(
     """Internal complete-day callback; errors stop the enclosing named cursor."""
 
     def guard():
-        require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
+        require_stk_factor_pro_bootstrap_source_window(
+            approval=approval,
+            now=_now(),
+            staging_root=staging_root,
+            known_records=known_records,
+        )
         if before_publish is None:
             raise ValueError("bootstrap提升必须由已核唯一主入口执行")
         before_publish()
@@ -1223,7 +1228,12 @@ def _execute_stk_factor_pro_bootstrap(
 
     def before_publish():
         nonlocal checked
-        require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
+        require_stk_factor_pro_bootstrap_source_window(
+            approval=approval,
+            now=_now(),
+            staging_root=staging_root,
+            known_records=known_records,
+        )
         if not checked:
             require_stk_factor_pro_no_other_active_runs(instance)
             checked = True
@@ -1356,7 +1366,10 @@ def _process_stk_factor_pro_bootstrap_months(
             )
             if recover:
                 require_stk_factor_pro_bootstrap_source_window(
-                    approval=approval, now=_now()
+                    approval=approval,
+                    now=_now(),
+                    staging_root=staging_root,
+                    known_records=known_records,
                 )
 
             def complete_date(

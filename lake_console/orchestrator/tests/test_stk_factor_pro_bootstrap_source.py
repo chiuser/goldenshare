@@ -3,6 +3,7 @@
 from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date, timedelta
+from hashlib import sha256
 from types import SimpleNamespace
 
 import pytest
@@ -20,6 +21,154 @@ from tests.stk_factor_pro_bootstrap_test_support import (
 from tests.stk_factor_pro_test_support import connection
 
 DAY = date(2019, 10, 16)
+
+
+@pytest.mark.parametrize(
+    "window_approval",
+    ["valid", "absent", "wrong_operation", "wrong_digest", "before_start", "at_end"],
+)
+def test_reapproved_window_keeps_original_approval_and_checks_boundaries(
+    tmp_path, monkeypatch, window_approval
+):
+    known_records = {}
+    with connection(tmp_path) as conn:
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, known_records=known_records
+        )
+        original_path = records.operation_path(staging, approval, "approval.json")
+        original_bytes = original_path.read_bytes()
+        digest = sha256(original_bytes).hexdigest()
+        start = approval.source_maintenance_end + timedelta(hours=1)
+        end = start + timedelta(hours=6)
+        if window_approval != "absent":
+            updated = C.StkFactorProBootstrapSourceWindowApproval(
+                1,
+                "other-operation"
+                if window_approval == "wrong_operation"
+                else approval.operation_id,
+                "0" * 64 if window_approval == "wrong_digest" else digest,
+                start,
+                end,
+                start,
+            )
+            records.write_json(
+                records.operation_path(
+                    staging, approval, "source-window-approval.json"
+                ),
+                updated,
+                known_records=known_records,
+            )
+        now = (
+            start - timedelta(microseconds=1)
+            if window_approval == "before_start"
+            else end
+            if window_approval == "at_end"
+            else start
+        )
+        monkeypatch.setattr(source, "_now", lambda: now)
+        seen = []
+        remote = FakeProd(approval, identity, ((DAY, 1),), [native_row()])
+        if window_approval == "valid":
+            result = execute(
+                conn,
+                staging,
+                approval,
+                remote,
+                callback=accept_source_only(monkeypatch, seen),
+                known_records=known_records,
+            )
+            assert result.source_rows == 1 and result.complete_dates == (DAY,)
+            assert seen[0].approval_digest == digest
+            assert remote.queries[0][2] == ("30000",)
+        else:
+            with pytest.raises(ValueError, match="窗口"):
+                execute(
+                    conn,
+                    staging,
+                    approval,
+                    remote,
+                    callback=lambda *_args, **_kwargs: pytest.fail(
+                        "unapproved source day"
+                    ),
+                    known_records=known_records,
+                )
+            assert remote.connections == 0 and remote.queries == []
+        assert original_path.read_bytes() == original_bytes
+        with pytest.raises(ValueError, match="先开始后结束"):
+            C.StkFactorProBootstrapSourceWindowApproval(
+                1, approval.operation_id, digest, end, start, start
+            )
+
+
+@pytest.mark.parametrize(
+    "timeout_approval", ["absent", "approved", "wrong_operation", "wrong_digest"]
+)
+def test_reapproved_timeout_preserves_original_data_approval(
+    tmp_path, monkeypatch, timeout_approval
+):
+    # The administrator selected 15s originally, then 30s for the same operation.
+    # Transport remains fake; source DATE/float values and saved Parquet are real.
+    known_records = {}
+    with connection(tmp_path) as conn:
+        _, staging, initial, identity = approval_fixture(
+            conn, tmp_path, known_records=known_records
+        )
+        approval = replace(initial, source_statement_timeout_ms=15000)
+        original_path = records.operation_path(staging, approval, "approval.json")
+        records.write_json(
+            original_path, approval, known_records=known_records, mutable=True
+        )
+        original_bytes = original_path.read_bytes()
+        original_digest = sha256(original_bytes).hexdigest()
+        if timeout_approval != "absent":
+            updated = C.StkFactorProBootstrapSourceTimeoutApproval(
+                1,
+                "other-operation"
+                if timeout_approval == "wrong_operation"
+                else approval.operation_id,
+                "0" * 64 if timeout_approval == "wrong_digest" else original_digest,
+                30000,
+                approval.source_maintenance_start,
+            )
+            records.write_json(
+                records.operation_path(
+                    staging, approval, "source-timeout-approval.json"
+                ),
+                updated,
+                known_records=known_records,
+            )
+        remote = FakeProd(approval, identity, ((DAY, 1),), [native_row()])
+        arguments = {
+            "callback": accept_source_only(monkeypatch, []),
+            "known_records": known_records,
+        }
+        if timeout_approval.startswith("wrong_"):
+            with pytest.raises(ValueError, match="查询超时授权"):
+                execute(conn, staging, approval, remote, **arguments)
+            assert remote.connections == 0 and remote.queries == []
+        else:
+            execute(conn, staging, approval, remote, **arguments)
+            expected = "15000" if timeout_approval == "absent" else "30000"
+            assert remote.queries[0] == (
+                False,
+                "SELECT set_config('statement_timeout', %s, true)",
+                (expected,),
+            )
+            assert remote.connections == 1
+        assert approval.source_statement_timeout_ms == 15000
+        assert original_path.read_bytes() == original_bytes
+        assert sha256(original_path.read_bytes()).hexdigest() == original_digest
+
+
+@pytest.mark.parametrize("invalid", [0, -1, True, 30.5])
+def test_reapproved_timeout_requires_positive_integer_milliseconds(invalid):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    with pytest.raises(ValueError, match="正精确整数"):
+        C.StkFactorProBootstrapSourceTimeoutApproval(
+            1, "operation", "a" * 64, invalid, datetime.now(ZoneInfo("Asia/Shanghai"))
+        )
 
 
 def render(query):
@@ -884,22 +1033,46 @@ def test_zero_row_month_has_real_eof_and_no_fragments(tmp_path):
         assert len(result.complete_dates) == 31
 
 
-def test_maintenance_expiry_during_fetch_does_not_save_batch(tmp_path, monkeypatch):
+@pytest.mark.parametrize("reapprove_window", [False, True])
+def test_maintenance_expiry_during_fetch_does_not_save_batch(
+    tmp_path, monkeypatch, reapprove_window
+):
     known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
         _, staging, approval, identity = approval_fixture(
             conn, tmp_path, counts=counts, known_records=known_records
         )
+        end = approval.source_maintenance_end
+        if reapprove_window:
+            start = end + timedelta(hours=1)
+            end = start + timedelta(hours=6)
+            records.write_json(
+                records.operation_path(
+                    staging, approval, "source-window-approval.json"
+                ),
+                C.StkFactorProBootstrapSourceWindowApproval(
+                    1,
+                    approval.operation_id,
+                    sha256(
+                        records.operation_path(
+                            staging, approval, "approval.json"
+                        ).read_bytes()
+                    ).hexdigest(),
+                    start,
+                    end,
+                    start,
+                ),
+                known_records=known_records,
+            )
+            monkeypatch.setattr(source, "_now", lambda: start)
         remote = FakeProd(approval, identity, counts, [native_row()])
         original = Cursor.fetchmany
 
         def expire(cursor, size):
             result = original(cursor, size)
             if cursor.named:
-                monkeypatch.setattr(
-                    source, "_now", lambda: approval.source_maintenance_end
-                )
+                monkeypatch.setattr(source, "_now", lambda: end)
             return result
 
         monkeypatch.setattr(Cursor, "fetchmany", expire)

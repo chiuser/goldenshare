@@ -10,7 +10,8 @@ import json
 import os
 from collections import Counter
 from contextlib import contextmanager
-from datetime import date
+from datetime import date, timedelta
+from hashlib import sha256
 from pathlib import Path
 from time import perf_counter
 from types import SimpleNamespace
@@ -499,7 +500,10 @@ def test_cross_month_window_full_fields_then_expired_local_replay(window, monkey
         readback(case)
 
 
-def test_unfinished_second_month_retains_first_day_and_redownloads_whole_day(window):
+@pytest.mark.parametrize("reapprove_window", [False, True])
+def test_unfinished_second_month_retains_first_day_and_redownloads_whole_day(
+    window, monkeypatch, reapprove_window
+):
     with window() as case:
         first = remote(case)
         first.read_failure_at = (
@@ -523,6 +527,23 @@ def test_unfinished_second_month_retains_first_day_and_redownloads_whole_day(win
         before = file_identities(target_paths(case, (FIRST,)))
         (abandoned,) = (case.root / "source/month=2019-11").iterdir()
         case.forbidden.append(abandoned)
+        original_approval = (case.root / "approval.json").read_bytes()
+        if reapprove_window:
+            start = case.approval.source_maintenance_end + timedelta(hours=1)
+            records.write_json(
+                case.root / "source-window-approval.json",
+                C.StkFactorProBootstrapSourceWindowApproval(
+                    1,
+                    case.approval.operation_id,
+                    sha256(original_approval).hexdigest(),
+                    start,
+                    start + timedelta(hours=6),
+                    start,
+                ),
+                known_records={},
+            )
+            monkeypatch.setattr(bootstrap, "_now", lambda: start)
+            monkeypatch.setattr(source, "_now", lambda: start)
         second = remote(case)
         result = execute(case, second, "restore_whole_second_day")
         assert (
@@ -538,6 +559,7 @@ def test_unfinished_second_month_retains_first_day_and_redownloads_whole_day(win
         assert restored["detail_rows_fetched"] == restored["target_replaces"] == 2
         assert [params[2] for named, _, params in second.queries if named] == [[SECOND]]
         assert file_identities(target_paths(case, (FIRST,))) == before
+        assert (case.root / "approval.json").read_bytes() == original_approval
         readback(case)
 
 
