@@ -25,3 +25,20 @@
 - 物理写入与指纹报告：`/private/tmp/etf_512390_exception_20260912T070807.json`。
 - 最终文件与状态审计：`/private/tmp/etf_512390_exception_final_20260912.json`。
 - 没有重写旧 Raw materialization 的行数/hash metadata，没有补录 Raw event；旧 Raw metadata 仍描述原始源请求，修正后的物理事实以本记录和报告为准。
+
+### 2026-09-15：历史事件对账与9月14日恢复
+
+- 管理员授权推进修复。9月10、11日补值后的 Raw 文件未重写；重新执行当前 Raw 质量审计并追加2条物化、6条通过的检查记录，两天 readiness 均为 ready。保留旧事件；新事件注明 source_basis 为原始 Tushare 数据加已批准的人工例外，同时保存 original_tushare_row_count=2148/2149、manual_exception_row_count=1、supersedes_storage_id；当前完整文件行数为2149/2150。没有新的 Tushare 请求用于这两天。
+- 9月14日 Raw 正常源站更新成功：run `df7e73fc-fc0d-46d6-b6b0-e08418ce58a5`，2154行，仍没有512390.SH。
+- Silver首次运行 `5108f36f-a31b-4dbe-af79-4659bee95e6c` 因Basic观察日期仍为9月14日、运行时要求9月15日而失败；随后正常刷新Raw Basic（`c4a99dc2-32f1-4729-a84c-5797941e8366`）和Silver Basic（`7e7a9371-443a-482e-b8ca-393d9ec9fdeb`），均成功。一次未带冻结Raw引用的Silver Basic提交被配置校验拒绝，未创建run，补入正式selector产生的引用后提交成功。
+- 9月14日Silver重试 `b220486f-eaba-4082-983f-9a0c4612af06` 已写出1649行；6项检查5项通过，仅basic_coverage失败：应有1650、实有1649，唯一缺码512390.SH。当前分区不能认定ready。
+- 本次未扩大人工补值日期，未补9月14日的512390.SH，未修改Basic上市状态或自动覆盖规则。后续处理需要明确新的例外范围。
+- 证据：`/private/tmp/repair-fund-adj-events-0915.json`、`/private/tmp/fund-adj-0914-checks.json`、`/private/tmp/fund-adj-0914-silver-retry.json`。
+
+### ETF-512390-20260914（2026-09-15批准）
+
+管理员明确批准仅将2026-09-14纳入人工补值：512390.SH的adj_factor=1.3094、discount_rate=NULL。该值沿用已核验历史因子，不是当日源站返回。仅向当天Raw和Silver各追加一行；候选校验和非目标行双向差集为零后原子提升，同步Raw物化与检查记录，再运行正式Silver任务与全部检查。保留原始源站行数及旧事件，不延伸至9月15日及之后。
+
+执行完成：9月14日Raw由2154增至2155行，Silver由1649增至1650行；两层512390.SH均为adj_factor=1.3094、discount_rate=NULL。候选使用当前Raw/Silver质量校验，其他代码双向EXCEPT ALL为零，逐文件原子提升。补录Raw物化及3项通过检查，保留原始Tushare返回2154行的事实及旧事件；正式Silver run `24f92ee0-2d21-490c-bafc-ce5d4c87b61b` SUCCESS，6项检查全部通过。最终按日常readiness同一实现核验9月10、11、14日Raw和Silver全部ready；没有扩大到其他日期。
+
+证据：物理提升`/private/tmp/etf_512390_exception_0914_20260915T074950.json`；Raw状态`/private/tmp/repair-fund-adj-events-0914-exception.json`；最终验收`/private/tmp/etf-0914-exception-final.json`。本轮未改生产代码或提交Git。

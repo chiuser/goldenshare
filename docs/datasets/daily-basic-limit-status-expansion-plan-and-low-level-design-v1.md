@@ -4,7 +4,7 @@
 
 Prod阶段执行记录：管理员部署v5后，§28部署审计及APPLY19603均已成功，剩余96日处理完成。固定范围2010-01-04～2026-11-12共4,093日已全部按确认规则处理，每表累计覆盖14,493,888行；当轮每表实际补入526,690行，1,092条B股旧记录原样保留，5,573条已有完整状态跳过，无新增留空或拒绝。当时DG未动，结果见§28；DG当前结果见§43。
 
-状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG前期第四、第五阶段开发与隔离验收见§31、§34；第五阶段采用同一日期合并待完成检查的简化版，原接口问题保留在§33。按§40重新安排的四阶段现已完成阶段三：正式文件已补齐并通过物理验收，阶段四事件登记和日更恢复尚未执行。** 当前方向以§39～§43为准：Prod只补新增列；DG保留自身原18字段，仅从冻结Prod来源取新增状态，新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
+状态：**Prod固定范围全历史补录已按确认规则完成，v5已部署，PLAN19602/APPLY19603均success，验收见§28；B股及原合法NULL按规则保留，不宣称每条旧记录均非空。§26旧APPLY19564的失败记录及已完成部分保留。旧 PLAN19412/19457 与失败 APPLY19413/19458 的历史事实仍保留，不改写其终态。DG前期第四、第五阶段开发与隔离验收见§31、§34；第五阶段采用同一日期合并待完成检查的简化版，原接口问题保留在§33。按§40重新安排的四阶段已完成历史文件提升、事件登记和检查，日更已恢复，尚待下一次自然日更验收，见§44。** 当前方向以§39～§44为准：Prod只补新增列；DG保留自身原18字段，仅从冻结Prod来源取新增状态，新增能力不得影响既有能力。本文不是未批准生产范围的执行授权。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
@@ -12,7 +12,7 @@ Prod阶段执行记录：管理员部署v5后，§28部署审计及APPLY19603均
 
 2026-11-15的执行前轻量统计见§35；先按管理员要求完成§36的PLAN统计输入修正，再获准按§37正式执行第二项并确认四项上限。单遍导出14,499,459行、构建4,094个候选均成功，完整audit因旧18字段差异停止；有界样本为2026-09-24、000333.SZ的股息率：旧DG4.8356、Prod候选4.8355。第二项尚未全部通过，未替换正式文件或发布事件；本族日更sensor保持STOPPED，详见§37.6～§37.7。
 
-**2026-11-16最新结果：阶段二记录已提交13b8950fb；随后按§43完成阶段三三个文件小样及全范围提升。2010-01-04～2026-11-13全部4,094个正式文件已为19字段，逐文件SHA与通过完整audit的候选一致，原18字段精确保留，新增状态正确对应冻结来源。原全Prod旧候选未使用，原PLAN和audit未改。事件及检查记录仍未更新，日更继续STOPPED；下一步是阶段四事件登记、检查和日更恢复，不能把文件完成当作整个DG切换已完成。**
+**2026-11-16最新结果：阶段三记录已提交b58de8bc2；阶段四历史事件发布、58次仅检查作业、完整事件验收及独立复核已通过，原日更sensor已恢复RUNNING。2010-01-04～2026-11-13共4,094日的新物化及116项新检查已对应19字段正式文件，旧18字段按DG原值保留，旧事件未删除，历史文件在阶段四未重写。恢复后已观察到自然sensor tick；真正的当天自然日更尚待19:00后验收，不能把恢复开关或历史检查run当作日更写入验证。阶段四本轮结果见§44，尚未据此宣布全部验收完成。**
 
 ## 1. 目标、范围与已确认原则
 
@@ -2482,3 +2482,114 @@ DG旧文件在正式构建和audit期间须按§40保持维护窗口稳定；不
 结论：**阶段三完成且符合§40～§43预期，正式每日指标Raw文件已经补齐limit_status。** 当前文件已是新内容，物化和检查仍是原记录；不能使用原绿色记录宣称新文件已经完成检查。因此本族日更继续暂停，下一步只按阶段四批准范围登记新物化、处理58个应检查日期并核对绑定身份，再恢复原日更状态。此次未执行plan-events/register/report-events/audit-events、检查作业、动态分区写入或日更恢复，也未扩大日期、重导出或改写Prod。
 
 阶段二记录已提交`13b8950fb`；本轮新增阶段三LLD和执行结果尚未提交。有效的原PLAN、阶段二audit、新候选、原workspace的promote进度和`/private/tmp/daily-basic-phase3-YDDeta`中的样本/完整promote、读回与review报告保留，供阶段四生成新鲜事件清单和后续追溯；不把这些输入当作无用临时文件删除。
+
+## 44. 阶段四执行LLD：事件登记、检查和日更恢复（2026-11-16）
+
+### 44.1 目标、边界与执行前审计
+
+阶段三记录已提交`b58de8bc2`。管理员已批准继续推进阶段四；本节在任何事件写入和sensor恢复前补齐执行细节，复用§7.4～§7.7、§8.2、§40和当前原history CLI。只追加批准日期的新物化，按原范围运行检查，完整验收后恢复原启用的`raw_tushare_daily_basic_update_job_sensor`，再观察下一次自然日更。不改Python、入口、配置、依赖或锁，不删除/覆盖旧事件，不重写已提升的历史文件、不重新导出或请求Tushare历史；自然日更仍由原作业按原窗口请求当天数据。
+
+历史范围D固定2010-01-04～2026-11-13、4,094日，K固定为audit保存的58日；本批全部尚未登记，因此新增物化4,094项、检查结果58×2＝116项、仅检查作业58次，成功物化/检查结果合计4,210项；Dagster内部run/step/PLANNED日志另外产生，不能把4,210当作数据库event log总增量。无检查的4,036日只追加物化，不制造绿色检查。恢复后的自然新日期另按原日更口径统计，不混进历史D。
+
+前次审计已实际解析正式Definitions，子集为两项本族检查、asset选择为空、可执行asset为空；现有正式instance具有执行配置。当前源码CLI只对显式替换的report-events启用`for_execution=true`，检查函数不写文件、不取日期写锁，历史交付走prod_history，不读取同日日线股票范围或调用源。原计划、audit和promote的有效指纹保持；没有代码改动，本轮不重复隔离测试。
+
+2026-11-16 15:47（北京时间）执行前只读统计：4,094个正式文件、776,758,558字节，日期与PLAN一致；本族sensor STOPPED、无活动run，批准日期全部已注册，本轮不调用register、不新增动态分区。原物化4,094项、检查执行116条、本族已有38次成功run。只对现有报告和本族实例读取，不在预检再全历史重扫业务值。本机GraphQL已实际返回本族STOPPED，startSensor参数也已只读核实，不新增服务或以网页启动作为额外门禁。
+
+### 44.2 固定输入与逐步命令
+
+工作目录固定`/Users/congming/github/goldenshare/lake_console/orchestrator`，解释器为现有`.venv/bin/python3 -B`。原PLAN仍为`/private/tmp/daily-basic-execution-El0Pug/plan.json`；audit为`/private/tmp/daily-basic-phase2-gV3l2g/audit.json`（指纹`01239c31b3f2bf9e401256037751734ac0f54d515c111c6bfc7cd4aa9af7b8da`）。本阶段报告和日志只保存`/private/tmp/daily-basic-phase4-R0JIXP`，不覆盖阶段二/三输入。正式instance固定为原`/Users/congming/.goldenshare/dagster_home`对应本机PostgreSQL；只读命令强制只读，APPLY走原受控写入工厂，不自动建表。
+
+下表每一行分别顺序执行PLAN→APPLY→audit-events；每个样本验收通过后才进入下一行。直接使用阶段三真实留下的三份累计提升报告，不新造子计划或改promote格式。PLAN写出后读取其实际fingerprint供该次APPLY；它是事件清单指纹，不是历史PLAN指纹，清单过期或状态变化时按原规则重新PLAN。
+
+| 行 | DAILY_BASIC_PROMOTE_REPORT | DAILY_BASIC_EVENT_DAY | DAILY_BASIC_EVENT_LABEL | 本行预期新增 |
+| --- | --- | --- | --- | --- |
+| 小样1 | `/private/tmp/daily-basic-phase3-YDDeta/promote-20100104.json` | `2010-01-04` | `20100104` | 1物化，0检查，0run |
+| 小样2 | `/private/tmp/daily-basic-phase3-YDDeta/promote-20260818.json` | `2026-08-18` | `20260818` | 1物化，2检查，1run |
+| 小样3 | `/private/tmp/daily-basic-phase3-YDDeta/promote-20261113.json` | `2026-11-13` | `20261113` | 1物化，2检查，1run |
+| 全范围 | `/private/tmp/daily-basic-phase3-YDDeta/promote.json` | 不传sample-date | `all` | 剩余4,091物化、112检查、56run |
+
+以下为各行的完整命令格式，变量只代表上表的固定文件/日期/标签和刚生成报告的实际指纹，不新增运营配置；stdout/stderr保存同标签log。全范围行使用相同输入参数但省去`--sample-date`，不能把空值传给该参数。
+
+```bash
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli plan-events \
+  --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json \
+  --promote-report "$DAILY_BASIC_PROMOTE_REPORT" \
+  --report "/private/tmp/daily-basic-phase4-R0JIXP/plan-$DAILY_BASIC_EVENT_LABEL.json"
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli report-events \
+  --apply --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json \
+  --promote-report "$DAILY_BASIC_PROMOTE_REPORT" \
+  --event-plan "/private/tmp/daily-basic-phase4-R0JIXP/plan-$DAILY_BASIC_EVENT_LABEL.json" \
+  --fingerprint "$DAILY_BASIC_EVENT_PLAN_FINGERPRINT" --sample-date "$DAILY_BASIC_EVENT_DAY" \
+  --report "/private/tmp/daily-basic-phase4-R0JIXP/apply-$DAILY_BASIC_EVENT_LABEL.json"
+
+/usr/bin/time -p env PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -u -m orchestrator.defs.bootstrap.daily_basic_history_cli audit-events \
+  --plan /private/tmp/daily-basic-execution-El0Pug/plan.json \
+  --audit-report /private/tmp/daily-basic-phase2-gV3l2g/audit.json \
+  --promote-report "$DAILY_BASIC_PROMOTE_REPORT" \
+  --report "/private/tmp/daily-basic-phase4-R0JIXP/audit-$DAILY_BASIC_EVENT_LABEL.json"
+```
+
+每次PLAN须确认missing_registered_dates为空、文件选择仅来自该行promote；样本后的audit须确认该累计样本清单pending_materializations/pending_checks均空。完整PLAN正常应仅剩4,091物化和112检查；完整APPLY后最终audit须覆盖D及K，全部pending为空、无缺注册日期，不再重复APPLY制造空run。物化metadata保留完整19列观察结果、SHA、原plan/export/audit身份以及field_sources（旧18字段data_lake、状态prod_raw_db）；检查必须绑定当前新物化的storage_id/run_id/timestamp和正确分区。
+
+### 44.3 性能、失败/中断和独立验收
+
+沿用既有500日期批量、20,000事件返回限制、1小时事件清单有效期及16GB/4线程；CLI规划/audit禁spill，正式检查复用原DuckDBResource，不修改全局临时目录或预算。读取成本依§8.2累计：外部PLAN、APPLY内重规划、写物化前、检查与最后audit各自有文件SHA核验和K范围文件聚合。每遍全D文件逻辑字节为阶段三的776,758,558字节；58日检查另计，不将多次读取说成单遍或新增独立数据量，不增加一次全历史业务列对账。合并同日两项检查减少run数量，不减少检查函数自己的读取。
+
+事件代码当前没有按max_stage_seconds自动计时终止；本轮不把历史PLAN的1,800秒说成事件CLI已有的内置保护。沿用管理员的1,800秒作为本轮命令操作停止值，执行时观察耗时，超限时中断当前命令、保留已持久化事实并按§7.5重新规划；不为这一低频维护增加代码、后台任务或新限制。实际事件写入及run耗时在本轮记录，不追加性能测量门禁或套用文件提升耗时。
+
+失败时不恢复日更、不改原audit或旧记录。已写物化和已通过检查保留；引用同一输入重新PLAN，只补剩余，状态写失败也以instance读回为准。明确失败evaluation仍停止；PLANNED无结果仅按原结束run/日期/检查选择规则续跑，不自动结束残留STARTED，不删除失败或人工追加绿色结果。文件和事件锁沿用原顺序，检查作业不含asset，不会再次获取文件writer锁。
+
+独立验收复核最终audit、最新物化及K检查目标；统计预期历史物化累计8,188（原4,094＋新增4,094）、检查执行232（原116＋新增116）、成功本族run累计96（原38＋新增58），自然新日期发生后另列。确认原旧事件仍存在，非K日期无新增绿色检查；取三个已批准样本做readiness：最早日只有物化、仍未检查，另两个样本应ready。比较前后正式文件日期/大小/mtime统计和输入报告SHA，证明历史文件未重写；不全量逐分区调用readiness、不执行额外空检查作业。
+
+### 44.4 恢复原日更与自然更新验收
+
+只有完整事件验收及独立复核通过才恢复本族原RUNNING状态，不改其他sensor、schedule、cursor或服务。沿用当前可用的同一GraphQL，以下请求保存为`/private/tmp/daily-basic-phase4-R0JIXP/start-sensor.json`，通过一次现有startSensor操作恢复；失败或身份不符保留现场，不盲试其他实例或重启服务。
+
+```json
+{"query":"mutation { startSensor(sensorSelector:{repositoryLocationName:\"orchestrator\",repositoryName:\"__repository__\",sensorName:\"raw_tushare_daily_basic_update_job_sensor\"}) { __typename ... on Sensor { name sensorState { id status } } ... on PythonError { message } } }"}
+```
+
+```bash
+curl --silent --show-error --max-time 10 --header 'Content-Type: application/json' \
+  --data-binary @/private/tmp/daily-basic-phase4-R0JIXP/start-sensor.json \
+  --output /private/tmp/daily-basic-phase4-R0JIXP/start-sensor-result.json \
+  http://127.0.0.1:3000/graphql
+```
+
+恢复后只读核对同一sensor id及RUNNING，确认原日更作业和19字段定义仍生效；后续只观察正常调度，不手动evaluate sensor或提前下载当天数据。现有同日分区注册17:00后、更新19:00后、观察间隔900秒来自当前代码；本轮开始约15:47，恢复后尚不能立即证明当天自然写入成功。下一次自然日更需看到普通作业成功、最新物化19字段及tushare_daily来源、文件状态类型/必需覆盖与两项检查对应当前物化；不把58个历史仅检查run冒充自然日更。尚未发生时如实记录待观察，不提前宣布全部验收完成。所有实际执行结果回填本节，正式输入和有效报告保留。
+
+### 44.5 历史事件发布、独立复核和恢复结果
+
+三个样本及全范围均严格顺序执行PLAN→APPLY→audit-events，命令退出码均为0；每个样本audit的物化/检查pending为空后才继续。实际结果：
+
+| 范围 | 新物化 | 新检查结果 | 仅检查run | PLAN/APPLY/audit墙钟 |
+| --- | --- | --- | --- | --- |
+| 2010-01-04 | 1 | 0 | 0 | 1.21 / 1.29 / 1.33秒 |
+| 2026-08-18 | 1 | 2 | 1 | 1.60 / 3.51 / 1.56秒 |
+| 2026-11-13 | 1 | 2 | 1 | 1.15 / 3.07 / 1.27秒 |
+| 小样后全范围剩余 | 4,091 | 112 | 56 | 3.98 / 68.45 / 4.62秒 |
+| 合计 | **4,094** | **116** | **58** | 四次APPLY累计76.32秒；12条命令累计93.04秒 |
+
+这些是本批命令墙钟实测，不含核验、文档处理和等待日更；所有命令均未触及本轮1,800秒操作停止值。全范围APPLY从confirmed=7/4210继续到4210/4210，没有重复写入三个成功样本。最终`audit-all.json`指纹为`41d4b5d8bbe61123382370d9815fad65f297d78db3ebf3b9bf15fd6e2c7a4cd5`，覆盖4,094文件、58检查日期、116个当前检查id；pending_materializations、pending_checks和missing_registered_dates均为空。最后audit命令墙钟4.62秒，函数报告3.1152秒，统计范围不同。
+
+16:02（北京时间）独立只读复核通过，不执行额外检查作业或重放APPLY：
+
+- 4,094条最新物化全部是本批新记录，19列观察结果、来源说明、原plan/export/audit身份及文件SHA均正确；116项检查全部成功并绑定相应新物化的storage_id/run_id/timestamp与正确日期，所属58个run全部SUCCESS。
+- 本族累计物化8,188项、检查执行232条、成功run 96次，与原4,094/116/38加本批4,094/116/58相符。原audit冻结的4,094个物化event id及116个检查event id共4,210个旧事件全部仍在，没有删除旧历史。
+- 现有检查日期集合仍为批准的58日。三个样本readiness分别为：2010-01-04因check_missing仍未ready；2026-08-18和2026-11-13均ready。未给原无检查历史日期补绿色结果，没有全量逐分区readiness深扫。
+- 正式文件日期/大小/mtime统计指纹与本轮开始一致，仍为`e367d877b196585ee7e9b0e7416eb1e7f695a2b7a38066268ee8ea87ed5709dc`，4,094文件、776,758,558字节；原PLAN/audit/promote三份输入文件SHA不变。历史文件没有重写，未访问Prod或重取Tushare历史。
+
+实际服务的单资产schema也已只读核对为完整19列、limit_status INTEGER；原`daily_basic_trade_day_sensor`仍RUNNING，未被本轮改动。历史事件验收后才恢复更新sensor。第一次临时请求因执行者遗漏GraphQL闭合花括号，在解析阶段被拒绝，读回仍STOPPED且无状态变更；原LLD中的请求结构完整。随后将临时请求修正、通过graphql.parse语法校验，再提交同一startSensor操作；返回相同sensor id和RUNNING，再次独立查询也为RUNNING、无活动run。未改cursor、其他sensor或服务，未把首个失败请求隐去。
+
+恢复后已读到2026-11-16 16:04:45自然tick为SKIPPED，原因“2026-11-16尚未注册每日指标分区”，无run。该时刻早于原17:00分区注册窗口，属于正常等待，不是检查失败；也不能把这次tick当作自然日更写入成功。下一次真正自然日更仍待19:00后观察。本轮不手动补分区、不提前下载当天数据或制造日更run来替代验收。
+
+当前结论：**历史文件、最新物化和58日期检查已一致，原日更已恢复；阶段四仅剩下一次自然日更的真实验收。** 所有执行输入、成功PLAN/APPLY/audit及独立review保留在`/private/tmp/daily-basic-phase4-R0JIXP`；本轮只修改本主文档，未改代码、安装依赖、提交或push。自然更新结论必须以实际普通作业及新文件读回补记，不能提前将本节状态改为全部完成。
+
+### 44.6 自然更新观察与管理员接续安排
+
+管理员先确认按LLD等待自然日更。本轮只读观察到：2026-11-16当天分区已于17:05由原注册sensor自然加入，注册日期由4,094增至4,095，未人工补分区；17:20的更新tick正常提示尚未到19:00，注册sensor确认分区齐备；截至18:04的只读查询，两个sensor仍RUNNING，最近tick仍正常等待19:00。上述仅证明恢复后的自然观察和分区注册正常，不证明当天日更作业已成功。
+
+随后管理员明确要求“你不用盯着了。等晚上晚点我来通知你验收。”本轮据此停止等待和轮询，不再主动检查晚间运行，也不变更已恢复的日更状态。**自然日更验收转为等待管理员晚间通知后执行；阶段四不提前标记全部完成。** 后续验收仍按§44.4读取实际普通日更run、19字段文件和对应检查，不重新发布已完成历史事件或手动制造日更任务。本轮文档尚未提交，所有有效输入和执行报告继续保留。
