@@ -178,6 +178,8 @@ main() {
   parse_args "$@"
   cd "${ROOT_DIR}"
 
+  local indicator_pythonpath="${ROOT_DIR}/packages/technical_indicators/src${PYTHONPATH:+:${PYTHONPATH}}"
+
   if [[ "${START_WEB}" == "0" && "${START_FRONTEND}" == "0" ]]; then
     echo "web 与 frontend 均未启用，无需执行。"
     exit 1
@@ -214,7 +216,7 @@ main() {
 
   if [[ "${RUN_PREFLIGHT}" == "1" ]]; then
     log "3/6 执行发版预检"
-    bash scripts/release-preflight.sh
+    PYTHONPATH="${indicator_pythonpath}" bash scripts/release-preflight.sh
   fi
 
   if [[ "${RUN_BACKEND_COMPILE}" == "1" ]]; then
@@ -229,7 +231,8 @@ main() {
 
   if [[ "${START_WEB}" == "1" ]]; then
     log "6/6 启动 Web: http://${WEB_HOST}:${WEB_PORT}"
-    GOLDENSHARE_ENV_FILE="${ENV_FILE}" python3 -m src.app.web.run --host "${WEB_HOST}" --port "${WEB_PORT}" --no-reload &
+    GOLDENSHARE_ENV_FILE="${ENV_FILE}" PYTHONPATH="${indicator_pythonpath}" \
+      python3 -m src.app.web.run --host "${WEB_HOST}" --port "${WEB_PORT}" --no-reload &
     WEB_PID=$!
     sleep 2
     if ! kill -0 "${WEB_PID}" 2>/dev/null; then

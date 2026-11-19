@@ -717,6 +717,8 @@ result = service.calculate(request)
 
 **共享合同切换。** 新指令要求带时区的 `start/end` 并移除 `before/limit/instance_id`。受影响的正式调用方在 D 阶段随新合同一起迁移。单次请求仍以 500 根目标 K 线为硬上限，部署配置可更低。目标根数超限时报错，预热另受现有输入上限约束。产品分页由业务维持现有合同。
 
+**本地编译与启动。** 本地一键脚本应让 Web 和由它触发的预检加载当前工作树中的算子库源码。代码更新后，重跑同一启动命令即可。该规则仅作用于本地脚本派生的这两个进程。生产继续按正式发布流程从候选代码安装并检查实际加载的包。 [本地启动实施细节](technical-indicator-operator-library-implementation-lld-v1.md#本地启动加载当前工作树源码)
+
 ## 8. 代码证据和影响面
 
 - 用 CodeGraph 的 `codegraph_explore` 核对了 `TechnicalIndicatorService`、`KernelConfig`、`ReadRequirement`、`PriceInputSession`、适配器、注册表、计算引擎、输出收集器、股票/指数应用入口及相关测试。调用链和私有字段再按具体文件核对。CodeGraph 证明结构和调用关系，不证明生产数据完整。
