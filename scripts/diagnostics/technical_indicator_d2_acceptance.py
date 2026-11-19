@@ -22,7 +22,6 @@ import pyarrow.parquet as pq
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 from src.foundation.clients.local_lake.technical_indicator_contracts import price_contract, source_projection
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource, _LakePriceStream
-from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
 from goldenshare_technical_indicators.calculation.history import HistoryRequirement
 from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
@@ -134,6 +133,8 @@ class _FixedLocator:
 
 
 def verify_fixture(config, report):
+    from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+
     metadata = inspect_fixture(FIXTURE)
     validate_fixture(metadata)
     report['fixture_preflight'] = metadata
@@ -216,6 +217,8 @@ def verify_fixture(config, report):
 
 
 def verify_real_sources(config, report):
+    from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+
     root = Path(config.goldenshare_lake_root)
     paths = dict(day=root/'silver/quote/stock_daily/trade_date=2026-10-15/part-000.parquet',
         factor=root/'silver/quote/adj_factor/trade_date=2026-10-15/part-000.parquet',
@@ -321,6 +324,11 @@ def verify_real_sources(config, report):
 
 
 def main():
+    from goldenshare_technical_indicators import contracts
+
+    if not hasattr(contracts, "CalculationInstance"):
+        raise SystemExit("Historical D2 diagnostic requires its original kernel contract. "
+                         "Use the Stage D source and integration tests for the current contract.")
     import duckdb
     import pyarrow
     report = dict(status='running', versions=dict(duckdb=duckdb.__version__,pyarrow=pyarrow.__version__),

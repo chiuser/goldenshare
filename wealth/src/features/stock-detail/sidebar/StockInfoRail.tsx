@@ -133,11 +133,11 @@ function QuoteSummary({ viewModel }: { viewModel: StockDetailViewModel }) {
         </div>
         <div className="quote-cell">
           <span>换手率</span>
-          <b>{quote.turnoverRate.toFixed(2)}%</b>
+          <b>{quote.turnoverRate === null ? "--" : `${quote.turnoverRate.toFixed(2)}%`}</b>
         </div>
         <div className="quote-cell">
           <span>量比</span>
-          <b>{quote.volumeRatio.toFixed(2)}</b>
+          <b>{quote.volumeRatio === null ? "--" : quote.volumeRatio.toFixed(2)}</b>
         </div>
         <div className="quote-cell">
           <span>成交量</span>

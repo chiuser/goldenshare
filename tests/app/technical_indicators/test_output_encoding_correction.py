@@ -6,7 +6,8 @@ return, App admission, encoding, sending and error release stay real.
 """
 
 from dataclasses import replace
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 import json
 from time import monotonic
 
@@ -16,10 +17,10 @@ import pytest
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from test_admission import make_config
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 from goldenshare_technical_indicators.contracts import (
-    CalculationInstance, CalculationRequest, CalculationResult, CalculationStatistics,
+    CalculationRequest, CalculationResult, CalculationStatistics,
     CalculationValues, OutputRange, PriceAdjustmentResult, RequestedRange,
     SeriesDescription, SourceResult,
 )
@@ -50,27 +51,31 @@ class _Control:
             raise CalculationDeadlineError("controlled deadline")
 
 
+def _stamp():
+    return datetime(2026, 1, 2, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
 def _result():
     day = date(2026, 1, 2)
     return CalculationResult(
-        "3.0.0", SeriesDescription("stock", "600000.SH", "day", "none", "Asia/Shanghai",
-                                   "CNY", "lot", "thousand_CNY"),
-        RequestedRange(None, None, None, 1),
+        "4.0.0", SeriesDescription("stock", "600000.SH", "day", "none", "Asia/Shanghai",
+                                   "CNY", "share", "CNY"),
+        RequestedRange(_stamp(), _stamp()),
         SourceResult("来源", "1", "none", None, day, day, None),
         PriceAdjustmentResult(None, None, None, None, False, "1.0.0"),
         (day,), None,
-        (CalculationValues("ma", "ma", "1.0.0", (("period", 20),), (("value", (None,)),)),),
+        (CalculationValues("ma", "1.0.0", (("period", 20),), (("value", (None,)),)),),
         OutputRange(day, day, 1), CalculationStatistics(1, 0, 0, 0, 0, 0, 0.0), "",
     )
 
 
 def _expected_bytes():
     expected = {
-        "kernel_version": "3.0.0",
+        "kernel_version": "4.0.0",
         "series": {"security_type": "stock", "ts_code": "600000.SH", "period": "day",
                    "adjustment": "none", "timezone": "Asia/Shanghai", "price_unit": "CNY",
-                   "volume_unit": "lot", "amount_unit": "thousand_CNY"},
-        "requested": {"start": None, "end": None, "before": None, "limit": 1},
+                   "volume_unit": "share", "amount_unit": "CNY"},
+        "requested": {"start": "2026-01-02T00:00:00+08:00", "end": "2026-01-02T00:00:00+08:00"},
         "source": {"id": "来源", "contract_version": "1", "input_adjustment": "none",
                    "history_start": None, "read_start": "2026-01-02", "read_end": "2026-01-02",
                    "available_through": None},
@@ -78,7 +83,7 @@ def _expected_bytes():
                              "basis_date": None, "basis_value": None, "converted": False,
                              "formula_version": "1.0.0"},
         "times": ["2026-01-02"], "source_as_of": None,
-        "calculations": [{"instance_id": "ma", "calculation_id": "ma", "algorithm_version": "1.0.0",
+        "calculations": [{"calculation_id": "ma", "algorithm_version": "1.0.0",
                           "parameters": {"period": 20}, "fields": {"value": [None]}}],
         "range": {"actual_start": "2026-01-02", "actual_end": "2026-01-02", "count": 1},
         "statistics": {"source_rows": 1, "sql_processed_rows": 0, "source_files": 0,
@@ -89,10 +94,11 @@ def _expected_bytes():
 
 
 def test_library_and_http_encode_only_their_final_output(monkeypatch):
-    config = technical_indicator_config_from_settings(Settings(_env_file=None))
-    selected = CalculationRequest("stock", "600000.SH", "day", (
-        CalculationInstance("ma", "ma", {"period": 20}),
-    ), adjustment="none", limit=1)
+    config = make_config()
+    selected = CalculationRequest(security_type="stock", ts_code="600000.SH", period="day", adjustment="none",
+                                  start=_stamp(), end=_stamp(), calculations=(
+                                      {"calculation_id": "ma", "parameters": {"period": 20}},
+                                  ))
     literal, expected = _result(), _expected_bytes()
     counts = {"prepare": 0, "core": 0, "json": 0, "encode": 0}
     mode = {"failure": None}
@@ -103,17 +109,17 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
         counts["prepare"] += 1
         return prepare(self, request)
 
-    def core(self, prepared, *, control):
+    def core(self, prepared, *, control, collect_target_ohlc=False):
         counts["core"] += 1
-        assert prepared.normalized is selected
-        assert prepared.instances[0].parameters == (("period", 20),)
+        assert prepared.request is selected
+        assert prepared.plan.nodes[0].parameters == (("period", 20),)
         if mode["failure"] == "cleanup":
             raise ResourceCleanupError("literal cleanup failure")
         if mode["failure"] == "nan":
             return replace(literal, calculations=(replace(
                 literal.calculations[0], fields=(("value", (float("nan"),)),),
-            ),))
-        return literal
+            ),)), 0, None
+        return literal, 0, None
 
     def iter_once(*args, **kwargs):
         counts["json"] += 1
@@ -178,7 +184,7 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
             return await acquire(control)
 
         monkeypatch.setattr(runtime.admission, "acquire", observed_acquire)
-        bad = replace(selected, calculations=(CalculationInstance("ma", "ma", {"period": 0}),))
+        bad = replace(selected, calculations=({"calculation_id": "ma", "parameters": {"period": 0}},))
         try:
             with pytest.raises(RequestInvalidError):
                 await execution.execute_library(runtime, bad, arrived_at=monotonic())

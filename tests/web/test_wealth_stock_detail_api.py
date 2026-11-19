@@ -6,6 +6,8 @@ from pathlib import Path
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.config.stock_daily_trend_channel_capability import (
     StockDailyTrendChannelCapability,
 )
@@ -17,6 +19,8 @@ def _ensure_stock_detail_tables(db_session) -> None:
         TradeCalendar.__table__,
         Security.__table__,
         EquityFactorPro.__table__,
+        EquityDailyBar.__table__,
+        EquityDailyBasic.__table__,
     ]:
         table.create(bind, checkfirst=True)
 
@@ -93,6 +97,12 @@ def _seed_stock_detail_data(db_session) -> None:
             _factor_row(ts_code="603806.SH", trade_date=date(2026, 5, 29), close=19.1, kdj_j=77.7),
         ]
     )
+    for day, close in ((date(2026, 5, 28), 18.5), (date(2026, 5, 29), 19.1)):
+        db_session.add(EquityDailyBar(
+            ts_code="603806.SH", trade_date=day, open=close - 0.5, high=close + 0.8, low=close - 1,
+            close=close, pre_close=close - 0.2, change_amount=0.2, pct_chg=1.25, vol=123456, amount=2345678,
+        ))
+        db_session.add(EquityDailyBasic(ts_code="603806.SH", trade_date=day, turnover_rate=1.23, volume_ratio=1.11))
     db_session.commit()
 
 
@@ -130,6 +140,7 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["debugInfo"]["sourceTables"] == [
         "core_serving.security_serving",
         "core_serving.equity_factor_pro",
+        "core_serving.equity_daily_basic",
     ]
 
 
@@ -170,7 +181,9 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     # These independent literals only check the old field mapping. The database
     # indicator fields are no longer inputs to the kline query.
     values = {("ma5", "value"): 19.0, ("ma10", "value"): 18.9,
-              ("ma20", "value"): 18.8, ("ma90", "value"): 18.5, ("kdj", "j"): 77.7}
+              ("ma20", "value"): 18.8, ("ma90", "value"): 18.5, ("kdj", "j"): 77.7,
+              ("price", "open"): 28.8, ("price", "high"): 29.9, ("price", "low"): 28.1,
+              ("price", "close"): 29.2, ("price", "volume"): 12345600}
     with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property, overrides=values):
         response = app_client.get(
             "/api/v1/wealth/market/stock-detail/kline",
@@ -185,10 +198,10 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert payload["meta"]["count"] == 2
     assert [bar["tradeDate"] for bar in payload["bars"]] == ["2026-05-28", "2026-05-29"]
     latest = payload["bars"][-1]
-    assert latest["open"] == 28.6
+    assert latest["open"] == 28.8
     assert latest["high"] == 29.9
     assert latest["low"] == 28.1
-    assert latest["close"] == 29.1
+    assert latest["close"] == 29.2
     assert latest["amplitude"] == 9.5238095238
     assert latest["vol"] == 123456.0
     assert latest["volDisplay"] == "12.35万"

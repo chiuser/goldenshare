@@ -1,11 +1,19 @@
 """Own the current shared input and its retained history, never indicator state."""
 
+from dataclasses import replace
+from datetime import date, datetime
+from math import isfinite
+from zoneinfo import ZoneInfo
+
 from ..calculation.calculation import SqlStep
-from ..errors import ResourceCleanupError, ResourceLimitError, SourceContractError, SourceUnsupportedError
+from ..errors import ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError, SourceUnsupportedError
 from .contracts import PriceBatch, SourceDescription
 from .price_adjustment import PriceAdjustmentCalculation, VALUE_FIELDS
 
 _FIELD_ORDER = ("open", "high", "low", "close", "volume", "amount")
+_VOLUME_MULTIPLIERS = {"share": 1, "lot": 100}
+_AMOUNT_MULTIPLIERS = {"CNY": 1, "thousand_CNY": 1000}
+_SHANGHAI = ZoneInfo("Asia/Shanghai")
 
 
 class PriceInputSession:
@@ -16,6 +24,7 @@ class PriceInputSession:
         self.requirement = requirement
         self.read_context = read_context
         self._resolved = None
+        self._projection = None
         self._stream = None
         self._locator = None
         self._tables: list[str] = []
@@ -25,21 +34,23 @@ class PriceInputSession:
         self._retained = False
         self._rows = 0
         self._history_rows = 0
+        self._expected_positions = None
+        self._next_expected_position = None
         self.read_start = self.read_end = None
         self.conversion_batches = 0
         fields = requirement.history.fields
         if not fields <= VALUE_FIELDS:
             raise SourceContractError("Unknown standard input fields")
         self.fields = tuple(name for name in _FIELD_ORDER if name in fields)
-        self.time_fields = (("trade_date", "trade_time") if requirement.request.period.endswith("m")
+        self.time_fields = (("trade_date", "trade_time") if requirement.period.endswith("m")
                             else ("trade_date", "period_start", "period_end", "source_as_of"))
-        self.time_key = "trade_time" if requirement.request.period.endswith("m") else "period_start"
+        self.time_key = "trade_time" if requirement.period.endswith("m") else "period_start"
 
     def prepare(self):
         if self._prepared or self._closed or self._failed:
             raise RuntimeError("Input session cannot be prepared in this state")
         self.executor.control.check_active()
-        request = self.requirement.request
+        request = self.requirement
         try:
             self._locator = self.source.create_locator(
                 self.executor, self.requirement, read_context=self.read_context)
@@ -47,28 +58,33 @@ class PriceInputSession:
             if not isinstance(self.description, SourceDescription):
                 raise SourceContractError("Source must return the declared source description")
             self._validate_selection()
-            path = (self.description.input_adjustment, request.adjustment)
+            if not self.description.selection.target_rows:
+                raise SourceReadError("读取数据失败", detail="数据缺失")
+            path = (self.description.input_adjustment, request.target_adjustment)
             if path not in self.description.supported_adjustment_paths:
                 raise SourceUnsupportedError("Source does not support the requested adjustment")
             projected = {name for name, _ in self.description.standard_projection}
             if projected != set(self.fields) | set(self.time_fields):
                 raise SourceContractError("Source projection does not match the required standard fields")
+            self._projection = self._standard_projection()
             self._locator.close()
             self._locator = None
+            if not request.period.endswith("m"):
+                self._expected_positions = self.source.expected_positions(
+                    request, self.description.selection, read_context=self.read_context, control=self.executor.control,
+                )
+                self._next_expected_position = next(self._expected_positions, None)
             resolved = self.description
-            if self.description.selection.target_rows and path[0] != path[1]:
+            if path[0] != path[1]:
                 self._own_table("ti_anchor")
                 resolved = self.source.prepare_basis(self.executor, self.description, self.requirement,
                     table_name="ti_anchor", read_context=self.read_context)
-                if resolved.basis_date is None or resolved.basis_value is None:
-                    raise SourceContractError("Converted daily prices require an actual basis")
-            if self.description.selection.target_rows:
-                self._stream = self.source.open(self.executor, resolved, self.requirement,
-                                               read_context=self.read_context)
-            else:
-                self._exhausted = True
+                if (resolved.basis_date is None or resolved.basis_value is None
+                        or not isfinite(resolved.basis_value) or resolved.basis_value <= 0):
+                    raise SourceContractError("Converted daily prices require a finite positive adjustment factor basis")
+            self._stream = self.source.open(self.executor, resolved, request, read_context=self.read_context)
             self.executor.control.check_active()
-            self._resolved = resolved
+            self._resolved = replace(resolved, volume_unit="share", amount_unit="CNY")
             self._prepared = True
         except BaseException:
             self._failed = True
@@ -77,9 +93,9 @@ class PriceInputSession:
     def _validate_selection(self):
         selection = self.description.selection
         history = self.requirement.history
-        request = self.requirement.request
-        if selection.target_rows > request.limit:
-            raise SourceContractError("Selection exceeds the requested output count")
+        request = self.requirement
+        if selection.target_rows > self.read_context.config.max_output_rows:
+            raise ResourceLimitError("Target positions exceed max_output_rows")
         if selection.target_rows + selection.preceding_rows > self.executor.control.config.max_input_rows:
             raise ResourceLimitError("Selected input exceeds max_input_rows")
         if selection.target_rows:
@@ -88,11 +104,9 @@ class PriceInputSession:
             ):
                 raise ResourceLimitError("Selected input cannot satisfy the required warmup")
             for stamp in (selection.target_start, selection.target_end, selection.read_start, selection.read_end):
-                from datetime import date, datetime
-                from zoneinfo import ZoneInfo
                 minute = request.period.endswith("m")
                 if (minute and (not isinstance(stamp, datetime) or stamp.tzinfo is None
-                        or stamp.utcoffset() != stamp.astimezone(ZoneInfo("Asia/Shanghai")).utcoffset())
+                        or stamp.utcoffset() != stamp.astimezone(_SHANGHAI).utcoffset())
                         or not minute and type(stamp) is not date):
                     raise SourceContractError("Selected time positions do not match the period")
 
@@ -104,6 +118,51 @@ class PriceInputSession:
             error.reason = "selection_count_mismatch"
             error.expected_count, error.actual_count = expected, self._rows
             raise error
+        if self._next_expected_position is not None:
+            raise SourceContractError(f"Missing scheduled market data: {self._next_expected_position}")
+
+    def _standard_projection(self):
+        volume, amount = self.description.volume_unit, self.description.amount_unit
+        multipliers = {
+            "volume": _VOLUME_MULTIPLIERS.get(volume),
+            "amount": _AMOUNT_MULTIPLIERS.get(amount),
+        }
+        parts = []
+        for name, expression in self.description.standard_projection:
+            if name in multipliers:
+                multiplier = multipliers[name]
+                if multiplier is None:
+                    raise SourceContractError(f"Unknown source unit for {name}")
+                if multiplier != 1:
+                    expression = f"({expression}) * {multiplier}"
+            parts.append(f'{expression} AS "{name}"')
+        return ", ".join(parts)
+
+    def _check_positions(self, positions):
+        previous = self.read_end
+        selection = self.description.selection
+        start, end = selection.read_start, selection.read_end
+        target = selection.target_start
+        if self.requirement.period.endswith("m"):
+            start, end = start.replace(tzinfo=None), end.replace(tzinfo=None)
+            target = target.replace(tzinfo=None)
+        target_first_seq = selection.preceding_rows + 1
+        last_seq = selection.preceding_rows + selection.target_rows
+        for seq, position in enumerate(positions, self._rows + 1):
+            if (position is None or not start <= position <= end
+                    or (previous is not None and previous >= position)):
+                raise SourceContractError("Source positions are outside the selection or not strictly increasing")
+            if self._expected_positions is not None:
+                if self._next_expected_position != position:
+                    if self._next_expected_position is not None and self._next_expected_position < position:
+                        raise SourceContractError(f"Missing scheduled market data: {self._next_expected_position}")
+                    raise SourceContractError(f"Unexpected market data position: {position}")
+                self._next_expected_position = next(self._expected_positions, None)
+            if ((seq == 1 and position != start)
+                    or (seq == target_first_seq and position != target)
+                    or (seq == last_seq and position != end)):
+                raise SourceContractError("Delivered price boundaries differ from the selection")
+            previous = position
 
     def resolved_description(self):
         if not self._prepared:
@@ -145,15 +204,15 @@ class PriceInputSession:
                 return None
             # A conforming SourceStream skips empty Arrow batches; a source
             # violating that handoff cannot be mistaken for normal end of input.
-            if batch.selected_rows <= 0:
-                raise SourceContractError("SourceStream must deliver a nonempty batch or EOF")
+            if (not 0 < batch.selected_rows <= self.requirement.batch_rows
+                    or batch.source_first_position != self._rows + 1
+                    or batch.source_last_position != self._rows + batch.selected_rows):
+                raise SourceContractError("Source batch count or delivery positions are invalid")
             registration = "ti_source_batch"
             self._registrations.append(registration)
             self.executor.register_arrow(registration, batch.columns)
-            projection = ", ".join(f'{expression} AS "{name}"'
-                for name, expression in self.description.standard_projection)
             sql = self.read_context.sql_template("stage_input.sql", control=self.executor.control).format(output_table="ti_raw_new",
-                time_key=self.time_key, projection=projection, registration=registration)
+                time_key=self.time_key, projection=self._projection, registration=registration)
             stats = self._execute("stage_input", sql, (registration,), "ti_raw_new",
                                   batch.selected_rows, (self._rows,))
             new_rows = stats.output_rows
@@ -172,21 +231,41 @@ class PriceInputSession:
                 error.reason = "selection_count_mismatch"
                 error.expected_count, error.actual_count = expected, self._rows + new_rows
                 raise error
-            converted = self.description.input_adjustment != self.requirement.request.adjustment
+            converted = self.description.input_adjustment != self.requirement.target_adjustment
             dates_sql = (", trade_dates := list(DISTINCT trade_date ORDER BY trade_date) "
                          "FILTER (WHERE trade_date IS NOT NULL)" if converted else "")
+            checks = [
+                f'coalesce(isfinite("{name}"), false)' if name in ("open", "high", "low", "close")
+                else f'("{name}" IS NULL OR isfinite("{name}"))'
+                for name in self.fields
+            ]
             metadata = self.executor.scalar(
-                f"SELECT struct_pack(first_time := min({self.time_key}), "
-                f"last_time := max({self.time_key}){dates_sql}) FROM ti_raw_new")
+                f"SELECT struct_pack(positions := list({self.time_key} ORDER BY seq), "
+                f"valid_values := bool_and({' AND '.join(checks) or 'true'}){dates_sql}) FROM ti_raw_new")
+            if not metadata["valid_values"]:
+                raise SourceContractError("Source batch contains invalid price or quantity values")
+            positions = metadata["positions"]
+            self._check_positions(positions)
             self._rows += new_rows
             if self.read_start is None:
-                self.read_start = metadata["first_time"]
-            self.read_end = metadata["last_time"]
+                self.read_start = positions[0]
+            self.read_end = positions[-1]
             if converted:
                 dates = tuple(metadata["trade_dates"] or ())
                 self._own_table("ti_day_factor")
                 self.source.prepare_factors(self.executor, self._resolved, self.requirement,
                     dates, table_name="ti_day_factor", read_context=self.read_context)
+                invalid_factor_date = self.executor.scalar("""
+                    SELECT prices.trade_date
+                    FROM (SELECT DISTINCT trade_date FROM ti_raw_new) AS prices
+                    LEFT JOIN ti_day_factor AS factor USING (trade_date)
+                    GROUP BY prices.trade_date
+                    HAVING count(*) <> 1 OR count(factor.adj_factor) <> 1
+                        OR NOT bool_and(isfinite(factor.adj_factor) AND factor.adj_factor > 0)
+                    ORDER BY prices.trade_date LIMIT 1
+                """)
+                if invalid_factor_date is not None:
+                    raise SourceContractError(f"Missing, duplicate or invalid adjustment factor for {invalid_factor_date}")
                 step = PriceAdjustmentCalculation().build_sql("ti_raw_new", "ti_day_factor", "ti_anchor",
                     output_table="ti_price_new", fields=self.fields, time_fields=self.time_fields,
                     processed_rows=new_rows,
@@ -207,7 +286,7 @@ class PriceInputSession:
             if self._history_rows:
                 self._execute("input_window", sql, inputs, "ti_price_window", new_rows + self._history_rows)
             self._batch = PriceBatch("ti_price_window", self._rows-new_rows+1, self._rows,
-                new_rows, self._history_rows, self.time_fields, self.fields, self.requirement.request.adjustment)
+                new_rows, self._history_rows, self.time_fields, self.fields, self.requirement.target_adjustment)
             self._retained = False
             return self._batch
         except BaseException:
@@ -253,6 +332,7 @@ class PriceInputSession:
         if self._closed:
             return
         errors = []
+        self._expected_positions = None
         if self._locator is not None:
             try:
                 self._locator.close()
@@ -271,6 +351,10 @@ class PriceInputSession:
                 self._stream = None
             except BaseException as exc:
                 errors.append(exc)
+        try:
+            self.read_context.close_postgres()
+        except BaseException as exc:
+            errors.append(exc)
         for name in tuple(reversed(self._tables)):
             try:
                 self.executor.cleanup_drop(name)

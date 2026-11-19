@@ -46,8 +46,8 @@ export interface StockQuoteSnapshot {
   prevClose: number;
   high: number;
   low: number;
-  turnoverRate: number;
-  volumeRatio: number;
+  turnoverRate: number | null;
+  volumeRatio: number | null;
   volumeText: string;
   amountText: string;
 }

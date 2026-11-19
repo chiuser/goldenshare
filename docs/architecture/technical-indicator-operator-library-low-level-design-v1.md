@@ -1,6 +1,6 @@
 # 技术指标算子库整体详细设计 v1
 
-**状态：待评审。已有计算内核、指标算子和输出检查；新的计算指令、统一取数配置及 Prod 读取链尚未实施。** 本文只供设计评审，不授权修改 API、启动正式任务或写入数据。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 继续描述现行内核和已验收的算法合同；本文明确下一版要改的地方，不把目标写成现状。
+**阶段 D 第 1–3 项已在独立工作树完成，生产切换待验收。** 独立算子库已通过 DG、Prod 不复权股票日线和指数 5 分钟线的完整计算验收。股票详情日线和上证综指日线已在隔离应用接入。[实施 LLD 的阶段 D 开发顺序](technical-indicator-operator-library-implementation-lld-v1.md#阶段-d-的开发顺序和切换条件)说明切换条件，[核验证据](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)记录实际样本。原 [内核组件设计](technical-indicator-kernel-component-design-v1.html) 与 [代码级 LLD](technical-indicator-kernel-low-level-design-v1.html) 描述原内核和已验收的算法规则。
 
 ## 1. 目标和模块分工
 
@@ -25,6 +25,8 @@
 1. **分钟线按实际读到的 K 线计算。** 首版不判断缺少哪些分钟位置，不补造 K 线。分钟位置完整性检查记为 TODO，已有预热规则不变。
 2. **向上游报错的内容。** 整个目标区间没读到行情时，报错「读取数据失败」，`detail` 为「数据缺失」。不返回空结果、不降级。实际读取故障不冒充数据缺失。
 3. **后续范围。** 股票周/月复权、股票 `90m/120m` 合成和 ETF 放到后续切片，不作为现有能力或首版验收条件。
+4. **返回的量额单位。** 算子库统一返回成交量「股」、成交额「元」。业务方拿到结果后，可按展示或业务需要自行换算。
+5. **指数 5 分钟开盘。** DG 和 Prod 使用同一套业务 K 线规则。09:30 集合竞价并入 09:35，首根计一根。归并所需记录缺一条时跳过首根，其余按实际形成的 K 线计算。
 
 **启用前的核验工作：** 逐数据集核对读取字段、类型、单位及时间语义，尤其是股票和指数各自的周/月线实际截止字段。股票日线、常规分钟线的复权仍需验证两端复权因子来源和基准。这些是实现与验收工作，不要求重新讨论分钟缺口规则或内核的对上报错文案。
 
@@ -35,7 +37,7 @@
 | 算子模块 | 复用 MA、MACD、KDJ、BOLL 等现有对象、公式和版本；多个算子共享一次行情读取 | 算子不读湖、不访问 PG、不决定价格复权口径 |
 | 输出合法性检查 | 检查字段、类型、值和时间位置；按指令顺序返回结果 | 不返回额外历史，不输出下一页、游标、页面文案；无目标行情或失败时不返回结果 |
 
-**当前改动依据。** 现有 `TechnicalIndicatorService` 已创建取数需求、循环驱动读取和计算、调用输出收集器；股票日线和上证综指日线业务目前各自先取一段行情再装配内核。通用 DG 适配器也把部分来源写在 `price_contract()` 内，其中股票分钟既有直读前复权文件的行为，与目标不同。新版将这些业务入口迁至同一个内部取数流程；现有产品 HTTP 合同是否调整须另行批准。
+**当前实现边界。** 独立工作树上的股票日线和上证综指日线已接入 `TechnicalIndicatorService` 的内部取数流程。业务确定分页区间并组装现有 HTTP 响应。生产仍按原部署运行。
 
 **类清单阅读方式。** 代码块中的 `...` 表示省略实现，并不是可直接运行的代码。正文逐项给出新增类的全部字段与方法、变更类的目标字段和方法或完整变更项。附录逐类列出现有实现中的成员字段与显式方法（含私有方法）；标记复用的类以附录为完整清单。嵌套配置记录是数据，不另外建类；第三方类、Python 自动生成的通用方法和不在本次指标注册表里的独立 XXM 能力不纳入目标设计。
 
@@ -51,9 +53,9 @@ class TechnicalIndicatorService:
     source: PriceSource               # 部署端装配；上游不能传入读取对象。
     control: ExecutionControl | None  # 可选的请求执行控制。
 
-    def __init__(self, *, config: KernelConfig, parser: CalculationRequestParser,
+    def __init__(self, *, config: KernelConfig, registry: CalculationRegistry,
                  source: PriceSource, control: ExecutionControl | None = None) -> None:
-        # 只由部署装配调用。
+        # 由部署端装配。用共享配置和注册表构造独立解析器。
         ...
 
     def calculate(self, request: CalculationRequest) -> CalculationResult:
@@ -63,6 +65,10 @@ class TechnicalIndicatorService:
     @staticmethod
     def _describe_output_instances(plan: CalculationPlan) -> tuple[OutputInstanceDescription, ...]:
         # 从计划复制标准输出说明，交给输出检查；不是解析器的职责。
+        ...
+
+    def _prepare_calculation(self, request: CalculationRequest) -> _PreparedCalculation:
+        # 交给解析器准备指令。App 也复用这个入口在排队前校验通用请求。
         ...
 
     def _calculate_library(
@@ -90,7 +96,7 @@ class TechnicalIndicatorService:
         ...
 ~~~
 
-现有 `_prepare_calculation(request)` 的解析职责迁到独立解析类，服务不再保留同名解析方法。App 负责装配，物理适配留在 Foundation，共享包只依赖内部读取接口。
+`_prepare_calculation(request)` 直接调用独立解析类。App 负责装配，物理适配留在 Foundation，共享包依赖内部读取接口。
 
 ### 1.2 `KernelConfig`：库的共享配置
 
@@ -126,7 +132,7 @@ class KernelConfig:
     control_poll_ms: int                # 20 毫秒，停止监控间隔。
     monitor_join_target_ms: int         # 200 毫秒，等待监控线程结束的目标。
 
-    def __init__(self, data_location, goldenshare_lake_root, dataset_locations, market_datasets,
+    def __init__(self, *, data_location, goldenshare_lake_root, dataset_locations, market_datasets,
                  max_concurrent_requests, max_waiting_requests, max_wait_ms, sql_threads,
                  batch_rows, query_memory_bytes, request_memory_bytes, deployment_reserve_bytes,
                  total_target_ms, cleanup_reserve_ms, max_input_rows, max_source_files,
@@ -152,6 +158,10 @@ class KernelConfig:
     def resolve_dataset_location(self, dataset_id: str) -> DatasetReadTarget:
         # DG 代入固定分区，保留动态日期占位符；PG 返回表和固定条件。
         # 未登记或当前环境为 null 就报不支持；不访问源，也不切换环境。
+        ...
+
+    def _location(self, dataset_id: str) -> Mapping[str, object] | None:
+        # 取当前环境的已冻结位置记录，供位置和启用口径查询复用。
         ...
 ~~~
 
@@ -251,6 +261,10 @@ class _PreparedCalculation:
 | `index_monthly` | `silver/index_monthly/full/part-000.parquet` | `core_serving.index_monthly_serving` |
 
 DG 的交易日与周末分区用 `YYYY-MM-DD`，月份用 `YYYY-MM`；周期范围与物理分区不总相同，按实际交易日期形成。股票周、月线只投影原始 `open/high/low/close` 等字段，不取 `_qfq`、`_hfq` 列。主要指数专用的 `gold/quote/major_index_mins` 不作为通用指数缺失时的回退。日历、股票生命周期、停牌和复权因子另登记实际来源，不从这张行情表推断。
+
+**读取层统一量额。** 读取模块在交给算子之前，将采用源单位的成交量和成交额各换算一次，统一为股和元。源单位按环境、数据集及周期核实。同一数据集内若随证券而异，按证券代码核实。原单位为手时乘 100，为千元时乘 1000。原单位已为股或元时原样传递。具体换算和已核实范围见 [实施 LLD §4.1](technical-indicator-operator-library-implementation-lld-v1.md#41-一份位置目录不同来源各自投影)。
+
+**指数 5 分钟首根归并。** DG 直接使用已归并的业务 K 线。Prod 从同一指数、同一交易日的 09:30 和 09:35 记录形成 09:35，开盘价取竞价收盘价，最高和最低比较该竞价价与 09:35 的最高、最低，收盘价取 09:35 收盘价，量额相加。目标区间筛选、500 根上限及预热计数全部以业务 K 线时间为准。 [DG 归并实现](../../lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_bars.py#L365)
 
 ### 3.2 取数对象与接口类
 
@@ -497,7 +511,7 @@ class Calculation(Protocol):
 ~~~python
 # 现有公开算子：ID → 实现类。完整成员和方法见附录。
 built_in_calculations = {
-    # 无参数；输入及输出都是开、高、低、收、成交量和成交额。
+    # 无参数。输入及输出为开、高、低、收、成交量（股）和成交额（元）。
     "price": PriceCalculation,
     # period=20（正整数），只用收盘价；输出 value，不足完整窗口可为空。
     "ma": MovingAverageCalculation,
@@ -531,7 +545,19 @@ internal_calculations = {
 
 **格式。** 每项输出由固定算子 ID、实际有效参数和算子版本标明，结果字段由算子定义。共享的 `times` 递增、唯一，字段数组长度与其相等。所有周期的 `requested.start/end` 都带上海时区。行情位置 `times`、实际读取区间及输出区间仍按周期表达，分钟带上海时区，日、周、月为日期。周、月的 `source_as_of` 逐根对应 `times`，返回实际截止日期，日线及分钟该字段为 `None`。用同一请求算 MA20 和 MA60，两个结果都用 `value` 字段，由实际有效参数区分。
 
+**目标行来自读取结果。** 输出收集器根据 `PriceReadSelection` 的前置根数和目标根数，按 `seq` 取每批落入目标区间的行，并与算子字段对齐。输出检查首末时间、目标根数和数组长度。日线请求的起止先按上海当地日期定位，同一个交易日可以由当天中午的时间指定。预热行情只用于计算。
+
+**对上游的量额合同。** `price` 的开、高、低、收为必有的有限值。成交量 `volume` 与成交额 `amount` 有值时分别用股和元，来源合法为空时保留空值。结果的 `SeriesDescription.volume_unit` 为 `share`、`amount_unit` 为 `CNY`。业务方可在收到标准结果后自行换算。现有产品接口继续按各自已定义的单位交付。
+
 ~~~python
+class BatchCalculationOutputs:
+    # 一个行情批次及每项请求对应的算子输出。
+    price_batch: PriceBatch
+    instances: tuple[tuple[int, CalculationOutput], ...]
+
+    def __post_init__(self) -> None: ...  # 校验从 0 开始的整数请求下标，固化批次交接。
+
+
 class OutputFieldDescription:
     # 算子定义的固定输出字段说明；仅构造。
     name: str
@@ -585,9 +611,15 @@ class CalculationResult:
 
 
 class OutputCollector:
-    # 完整成员与方法见附录。instances 按本次请求的顺序索引，不用上游标识。
+    # 附录记录现有成员和方法。阶段 C 用 selection 替换原请求时间过滤。
     instances: tuple[OutputInstanceDescription, ...]
+    selection: PriceReadSelection  # 由读取模块交付，包含目标根数及首末位置。
+    target_first_seq: int  # 从 selection.preceding_rows + 1 得到。
+    target_rows: int      # 与 selection.target_rows 相同。
 
+    def __init__(self, *, executor: DuckDBExecutor, request: CalculationRequest,
+                 instances: tuple[OutputInstanceDescription, ...],
+                 selection: PriceReadSelection) -> None: ...
     def _check_descriptions(self) -> None: ...         # 核对输出定义。
     def _check_batch(self, outputs): ...               # 核对批次与输出项。
     def _inspect_output(self, output, batch, identity) -> None:
@@ -619,7 +651,7 @@ class SourceReadError(TechnicalIndicatorError):
 raise SourceReadError("读取数据失败", detail="数据缺失")
 ~~~
 
-输出检查复用当前字段与位置检查，另外将声明的可空条件、有限数值和时间对齐列为新合同验收项。**没有目标 K 线不进入成功结果组装**；有目标 K 线但 MA 因历史不足而按算子定义得到空值，是指标值的合法空值，不是没有行情。结果少行、多行、重复、越界、未知字段或与时间不对应都不返回成功。禁止发布半成品结果。
+目标区间有行情时，保留 MA／BOLL 按定义产生的合法预热空值，以及 `price` 的合法量额空值。结果少行、多行、重复、越界、字段不符或出现非有限值时，整次返回输出合同错误。目标区间全无行情时由读取模块返回数据缺失错误。
 
 ## 6. 一条指令如何走完
 
@@ -661,9 +693,21 @@ result = service.calculate(request)
 | A. 指令和配置 | 定义计算指令、独立解析器、`KernelConfig` 及取数指令。核对首批读源字段和现有调用方 | 所有周期的起止均带时区。解析器和能力查询共享启用配置，识别当前环境，未启用的组合在读取前拒绝 |
 | B. 不复权取数 | 改造 DG 读取器，新增 PG 有界只读读取，按数据集落实输入校验 | 股票日线和指数 5 分钟在两端各有真实小样本。500 根目标上限、分钟跳点照算、整段无行情报错、读取失败只留在当前来源均通过验证 |
 | C. 独立算子库验收 | 复用现有算子和输出检查，验证预热、同批共享、跨批状态、取消及错误后的清理 | 新旧用相同行情对照，数值符合原验收标准。结果仅包含目标区间。通过后完成首轮 |
-| D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归后再评估发布 |
+| D. 业务迁移 | 验证股票日线前复权因子和基准、验证普通指数日线后，迁移股票日线和上证综指日线，同步迁移其余旧合同调用方。落实右侧报价的换手率和量比取数、缺值展示，以及股票日线九转单表取结果、按正式日 K 日期检查缺失 | 两条链路逐日核对页面与指标四价以及辅助字段，首屏、续页、短页、合法空页和读取失败通过回归。核对右侧报价字段和日线九转后再评估发布 |
 
-上证接线从内核同批已校验的目标行情取得图上开高低收，从当前环境的同一普通指数日线数据集按日期取得量额、昨收和涨跌字段。前置根数继续用于区分指标合法空值和异常缺失。读取错误保留约定的主信息和原因，按现有产品格式返回。字段映射和内部交接见 [实施 LLD §5.2](technical-indicator-operator-library-implementation-lld-v1.md#52-上证综指日线和已有通用调用)。
+阶段 B 先验证通用读取和股票不复权日线，再接入两端统一开盘规则的指数 5 分钟。首批验收之外的数据集、证券和周期按来源证据逐项开放。 [实施 LLD·阶段 B](technical-indicator-operator-library-implementation-lld-v1.md#阶段-b-的实施步骤)
+
+阶段 C 复用已验证的读取和算子，改造批次交接、目标行收集和结果编码。先迁移独立数值预期及控制测试，再通过公开 `calculate()` 在 DG、Prod 按相同范围验证股票日线、两只指数的 5 分钟线，以及失败后的清理。沿用现有预算，记录首次执行、同指令复跑和故障验收的实际开销。通过阶段 C 的数值和错误回归后，将内核合同版本从 `3.0.0` 更新为 `4.0.0`，以反映请求和结果的字段变化。 [实施 LLD·阶段 C](technical-indicator-operator-library-implementation-lld-v1.md#阶段-c-的实施步骤)
+
+阶段 A–C 在独立工作树实施。A 验收计算指令、算子计划、读取位置及使用显式历史需求构造取数指令。B 接入实际取数与现有预热需求，C 验收完整计算。阶段 A 的配置来源、验收和业务隔离见 [实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md#阶段-a-的实施边界)。
+
+股票详情日线的图上开高低收取同批前复权计算结果。业务层从股票不复权日线取昨收、涨跌额和涨跌幅，从股票每日指标取换手率和量比，按股票代码和交易日匹配。股票日线技术因子文件和表退出该分支的行情及辅助字段读取。 [实施 LLD §5.1 的 DG、Prod 取数位置](technical-indicator-operator-library-implementation-lld-v1.md#51-股票详情日线)
+
+右侧报价的换手率和量比由业务按股票代码和报价实际的交易日读取股票每日指标。缺值在接口中保留为 `null`，页面显示 `--`，有值时按现有格式显示，零值也按数字显示。 [实施 LLD 的右侧报价规则](technical-indicator-operator-library-implementation-lld-v1.md#右侧报价的换手率和量比)
+
+股票日线九转的结果只从 `core_serving.equity_qfq_nineturn_daily` 读取。业务复用股票日 K 的日期定位规则，按本页实际存在的日 K 日期分页和检查缺失。某日确有日 K 而九转表没有该日记录时，才计为缺失。读取范围限本页日 K 日期和对应的九转结果。 [实施 LLD 的股票日线九转规则](technical-indicator-operator-library-implementation-lld-v1.md#股票日线九转)
+
+上证接线从内核同批已校验的目标行情取得图上开高低收，从当前环境的同一普通指数日线数据集按日期取得量额、昨收和涨跌字段。页面翻页下限继续为 DG `2000-01-04`、Prod `2010-01-04`，Prod 更早的普通日线可按需参与预热。前置根数继续用于区分指标合法空值和异常缺失。读取错误保留约定的主信息和原因，按现有产品格式返回。 [实施 LLD §5.2 的页面边界与内部交接](technical-indicator-operator-library-implementation-lld-v1.md#52-上证综指日线和已有通用调用)
 
 股票日线后复权和常规股票分钟复权各自核验后启用。股票周/月复权、股票 `90m/120m` 合成和 ETF 另行评审。
 
@@ -840,7 +884,7 @@ class CalculationSession:
     def _control_error(step_name: str, reason: str) -> None: ...
 
 
-# 复用。 源码起点：第 299 行。
+# 修改见正文。阶段 C 将字符串标识换为整数请求下标。 源码起点：第 299 行。
 @dataclass(frozen=True, slots=True)
 class BatchCalculationOutputs:
     # 成员字段及类常量。

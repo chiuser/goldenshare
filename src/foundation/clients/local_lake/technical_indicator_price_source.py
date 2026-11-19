@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
 from dataclasses import replace
-from datetime import date, datetime
+from datetime import date
 import os
 from pathlib import Path
 import re
@@ -22,14 +22,13 @@ from goldenshare_technical_indicators.errors import (
 )
 from goldenshare_technical_indicators.sources.contracts import SourceBatch, SourceDescription
 
+from ..technical_indicator_stock_daily import INDEX_DAILY_ORIGINS, full_day_suspension, scheduled_open_days, scheduled_stock_days
 from .technical_indicator_contracts import (
-    FACTOR_SCHEMA, LakePriceContract, price_contract, source_capabilities, source_projection,
+    FACTOR_SCHEMA,
 )
 
 
-_DATE_PART = re.compile(r"^(?:trade_date|week_end)=(\d{4}-\d{2}-\d{2})$")
-_YEAR_PART = re.compile(r"^year=(\d{4})$")
-_MONTH_PART = re.compile(r"^month=(\d{4}-\d{2})$")
+_DATE_PART = re.compile(r"^trade_date=(\d{4}-\d{2}-\d{2})$")
 _TABLE = re.compile(r"^ti_[a-z0-9_]+$")
 _FORBIDDEN_ROOTS = (Path("/Volumes/datasource/data_lake_staging"),
                     Path("/Volumes/datasource/goldenshare-tushare-lake"))
@@ -53,7 +52,7 @@ def _table_name(name):
 
 
 def _matches_type(pa, actual, expected):
-    types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"),
+    types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"), "INTEGER": pa.int32(),
              "DOUBLE": pa.float64(), "DECIMAL(18,4)": pa.decimal128(18, 4),
              "DECIMAL(20,4)": pa.decimal128(20, 4)}
     return actual == types[expected]
@@ -65,10 +64,6 @@ class LakeTechnicalIndicatorPriceSource:
     def __init__(self, config: KernelConfig):
         _arrow()  # Capability assembly fails clearly, never downloads a dependency.
         self._config = config
-
-    @property
-    def capabilities(self):
-        return source_capabilities()
 
     def _root(self):
         if not self._config.goldenshare_lake_root:
@@ -90,52 +85,74 @@ class LakeTechnicalIndicatorPriceSource:
             raise SourceContractError("The declared Lake source path contains a symbolic link or escapes its root")
         return resolved
 
-    def _partition_paths(self, root, base, request, control, *, factors=False):
+    def _partition_paths(self, root, requirement, control):
+        through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
+        return tuple(path for _, path in self._dated_partitions(root, requirement.target, through, control))
+
+    def _dated_partitions(self, root, target, through, control, *, start=None):
+        template = Path(target.location["path_template"])
+        base = template.parent.parent
         self._safe_path(root, base)
         control.check_active()
-        if not base.exists():
-            return ()
         result = []
         try:
             with os.scandir(base) as entries:
                 for entry in entries:
                     control.check_active()
-                    name = entry.name
-                    pattern = _DATE_PART if factors or request.period not in ("month",) else _MONTH_PART
-                    if request.period.endswith("m") and request.security_type == "stock" and not factors:
-                        pattern = _YEAR_PART
-                    match = pattern.fullmatch(name)
+                    match = _DATE_PART.fullmatch(entry.name)
                     if match is None:
                         continue
-                    label = match.group(1)
-                    if pattern is _YEAR_PART:
-                        period_start = date(int(label), 1, 1)
-                    elif pattern is _MONTH_PART:
-                        period_start = date.fromisoformat(label + "-01")
-                    else:
-                        period_start = date.fromisoformat(label)
-                        if request.period == "week" and not factors:
-                            from datetime import timedelta
-                            period_start -= timedelta(days=period_start.weekday())
-                    end = request.end.date() if isinstance(request.end, datetime) else request.end
-                    before = request.before.date() if isinstance(request.before, datetime) else request.before
-                    # Factors include future/earliest candidates: display paging must
-                    # never select the daily adjustment denominator.
-                    if not factors:
-                        if end is not None and period_start > end:
-                            continue
-                        if before is not None and (period_start > before or
-                                (period_start == before and not request.period.endswith("m"))):
-                            continue
-                    path = self._safe_path(root, base / name / "part-000.parquet")
-                    if path.is_file():
-                        result.append((period_start, path))
-                    control.check_active()
+                    partition_day = date.fromisoformat(match.group(1))
+                    if partition_day <= through and (start is None or partition_day >= start):
+                        path = Path(str(template).replace("{trade_date}", partition_day.isoformat()))
+                        if path.is_file():
+                            result.append((partition_day, path))
             return tuple(sorted(result))
         except TechnicalIndicatorError:
             raise
         except (OSError, ValueError) as exc:
             raise SourceReadError("The declared source partitions cannot be enumerated") from exc
+
+    def daily_page_dates(self, dataset, ts_code, *, start, end, limit, control, read_context, before=None):
+        root = self._root()
+        target = self._config.resolve_dataset_location(dataset)
+        dates = []
+        for day, _ in reversed(self._dated_partitions(root, target, end, control, start=start)):
+            if before is not None and day >= before:
+                continue
+            rows = self.daily_rows(dataset, ts_code, (day,), ("trade_date",),
+                                   control=control, read_context=read_context)
+            if day in rows:
+                dates.append(day)
+                if len(dates) == limit:
+                    break
+        return tuple(reversed(dates))
+
+    def daily_rows(self, dataset, ts_code, dates, fields, *, control, read_context):
+        root = self._root()
+        target = self._config.resolve_dataset_location(dataset)
+        columns = ("trade_date", *(field for field in fields if field != "trade_date"))
+        result = {}
+        for day in dates:
+            control.check_active()
+            if dataset == "stock_daily_basic":
+                path = Path(target.location["path_template"].replace("{trade_date}", day.isoformat()))
+                try:
+                    self._safe_path(root, path).stat()
+                except FileNotFoundError:
+                    continue
+                except OSError as exc:
+                    raise SourceReadError("Cannot inspect stock daily basic partition") from exc
+                expected = day.strftime("%Y%m%d")
+            else:
+                expected = day
+            rows = self._fact_rows(root, dataset, columns, [("ts_code", "=", ts_code)],
+                                   control, read_context, day=day)
+            if len(rows) > 1 or (rows and rows[0][0] != expected):
+                raise SourceContractError(f"Unexpected daily rows in {dataset} for {ts_code} on {day}")
+            if rows:
+                result[day] = dict(zip(columns, rows[0]))
+        return result
 
     def _inspect(self, path, projection, schema, control, read_context, *, row_groups=None):
         """Footer-only protection; never reads or audits individual values."""
@@ -185,35 +202,76 @@ class LakeTechnicalIndicatorPriceSource:
         return LakePriceLocator(self, executor, requirement, read_context=read_context)
 
     def open(self, executor, description, requirement, *, read_context):
-        label_bounds = None
-        if requirement.request.period in ("week", "month") and description.selection.target_rows:
-            # The same period_end formulas used by source_projection; never
-            # compare a Friday physical label against a Tuesday cutoff.
-            period_end = ("?::DATE + INTERVAL 4 DAY" if requirement.request.period == "week"
-                          else "?::DATE + INTERVAL 1 MONTH - INTERVAL 1 DAY")
-            label_bounds = executor.scalar(
-                "SELECT struct_pack(first_label := strftime(?::DATE, '%Y%m%d'), "
-                "last_label := strftime(" + period_end + ", '%Y%m%d'))",
-                (description.selection.read_start, description.selection.read_end))
-        return _LakePriceStream(description, requirement, executor.control, read_context,
-                                label_bounds=label_bounds)
+        return _LakePriceStream(description, requirement, executor.control, read_context)
+
+    def _fact_rows(self, root, identifier, columns, filters, control, read_context, *, day=None):
+        target = self._config.resolve_dataset_location(identifier)
+        path = target.location["path_template"]
+        if day is not None:
+            path = path.replace("{trade_date}", day.isoformat())
+        path = self._safe_path(root, Path(path))
+        _, _, _, pq = _arrow()
+        try:
+            control.check_active()
+            read_context.record_file(path, path.stat().st_size)
+            with pq.ParquetFile(path) as source:
+                for group in range(source.metadata.num_row_groups):
+                    footer = source.metadata.row_group(group)
+                    projected = sum(footer.column(i).total_uncompressed_size for i in range(footer.num_columns)
+                                    if footer.column(i).path_in_schema in columns)
+                    if projected > self._config.max_projected_row_group_bytes:
+                        raise ResourceLimitError("Projected stock fact row group exceeds its byte limit")
+            table = pq.read_table(path, columns=list(columns), filters=filters, partitioning=None)
+            control.check_active()
+            return [tuple(row[name] for name in columns) for row in table.to_pylist()]
+        except TechnicalIndicatorError:
+            raise
+        except Exception as exc:
+            raise SourceReadError(f"Cannot read daily facts from {identifier}") from exc
+
+    def expected_positions(self, requirement, selection, *, read_context, control):
+        root = self._root()
+        start, end = min(requirement.start, selection.read_start), requirement.end
+        index = requirement.target.dataset_id == "index_daily"
+        if index:
+            start = max(start, INDEX_DAILY_ORIGINS["dg"])
+        calendar = self._fact_rows(root, "trade_calendar", ("trade_date", "is_open"),
+                                   [("exchange", "=", "SSE"), ("trade_date", ">=", start),
+                                    ("trade_date", "<=", end)], control, read_context)
+        if index:
+            yield from scheduled_open_days(sorted(calendar), start, end)
+            return
+        lifecycle = self._fact_rows(root, "stock_lifecycle", ("list_date", "delist_date"),
+                                    [("ts_code", "=", requirement.ts_code)], control, read_context)
+        for day in scheduled_stock_days(sorted(calendar), lifecycle, start, end):
+            records = self._fact_rows(root, "stock_suspend_daily", ("trade_date", "suspend_type", "suspend_timing"),
+                                      [("ts_code", "=", requirement.ts_code)], control, read_context, day=day)
+            if any(stamp != day for stamp, _, _ in records):
+                raise SourceContractError("Stock suspension facts do not match their partition date")
+            if not full_day_suspension((kind, timing) for _, kind, timing in records):
+                yield day
 
     def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
         name = _table_name(table_name)
         if not description.converted:
             return description
-        candidates = description.factor_paths if requirement.request.adjustment == "hfq" else reversed(description.factor_paths)
-        for _, path in candidates:
+        candidates = description.factor_paths if requirement.target_adjustment == "hfq" else reversed(description.factor_paths)
+        for day, path in candidates:
             self._inspect(path, tuple(name for name, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
             stats = executor.execute(SqlStep("prepare_basis", f"""CREATE OR REPLACE TEMP TABLE {name} AS
-                SELECT trade_date AS basis_date, CAST(adj_factor AS DOUBLE) AS basis_value
+                SELECT trade_date AS basis_date, CAST(adj_factor AS DOUBLE) AS basis_value,
+                       count(*) OVER () AS basis_rows
                 FROM read_parquet(?, hive_partitioning=false) WHERE ts_code=?
-                ORDER BY trade_date {'ASC' if requirement.request.adjustment == 'hfq' else 'DESC'} LIMIT 1""",
-                (str(path), requirement.request.ts_code), (), (name,), 0))
+                ORDER BY trade_date {'ASC' if requirement.target_adjustment == 'hfq' else 'DESC'} LIMIT 1""",
+                (str(path), requirement.ts_code), (), (name,), 0))
             if stats.output_rows:
-                basis = executor.scalar(f"SELECT struct_pack(basis_date:=basis_date,basis_value:=basis_value) FROM {name}", ())
+                basis = executor.scalar(
+                    f"SELECT struct_pack(basis_date:=basis_date,basis_value:=basis_value,basis_rows:=basis_rows) FROM {name}"
+                )
+                if basis["basis_rows"] != 1 or basis["basis_date"] != day:
+                    raise SourceContractError(f"Invalid adjustment factor basis partition for {day}")
                 resolved = replace(description, basis_date=basis["basis_date"], basis_value=basis["basis_value"])
-                read_context.remember_basis(resolved, requirement.request, path)
+                read_context.remember_basis(resolved, requirement, path)
                 return resolved
         raise SourceContractError("The declared daily conversion has no available basis row")
 
@@ -227,7 +285,7 @@ class LakeTechnicalIndicatorPriceSource:
             selected = tuple(path for day, path in paths[first:last] if day in selected_dates)
         else:
             selected = ()
-        basis = read_context.reusable_basis(description, requirement.request, selected_dates, selected)
+        basis = read_context.reusable_basis(description, requirement, selected_dates, selected)
         unread = tuple(path for path in selected if basis is None or path != basis[0])
         for path in unread:
             self._inspect(path, tuple(field for field, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
@@ -236,7 +294,7 @@ class LakeTechnicalIndicatorPriceSource:
             dates_sql = ",".join("?" for _ in trade_dates)
             select_sql = f"""SELECT trade_date, CAST(adj_factor AS DOUBLE) AS adj_factor
                 FROM read_parquet({paths_sql}, hive_partitioning=false) WHERE ts_code=? AND trade_date IN ({dates_sql})"""
-            bindings = (*map(str, unread), requirement.request.ts_code, *trade_dates)
+            bindings = (*map(str, unread), requirement.ts_code, *trade_dates)
             if basis is not None:
                 select_sql += " UNION ALL SELECT CAST(? AS DATE), CAST(? AS DOUBLE)"
                 bindings += (basis[1], basis[2])
@@ -253,12 +311,11 @@ class LakeTechnicalIndicatorPriceSource:
 class _LakePriceStream:
     """Fill each delivery across files; retain only one already-read remainder."""
 
-    def __init__(self, description, requirement, control, read_context, *, label_bounds=None):
+    def __init__(self, description, requirement, control, read_context):
         self._description, self._requirement = description, requirement
         self._control, self._context = control, read_context
         self._files = iter(description.price_paths)
         self._row_groups = dict(zip(description.price_paths, description.selection.row_groups))
-        self._label_bounds = label_bounds
         self._fragment = self._scanner = self._reader = self._current_batch = None
         self._pending_batch = self._current_path = None
         self._exhausted = self._closed = self._failed = False
@@ -267,18 +324,14 @@ class _LakePriceStream:
     def _open_file(self, path):
         pa, ds, fs, _ = _arrow()
         self._current_path = path
-        request = self._requirement.request
-        predicate = ds.field("ts_code") == request.ts_code
+        predicate = ds.field("ts_code") == self._requirement.ts_code
         selection = self._description.selection
-        if request.period.endswith("m"):
-            predicate &= ds.field("trade_time") >= pa.scalar(selection.read_start.replace(tzinfo=None), type=pa.timestamp("us"))
-            predicate &= ds.field("trade_time") <= pa.scalar(selection.read_end.replace(tzinfo=None), type=pa.timestamp("us"))
-        elif request.period == "day":
+        if self._requirement.period.endswith("m"):
+            predicate &= ds.field("trade_time") >= selection.read_start.replace(tzinfo=None)
+            predicate &= ds.field("trade_time") <= selection.read_end.replace(tzinfo=None)
+        else:
             predicate &= ds.field("trade_date") >= selection.read_start
             predicate &= ds.field("trade_date") <= selection.read_end
-        else:
-            predicate &= ds.field("trade_date") >= self._label_bounds["first_label"]
-            predicate &= ds.field("trade_date") <= self._label_bounds["last_label"]
         self._fragment = ds.ParquetFileFormat().make_fragment(
             str(path), filesystem=fs.LocalFileSystem(), row_groups=list(self._row_groups[path]))
         self._scanner = ds.Scanner.from_fragment(

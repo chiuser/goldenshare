@@ -7,7 +7,9 @@ FakeControl references without reading or writing acceptance history.
 
 import asyncio
 from contextlib import contextmanager
+from copy import deepcopy
 from dataclasses import replace
+from datetime import datetime, timezone
 from time import monotonic
 
 import anyio
@@ -16,8 +18,9 @@ import pytest
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
-from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators import CalculationRequest
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.configuration.datasets import DATASET_LOCATIONS
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     RequestInvalidError, WaitExpiredError,
@@ -32,7 +35,13 @@ def make_config(**overrides):
         TECHNICAL_INDICATOR_MAX_WAIT_MS=2000,
         TECHNICAL_INDICATOR_TOTAL_TARGET_MS=8000,
         TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS=2000,
-    ))
+    ), data_location="dg", dataset_locations={
+        "stock_daily": {
+            "dg": {"relative_path": "silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet",
+                   "enabled_adjustments": ("none", "qfq")},
+            "prod_pg": {"schema": "core_serving", "relation": "equity_daily_bar"},
+        },
+    }, market_datasets={("stock", "day"): "stock_daily"})
     return replace(base, **overrides)
 
 
@@ -94,20 +103,25 @@ def test_normal_grant_and_prewait_validation(monkeypatch):
         from src.app.runtime.technical_indicators import execution
 
         async def scenario():
-            config = make_config()
+            locations = deepcopy(DATASET_LOCATIONS)
+            locations["stock_daily"]["dg"]["enabled_adjustments"] = ("none",)
+            config = replace(make_config(), dataset_locations=locations)
             admission = AdmissionController(config)
             first = await admission.acquire(FakeControl(config=config))
             second = await admission.acquire(FakeControl(config=config))
             runtime = TechnicalIndicatorRuntime(config, create_builtin_registry(), object(), admission)
             monkeypatch.setattr(execution, "ExecutionControl", FakeControl)
-            bad = CalculationRequest("stock", "600000.SH", "day", (
-                CalculationInstance("ma", "ma", {"period":0}),
-            ))
+            instant = datetime(2026, 10, 23, tzinfo=timezone.utc)
+            bad = CalculationRequest(
+                security_type="stock", ts_code="600000.SH", period="day", adjustment="none",
+                start=instant, end=instant,
+                calculations=({"calculation_id": "ma", "parameters": {"period": 0}},),
+            )
             with pytest.raises(RequestInvalidError):
                 await execution.execute_library(runtime, bad, arrived_at=monotonic())
             assert not admission.waiters and len(admission.active_leases) == 2
-            good = replace(bad, calculations=(CalculationInstance("ma", "ma", {"period":20}),))
-            assert execution._validate_request_before_wait(runtime, good).normalized is good
+            good = replace(bad, calculations=({"calculation_id": "ma", "parameters": {"period": 20}},))
+            assert execution._validate_request_before_wait(runtime, good).request == good
             queued = asyncio.create_task(admission.acquire(FakeControl(config=config)))
             await asyncio.sleep(0)
             assert len(admission.waiters) == 1

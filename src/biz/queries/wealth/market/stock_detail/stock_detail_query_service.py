@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from typing import Any
+from time import monotonic
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +11,7 @@ from src.biz.queries.wealth.market.context.market_page_context_query import (
     MarketPageContextQuery,
 )
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
-    StockDetailQuery,
+    STOCK_DAILY_BASIC_FIELDS, StockDetailQuery,
 )
 from src.biz.schemas.wealth.market.stock_detail import (
     StockChartDefaultsDto,
@@ -39,6 +40,8 @@ from src.foundation.config.stock_daily_trend_channel_capability import (
     resolve_stock_daily_trend_channel_capability,
 )
 from src.foundation.models.core_serving.security_serving import Security
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
 class StockDetailNotFoundError(ValueError):
@@ -59,6 +62,8 @@ class StockDetailQueryService:
         ts_code: str,
         trade_date: date | None,
         debug: bool,
+        daily_lake=None,
+        kernel_config=None,
     ) -> StockDetailPageInitResponseDto:
         context = self._context_query.resolve_context(session, market="CN_A", requested_trade_date=trade_date)
         security = self._load_security_or_raise(session, ts_code=ts_code)
@@ -68,6 +73,19 @@ class StockDetailQueryService:
             expected_trade_date=context.trade_date,
         )
         observed_trade_date = factor_row["trade_date"] if factor_row is not None else None
+        basic_source = "core_serving.equity_daily_basic"
+        if factor_row is not None:
+            if daily_lake is None:
+                basic = self._query.load_daily_basic(session, ts_code=ts_code, trade_date=observed_trade_date)
+            else:
+                basic_source = "raw/tushare/daily_basic"
+                control = ExecutionControl(arrived_at=monotonic(), config=kernel_config)
+                basic = daily_lake.daily_rows(
+                    "stock_daily_basic", ts_code, (observed_trade_date,), STOCK_DAILY_BASIC_FIELDS,
+                    control=control, read_context=SourceReadContext(kernel_config),
+                ).get(observed_trade_date)
+            factor_row.update({field: basic[field] if basic is not None else None
+                               for field in STOCK_DAILY_BASIC_FIELDS})
         minute_capability = resolve_local_minute_capability(get_settings())
         nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
             get_settings()
@@ -109,6 +127,7 @@ class StockDetailQueryService:
                     expected_trade_date=context.trade_date,
                     observed_trade_date=observed_trade_date,
                     limit=None,
+                    basic_source=basic_source if factor_row is not None else None,
                 )
                 if debug
                 else None
@@ -128,9 +147,9 @@ class StockDetailQueryService:
         # Strict indexing distinguishes a missing column from a legitimate SQL NULL.
         bars = tuple(StockDailyKlineRow(
             trade_date=row["trade_date"],
+            open_qfq=None, high_qfq=None, low_qfq=None, close_qfq=None, vol=None, amount=None,
             **{name: None if row[name] is None else float(row[name]) for name in (
-                "open_qfq", "high_qfq", "low_qfq", "close_qfq", "pre_close", "change",
-                "pct_chg", "vol", "amount", "turnover_rate", "volume_ratio",
+                "pre_close", "change", "pct_chg", "turnover_rate", "volume_ratio",
             )},
         ) for row in rows)
         return StockDailyKlineInput(
@@ -165,9 +184,11 @@ class StockDetailQueryService:
         expected_trade_date: date,
         observed_trade_date: date | None,
         limit: int | None,
+        basic_source: str | None,
     ) -> StockDetailDebugInfoDto:
         return StockDetailDebugInfoDto(
-            sourceTables=["core_serving.security_serving", "core_serving.equity_factor_pro"],
+            sourceTables=["core_serving.security_serving", "core_serving.equity_factor_pro",
+                          *([basic_source] if basic_source else [])],
             query={
                 "tsCode": ts_code,
                 "expectedTradeDate": expected_trade_date.isoformat(),

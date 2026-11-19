@@ -29,6 +29,7 @@ router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
 
 @router.get("/page-init", response_model=StockDetailPageInitResponseDto)
 def get_stock_detail_page_init(
+    request: Request,
     ts_code: str = Query(alias="tsCode"),
     trade_date: date | None = Query(default=None, alias="tradeDate"),
     debug: int = Query(default=0, ge=0, le=1),
@@ -36,11 +37,15 @@ def get_stock_detail_page_init(
     session: Session = Depends(get_db_session),
 ) -> StockDetailPageInitResponseDto:
     try:
+        runtime = getattr(request.app.state, "technical_indicator_runtime", None)
+        lake = runtime.source if runtime is not None and runtime.config.data_location == "dg" else None
         return StockDetailQueryService().build_page_init(
             session,
             ts_code=ts_code.strip().upper(),
             trade_date=trade_date,
             debug=bool(debug),
+            daily_lake=lake,
+            kernel_config=runtime.config if lake is not None else None,
         )
     except StockDetailNotFoundError as exc:
         raise WebAppError(status_code=404, code="404001", message=str(exc)) from exc

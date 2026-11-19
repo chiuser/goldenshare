@@ -904,6 +904,11 @@ def main():
     parser.add_argument("--owned-root", type=Path)
     parser.add_argument("--repair-dual", action="store_true")
     arguments = parser.parse_args()
+    from goldenshare_technical_indicators import contracts
+
+    if not hasattr(contracts, "CalculationInstance"):
+        parser.error("Historical D4 resource plan requires its original 1,000-row request contract. "
+                     "Use the current admission, cancellation and response lifecycle tests.")
     if arguments.repair_dual:
         if arguments.node is not None:
             assert arguments.node == "dual_http" and arguments.owned_root is not None

@@ -252,11 +252,12 @@ verify_technical_indicator_installation() {
 from importlib.metadata import version
 
 import goldenshare_technical_indicators
-from src.foundation.config.settings import get_settings, technical_indicator_config_from_settings
+from src.app.runtime.technical_indicators.composition import build_runtime_config
+from src.foundation.config.settings import get_settings
 
 print(f"技术指标包版本={version('goldenshare-technical-indicators')}，路径={goldenshare_technical_indicators.__file__}", flush=True)
-technical_indicator_config_from_settings(get_settings())
-print("技术指标包与主工程配置校验通过")
+config = build_runtime_config(get_settings())
+print(f"技术指标包与主工程配置校验通过，数据源={config.data_location}")
 PY
 }
 

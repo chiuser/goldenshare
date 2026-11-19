@@ -12,8 +12,7 @@ from ..calculation.sql_templates import load_sql_templates, render_sql
 from ..contracts import CalculationRequest, CalculationResult, CalculationStatistics, TimePosition
 from ..errors import CalculationExecutionError, OutputContractError, ResourceCleanupError
 from ..executor import DuckDBExecutor
-from ..sources.contracts import PriceBatch, SourceDescription
-from ..time_range import range_filter
+from ..sources.contracts import PriceBatch, PriceReadSelection, SourceDescription
 from .contracts import OutputInstanceDescription
 from .result import build_calculation_result
 
@@ -56,21 +55,21 @@ class OutputCollector:
     def __init__(
         self, *, executor: DuckDBExecutor, request: CalculationRequest,
         instances: tuple[OutputInstanceDescription, ...],
-        target_first_seq: int, target_rows: int,
+        selection: PriceReadSelection,
     ):
         self.executor = executor
         self.request = request
         self.instances = tuple(instances)
-        if (type(target_first_seq) is not int or target_first_seq <= 0
-                or type(target_rows) is not int or not 0 <= target_rows <= request.limit):
+        if not selection.target_rows:
             self._contract("fetch_count_mismatch", "final_query", "Invalid selected output range")
-        self.target_first_seq, self.target_rows = target_first_seq, target_rows
-        self._range_condition, self._range_bindings = range_filter(request)
+        self.selection = selection
+        self.target_first_seq = selection.preceding_rows + 1
+        self.target_rows = selection.target_rows
         self._tables: list[str] = []
         self._template_texts: dict[tuple[str, str], str] = {}
         self._templates = MappingProxyType({})
         self._tail_rows = 0
-        self._last_seq: int | None = None
+        self._last_seq = 0
         self._failed = self._discarded = self._built = False
         self._time_fields = (("trade_date", "trade_time") if request.period.endswith("m")
                              else ("trade_date", "period_start", "period_end", "source_as_of"))
@@ -88,7 +87,7 @@ class OutputCollector:
         final_time_fields = (("trade_time",) if request.period.endswith("m") else
                              ("period_start", "source_as_of") if request.period in ("week", "month") else
                              ("period_start",))
-        self._result_columns = (*final_time_fields,
+        self._result_columns = ("seq", *final_time_fields,
                                 *(name for aliases in self._value_columns for name in aliases))
         types = dict(self._expected_columns)
         self._result_expected_columns = tuple((name, types[name]) for name in self._result_columns)
@@ -106,25 +105,25 @@ class OutputCollector:
             raise
 
     def _check_descriptions(self) -> None:
-        expected = tuple((item.instance_id, item.calculation_id) for item in self.request.calculations)
-        actual = tuple((item.instance_id, item.calculation_id) for item in self.instances)
+        expected = tuple((index, item["calculation_id"]) for index, item in enumerate(self.request.calculations))
+        actual = tuple((item.calculation_index, item.calculation_id) for item in self.instances)
         identities = tuple(identity for identity, _ in actual)
         if len(set(identities)) != len(identities):
             self._contract("duplicate_instance", "append", "Output descriptions repeat a requested item")
         if expected != actual:
             reason = "missing_instance" if set(expected) - set(actual) else "unexpected_instance"
             self._contract(reason, "append", "Output descriptions do not match this request",
-                           expected_ids=tuple(item[0] for item in expected), actual_ids=identities)
+                           expected_indices=tuple(item[0] for item in expected), actual_indices=identities)
         for item in self.instances:
             names = tuple(field.name for field in item.fields)
             if not names or len(names) != len(set(names)):
                 self._contract("missing_fields", "append", "Output fields must be declared exactly once",
-                               instance_id=item.instance_id, actual_fields=names)
+                               calculation_index=item.calculation_index, actual_fields=names)
             for field in item.fields:
                 _column(field.name)
                 if field.sql_type != "DOUBLE":
                     self._contract("type_mismatch", "append", "Numerical output fields require DOUBLE",
-                                   instance_id=item.instance_id, actual_fields=(field.sql_type,))
+                                   calculation_index=item.calculation_index, actual_fields=(field.sql_type,))
 
     @staticmethod
     def _contract(reason: str, stage: str, message: str, **diagnostics):
@@ -152,10 +151,10 @@ class OutputCollector:
         if name not in self.SQL_FILES:
             raise CalculationExecutionError("Output attempted an undeclared SQL file")
         text = self._templates[name]
-        # Fragments are generated solely by the fixed projection/join/range
+        # Fragments are generated solely by the fixed projection/join
         # methods below. Business strings, IDs and expressions never enter them.
         allowed = {
-            "merge_batch.sql": frozenset({"projection", "joins", "columns", "range"}),
+            "merge_batch.sql": frozenset({"projection", "joins"}),
             "select_result.sql": frozenset({"columns"}),
         }[name]
         supplied = fragments or {}
@@ -185,26 +184,27 @@ class OutputCollector:
             batch.new_first_seq, batch.new_last_seq, batch.new_row_count, batch.history_rows,
         )) or batch.new_row_count <= 0 or batch.history_rows < 0
                 or batch.new_last_seq - batch.new_first_seq + 1 != batch.new_row_count
-                or (self._last_seq is not None and batch.new_first_seq != self._last_seq + 1)):
+                or batch.new_first_seq != self._last_seq + 1
+                or batch.new_last_seq > self.selection.preceding_rows + self.target_rows):
             self._contract("wrong_batch", "append", "The new price range does not match this output batch")
         received = {}
         for identity, output in outputs.instances:
             if identity in received:
                 self._contract("duplicate_instance", "append", "This batch repeats a requested item",
-                               instance_id=identity)
+                               calculation_index=identity)
             received[identity] = output
-        expected = tuple(item.instance_id for item in self.instances)
+        expected = tuple(item.calculation_index for item in self.instances)
         missing = tuple(identity for identity in expected if identity not in received)
         if missing:
             self._contract("missing_instance", "append", "This batch omits a requested item",
-                           instance_id=missing[0], expected_ids=expected, actual_ids=tuple(received))
+                           calculation_index=missing[0], expected_indices=expected, actual_indices=tuple(received))
         unexpected = tuple(identity for identity in received if identity not in expected)
         if unexpected:
             self._contract("unexpected_instance", "append", "This batch contains an unrequested item",
-                           instance_id=unexpected[0], expected_ids=expected, actual_ids=tuple(received))
+                           calculation_index=unexpected[0], expected_indices=expected, actual_indices=tuple(received))
         checked = set()
         for item in self.instances:
-            output = received[item.instance_id]
+            output = received[item.calculation_index]
             fields = tuple((field.name, field.sql_type, field.nullable, field.initialization_rule)
                            for field in output.fields)
             wanted = tuple((field.name, field.sql_type, field.nullable, field.initialization_rule)
@@ -214,24 +214,24 @@ class OutputCollector:
                           else "type_mismatch" if tuple(field[0] for field in fields) == tuple(field[0] for field in wanted)
                           else "unexpected_fields")
                 self._contract(reason, "append", "This item's fields differ from its output description",
-                               instance_id=item.instance_id, expected_fields=wanted, actual_fields=fields)
+                               calculation_index=item.calculation_index, expected_fields=wanted, actual_fields=fields)
             if (output.sequence_field != "seq" or output.new_first_seq != batch.new_first_seq
                     or output.new_last_seq != batch.new_last_seq):
                 self._contract("wrong_batch", "append", "An indicator returned a different price range",
-                               instance_id=item.instance_id)
+                               calculation_index=item.calculation_index)
             key = (output.table_name, output.fields)
             if key not in checked:
-                self._inspect_output(output, batch, item.instance_id)
+                self._inspect_output(output, batch, item.calculation_index)
                 checked.add(key)
         return batch, received
 
-    def _inspect_output(self, output: CalculationOutput, batch: PriceBatch, identity: str) -> None:
+    def _inspect_output(self, output: CalculationOutput, batch: PriceBatch, identity: int) -> None:
         columns = tuple(field.column_name for field in output.fields)
         for name in columns:
             _column(name)
         if len(columns) != len(set(columns)):
             self._contract("unexpected_fields", "inspect", "Two output fields use the same internal column",
-                           instance_id=identity, actual_fields=columns)
+                           calculation_index=identity, actual_fields=columns)
         borrowed_price = output.table_name == batch.table_name
         expected = (("seq", "BIGINT"),
                     *((name, "TIMESTAMP" if name == "trade_time" else "DATE") for name in batch.time_fields),
@@ -249,10 +249,10 @@ class OutputCollector:
             reason = ("missing_fields" if set(wanted_names) - set(actual_names)
                       else "unexpected_fields" if actual_names != wanted_names else "type_mismatch")
             self._contract(reason, "inspect", "The indicator table does not match its declared columns",
-                           instance_id=identity, expected_fields=expected, actual_fields=actual)
+                           calculation_index=identity, expected_fields=expected, actual_fields=actual)
         if borrowed_price and not set(columns) <= set(batch.fields):
             self._contract("missing_fields", "inspect", "The borrowed price table lacks a requested value",
-                           instance_id=identity, expected_fields=columns, actual_fields=batch.fields)
+                           calculation_index=identity, expected_fields=columns, actual_fields=batch.fields)
         first, last = batch.new_first_seq, batch.new_last_seq
         summary = self._read(
             "check_batch_rows", render_sql(_CHECK_ROWS_SQL, tables={"result_table": output.table_name}),
@@ -262,17 +262,17 @@ class OutputCollector:
         )
         if len(summary) != 1:
             self._contract("missing_rows", "append", "The indicator row check did not return its summary",
-                           instance_id=identity)
+                           calculation_index=identity)
         count, distinct, actual_first, actual_last, outside = summary[0]
         if any(type(value) is not int for value in (count, distinct, outside)):
             self._contract("type_mismatch", "append", "The indicator row summary has invalid counts",
-                           instance_id=identity)
+                           calculation_index=identity)
         reason = ("duplicate_rows" if distinct != count else "missing_rows" if count < batch.new_row_count
                   else "unexpected_rows" if count > batch.new_row_count or outside != 0
                   else "wrong_batch" if (actual_first, actual_last) != (first, last) else None)
         if reason:
             self._contract(reason, "append", "The indicator did not return exactly the new price rows",
-                           instance_id=identity, expected_count=batch.new_row_count, actual_count=count,
+                           calculation_index=identity, expected_count=batch.new_row_count, actual_count=count,
                            distinct_count=distinct, unexpected_count=outside,
                            expected_range=(first, last), actual_range=(actual_first, actual_last))
 
@@ -281,7 +281,7 @@ class OutputCollector:
         projection = [f"p.{_column(name)}" for name in ("seq", *self._time_fields)]
         joins, joined = [], {}
         for item, aliases in zip(self.instances, self._value_columns):
-            output = received[item.instance_id]
+            output = received[item.calculation_index]
             if output.table_name == batch.table_name:
                 alias = "p"
             else:
@@ -298,7 +298,6 @@ class OutputCollector:
         columns = ", ".join(_column(name) for name in self._columns)
         selection = self._template("merge_batch.sql", tables=tables, fragments={
             "projection": ", ".join(projection), "joins": "\n".join(joins),
-            "columns": columns, "range": self._range_condition,
         })
         if "ti_output_tail" in self._tables:
             prefix = f'INSERT INTO "ti_output_tail" ({columns}) '
@@ -306,7 +305,7 @@ class OutputCollector:
             self._own_table("ti_output_tail")
             prefix = 'CREATE TEMP TABLE "ti_output_tail" AS '
         stats = self.executor.execute(SqlStep(
-            "merge_batch", prefix + selection, (first, last) + self._range_bindings,
+            "merge_batch", prefix + selection, (first, last),
             (batch.table_name, *joined), ("ti_output_tail",),
             batch.new_row_count + batch.history_rows + len(joined) * batch.new_row_count,
         ))
@@ -342,20 +341,12 @@ class OutputCollector:
             if self._tail_rows != self.target_rows:
                 self._contract("fetch_count_mismatch", "final_query", "Collected output differs from the selected target count",
                                expected_count=self.target_rows, actual_count=self._tail_rows)
-            rows = ()
-            if self.target_rows:
-                if "ti_output_tail" not in self._tables:
-                    self._contract("fetch_count_mismatch", "final_query", "Selected output has no result table",
-                                   expected_count=self.target_rows, actual_count=0)
-                rows = self._read(
-                    "select_result", self._template("select_result.sql", tables={"tail": "ti_output_tail"},
-                        fragments={"columns": ", ".join(_column(name) for name in self._result_columns)}),
-                    (), ("ti_output_tail",), self.target_rows,
-                    expected=self._result_expected_columns, maximum=self.target_rows,
-                )
-                if len(rows) != self.target_rows:
-                    self._contract("fetch_count_mismatch", "final_fetch", "The final fetch omitted output rows",
-                                   expected_count=self.target_rows, actual_count=len(rows))
+            rows = self._read(
+                "select_result", self._template("select_result.sql", tables={"tail": "ti_output_tail"},
+                    fragments={"columns": ", ".join(_column(name) for name in self._result_columns)}),
+                (), ("ti_output_tail",), self.target_rows,
+                expected=self._result_expected_columns, maximum=self.target_rows,
+            )
             final_statistics = replace(
                 statistics, sql_processed_rows=self.executor.sql_processed_rows,
                 elapsed_ms=(self.executor.control.clock() - self.executor.control.arrived_at) * 1000,

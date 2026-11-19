@@ -28,10 +28,10 @@ ORIGIN, THU, FRI, SUN, MON = (date(2000, 1, day) for day in (4, 6, 7, 9, 10))
 
 def write_partition(root, day, *, close):
     # Same DATE / VARCHAR / DOUBLE types and layout as the DG Silver producer.
-    target = root / f"silver/index/index_factor_pro/trade_date={day}/part-000.parquet"
+    target = root / f"silver/index_daily/trade_date={day}/part-000.parquet"
     target.parent.mkdir(parents=True, exist_ok=True)
     prices = {"open": 10.0, "high": 13.0, "low": 9.0, "close": close,
-              "pre_close": 10.0, "change": 1.0, "pct_change": 10.0, "vol": 123456.0, "amount": 1000.0}
+              "pre_close": 10.0, "change_amount": 1.0, "pct_chg": 10.0, "vol": 123456.0, "amount": 1000.0}
     columns = {"ts_code": [CODE], "trade_date": [day]}
     columns.update({name: pa.array([value], type=pa.float64()) for name, value in prices.items()})
     pq.write_table(pa.table(columns), target)
@@ -47,10 +47,10 @@ def dg_client(tmp_path, monkeypatch):
     calendar = tmp_path / "silver/calendar/trade_calendar/full/part-000.parquet"
     calendar.parent.mkdir(parents=True)
     pq.write_table(pa.table({
-        "exchange": ["SSE"] * 6,
-        "trade_date": [BEFORE_ORIGIN, ORIGIN, THU, FRI, SUN, MON],
-        "is_open": [True, True, True, True, False, True],
-        "pretrade_date": [None, BEFORE_ORIGIN, ORIGIN, THU, FRI, FRI],
+        "exchange": ["SSE"] * 8,
+        "trade_date": [BEFORE_ORIGIN, ORIGIN, date(2000, 1, 5), THU, FRI, date(2000, 1, 8), SUN, MON],
+        "is_open": [True, True, False, True, True, False, False, True],
+        "pretrade_date": [None, BEFORE_ORIGIN, ORIGIN, ORIGIN, THU, FRI, FRI, FRI],
     }), calendar)
     partitions = {day: write_partition(tmp_path, day, close=float(10 + index))
                   for index, day in enumerate((ORIGIN, THU, FRI, MON))}
@@ -58,8 +58,7 @@ def dg_client(tmp_path, monkeypatch):
 
     class ObservedReader(IndexDailyLakeReader):
         def factor_rows(self, **kwargs):
-            reads.append((tuple(kwargs["dates"]), tuple(kwargs["columns"])))
-            return super().factor_rows(**kwargs)
+            raise AssertionError("the migrated route must not access technical-factor data")
 
     encode = integration.encode_response_utf8
     calculate = integration.TechnicalIndicatorService._calculate_result
@@ -78,7 +77,14 @@ def dg_client(tmp_path, monkeypatch):
 
     @asynccontextmanager
     async def lifespan(app):
-        runtime = create_runtime(Settings(_env_file=None))
+        runtime = create_runtime(Settings(_env_file=None, APP_ENV="local", GOLDENSHARE_LAKE_ROOT=str(tmp_path)))
+        read = runtime.source.daily_rows
+
+        def observe_read(dataset, code, dates, fields, **kwargs):
+            reads.append((tuple(dates), tuple(fields)))
+            return read(dataset, code, dates, fields, **kwargs)
+
+        monkeypatch.setattr(runtime.source, "daily_rows", observe_read)
         app.state.technical_indicator_runtime = runtime
         try:
             yield
@@ -110,8 +116,8 @@ def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
     assert body["bars"][0]["amount"] == 1000.0
     assert body["bars"][0]["factors"]["macd"]["dif"] > 0
     assert body["debugInfo"]["modules"][0]["rowCount"] == 1
-    assert [days for days, _ in reads] == [(MON,), (ORIGIN, THU, FRI)]
-    assert reads[1][1] == ("trade_date", "high", "low", "close")
+    assert [days for days, _ in reads] == [(MON,)]
+    assert reads[0][1] == ("vol", "amount", "pre_close", "change_amount", "pct_chg")
     assert len(encoded) == len(calculated) == 1
 
     response = client.get(PATH.replace("/kline", "/debug/kline"), params={**params, "endDate": body["meta"]["nextEndDate"]})
@@ -158,15 +164,13 @@ def test_sse_kline_rejects_missing_bar_or_close(dg_client, tmp_path, missing_fil
     client, partitions, reads, encoded, calculated = dg_client
     if missing_file:
         partitions[FRI].unlink()
-        reason = "日线行情文件读取失败"
     else:
         write_partition(tmp_path, FRI, close=None)
-        reason = "收盘价缺失"
     response = client.get(PATH, params={"tsCode": CODE, "endDate": str(MON)})
     assert response.status_code == 500, response.text
     body = response.json()
     assert body["code"] == "ID_QUERY_FAILED"
-    assert f"{CODE} {FRI} {reason}" in body["message"]
+    assert CODE in body["message"]
     assert "request_id" in body
-    assert len(reads) == 1
-    assert not calculated and not encoded
+    assert not reads and not encoded
+    assert len(calculated) == 1

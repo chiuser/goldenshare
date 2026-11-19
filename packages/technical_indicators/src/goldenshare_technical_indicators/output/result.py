@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
+from math import isfinite
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -75,40 +76,73 @@ def build_calculation_result(
         request=request, statistics=statistics, read_start=read_start, read_end=read_end,
     )
     positions = {name: index for index, name in enumerate(columns)}
+    selection = description.selection
+    if len(rows) != selection.target_rows or not rows:
+        raise OutputContractError(
+            "The final fetch differs from the selected target count",
+            reason="fetch_count_mismatch", stage="final_fetch",
+            expected_count=selection.target_rows, actual_count=len(rows),
+        )
+    for seq, row in enumerate(rows, selection.preceding_rows + 1):
+        if row[positions["seq"]] != seq:
+            raise OutputContractError(
+                "Output rows do not match the selected target sequence",
+                reason="wrong_batch", stage="final_fetch",
+                expected_seq=seq, actual_seq=row[positions["seq"]],
+            )
+
     minute = request.period.endswith("m")
     time_name = "trade_time" if minute else "period_start"
     times = tuple(normalize_time(row[positions[time_name]], minute=minute,
                                  stage="final_fetch", field_name=time_name) for row in rows)
+    if ((times[0], times[-1]) != (selection.target_start, selection.target_end)
+            or (first_read, last_read) != (selection.read_start, selection.read_end)
+            or any(a >= b for a, b in zip(times, times[1:]))):
+        raise OutputContractError(
+            "Output positions differ from the selected target or read range",
+            reason="wrong_batch", stage="final_fetch",
+        )
+
     source_as_of = None
     if request.period in ("week", "month"):
         source_as_of = tuple(normalize_time(row[positions["source_as_of"]], minute=False,
                                            stage="final_fetch", field_name="source_as_of") for row in rows)
-    calculations = tuple(
-        CalculationValues(
-            item.instance_id, item.calculation_id, item.algorithm_version, item.parameters,
-            tuple((field.name, tuple(row[positions[column]] for row in rows))
-                  for field, column in zip(item.fields, aliases)),
-        )
-        for item, aliases in zip(instances, value_columns)
-    )
-    # Each alias was verified against the SQL contract before reading. Do not
-    # scan numerical values or replace legitimate formula/source NULLs.
-    if len(calculations) != len(instances) or any(
-        len(values.fields) != len(item.fields)
-        or any(len(column) != len(times) for _, column in values.fields)
-        for item, values in zip(instances, calculations)
+    if len(instances) != len(value_columns) or any(
+        len(item.fields) != len(aliases) for item, aliases in zip(instances, value_columns)
     ):
         raise OutputContractError(
             "The detached output does not contain every requested field",
             reason="missing_fields", stage="final_fetch",
         )
+    calculations = []
+    for item, aliases in zip(instances, value_columns):
+        values_by_field = []
+        for field, alias in zip(item.fields, aliases):
+            values = tuple(row[positions[alias]] for row in rows)
+            for time, value in zip(times, values):
+                if value is None and not field.nullable:
+                    raise OutputContractError(
+                        "A required output field is empty",
+                        reason="unexpected_null", stage="final_fetch",
+                        calculation_index=item.calculation_index, field_name=field.name, time=time,
+                    )
+                if value is not None and not isfinite(value):
+                    raise OutputContractError(
+                        "An output field is not finite",
+                        reason="nonfinite_value", stage="final_fetch",
+                        calculation_index=item.calculation_index, field_name=field.name, time=time,
+                    )
+            values_by_field.append((field.name, values))
+        calculations.append(CalculationValues(
+            item.calculation_id, item.algorithm_version, item.parameters, tuple(values_by_field),
+        ))
     return CalculationResult(
         kernel_version=KERNEL_VERSION,
         series=SeriesDescription(
             request.security_type, request.ts_code, request.period, request.adjustment,
             description.timezone, description.price_unit, description.volume_unit, description.amount_unit,
         ),
-        requested=RequestedRange(request.start, request.end, request.before, request.limit),
+        requested=RequestedRange(request.start, request.end),
         source=SourceResult(
             description.source_id, description.contract_version, description.input_adjustment,
             None, first_read, last_read, description.available_through,
@@ -118,8 +152,8 @@ def build_calculation_result(
             {"none": None, "qfq": "latest_factor", "hfq": "earliest_factor"}[request.adjustment],
             description.basis_date, description.basis_value, description.converted, "1.0.0",
         ),
-        times=times, source_as_of=source_as_of, calculations=calculations,
-        range=OutputRange(times[0] if times else None, times[-1] if times else None, len(times)),
+        times=times, source_as_of=source_as_of, calculations=tuple(calculations),
+        range=OutputRange(times[0], times[-1], len(times)),
         statistics=statistics,
         msg="",
     )

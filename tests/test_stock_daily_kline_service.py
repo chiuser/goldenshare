@@ -52,23 +52,25 @@ def test_request_and_fixed_calculations():
         ("boll", "boll", {"period": 20, "multiplier": 2}),
         ("macd", "macd", {"fast": 12, "slow": 26, "signal": 9}),
         ("kdj", "kdj", {"window": 9, "k_period": 3, "d_period": 3}),
+        ("price", "price", {}),
     )
-    assert tuple((item.instance_id, item.calculation_id, dict(item.parameters))
-                 for item in STOCK_DAILY_CALCULATIONS) == expected
+    assert tuple((item["calculation_id"], dict(item["parameters"])) for item in STOCK_DAILY_CALCULATIONS
+                 ) == tuple((kind, params) for _, kind, params in expected)
     assert dict(STOCK_DAILY_ALGORITHM_VERSIONS) == {
-        "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0",
+        "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
     }
     assert dict(STOCK_DAILY_OUTPUT_FIELDS) == {
         "ma": ("value",), "boll": ("middle", "upper", "lower"),
         "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
+        "price": ("open", "high", "low", "close", "volume", "amount"),
     }
     registry = create_builtin_registry()
     for item in STOCK_DAILY_CALCULATIONS:
-        definition = registry.resolve(item.calculation_id)
-        definition.validate_parameters(item.parameters)
+        definition = registry.resolve(item["calculation_id"])
+        definition.validate_parameters(item["parameters"])
         assert "day" in definition.supported_periods
-        assert definition.algorithm_version == STOCK_DAILY_ALGORITHM_VERSIONS[item.calculation_id]
-        assert tuple(field.name for field in definition.output_fields) == STOCK_DAILY_OUTPUT_FIELDS[item.calculation_id]
+        assert definition.algorithm_version == STOCK_DAILY_ALGORITHM_VERSIONS[item["calculation_id"]]
+        assert tuple(field.name for field in definition.output_fields) == STOCK_DAILY_OUTPUT_FIELDS[item["calculation_id"]]
     for changed, message in (
         ({"period": "week", "adjustment": "qfq", "limit": 0}, "股票详情首期只支持 period=day"),
         ({"adjustment": "qfq", "limit": 0}, "股票详情首期只支持 adjustment=forward"),
@@ -86,9 +88,10 @@ def test_request_and_fixed_calculations():
     source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))))
     calculation = build_calculation_request(source)
     assert (calculation.security_type, calculation.ts_code, calculation.period,
-            calculation.adjustment, calculation.start, calculation.end,
-            calculation.limit, calculation.before) == (
-        "stock", "600000.SH", "day", "qfq", date(2026, 1, 5), date(2026, 1, 6), 2, None,
+            calculation.adjustment, calculation.start, calculation.end) == (
+        "stock", "600000.SH", "day", "qfq",
+        datetime(2026, 1, 5, tzinfo=ZoneInfo("Asia/Shanghai")),
+        datetime(2026, 1, 6, tzinfo=ZoneInfo("Asia/Shanghai")),
     )
     assert calculation.calculations == STOCK_DAILY_CALCULATIONS
     assert source.request.limit == 300 and source.query_end_date == date(2026, 1, 9)
@@ -109,7 +112,7 @@ def test_input_is_detached_and_immutable():
         with pytest.raises(FrozenInstanceError):
             setattr(target, attribute, replacement)
     with pytest.raises(TypeError):
-        STOCK_DAILY_CALCULATIONS[0].parameters["period"] = 30
+        STOCK_DAILY_CALCULATIONS[0]["parameters"]["period"] = 30
     with pytest.raises(TypeError):
         STOCK_DAILY_ALGORITHM_VERSIONS["ma"] = "other"
     with pytest.raises(TypeError):
@@ -143,7 +146,7 @@ def test_mapping_and_legal_nulls(monkeypatch):
     monkeypatch.setattr(query._query, "load_security", lambda session, **kw: (
         order.append(("security", kw)) or SimpleNamespace(ts_code="600000.SH", name="浦发银行")))
     rows = [asdict(row) | {"ts_code": "600000.SH"} for row in source.bars]
-    rows[0]["close_qfq"] = Decimal("10.00000000001")
+    rows[0]["pre_close"] = Decimal("10.00000000001")
     monkeypatch.setattr(query._query, "load_kline_rows", lambda session, **kw: (
         order.append(("bars", kw)) or rows))
     load_rows = lambda code, end, start, count: query._query.load_kline_rows(
@@ -153,12 +156,12 @@ def test_mapping_and_legal_nulls(monkeypatch):
     assert [name for name, _ in order] == ["context", "security", "bars"]
     assert order[-1][1] == {"ts_code": "600000.SH", "end_date": date(2026, 1, 9),
                             "start_date": None, "limit": 300}
-    assert type(prepared.bars[0].close_qfq) is float
-    assert prepared.bars[0].close_qfq == 10.00000000001  # no early rounding
-    rows[0]["close_qfq"] = 999
-    assert prepared.bars[0].close_qfq == 10.00000000001
-    del rows[0]["amount"]
-    with pytest.raises(KeyError, match="amount"):
+    assert type(prepared.bars[0].pre_close) is float
+    assert prepared.bars[0].pre_close == 10.00000000001  # no early rounding
+    rows[0]["pre_close"] = 999
+    assert prepared.bars[0].pre_close == 10.00000000001
+    del rows[0]["change"]
+    with pytest.raises(KeyError, match="change"):
         service.prepare(object(), source.request, load_rows=load_rows)
 
     result = result_for(source.ts_code, (date(2026, 1, 5), date(2026, 1, 6)), {
@@ -195,7 +198,7 @@ def test_result_contract_errors():
     calculations = result.calculations
     missing_field = replace(calculations[-1], fields=calculations[-1].fields[:-1])
     wrong_version = replace(calculations[-1], algorithm_version="other")
-    missing_value = replace(calculations[-1], fields=(("k", (None, 10.0)),) + calculations[-1].fields[1:])
+    missing_value = replace(calculations[-1], fields=(("open", (None, 10.0)),) + calculations[-1].fields[1:])
     for broken, reason in (
         (replace(result, times=result.times[:-1]), "time_mismatch"),
         (replace(result, calculations=calculations[:-1] + (missing_field,)), "fields_mismatch"),

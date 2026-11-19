@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Protocol, TYPE_CHECKING
+from typing import Literal, Protocol, TYPE_CHECKING
 
-from ..contracts import Adjustment, CalculationRequest, TimePosition
+from ..contracts import Adjustment, Period, TimePosition
 from ..calculation.history import HistoryRequirement
 
 if TYPE_CHECKING:
@@ -81,12 +82,22 @@ class SourceDescription:
 
 
 @dataclass(frozen=True, slots=True)
+class DatasetReadTarget:
+    dataset_id: str
+    backend: Literal["dg", "prod_pg"]
+    location: Mapping[str, object]
+
+
+@dataclass(frozen=True, slots=True)
 class ReadRequirement:
-    request: CalculationRequest
+    target: DatasetReadTarget
+    ts_code: str
+    period: Period
+    start: TimePosition
+    end: TimePosition
     history: HistoryRequirement
     batch_rows: int
-    history_start: TimePosition | None
-    processing_end: TimePosition | None
+    target_adjustment: Adjustment
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,6 +156,11 @@ class PriceSource(Protocol):
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,
         *, read_context: SourceReadContext,
     ) -> SourceStream: ...
+
+    def expected_positions(
+        self, requirement: ReadRequirement, selection: PriceReadSelection, *,
+        read_context: SourceReadContext, control: ExecutionControl,
+    ) -> Iterator[TimePosition]: ...
 
     def prepare_basis(
         self, executor: DuckDBExecutor, description: SourceDescription, requirement: ReadRequirement,

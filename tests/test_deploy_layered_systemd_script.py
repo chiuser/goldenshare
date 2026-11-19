@@ -363,7 +363,7 @@ exit "${DEPLOY_TEST_INSTALL_STATUS:-0}"
 ''')
     executable(binaries / "goldenshare", 'echo "cli $*" >> "$DEPLOY_TEST_LOG"\n')
     # The shim runs the script's actual stdin, never substitutes a success result.
-    # The negative contract reproduces the real pre-a74374cc3 package field.
+    # The old package contract lacks the deployment data location.
     executable(binaries / "python", f'''echo "python config-check" >> "$DEPLOY_TEST_LOG"
 exec "{sys.executable}" -c '
 import os, sys
@@ -377,13 +377,13 @@ exec(compile(sys.stdin.read(), "<deploy-config-check>", "exec"))
 ' "$@"
 ''')
     env_file = tmp_path / "runtime.env"
-    env_file.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=5\n", encoding="utf-8")
+    env_file.write_text("APP_ENV=prod\nTECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=5\n", encoding="utf-8")
     inherited_env = tmp_path / "inherited.env"
-    inherited_env.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
+    inherited_env.write_text("APP_ENV=dev\nTECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
     env = {
         **os.environ,
         "PATH": f"{fake_bin}:{os.environ['PATH']}",
-        "PYTHONPATH": str(ROOT),
+        "PYTHONPATH": os.pathsep.join((str(ROOT / "packages" / "technical_indicators" / "src"), str(ROOT))),
         "PYTHONDONTWRITEBYTECODE": "1",
         "REPO_DIR": str(repo), "ENV_FILE": str(env_file),
         "GOLDENSHARE_ENV_FILE": str(inherited_env),
@@ -396,6 +396,7 @@ exec(compile(sys.stdin.read(), "<deploy-config-check>", "exec"))
         "RUN_DEFAULT_SINGLE_SOURCE_SEED": "0", "RUN_MONEYFLOW_MULTI_SOURCE_SEED": "0",
         "PIP_INSTALL_TARGET": ".",
     }
+    env.pop("APP_ENV", None)
 
     def run(*options, extra_env=None):
         result = subprocess.run(
@@ -429,12 +430,26 @@ def test_one_command_installs_package_and_checks_before_mutations(deployment, mo
         if line.startswith(("npm ", "sudo install ", "systemctl daemon-reload", "systemctl restart ")):
             assert check < index
     assert "技术指标包版本=0.1.0，路径=" in result.stdout
-    assert "技术指标包与主工程配置校验通过" in result.stdout
+    assert "技术指标包与主工程配置校验通过，数据源=prod_pg" in result.stdout
     assert {line.removeprefix("systemctl restart ") for line in commands if line.startswith("systemctl restart ")} == {
         f"goldenshare-{name}.service" for name in restarted
     }
     if mode == ("--maintenance-migration",):
         assert not any(line.startswith(("npm ", "sudo ", "systemctl ")) for line in commands)
+
+
+@pytest.mark.parametrize("app_env,backend", [("dev", "dg"), ("local", "dg"), ("production", "prod_pg")])
+def test_installation_uses_the_selected_deployment_environment(deployment, app_env, backend):
+    run, env_file = deployment
+    unopened_lake = env_file.parent / "unopened-lake"
+    env_file.write_text(
+        f"APP_ENV={app_env}\nGOLDENSHARE_LAKE_ROOT={unopened_lake}\nTECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=5\n",
+        encoding="utf-8",
+    )
+    result, _ = run("--platform-only", extra_env={"APP_ENV": "staging"})
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"技术指标包与主工程配置校验通过，数据源={backend}" in result.stdout
+    assert not unopened_lake.exists()
 
 
 @pytest.mark.parametrize("options,target", [
@@ -450,13 +465,19 @@ def test_install_preserves_existing_target_options(deployment, options, target):
 
 @pytest.mark.parametrize("failure,status,environment,message", [
     ("install", 23, {"DEPLOY_TEST_INSTALL_STATUS": "23"}, ""),
-    ("old-package", 1, {"DEPLOY_TEST_OLD_CONFIG": "1"}, "technical_indicator_max_output_bytes"),
+    ("old-package", 1, {"DEPLOY_TEST_OLD_CONFIG": "1"}, "unexpected keyword argument 'data_location'"),
     ("invalid-config", 1, {}, "TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS"),
+    ("missing-app-env", 1, {}, "require an explicit local or production APP_ENV"),
+    ("unsupported-app-env", 1, {}, "require an explicit local or production APP_ENV"),
 ])
 def test_install_or_real_config_failure_stops_before_mutations(deployment, failure, status, environment, message):
     run, env_file = deployment
     if failure == "invalid-config":
-        env_file.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
+        env_file.write_text("APP_ENV=prod\nTECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
+    elif failure == "missing-app-env":
+        env_file.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=5\n", encoding="utf-8")
+    elif failure == "unsupported-app-env":
+        env_file.write_text("APP_ENV=staging\n", encoding="utf-8")
     result, commands = run(extra_env=environment)
     assert result.returncode == status, result.stdout + result.stderr
     assert message in result.stderr
@@ -464,4 +485,4 @@ def test_install_or_real_config_failure_stops_before_mutations(deployment, failu
     assert ("python config-check" in commands) == (failure != "install")
     assert "技术指标包与主工程配置校验通过" not in result.stdout
     if failure == "old-package":
-        assert "AttributeError" in result.stderr
+        assert "TypeError" in result.stderr

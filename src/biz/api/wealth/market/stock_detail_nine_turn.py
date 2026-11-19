@@ -2,8 +2,13 @@ from __future__ import annotations
 
 # Query/Depends are declarative FastAPI defaults.
 # ruff: noqa: B008
+from functools import partial
+from time import monotonic
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 from src.app.auth.dependencies import require_quote_access
 from src.app.auth.domain import AuthenticatedUser
@@ -52,6 +57,14 @@ def get_stock_daily_nine_turn(
 ) -> NineTurnSeriesDto:
     try:
         validate_query_shape(request, allowed=_ALLOWED_QUERY_PARAMS)
+        runtime = getattr(request.app.state, "technical_indicator_runtime", None)
+        load_dates = None
+        if runtime is not None and runtime.config.data_location == "dg":
+            load_dates = partial(
+                runtime.source.daily_page_dates, "stock_daily",
+                control=ExecutionControl(arrived_at=monotonic(), config=runtime.config),
+                read_context=SourceReadContext(runtime.config),
+            )
         return StockNineTurnQueryService().read_daily(
             session,
             ts_code=parse_nine_turn_ts_code(ts_code),
@@ -60,6 +73,7 @@ def get_stock_daily_nine_turn(
             limit=parse_limit(limit, default=300, maximum=2_000),
             cursor=parse_cursor(cursor),
             debug=parse_debug(debug),
+            load_dates=load_dates,
         )
     except Exception as exc:  # noqa: BLE001
         _raise_http_error(exc)

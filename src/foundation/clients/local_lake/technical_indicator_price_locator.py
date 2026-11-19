@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time
 from pathlib import Path
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
@@ -17,7 +17,9 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
 from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
-from .technical_indicator_contracts import price_contract, source_projection
+from ..technical_indicator_stock_daily import daily_adjustment_paths, daily_price_projection
+from ..technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
+from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA
 from .technical_indicator_price_source import _arrow, _matches_type
 
 
@@ -39,6 +41,7 @@ class LakePriceLocator:
     FIXED_SQL_STEPS = MappingProxyType({
         "locate_count": "WITH eligible AS (SELECT * FROM ti_locator_times WHERE {upper}) "
             "SELECT struct_pack(n := count(*), targets := count(*) FILTER (WHERE {target}), "
+            "distinct_positions := count(DISTINCT {time_key}), "
             "first_time := min({time_key}), last_time := max({time_key})) FROM eligible",
         "locate_bounds": "WITH eligible AS (SELECT row_number() OVER (ORDER BY {time_key}) AS rank, "
             "{time_key} AS position FROM ti_locator_times WHERE {upper}) "
@@ -51,6 +54,7 @@ class LakePriceLocator:
         # The caller must hold this object before describe opens anything.
         self.source, self.executor, self.requirement = source, executor, requirement
         self.context, self.control = read_context, executor.control
+        self._root = None
         self._metadata_reader = self._reader = self._scanner = self._fragment = None
         self._tables, self._registrations = [], []
         self._stage_text = None
@@ -58,7 +62,7 @@ class LakePriceLocator:
         self._defer_sql_cleanup = False
 
     def _position(self, value):
-        if self.requirement.request.period.endswith("m") and isinstance(value, datetime):
+        if self.requirement.period.endswith("m") and isinstance(value, datetime):
             return value.replace(tzinfo=ZoneInfo("Asia/Shanghai"))
         return value
 
@@ -70,12 +74,13 @@ class LakePriceLocator:
                 raise ResourceCleanupError("The price locator metadata handle did not close") from exc
             self._metadata_reader = None
 
-    def _open_metadata(self, path, contract, projection, *, price_projection):
+    def _open_metadata(self, path, schema, projection, *, price_projection):
         pa, _, _, pq = _arrow()
         self.control.check_active()
+        path = self.source._safe_path(self._root, path)
         self.context.record_file(path, path.stat().st_size)
         self._metadata_reader = pq.ParquetFile(path)
-        expected = dict(contract.schema)
+        expected = dict(schema)
         actual = self._metadata_reader.schema_arrow
         for name in projection:
             if (name not in actual.names or name not in expected
@@ -102,7 +107,7 @@ class LakePriceLocator:
 
     def _may_match(self, group, projection):
         """Use only reliable typed metadata; missing statistics require keys."""
-        request = self.requirement.request
+        request = self.requirement
         for index in range(group.num_columns):
             column = group.column(index)
             if column.path_in_schema not in projection:
@@ -113,14 +118,10 @@ class LakePriceLocator:
             if column.path_in_schema == "ts_code":
                 if request.ts_code < stats.min or request.ts_code > stats.max:
                     return False
-            if ((request.period.endswith("m") and column.path_in_schema == "trade_time")
-                    or (request.period == "day" and column.path_in_schema == "trade_date")):
-                for value, strict in ((request.end, False), (request.before, True)):
-                    if value is not None:
-                        if isinstance(value, datetime):
-                            value = value.replace(tzinfo=None)
-                        if stats.min > value or (strict and stats.min == value):
-                            return False
+            if request.period.endswith("m") and column.path_in_schema == "trade_time":
+                end = request.end.replace(tzinfo=None) if isinstance(request.end, datetime) else request.end
+                if stats.min > end:
+                    return False
         return True
 
     def _check_group_bytes(self, group, projection):
@@ -158,16 +159,16 @@ class LakePriceLocator:
                     raise
 
     def _read_key_batches(self, path, index, projection, standard):
+        import pyarrow.compute as pc
+
         pa, ds, fs, _ = _arrow()
-        request = self.requirement.request
+        request = self.requirement
         predicate = ds.field("ts_code") == request.ts_code
-        if request.period.endswith("m") or request.period == "day":
-            field = "trade_time" if request.period.endswith("m") else "trade_date"
-            for value, strict in ((request.end, False), (request.before, True)):
-                if value is not None:
-                    if isinstance(value, datetime):
-                        value = pa.scalar(value.replace(tzinfo=None), type=pa.timestamp("us"))
-                    predicate &= ds.field(field) < value if strict else ds.field(field) <= value
+        minute = request.period.endswith("m")
+        if minute:
+            predicate &= ds.field("trade_time") <= pa.scalar(
+                request.end.replace(tzinfo=None), type=pa.timestamp("us"))
+        partition_day = date.fromisoformat(path.parent.name.removeprefix("trade_date="))
         self.control.check_active()
         self._fragment = ds.ParquetFileFormat().make_fragment(
             str(path), filesystem=fs.LocalFileSystem(), row_groups=[index])
@@ -192,6 +193,15 @@ class LakePriceLocator:
                 batch = None
                 continue
             self.context.record_locator_rows(batch.num_rows)
+            if not pc.all(pc.fill_null(
+                    pc.equal(batch.column("trade_date"), partition_day), False)).as_py():
+                raise SourceContractError("Source prices do not match their partition date")
+            if minute:
+                if not pc.all(pc.fill_null(pc.equal(batch.column("freq"), 5), False)).as_py():
+                    raise SourceContractError("Index minutes do not match their five-minute partition")
+                for stamp in batch.column("trade_time").to_pylist():
+                    if stamp.date() != partition_day or stamp.time() == time(9, 30):
+                        raise SourceContractError("Invalid business timestamp in DG index minutes")
             try:
                 self._registrations.append("ti_locator_keys")
                 self.executor.register_arrow("ti_locator_keys", batch)
@@ -218,7 +228,7 @@ class LakePriceLocator:
                         self._tables.remove("ti_locator_times")
 
     def _count_group(self, path, index, projection, standard, *, price_schema_error, price_projected_bytes):
-        request = self.requirement.request
+        request = self.requirement
         upper, upper_bindings = range_filter(request, include_start=False)
         target, target_bindings = range_filter(request)
         rows = targets = 0
@@ -233,6 +243,9 @@ class LakePriceLocator:
                 rows += summary["n"]
                 targets += summary["targets"]
                 if summary["n"]:
+                    if request.period.endswith("m") and (summary["n"] != summary["distinct_positions"]
+                            or last is not None and last >= summary["first_time"]):
+                        raise SourceContractError("DG index minute keys are duplicated or out of order")
                     if first is None:
                         first = summary["first_time"]
                     last = summary["last_time"]
@@ -258,8 +271,8 @@ class LakePriceLocator:
     def _bounds(self, group, ranks, projection, standard):
         """Second key pass for at most two ordinal positions in this group."""
         found, preceding = {}, 0
-        upper, bindings = range_filter(self.requirement.request, include_start=False)
-        target, target_bindings = range_filter(self.requirement.request)
+        upper, bindings = range_filter(self.requirement, include_start=False)
+        target, target_bindings = range_filter(self.requirement)
         iterator, primary = self._key_batches(group.path, group.index, projection, standard), None
         try:
             for time_key in iterator:
@@ -288,9 +301,13 @@ class LakePriceLocator:
             raise SourceContractError("The second key read could not reproduce the selected boundary")
         return found
 
-    def _select(self, paths, contract, projection, standard, *, price_projection):
-        request, history = self.requirement.request, self.requirement.history
+    def _select(self, paths, schema, projection, standard, *, price_projection):
+        history = self.requirement.history
         maximum = self.source._config.max_input_rows
+        output_maximum = self.source._config.max_output_rows
+        daily = self.requirement.period == "day"
+        first_day = self.requirement.start if daily else self.requirement.start.date()
+        first_target_partition = f"trade_date={first_day}"
         groups, rows, targets = [], 0, 0
         candidates_exhausted = False
         complete = False
@@ -298,8 +315,11 @@ class LakePriceLocator:
         # if the newer groups did not already provide the necessary history.
         for path_index in range(len(paths) - 1, -1, -1):
             path = paths[path_index]
-            metadata, price_schema_error = self._open_metadata(path, contract, projection,
+            if not targets and path.parent.name < first_target_partition:
+                break
+            metadata, price_schema_error = self._open_metadata(path, schema, projection,
                                                                price_projection=price_projection)
+            partition_rows = 0
             for index in range(metadata.num_row_groups - 1, -1, -1):
                 self.control.check_active()
                 group_metadata = metadata.row_group(index)
@@ -312,11 +332,18 @@ class LakePriceLocator:
                 group = self._count_group(path, index, projection, standard,
                     price_schema_error=price_schema_error, price_projected_bytes=price_projected_bytes)
                 if group.rows:
+                    if not daily and groups and group.last >= groups[-1].first:
+                        raise SourceContractError("DG index minute row groups overlap or are out of order")
+                    partition_rows += group.rows
+                    if daily and partition_rows > 1:
+                        raise SourceContractError("Duplicate stock daily positions in the partition")
                     groups.append(group)
                     rows += group.rows
                     targets += group.targets
-                target_known = targets >= request.limit or group.rows > group.targets
-                actual = min(targets, request.limit)
+                if targets > output_maximum:
+                    raise ResourceLimitError("Target positions exceed max_output_rows")
+                target_known = group.rows > group.targets
+                actual = targets
                 needs_origin = history.requires_source_origin or (
                     target_known and history.warmup_rows + actual > maximum)
                 if needs_origin and rows > maximum:
@@ -324,15 +351,14 @@ class LakePriceLocator:
                 if target_known and (actual == 0 or (
                         not needs_origin and rows >= actual + history.warmup_rows)):
                     complete = True
-                    candidates_exhausted = path_index == 0 and index == 0
-                    break
             self._close_metadata()
             metadata = group_metadata = None
             if complete:
+                candidates_exhausted = path_index == 0
                 break
         else:
             candidates_exhausted = True
-        actual = min(targets, request.limit)
+        actual = targets
         if not actual:
             return (), PriceReadSelection(None, None, None, None, 0, 0, candidates_exhausted, ()), ()
         needs_origin = history.requires_source_origin or actual + history.warmup_rows > maximum
@@ -381,38 +407,40 @@ class LakePriceLocator:
         self._started = True
         pa, _, _, _ = _arrow()
         try:
-            request = self.requirement.request
-            contract = price_contract(request)
+            request = self.requirement
+            minute = request.period.endswith("m")
+            if minute:
+                volume_unit = index_minute_volume_unit(request, "dg")
+                schema = (*MINUTE_SCHEMA, ("freq", "INTEGER"))
+                project = index_minute_projection
+                adjustments = (("none", "none"),)
+            else:
+                adjustments = daily_adjustment_paths(request, "dg")
+                volume_unit, schema, project = "lot", DAILY_SCHEMA, daily_price_projection
             self.control.check_active()
-            root = self.source._root()
-            base = root / contract.relative_root
-            if request.period.endswith("m"):
-                base /= "freq=" + request.period[:-1]
-                if request.security_type == "stock":
-                    base /= "ts_code=" + request.ts_code
-            paths = tuple(path for _, path in self.source._partition_paths(root, base, request, self.control))
-            projection, standard = source_projection(contract, frozenset(), request.adjustment)
-            price_projection, price_standard = source_projection(
-                contract, self.requirement.history.fields, request.adjustment)
+            self._root = self.source._root()
+            paths = self.source._partition_paths(self._root, request, self.control)
+            projection, standard = project(frozenset())
+            price_projection, price_standard = project(request.history.fields)
             self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
-            paths, selection, groups = self._select(paths, contract, projection, standard,
+            paths, selection, groups = self._select(paths, schema, projection, standard,
                                                     price_projection=price_projection)
             self._validate_selected_price_groups(groups)
-            groups = None
-            conversion = contract.input_adjustment != request.adjustment
-            factor_paths = self.source._partition_paths(root, root / "silver/quote/adj_factor",
-                request, self.control, factors=True) if conversion and selection.target_rows else ()
-            basis_rule = (("latest_available_factor" if request.adjustment == "qfq" else "earliest_available_factor")
-                if conversion else ("latest_published_factor" if request.adjustment == "qfq" else None))
+            converted = request.target_adjustment == "qfq"
+            factor_paths = ()
+            if converted and selection.target_rows:
+                factor_target = self.context.config.resolve_dataset_location("stock_adj_factor")
+                factor_paths = tuple((day, self.source._safe_path(self._root, path)) for day, path in
+                                     self.source._dated_partitions(self._root, factor_target, date.max, self.control))
             return SourceDescription(
-                source_id=contract.source_id, contract_version="1", input_adjustment=contract.input_adjustment,
-                basis_rule=basis_rule, basis_date=None, basis_value=None,
-                price_unit="CNY" if request.security_type == "stock" else "index_point",
-                volume_unit=contract.volume_unit, amount_unit=contract.amount_unit, timezone="Asia/Shanghai",
-                period_label_rule="trade_time" if contract.period_kind == "minute" else "period_start",
+                source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
+                basis_rule="latest_available_factor" if converted else None, basis_date=None, basis_value=None,
+                price_unit="index_point" if minute or request.target.dataset_id == "index_daily" else "CNY",
+                volume_unit=volume_unit,
+                amount_unit="CNY" if minute else "thousand_CNY", timezone="Asia/Shanghai",
+                period_label_rule="trade_time" if minute else "period_start",
                 history_origin_rule="earliest_available_formal_partition", available_through=None,
-                supports_partial_period=contract.period_kind in ("week", "month"),
-                supported_adjustment_paths=contract.adjustment_paths, converted=conversion,
+                supports_partial_period=False, supported_adjustment_paths=adjustments, converted=converted,
                 selection=selection, price_paths=paths, factor_paths=factor_paths,
                 source_projection=price_projection, standard_projection=price_standard,
             )

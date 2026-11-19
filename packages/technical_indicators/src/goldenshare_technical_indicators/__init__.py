@@ -1,9 +1,5 @@
-"""Technical indicator contracts. D1 does not expose a placeholder calculator.
+"""Public technical indicator request and result contracts."""
 
-The executable calculate entry point and built-in factories arrive with D3.
-Importing this package performs no source access or connection creation.
-"""
+from .contracts import CalculationRequest, CalculationResult
 
-from .contracts import CalculationInstance, CalculationRequest, CalculationResult
-
-__all__ = ["CalculationInstance", "CalculationRequest", "CalculationResult"]
+__all__ = ["CalculationRequest", "CalculationResult"]

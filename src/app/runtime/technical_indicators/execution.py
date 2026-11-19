@@ -178,14 +178,14 @@ def _calculate_request(runtime, request, control) -> CalculationResult:
     return TechnicalIndicatorService(
         source=runtime.source, registry=runtime.registry,
         config=runtime.config, control=control,
-    )._calculate_library(request, control=control)
+    )._calculate_library(request, control=control)[0]
 
 
 def _calculate_http_payload(runtime, prepared, control) -> CalculationResult:
     return TechnicalIndicatorService(
         source=runtime.source, registry=runtime.registry,
         config=runtime.config, control=control,
-    )._calculate_result(prepared, control=control)
+    )._calculate_result(prepared, control=control)[0]
 
 
 async def execute_library(

@@ -14,7 +14,6 @@ def range_filter(request, *, include_start=True):
         (request.start if include_start else None,
          "period_end" if request.period in ("week", "month") else time_key, ">="),
         (request.end, time_key, "<="),
-        (request.before, time_key, "<"),
     ):
         if value is not None:
             if minute and isinstance(value, datetime):
