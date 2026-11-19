@@ -147,6 +147,8 @@ docs/
 - [股票详情页标杆需求 v1](./pages/stock-detail/stock-detail-benchmark-requirement-v1.md)
 - [股票详情页技术实施方案 v1](./pages/stock-detail/stock-detail-implementation-design-v1.md)
 - [股票详情页数据字段来源表（HTML）](./pages/stock-detail/stock-detail-field-source-audit-v1.html)
+- [股票详情首屏与本地 DG 取数迁移方案 v1（待评审）](./pages/stock-detail/stock-detail-first-screen-and-local-dg-read-plan-v1.md)
+- [股票详情首屏与本地 DG 取数迁移 LLD v1（待评审）](./pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)
 - [股票详情页 M2 编码前门禁 v1](./pages/stock-detail/stock-detail-m2-coding-gate-v1.md)
 - [股票详情分钟线与分钟技术指标 API 标杆需求 v1](./pages/stock-detail/stock-detail-minutes-api-benchmark-requirement-v1.md)
 - [股票详情分钟线与分钟技术指标 API 技术实施方案 v1](./pages/stock-detail/stock-detail-minutes-api-implementation-design-v1.md)
