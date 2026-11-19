@@ -31,7 +31,8 @@ class TechnicalIndicatorRuntime:
             await self.admission.shutdown()
 
 
-def create_runtime(settings: Settings, *, session_factory=None) -> TechnicalIndicatorRuntime:
+def build_runtime_config(settings: Settings) -> KernelConfig:
+    """Resolve the deployment's indicator configuration without opening a data source."""
     environment = settings.app_env.strip().lower()
     if "app_env" not in settings.model_fields_set or environment not in {"dev", "local", "prod", "production"}:
         raise ValueError("Technical indicators require an explicit local or production APP_ENV")
@@ -41,9 +42,13 @@ def create_runtime(settings: Settings, *, session_factory=None) -> TechnicalIndi
         ("stock_daily", ("none", "qfq")), ("index_daily", ("none",)), ("index_mins_5m", ("none",)),
     ):
         locations[dataset_id][backend]["enabled_adjustments"] = adjustments
-    config = technical_indicator_config_from_settings(settings, data_location=backend, dataset_locations=locations)
+    return technical_indicator_config_from_settings(settings, data_location=backend, dataset_locations=locations)
+
+
+def create_runtime(settings: Settings, *, session_factory=None) -> TechnicalIndicatorRuntime:
+    config = build_runtime_config(settings)
     registry = create_builtin_registry()
-    if backend == "dg":
+    if config.data_location == "dg":
         source = LakeTechnicalIndicatorPriceSource(config)
     else:
         if session_factory is None:
