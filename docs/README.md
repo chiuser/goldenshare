@@ -14,6 +14,10 @@
 
 - [子系统架构基线（目录职责、依赖矩阵、现存差距与护栏）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [Goldenshare 仓库整体上手总览 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/goldenshare-repository-onboarding-overview-v1.html)
+- [DG 研究数据业务目录（HTML；分类、来源、生成关系与字段合同；静态源码快照，运行覆盖未核验）](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-research-dataset-catalog.html)
+- [财势乾坤数据中心：本地 DG 每日数据审计方案 v1（功能、判定口径及检查分流；待评审）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-daily-data-audit-wealth-data-center-plan-v1.md)
+- [本地 DG 数据审计：逐资产规则、评审进度与触发方式](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-daily-data-audit-rules-review-v1.md)
+- [量化研究数据基座能力框架与三期建设规划 v1（HTML；8项能力、5大方向、上游需求与三期节奏；总体方案待审阅，非实施授权）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-research-data-foundation-plan-v1.html)
 - [财势量化平台（QTF）架构方案（M1–M3 基础已实现；旧 M4 已否决，纠偏待实施）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-architecture-v1.html)
 - [QTF 低层设计（含九个现行 API 与 M4R 目标分界；不授权迁移或真实研究）](/Users/congming/github/goldenshare/docs/architecture/qtf-quant-platform-low-level-design-v1.md)
 - [Foundation 研发基线](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
@@ -146,6 +150,8 @@ docs/
 ## 5. 数据集研发（S3）
 
 - [股票每日指标扩充需求：Prod/DG 收盘涨跌状态方案与 LLD（扩充待开发；维护进度与 DG 日期锁已隔离修复，未部署）](/Users/congming/github/goldenshare/docs/datasets/daily-basic-limit-status-expansion-plan-and-low-level-design-v1.md)
+
+- [DG国际指数10月4日补探测及近期分区收尾方案与LLD（2026-10-26；写入修正与单日重执行已完成，131项隔离回归通过）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-index-global-recovery-20261026-plan-and-low-level-design.md)
 
 - [申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/index-classify-sw2021-low-level-design-v1.md)
 - [申万 SW2021 行业成员 `index_member_all` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/index-member-all-sw2021-low-level-design-v1.md)
@@ -298,6 +304,7 @@ docs/
 
 ## 9. 产品原始材料
 
+- [股票和指数详情页量化结构需求方案 v1（页面本机验收记录与后续数据接入入口）](/Users/congming/github/goldenshare/wealth/docs/system/detail-chart-quantitative-structure-requirements-v1.md)
 - [财势乾坤顶底识别产品文档 v1（唯一正式r4、仅本地；P5整体验收通过）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
 - [财势乾坤顶底识别技术方案 v1（当前实现、合同与交付依据；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
 - [财势乾坤顶底识别LLD v1（当前规则、编码、测试及交付对账；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
@@ -319,7 +326,7 @@ docs/
 - [徐小明r4历史研究LLD v0.1（独立计算及当时验收；非正式产品实施入口）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)
 - [徐小明v0.6历史研究和日线工具记录（完整两位/旧执行链已清退；独立算术与波段能力保留）](/Users/congming/github/goldenshare/docs/product/xxm-next-implementation-plan-v0.6.md)
 - [徐小明v0.6历史实现与清退记录（旧r3删除说明；完整两位/旧执行链已清退）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-next-implementation-low-level-design-v0.6.md)
-- [徐小明研究、算法与实施文档 v0.6（历史分类时间线；当前入口为顶底识别v1）](/Users/congming/github/goldenshare/docs/product/xxm-research-and-implementation-v0.6.md)
+- [徐小明研究、算法与实施文档 v0.6（r4.1 当前交接与历史分类时间线）](/Users/congming/github/goldenshare/docs/product/xxm-research-and-implementation-v0.6.md)
 - [徐小明研究冻结与接续（2026-10-24历史冻结/归档与交接；非当前开工门禁）](/Users/congming/github/goldenshare/docs/product/xxm-research-handoff-20261024.md)
 - [徐小明研究交接（2026-10-19历史时点；非恢复旧运行器指令）](/Users/congming/github/goldenshare/docs/product/xxm-research-handoff-20261019.md)
 - [徐小明方向识别研究算法方案 V0.1（r2历史方案、决策及执行记录；非当前运行入口）](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md)
@@ -335,8 +342,8 @@ docs/
 - [指数及缠论旧实验归档（历史结论、教学案例与四组压缩证据）](/Users/congming/github/goldenshare/reports/index_market_history_20260913/README.md)
 - [指数窗口个股缠论研究 v1（历史；首批回放及提速完成，已暂停扩批并转向独立单股回测）](/Users/congming/github/goldenshare/docs/product/stock-chan-index-window-research-plan-v1.md)
 - [东财行业财务分析归档说明（已承接 v1；非实时报告）](/Users/congming/github/goldenshare/docs/product/dc-industry-financial-analysis-report-plan-v2.md)
-- [2026年前三季度A股行业景气度、全年预测与投资价值研究方案 v1（三项方法及九张象限图设计已确认；方案一致性已梳理；未试算）](/Users/congming/github/goldenshare/docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md)
-- [2026年前三季度A股行业研究详细计算口径与执行设计 v1（公式/权重确认状态、象限图及执行LLD；未试算）](/Users/congming/github/goldenshare/docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md)
+- [2026年前三季度A股行业景气度、全年预测与投资价值研究方案 v1（三项方法及九张象限图设计已确认；正式计算及报告已完成，局限见正文）](/Users/congming/github/goldenshare/docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md)
+- [2026年前三季度A股行业研究详细计算口径与执行设计 v1（公式/权重、象限图、正式计算结果与分层验收）](/Users/congming/github/goldenshare/docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md)
 - [行业研究方案一致性审计（2026-11-01；确认状态、样本覆盖、ROE、基准诊断及敏感性规则核对；未试算）](/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3_plan_consistency_review_20261101/README.md)
 - [行业研究象限图设计核对记录（2026-11-01；6张主图、3张专项图及三项方法确认；未试算）](/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3_quadrant_design_20261101/README.md)
 - [研究方法修订核对记录（2026-11-01；审计问题逐项对应、原文归档与待review参数）](/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3_method_review_20261101/README.md)

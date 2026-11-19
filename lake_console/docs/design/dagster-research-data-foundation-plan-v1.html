@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>量化研究数据基座：能力框架与三期建设规划 v1</title>
+  <style>
+    :root{--ink:#193047;--muted:#60758a;--line:#dce5ed;--paper:#f4f7fa;--nav:#142b3e;--accent:#087e8b;--soft:#eaf6f6;--warm:#fff7e6}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}a{color:var(--accent)}code{font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;overflow-wrap:anywhere}p{margin:10px 0 16px}strong{font-weight:650}ul,ol{padding-left:23px}li{margin:7px 0}h1,h2,h3,h4{line-height:1.4}h2{font-size:26px;margin:0 0 20px;letter-spacing:-.025em}h3{font-size:20px;margin:30px 0 12px}h4{font-size:15px;margin:22px 0 8px}section,article{scroll-margin-top:25px}:focus-visible{outline:3px solid #24a8b7;outline-offset:3px}.skip{position:absolute;left:-9999px}.skip:focus{left:270px;top:8px;background:white;padding:8px;z-index:5}.sidebar{position:fixed;inset:0 auto 0 0;width:254px;background:var(--nav);color:#e7f0f7;padding:30px 22px;overflow:auto}.brand{font-size:12px;font-weight:750;letter-spacing:.12em}.brand small{display:block;font-size:11px;font-weight:400;color:#9db8cb;letter-spacing:.03em;margin:6px 0 26px}.sidebar nav a{display:block;text-decoration:none;color:#dce8f1;border-radius:6px;padding:8px 10px;font-size:12px}.sidebar nav a:hover{background:#25465c}.sidebar .nav-group{color:#8eb4c9;font-size:10px;letter-spacing:.1em;margin:20px 10px 5px}.sidebar .sub{padding-left:22px;color:#b4cbdc;font-size:11px}.side-note{border-top:1px solid #365065;margin:25px 10px 0;padding-top:17px;font-size:11px;color:#a4bdcf}.main{margin-left:254px;max-width:1530px;padding:42px 46px 70px}.hero{padding:8px 0 24px}.eyebrow{font-size:11px;color:var(--accent);letter-spacing:.12em;font-weight:700}.hero h1{font-size:36px;letter-spacing:-.04em;margin:10px 0 12px;line-height:1.35}.hero .lead{max-width:900px;font-size:17px;color:var(--muted)}.meta{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0}.pill{font-size:11px;background:white;border:1px solid var(--line);border-radius:18px;padding:4px 11px;color:#4a6278}.pill.review{background:var(--warm);border-color:#eed7a5;color:#876526}.callout{padding:16px 20px;background:var(--soft);border-left:3px solid var(--accent);border-radius:0 9px 9px 0;margin:20px 0;font-size:13px}.callout p{margin:3px 0}.callout.warm{background:var(--warm);border-color:#d4a440}.panel{background:white;border:1px solid var(--line);border-radius:15px;padding:30px;margin:20px 0 27px}.section-kicker{font-size:10px;letter-spacing:.13em;color:var(--accent);font-weight:700;margin-bottom:8px}.table-scroll{overflow-x:auto;margin:15px 0 20px}table{width:100%;border-collapse:collapse;font-size:12px;text-align:left}th{background:#edf3f7;color:#415b71;font-size:11px;font-weight:650}td,th{border:1px solid var(--line);padding:11px 12px;vertical-align:top}td p{margin:0 0 6px}td ul{margin:0;padding-left:17px}td code{font-size:11px}.wide{min-width:820px}.tight{font-size:11px}.tag{display:inline-block;font-size:10px;background:#edf5f7;color:#3b6876;border:1px solid #dcebf0;border-radius:4px;padding:2px 6px;white-space:nowrap}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:18px 0}.card{border:1px solid var(--line);background:#f9fbfd;border-radius:9px;padding:16px 18px;font-size:13px}.card h4{margin:0 0 7px}.card p{margin:5px 0;color:var(--muted)}.flow{display:flex;align-items:stretch;gap:9px;margin:20px 0;flex-wrap:wrap}.flow .step{flex:1;min-width:130px;border:1px solid #cddfe6;background:#f7fbfc;border-radius:8px;padding:13px;font-size:12px}.flow .step strong{display:block;font-size:13px;margin-bottom:4px}.flow .arrow{align-self:center;color:#8ba3b6}.ribbon{padding:10px 14px;border:1px dashed #bdd3df;border-radius:7px;color:#45637a;font-size:12px;margin:9px 0}.direction{padding-top:5px}.direction-header{border-bottom:1px solid var(--line);padding-bottom:15px;margin-bottom:18px}.direction-header h2{margin:6px 0 9px}.direction-header p{color:var(--muted);font-size:14px;margin:0}.io{font-size:13px;background:#f6f9fc;border-radius:8px;padding:14px 18px}.io p{margin:4px 0}.boundary{border-left:3px solid #b6c8d6;padding-left:16px;font-size:13px;color:#4b6378}.example{background:#f6f9fc;border:1px solid var(--line);border-radius:8px;padding:16px 20px;font-size:13px}.example p{margin:6px 0}.req{font-weight:650;color:var(--accent);white-space:nowrap}.phase{border-top:1px solid var(--line);margin-top:26px;padding-top:24px}.phase h3{margin-top:0}.phase:first-of-type{border-top:0}.small{font-size:12px;color:var(--muted)}.evidence td:first-child{width:26%}.refs li{font-size:12px;overflow-wrap:anywhere}.footer{font-size:11px;color:var(--muted);padding:10px 3px}.checklist li{font-size:13px}.summary-line{font-size:17px;font-weight:600;color:#31586c;margin:22px 0 10px}
+    @media(max-width:1150px){.sidebar{width:218px;padding:25px 13px}.main{margin-left:218px;padding:30px 24px}.hero h1{font-size:31px}.panel{padding:24px}}
+    @media(max-width:760px){.sidebar{position:relative;width:100%;padding:18px 20px}.brand small{margin-bottom:0}.sidebar nav,.side-note{display:none}.main{margin:0;padding:22px 14px 45px}.hero h1{font-size:27px}.hero .lead{font-size:15px}.panel{padding:21px 17px;border-radius:10px}h2{font-size:22px}h3{font-size:18px}.grid{grid-template-columns:1fr}.flow{display:grid;grid-template-columns:1fr}.flow .arrow{display:none}.flow .step{min-width:0}table{min-width:590px}.wide{min-width:850px}.callout{padding:13px 15px}.skip:focus{left:10px}}
+    @media print{body{background:white;color:#111;font-size:11px}.sidebar,.skip{display:none}.main{margin:0;max-width:none;padding:0}.panel{border:0;padding:8px 0;margin:10px 0 20px;box-shadow:none}.hero h1{font-size:25px}.hero .lead{font-size:13px}.table-scroll{overflow:visible}table,.wide{min-width:0;font-size:9px}td,th{padding:6px}h2,h3,h4{break-after:avoid}.direction-header{break-after:avoid}.callout,.card{break-inside:avoid}.footer{border-top:1px solid #ccc}a{color:inherit;text-decoration:none}section,article{scroll-margin-top:0}}
+  </style>
+</head>
+<body>
+<a class="skip" href="#overview">跳到正文</a>
+<aside class="sidebar">
+  <div class="brand">GOLDENSHARE<small>量化研究数据基座 · 总体方案 v1</small></div>
+  <nav aria-label="文档目录">
+    <div class="nav-group">一 / 总体关系</div>
+    <a href="#overview">定位与职责边界</a>
+    <a href="#capabilities">八项能力与五大方向</a>
+    <a href="#collaboration">横向分工与纵向链路</a>
+    <div class="nav-group">二 / 五大方向的完整设计</div>
+    <a href="#d01">D01 数据目录与合同管理</a>
+    <a href="#d02">D02 数据读取与交付</a>
+    <a href="#d03">D03 质量与覆盖核验</a>
+    <a href="#d04">D04 来源与读取追溯</a>
+    <a href="#d05">D05 访问与运行治理</a>
+    <div class="nav-group">三 / 上游需求</div>
+    <a href="#requirements">上游应当获得什么能力</a>
+    <a href="#scenario">一条完整使用场景</a>
+    <a href="#access">MCP 与程序调用的位置</a>
+    <div class="nav-group">四 / 三期开发节奏</div>
+    <a href="#phases">三期目标与验收</a>
+    <a href="#phase-matrix">方向 × 周期对照</a>
+    <a href="#gates">开工门禁与待确认事项</a>
+    <div class="nav-group">附录 / 依据</div>
+    <a href="#current-state">当前实现起点</a>
+    <a href="#references">来源与本轮验证边界</a>
+  </nav>
+  <p class="side-note">八项能力用于检查完整性。<br>五大方向用于组织职责。<br>三个周期用于安排交付。<br><br>先完成方向的整体设计，再按完整使用链路交付。</p>
+</aside>
+<main class="main">
+  <header class="hero">
+    <span class="eyebrow">总体规划 / 面向量化研究的数据供给</span>
+    <h1>量化研究数据基座<br>能力框架与三期建设规划</h1>
+    <p class="lead">从 DG 维护的数据出发，为研究程序、研究工作台和自有智能体提供含义明确、读取可控、结果可追溯的数据能力。</p>
+    <div class="meta"><span class="pill">版本 v1</span><span class="pill">日期 2026-10-17</span><span class="pill review">总体方案草案 · 待审阅</span><span class="pill">8 项能力 / 5 大方向 / 3 个开发周期</span></div>
+    <div class="callout warm"><p><strong>文档范围：</strong>说明能力关系、各方向完整职责、上游需求和大致开发节奏。文中的目标能力不代表已经实现。</p><p>本文不选择首期数据集，不冻结服务拆分、代码目录、API、配置值或部署方式；不替代实施步骤的方案与 LLD，也不授权修改正式代码、数据或运行状态。</p></div>
+  </header>
+
+  <section class="panel" id="overview">
+    <div class="section-kicker">一 / 总体关系</div>
+    <h2>1. 数据基座在量化平台中的位置</h2>
+    <p>本方案中的数据来源范围以 <strong>DG 及其维护的正式数据资产</strong>为起点。研究数据基座负责把上游明确提出的数据需求，转换为有边界的读取、程序可消费的数据及相应证据。它不接管研究任务，也不取代 DG 的数据生产与维护。</p>
+    <p>当前调用方主要是管理员自己控制的研究程序和智能体。首版不以公开数据分发、多租户或商业计费为建设目标。</p>
+    <div class="table-scroll"><table><thead><tr><th>参与方</th><th>完整职责</th><th>与数据基座的边界</th></tr></thead><tbody>
+      <tr><td>DG 与数据生产侧</td><td>采集、标准化、正式派生计算、生产检查、发布、修复与更新。</td><td>决定正式数据事实及其生产合同；基座按获准范围只读消费，不通过查询请求触发补采、修复或 materialize。</td></tr>
+      <tr><td>研究数据基座</td><td>目录与合同、受控读取、交付、质量覆盖报告、来源证据及访问运行治理。</td><td>执行明确数据要求，不决定研究对象、策略、样本选择或研究有效性。</td></tr>
+      <tr><td>上游研究层</td><td>定义研究问题、对象集合、评价区间、预热需求、特征、标签、样本规则、算法和评价方法。</td><td>解释数据对研究是否足够、是否排除样本、是否继续运行；不得让基座隐式作出这些决定。</td></tr>
+      <tr><td>模型与研究程序</td><td>模型组织研究、编写代码并审阅结果；程序消费数据明细、计算、验证和输出证据。</td><td>模型主要读取说明、摘要和证据；大规模明细由程序消费。数据基座不承接任意研究代码的执行。</td></tr>
+    </tbody></table></div>
+    <div class="example"><p><strong>边界示例：</strong>上游要求 A、B、C 三只股票某日的行情。基座按请求读取，说明 B 缺少记录以及能确认的停牌事实，不静默剔除 B。是否排除 B、调整窗口或终止研究，由上游决定。</p></div>
+    <p>证券身份、上市退市、停复牌和板块成分是可供读取的数据事实。它们能支持上游定义研究对象，但“某天应该研究哪些股票”不是基座的职责。</p>
+  </section>
+
+  <section class="panel" id="capabilities">
+    <h2>2. 八项能力与五大方向的关系</h2>
+    <p><strong>八项能力是需求与验收清单，五大方向是设计职责分组。</strong>两者不是替代关系：能力编号保持固定，用于逐项追踪；方向将联系紧密的能力组织起来，形成内聚的输入、输出、执行规则与演进边界。五个方向并不预先等于五个服务、五个包或五张表。</p>
+    <div class="table-scroll"><table class="wide"><thead><tr><th>能力</th><th>应提供的内容</th><th>主归属方向</th><th>跨方向职责切分</th></tr></thead><tbody>
+      <tr><td><strong>C01 数据目录与合同</strong></td><td>身份、来源、字段、类型、单位、主键、频度和使用限制。</td><td>D01 数据目录与合同管理</td><td>D02 按合同读取；其他方向引用同一合同身份，不再各自定义字段含义。</td></tr>
+      <tr><td><strong>C02 证券身份与基础事实</strong></td><td>代码、历史代码映射、上市退市、停复牌及成分等来源事实。</td><td>D01 管理含义，D02 提供读取</td><td>事实仍由正式上游资产维护；D03 只有取得对应事实后，才能给出有依据的缺失原因。研究对象选择属于上游。</td></tr>
+      <tr><td><strong>C03 时间与版本信息</strong></td><td>来源实际具备的业务时间、发布时间、采集时间、修订信息及能力限制。</td><td>D01 管理语义，D04 记录实际使用</td><td>D02 执行明确的时间/版本读取要求。历史版本的生产与保留归数据生产和存储侧，不能悄悄转入查询基座。</td></tr>
+      <tr><td><strong>C04 受控查询与数据关联</strong></td><td>按明确对象、字段、时间、过滤、排序及受支持关联条件读取。</td><td>D02 数据读取与交付</td><td>D01 提供可执行合同，D05 在执行前和执行中约束访问与成本。</td></tr>
+      <tr><td><strong>C05 数据质量与覆盖报告</strong></td><td>实际覆盖、缺失、重复、NULL、合同检查及已确认原因。</td><td>D03 质量与覆盖核验</td><td>报告依据来自实际读取或适用的生产证据；不决定这些数据对某项研究是否足够。</td></tr>
+      <tr><td><strong>C06 面向程序的数据交付</strong></td><td>稳定结构、排序、分页或批次读取、完整性与结束语义。</td><td>D02 数据读取与交付</td><td>与 C04 一起设计完整读取过程；临时文件、持久化或跨进程续读须另有明确合同与授权。</td></tr>
+      <tr><td><strong>C07 读取追溯与输入证据</strong></td><td>请求与实际范围、来源、合同版本、时间、数量、可取得的输入身份与指纹。</td><td>D04 来源与读取追溯</td><td>关联 D02 实际执行和 D03 实际报告。指纹用于识别变化，不等于能恢复原版本。</td></tr>
+      <tr><td><strong>C08 访问与资源治理</strong></td><td>权限、来源边界、并发、扫描量、内存、超时、取消、错误和运行观测。</td><td>D05 访问与运行治理</td><td>贯穿其他方向；管理读取执行，不决定研究方法或结论。</td></tr>
+    </tbody></table></div>
+    <h3>为什么这样归并</h3>
+    <p><strong>C04 与 C06 属于同一个读取过程。</strong>请求、读取计划、排序、批次、部分结果、取消和完成条件必须共同设计，否则容易出现“查询已成功，但交付是否完整没人负责”的空隙。</p>
+    <p><strong>C02 与 C03 同时包含事实和元数据。</strong>事实的含义归合同管理，内容由读取能力交付，本次实际采用的时间/版本归追溯；不因此新建股票池选择器或研究时间策略。</p>
+    <p><strong>C05 与 C07 分开。</strong>前者回答“检查了什么、数据实际怎样”，后者回答“这次实际用了什么、各项结果怎样对应”。一次失败读取也需要追溯记录，但不能把未完成的质量检查记成通过。</p>
+    <p><strong>C08 是贯穿约束。</strong>权限与预算先于数据访问，运行限制和取消持续生效，资源释放与结果终态在结束时对齐；它不是链路末尾才执行的一步。</p>
+  </section>
+
+  <section class="panel" id="collaboration">
+    <h2>3. 横向职责与纵向完整链路</h2>
+    <p>横向要求每个方向有一份完整设计；纵向要求这些设计能够共同完成一次读取。时间分期只限制当期支持范围，不能把异常、证据或边界留到后期再想。</p>
+    <div class="flow" aria-label="一次数据读取的协作链路">
+      <div class="step"><strong>明确请求</strong>上游指定数据、对象、时间、字段与规则。</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="step"><strong>D01 合同解析</strong>确认身份、字段含义与支持范围。</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="step"><strong>D02 读取计划</strong>确定来源、投影、过滤、关联和交付方式。</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="step"><strong>D02 + D03</strong>有界读取、适用核验和批次交付。</div><span class="arrow" aria-hidden="true">→</span>
+      <div class="step"><strong>明确结束</strong>完整/部分/失败结果与证据相互对应。</div>
+    </div>
+    <div class="ribbon"><strong>D05 贯穿：</strong>权限检查 → 成本与资源准入 → 运行限制、取消与进度 → 资源释放。</div>
+    <div class="ribbon"><strong>D04 贯穿：</strong>关联请求与合同 → 实际来源与读取范围 → 批次、检查与最终证据。</div>
+    <p>质量检查可能发生在读取前、读取中或读取后。不能宣称所有检查都能在明细交付前完成。若采用流式交付，应在合同中定义：批次是否已完成所需检查、哪些检查尚未结束、最终失败时此前批次如何标识。上游不能把“收到一些数据”理解为“完整输入已通过全部检查”。</p>
+    <h3>共同交付的四类内容</h3>
+    <div class="table-scroll"><table><thead><tr><th>内容</th><th>意义</th></tr></thead><tbody>
+      <tr><td>数据合同</td><td>说明读取的是什么、含义与限制是什么。</td></tr>
+      <tr><td>读取计划</td><td>说明明确需求将怎样落到实际来源、读取范围和交付边界；计划本身不自动触发执行。</td></tr>
+      <tr><td>数据与交付结果</td><td>说明实际返回了哪些字段、哪些范围、多少批次以及是否完整结束。</td></tr>
+      <tr><td>覆盖报告与读取证据</td><td>说明检查的实际范围、已确认问题、未检查内容及本次输入来源。</td></tr>
+    </tbody></table></div>
+    <p class="small">上述内容是概念合同，不是已批准的 DTO、数据库表或独立状态机。具体字段、存储、生命周期与跨进程行为在 LLD 中确定。</p>
+  </section>
+
+  <article class="panel direction" id="d01">
+    <div class="direction-header"><div class="section-kicker">二 / 五大方向 · D01</div><h2>数据目录与合同管理</h2><p>完整目标：上游和读取执行方能够依据同一份合同，识别数据、解释字段并确定可支持的读取要求。</p></div>
+    <h3>职责与能力范围</h3>
+    <ol>
+      <li><strong>组织发现入口。</strong>按数据主题、研究对象、来源、频度和数据性质查找候选数据；返回说明与匹配依据，不替上游选择研究数据。</li>
+      <li><strong>建立稳定身份。</strong>区分逻辑数据集、Raw/Silver/Gold 表达、频度、来源与 serving 访问载体。相似名称不代表含义相同，查询副本不重复计为研究主题。</li>
+      <li><strong>表达字段合同。</strong>覆盖字段名、类型、单位、精度或编码、NULL 含义、主键、时间语义、排序及支持的读取条件。缺失的定义需核实，不能从字段名猜测。</li>
+      <li><strong>描述基础事实。</strong>说明证券身份、历史代码、上市退市、停复牌、成分等数据的含义与有效范围，使上游能够明确请求这些事实。</li>
+      <li><strong>描述时间和版本能力。</strong>区分业务发生/所属时间、源端发布、平台采集及修订版本。只有来源实际支持的字段与历史读取能力，才能对外声明。</li>
+      <li><strong>管理合同变化。</strong>明确合同身份与版本，区分字段新增、类型/单位/主键等含义变化，标识受影响的读取与消费者，避免静默改变解释。</li>
+    </ol>
+    <div class="io"><p><strong>输入：</strong>当前正式资产 registry、字段 schema、路径/分区合同、来源资料和经核验的消费者语义。</p><p><strong>输出：</strong>可发现的数据说明、机器可读合同、来源与表达映射、支持/不支持/未知的能力说明及合同变化记录。</p></div>
+    <h3>内部一致性与协作</h3>
+    <p>DG 资产事实继续以现有 registry 及其引用合同为准。对上目录应通过经过审计的适配或发布方式引用这些事实，只补充缺失的发布语义；不手抄另一份字段清单成为竞争事实源。现行 catalog 是只读 registry，不因本方案自动变成 asset 生成器或运行时 planner。</p>
+    <p>D02 负责按合同执行读取；D03 解释检查范围和要求；D04 记录实际采用的合同版本；D05 据其声明能力执行访问和成本约束。</p>
+    <h3>边界与异常</h3>
+    <div class="boundary"><p>不决定股票池、研究对象或策略；不根据“更高层级”自动替换数据表达；不把 source 的可选参数直接变成研究输入；不从采集时间推测公开时间。</p><p>身份或表达存在歧义、字段含义冲突、所需版本不可提供时，明确报告冲突或不支持，不能静默使用另一个来源。登记合同存在不代表实现已注册、文件存在或覆盖已经核验。</p></div>
+    <h3>方向的完整验收标准</h3>
+    <ul class="checklist"><li>同一身份在不同入口中含义一致，支持范围可程序化判断。</li><li>字段、类型、单位、时间和来源能追到独立依据；未知项明确可见。</li><li>合同变化能定位受影响消费者，旧请求不会悄悄解释为新含义。</li><li>事实源变化可复核，对上目录没有形成另一套手工资产事实表。</li></ul>
+  </article>
+
+  <article class="panel direction" id="d02">
+    <div class="direction-header"><div class="section-kicker">二 / 五大方向 · D02</div><h2>数据读取与交付</h2><p>完整目标：把上游明确的数据要求转换为受控、可核验、可完整消费的读取过程。</p></div>
+    <h3>职责与能力范围</h3>
+    <ol>
+      <li><strong>接收明确需求。</strong>数据集及表达、对象标识、时间范围、字段、过滤、排序和交付要求由上游指定。缺少条件时按合同判断是否允许，不能默认扩大为无界全量。</li>
+      <li><strong>形成读取计划。</strong>解析实际来源、列投影、文件/分区或表过滤、排序、批次边界、预计成本与来源身份要求；将歧义和不支持项在执行前说明。</li>
+      <li><strong>执行受控读取。</strong>依据实际物理布局裁剪，优先向量化、集合查询和批次消费，避免全量明细长期驻留内存以及重复扫描同一来源。</li>
+      <li><strong>支持显式关联。</strong>只执行合同支持且上游明确指定的关联键、关联方式、时间条件及身份映射规则；关联前后数量和未匹配情况可见。</li>
+      <li><strong>交付稳定数据。</strong>统一字段结构、类型、排序、分页或批次边界；定义最后一批、完整结束、部分结果、重复领取和消费中断的语义。</li>
+      <li><strong>管理一次读取的生命周期。</strong>执行中响应取消、超时和来源变化；结束时关闭连接、释放句柄，并使交付结果与实际执行相符。</li>
+    </ol>
+    <div class="io"><p><strong>输入：</strong>明确的数据请求、D01 合同、D05 准入条件，以及上游显式选择的缺失处理和关联要求。</p><p><strong>输出：</strong>读取计划、程序可消费的批次、实际交付摘要、明确的完成/部分/失败结果，并关联 D03、D04 的报告和证据。</p></div>
+    <h3>整体过程</h3>
+    <p>请求解析、计划、执行、交付和结束必须使用同一套身份、范围与错误规则。查询已返回记录，不等于调用方已经完整消费；此前返回过批次，也不等于后续异常可以被记为成功。</p>
+    <p>源读取一致性应逐类说明：数据库事务与多文件读取的保证可能不同。逐文件原子替换不能自动构成跨文件一致快照。要求无法满足时，不能用一个读取时间戳冒充一致性保证。</p>
+    <h3>边界与异常</h3>
+    <div class="boundary"><p>不计算研究特征、标签或策略；不自行扩展预热窗口、排除对象、改变复权基准、跨来源兜底、填值或删样本。上游需要额外窗口时必须显式请求。</p><p>数据交付不自动授权输入落盘、缓存或复制。现行 QTF 禁止持久化来源输入副本；若将来确需文件交付，须先明确保存方、路径、期限、权限及现行规则如何适用。不能先生成副本，再把它解释为“只是下载”。</p><p>中断后只允许在源身份与游标仍满足明确合同的情况下续读；否则返回不可续读或创建明确的新请求，不把两次变化后的输入拼成一份完整结果。</p></div>
+    <h3>方向的完整验收标准</h3>
+    <ul class="checklist"><li>实际来源、对象、时间和字段与请求/计划对齐；没有静默扩范围或改口径。</li><li>分批读取可重建规定排序下的完整结果，重复、遗漏、截断和部分结果有明确表现。</li><li>关联后的行数变化、未匹配及多对多扩张有说明，不能静默放大样本。</li><li>超预算、取消、超时、来源变更和交付失败均有可核验结果，资源能够释放。</li></ul>
+  </article>
+
+  <article class="panel direction" id="d03">
+    <div class="direction-header"><div class="section-kicker">二 / 五大方向 · D03</div><h2>质量与覆盖核验</h2><p>完整目标：让上游知道所请求范围实际具备什么、检查了什么、缺了什么，以及哪些结论仍然未知。</p></div>
+    <h3>职责与能力范围</h3>
+    <ol>
+      <li><strong>明确检查依据。</strong>分别引用数据合同、请求范围、适用的生产检查和上游显式给出的核验要求。不能根据查询到什么，反推应该有什么。</li>
+      <li><strong>报告结构与数值事实。</strong>schema、主键、重复、NULL 及来源合同已有的有效值要求，均需说明检查范围、结果与依据。</li>
+      <li><strong>核对覆盖。</strong>按合同支持的对象、日期、频度、字段等维度核对请求与实际覆盖。只有取得预期集合的独立依据，才能声称缺失多少。</li>
+      <li><strong>说明原因与不确定性。</strong>有明确事实时区分停牌、未上市、合法空日、尚未生产等原因；证据不足时保留未知，不能推测“无行情就是停牌”。</li>
+      <li><strong>关联适用的生产检查。</strong>复用现有检查语义及结果时，确认其对应来源、分区、版本和有效范围。历史曾通过不等于当前输入已通过。</li>
+      <li><strong>有界执行和解释。</strong>检查可以在读取前、中、后完成；列出已检查、失败、未检查与无法检查的部分，返回有界错误样本或可领取的明细。</li>
+    </ol>
+    <div class="io"><p><strong>输入：</strong>请求和实际读取范围、数据合同、适用的来源事实/检查证据，以及上游显式声明的预期集合或检查要求。</p><p><strong>输出：</strong>覆盖与质量报告，包含检查依据、范围、时间、实际数量、缺失/异常和未知原因，并与具体读取绑定。</p></div>
+    <h3>上游决策与数据合同校验的区别</h3>
+    <p>基座可以拒绝非法请求、无法解释的结构冲突或不满足读取合同的数据。研究样本数量是否足够、是否排除停牌对象、是否调整区间，则由上游判断。对“缺失时拒绝交付”或“返回已有数据并附报告”等行为，应采用明确的已支持请求规则，不设置隐藏默认。</p>
+    <p>一次读取没有期望对象全集，就不能仅凭实际返回数量计算完整率。只有最大日期，也不能声称连续完整覆盖到该日。生产事件、文件存在、文件检查和研究可用性是不同结论。</p>
+    <h3>边界与异常</h3>
+    <div class="boundary"><p>不修复源数据，不为了检查通过而补零、去重或删行，不替研究制定样本剔除规则。检查无法在预算内完成时报告未完成，或按显式规则阻断，不降低检查语义。</p><p>避免为每次读取重新执行全量检查。优先评估适用的有界证据、批量核验及读取中统计，但不得把粗筛冒充正式完整检查。</p></div>
+    <h3>方向的完整验收标准</h3>
+    <ul class="checklist"><li>预期范围有独立依据，报告能解释请求、实际数据与检查范围之间的关系。</li><li>缺失、合法空、未知、未检查和检查失败能够区分。</li><li>生产检查的适用性与输入身份对应，旧检查不会被错误复用。</li><li>报告不改变原数据、不偷偷改变研究对象，核验成本有边界。</li></ul>
+  </article>
+
+  <article class="panel direction" id="d04">
+    <div class="direction-header"><div class="section-kicker">二 / 五大方向 · D04</div><h2>来源与读取追溯</h2><p>完整目标：能说明一次读取实际使用了什么，并定位请求、来源、交付、检查和后续输入变化之间的关系。</p></div>
+    <h3>职责与能力范围</h3>
+    <ol>
+      <li><strong>建立关联身份。</strong>将一次请求、采用的合同、读取计划、实际来源、批次、质量报告和结束结果对应起来。引用身份不等于必须新增数据库实体。</li>
+      <li><strong>记录实际输入。</strong>包括实际对象/时间/字段范围、来源与表达、合同版本、读取时间、实际数量及来源能够提供的版本身份。</li>
+      <li><strong>获取必要指纹。</strong>依据读取方式选择内容、文件或发布身份等证据；区分来源声明的版本和本次实际内容指纹，说明覆盖范围与成本。</li>
+      <li><strong>记录异常与证据缺口。</strong>部分交付、取消、检查未完成、追溯降级都应可见，不能把没有证据的环节记成已核验。</li>
+      <li><strong>支持读取之间的比较。</strong>区分请求变化、合同变化、来源版本变化、内容变化和覆盖变化；不替研究判断结果变化是否有经济意义。</li>
+      <li><strong>管理证据生命周期。</strong>证据的保存位置、期限、权限、敏感字段、失败策略和清理方式在 LLD 中明确，不默认建立另一套运行账本。</li>
+    </ol>
+    <div class="io"><p><strong>输入：</strong>D01 合同身份、D02 实际执行和交付事实、D03 实际检查报告，以及来源能够提供的身份信息。</p><p><strong>输出：</strong>可关联、可比较的读取证据与差异说明；明确哪些部分只能检测变化，哪些来源确实支持原版本读取。</p></div>
+    <h3>可追溯不等于可重放</h3>
+    <p>保存内容指纹可以证明两次输入不同，不能恢复被覆盖的旧文件或旧表记录。即使合同版本相同，数据内容也可能变化；即使有读取时间，也不代表源端保留了那个时刻的历史版本。</p>
+    <p>历史版本的保留、修订发布与保留成本归数据生产/存储侧专项设计。基座只在来源真实支持的前提下执行指定版本读取，并记录实际采用的身份；不能在 QTF 中用复制输入绕过现行边界。</p>
+    <h3>边界与异常</h3>
+    <div class="boundary"><p>不承接研究结论管理、策略版本或实验结果评价；这些属于上游实验与研究层。证据状态也不替代 DG 的运行事实。</p><p>必须追溯的读取应在准入时明确要求。运行中证据写入失败的处置需有可见规则，不能伪造证据或回滚上游正式业务数据。审计存储不得未经设计就成为所有业务查询的隐式故障依赖。</p><p>计算指纹也要预算，优先评估在实际读取中增量计算或复用适用来源身份，避免为追溯无界重扫。</p></div>
+    <h3>方向的完整验收标准</h3>
+    <ul class="checklist"><li>能从读取结果追到实际来源、合同、范围和适用检查。</li><li>能够识别输入变化，并清楚标识无法验证、无法原版本重读的情况。</li><li>证据对应实际执行，取消、部分结果和追溯失败不被写成完整成功。</li><li>证据不夹带凭证或无界明细，不产生来源数据持久化副本。</li></ul>
+  </article>
+
+  <article class="panel direction" id="d05">
+    <div class="direction-header"><div class="section-kicker">二 / 五大方向 · D05</div><h2>访问与运行治理</h2><p>完整目标：使数据访问在权限和成本边界内开始、持续执行并明确结束，能够观察、停止和解释。</p></div>
+    <h3>职责与能力范围</h3>
+    <ol>
+      <li><strong>访问准入。</strong>确认调用方、允许的数据来源、数据集、表达和字段范围。当前自有智能体场景采用最小必要能力，不默认引入新角色、多租户或公开访问体系。</li>
+      <li><strong>成本准入。</strong>评估对象数、日期跨度、字段、扫描文件/分区、预计记录、返回体积与关联放大等因素；返回行数上限不能代替扫描成本上限。</li>
+      <li><strong>资源控制。</strong>约束并发、内存、线程、临时空间和连接占用。研究读取与 DG 数据生产的资源关系需明确，不能直接套用生产计算的默认配置。</li>
+      <li><strong>运行控制。</strong>执行前与批次边界响应取消，说明不可分步骤的最长占用和安全退出方式。交付过程考虑消费者读取慢或中断，避免无界缓冲。</li>
+      <li><strong>可观测与错误反馈。</strong>区分已扫描、已读取、已返回、已检查和已消费的含义；总量未知时明确未知，不伪造进度或 ETA。</li>
+      <li><strong>安全结束与演进。</strong>释放资源，处理超时、连接失败和源不可用；合同或配置变化需完成消费者、默认值、来源、生效方式及运维可见性审计。</li>
+    </ol>
+    <div class="io"><p><strong>输入：</strong>调用方与授权上下文、D01 支持范围、D02 读取成本和执行事实，以及已经批准的资源与失败策略。</p><p><strong>输出：</strong>准入结果、明确限制、可见运行状态和错误、取消结果及资源占用证据。</p></div>
+    <h3>治理贯穿整条链路</h3>
+    <p>校验权限之后才能读取数据；根据读取计划判断预算之后才能执行重查询；读取中持续检查预算和取消；无论正常、失败还是取消都应释放资源。需要新增后台长任务时，必须先审计现有运行承载能力，不能由本方案直接另建状态机。</p>
+    <h3>边界与异常</h3>
+    <div class="boundary"><p>不以治理之名改变研究对象和策略，不自动调度 DG 修复、不擅自增加生产数据库来源、不把只读授权扩展为物化或写入权限。</p><p>只读需要在实际连接、路径和执行权限上落实。DuckDB 连接存在临时目录、spill 或显式文件写入能力，不能只凭“连接到内存库”或 helper 名称宣称无副作用。</p><p>本方案不新增具体配置项或默认阈值。每期 LLD 必须依据规模样本给出数值、来源和超限行为，完成配置审计后才能实施。</p></div>
+    <h3>方向的完整验收标准</h3>
+    <ul class="checklist"><li>越权和超预算请求在对应边界被拒绝，不以隐藏截断或换来源继续。</li><li>并发、内存、连接与临时空间均有可测边界，读取不会无约束抢占 DG 生产资源。</li><li>取消、超时和消费者中断能安全结束，已交付与未完成部分可区分。</li><li>进度和错误表达实际工作，凭证及内部敏感内容不会泄露。</li></ul>
+  </article>
+
+  <section class="panel" id="requirements">
+    <div class="section-kicker">三 / 从上游看平台</div>
+    <h2>4. 上游应当获得什么能力</h2>
+    <p>下面按上游要完成的事情表达需求。上游不必知道数据平台怎样组织 registry、planner、reader 或证据存储；它需要能明确提出要求，并理解平台承诺及实际返回。</p>
+    <div class="table-scroll"><table class="wide"><thead><tr><th>上游需求</th><th>上游提供什么</th><th>平台应交付什么</th><th>可观察的验收</th><th>能力 / 方向</th></tr></thead><tbody>
+      <tr><td><span class="req">U01 找到候选数据</span><br>我想知道有哪些数据可供选择。</td><td>主题关键词及可选对象、频度、来源等条件。</td><td>候选数据及其含义、来源、表达和限制，清楚区分登记与实际可用。</td><td>不会把字段相似或名称相近的数据直接当作等价替代。</td><td>C01<br>D01</td></tr>
+      <tr><td><span class="req">U02 读懂数据合同</span><br>我要能据此编写正确代码。</td><td>具体数据集与表达身份。</td><td>字段、类型、单位、主键、时间语义、NULL、支持的查询条件和版本限制。</td><td>程序无需猜测字段含义，未知信息明确可见。</td><td>C01、C03<br>D01</td></tr>
+      <tr><td><span class="req">U03 精确读取</span><br>我指定哪些，就读取哪些。</td><td>对象、范围、字段、过滤、排序和已支持的处理方式。</td><td>符合请求的数据，以及实际采用的来源、范围和交付结果。</td><td>没有静默排除、扩大窗口、换源或截断。</td><td>C04、C06<br>D02</td></tr>
+      <tr><td><span class="req">U04 获取基础事实</span><br>我要自行决定和核验研究对象。</td><td>证券标识、日期及所需身份、生命周期或停复牌字段。</td><td>相应事实和有效范围；无法匹配的身份或缺失原因。</td><td>平台提供事实，选择股票池的规则仍由我定义。</td><td>C02<br>D01、D02</td></tr>
+      <tr><td><span class="req">U05 看清覆盖与异常</span><br>我要知道输入实际缺了什么。</td><td>明确范围，以及可提供的预期集合或检查要求。</td><td>实际覆盖、缺失、重复、NULL、检查依据及已确认/未知原因。</td><td>未知或未检查不被报告为通过，合法空与异常缺失能区分。</td><td>C05<br>D03</td></tr>
+      <tr><td><span class="req">U06 按明确规则组合数据</span><br>我要关联多份数据。</td><td>数据合同、关联键、方式、时间条件及明确的身份映射规则。</td><td>支持范围内的关联结果、未匹配和行数变化。</td><td>不静默丢行、补值或产生未解释的多对多放大。</td><td>C02、C03、C04、C05<br>D01、D02、D03</td></tr>
+      <tr><td><span class="req">U07 让程序消费明细</span><br>我不需要模型读取全部记录。</td><td>字段、顺序和支持的批次交付要求。</td><td>稳定的程序读取方式、批次及明确结束信号；模型只需取得合同、少量样本和摘要。</td><td>程序可完整消费，内存受控，部分交付不会冒充完成。</td><td>C06、C08<br>D02、D05</td></tr>
+      <tr><td><span class="req">U08 追溯和比较输入</span><br>我要解释两次研究输入为什么不同。</td><td>本次读取引用，或需要比较的两次读取引用。</td><td>请求、实际来源/范围、合同版本、数量及可取得的输入指纹差异。</td><td>能区分请求变化和数据变化；不能比较的部分明确说明。</td><td>C07<br>D04</td></tr>
+      <tr><td><span class="req">U09 明确历史版本限制</span><br>我要知道能否读取指定时点或版本。</td><td>明确的时间/版本要求；不使用含义不明的“当时”。</td><td>来源真实支持的读取，或明确的不支持/证据不足说明。</td><td>最新历史数据不冒充当时版本，抓取时间不冒充公开时间。</td><td>C03、C07<br>D01、D02、D04</td></tr>
+      <tr><td><span class="req">U10 控制读取成本与过程</span><br>我要能预判、观察和停止取数。</td><td>已支持的预算要求、查询引用和取消意图。</td><td>有依据的成本与限制、真实进度、可见取消或失败结果。</td><td>超限不偷偷缩范围，停止后资源能释放，未知总量不伪造百分比。</td><td>C08<br>D05</td></tr>
+      <tr><td><span class="req">U11 在不同工具中得到同一含义</span><br>我要在程序和智能体之间协作。</td><td>等价的身份、请求与授权条件。</td><td>一致的数据合同、读取语义、错误、覆盖和证据；载体可以不同。</td><td>SDK 与 MCP 没有各自的默认股票池、时间口径或隐藏兜底。</td><td>C01、C04、C05、C06、C07、C08<br>D01—D05</td></tr>
+      <tr><td><span class="req">U12 识别合同变化</span><br>平台变化时我的程序不能悄悄算错。</td><td>明确依赖的合同身份与支持版本。</td><td>版本变化与不兼容说明，明确的迁移或拒绝行为。</td><td>字段类型、单位、主键或时间含义变化不会静默套用旧解释。</td><td>C01、C03、C07、C08<br>D01、D04、D05</td></tr>
+    </tbody></table></div>
+    <div class="callout"><p><strong>上游保留的决定：</strong>研究问题、股票池、评价与预热区间、特征与标签、样本排除、缺失容忍程度、算法参数和有效性判断。平台只执行明确、受支持的要求并报告事实。</p></div>
+  </section>
+
+  <section class="panel" id="scenario">
+    <h2>5. 用一条场景检验能力是否贯通</h2>
+    <p>以下为需求示例，不选择具体首期数据集，也不表示当前已实现这些通用能力。</p>
+    <ol>
+      <li><strong>发现与理解：</strong>上游找到行情和停复牌数据，核对来源、字段、时间及价格口径，明确选择具体表达。</li>
+      <li><strong>定义请求：</strong>上游给出 A、B、C 的明确代码、日期、字段、排序，以及缺失时返回已有数据并附报告的已支持规则；需要预热时明确给出额外读取区间。</li>
+      <li><strong>计划与准入：</strong>平台说明实际来源和范围，评估读取成本，检查权限与预算；不支持的条件在执行前说明。</li>
+      <li><strong>读取与核验：</strong>程序分批消费；平台报告实际覆盖。只有获得对应停牌事实时才把某项缺失解释为停牌，否则保留未知。</li>
+      <li><strong>明确结束：</strong>程序得到完整或部分交付结果、检查报告与输入证据。上游自行决定是否排除 B、继续计算或修改研究要求。</li>
+      <li><strong>结果解释：</strong>研究程序输出结果、样本情况和验证证据，模型据此分析。重读后内容不同，可先用读取证据定位输入差异。</li>
+    </ol>
+    <p>这条链路同时经过五个方向。任一环节的责任缺失，都可能让上游错误理解输入：例如批次未结束却当作全量、检查未执行却当作通过，或最新数据被误当作历史时点版本。</p>
+  </section>
+
+  <section class="panel" id="access">
+    <h2>6. MCP 与程序调用的位置</h2>
+    <p>MCP、Python 程序入口和未来研究工作台是访问适配方式。它们不各自建立读取规则，也不代替五大方向的设计。研究程序应能直接调用统一的数据合同，不必经过模型才能读取明细。</p>
+    <div class="table-scroll"><table><thead><tr><th>此前讨论的参考入口</th><th>上游目的</th><th>依赖的基座能力</th></tr></thead><tbody>
+      <tr><td><code>search_datasets</code></td><td>发现候选数据。</td><td>C01 / D01</td></tr>
+      <tr><td><code>describe_dataset</code></td><td>取得编程所需含义、范围和限制。</td><td>C01、C02、C03 / D01</td></tr>
+      <tr><td><code>get_data_availability</code></td><td>了解指定范围的覆盖及证据。</td><td>C05、C07、C08 / D03、D04、D05，并通过 D02 有界读取</td></tr>
+      <tr><td><code>query_dataset</code></td><td>执行明确请求，由程序取得数据。</td><td>C04、C06 牵头，五方向协作</td></tr>
+    </tbody></table></div>
+    <p>这四个名称仅保留为需求讨论入口，不在本文冻结为最终 API。大结果的传输、分页、批次和权限适配由读取与交付合同决定，不能在 MCP 层另加一套数据口径。</p>
+  </section>
+
+  <section class="panel" id="phases">
+    <div class="section-kicker">四 / 三期开发节奏</div>
+    <h2>7. 按完整使用场景分期</h2>
+    <p><strong>三个周期的交付对象是三种逐步扩展的完整使用场景。</strong>各方向先有贯穿全程的职责和设计，再按本期支持范围实施，不以“后期再补”为由推迟正确性、证据和失败语义。</p>
+    <p>这里给出相对节奏，不承诺周数或工时。开发前仍需完成本期方案、LLD、代码与消费者审计，给出实际预算、测试和验收条件，并取得相应确认。某一期通过不自动授权下一期。</p>
+    <div class="phase" id="phase-1">
+      <h3>第一期：完整的单数据集读取闭环</h3>
+      <p><strong>上游成果：</strong>能够找到并理解一份已发布合同的数据，提出精确请求，由程序有界消费，并取得实际覆盖和读取证据。</p>
+      <div class="table-scroll"><table><thead><tr><th>当期交付</th><th>完整范围</th></tr></thead><tbody>
+        <tr><td>目录与合同</td><td>在明确发布范围内，身份、表达、字段、单位、时间、来源及限制齐备；身份和时间事实通过普通数据合同提供。</td></tr>
+        <tr><td>读取与交付</td><td>单数据集字段投影、显式过滤、排序和批次读取；定义空结果、拒绝、完整/部分交付、取消和结束。</td></tr>
+        <tr><td>质量与追溯</td><td>检查和报告范围明确；能报告实际数量与可核验覆盖，预期集合缺失时不伪造完整率；记录请求、实际来源、合同、范围和结束结果。</td></tr>
+        <tr><td>运行与入口</td><td>落实只读、来源准入、扫描/返回/内存预算和超时；形成程序调用方式及薄 MCP 适配，二者数据语义一致。</td></tr>
+      </tbody></table></div>
+      <p><strong>明确不支持：</strong>任意跨数据集关联、任意 SQL、无界扫描、默认输入持久化，以及来源不具备的历史版本读取。</p>
+      <p><strong>验收场景：</strong>同一明确请求在程序和 MCP 入口具有一致含义；正常、空结果、缺失、字段错误、超限、取消和来源不可用均能得到清楚结果；所有已交付范围都有相应证据。</p>
+      <p class="small">需求覆盖：U01—U05、U07、U10—U12 的单数据集范围；U08 支持本次读取追溯，U09 必须明确声明实际支持或不支持。选用哪些数据集另行评审，不由本方案指定。</p>
+    </div>
+    <div class="phase" id="phase-2">
+      <h3>第二期：显式多数据协作与输入核验</h3>
+      <p><strong>上游成果：</strong>能够按明确身份、关联和时间规则组合多份数据，并解释组合后的覆盖、行数变化及不同读取之间的差异。</p>
+      <div class="table-scroll"><table><thead><tr><th>当期交付</th><th>完整范围</th></tr></thead><tbody>
+        <tr><td>多合同协作</td><td>明确可关联数据、主外键或身份映射、时间条件、各来源表达和实际版本能力；不设置研究股票池或时间策略。</td></tr>
+        <tr><td>显式关联</td><td>支持经过评审的关联方式，核对关联基数、未匹配及行数变化；字段来源和执行顺序可以解释。</td></tr>
+        <tr><td>覆盖与输入比较</td><td>按明确预期集合和多个来源的事实诊断缺失；将各输入、关联过程和结果证据串联；比较两次请求、合同、覆盖和内容变化。</td></tr>
+        <tr><td>整体成本与错误</td><td>评估组合读取总成本和关联放大；任一来源失败、检查未完成或版本不满足时，结果有明确语义。</td></tr>
+      </tbody></table></div>
+      <p><strong>明确不支持：</strong>自动决定研究对象、自动补值/扩窗口/换源、任意表达式关联，以及靠复制输入补出来源不支持的历史版本。</p>
+      <p><strong>验收场景：</strong>上游指定多个数据和关联规则后，能核对关联前后数量、未匹配及时间要求；错误映射、重复键、多对多放大、混合版本和部分来源失败不会被静默掩盖；重读变化有相应证据。</p>
+      <p class="small">需求重心：完整交付 U06，并扩展 U04、U05、U08、U09、U12；一期读取、交付和治理合同继续适用。</p>
+    </div>
+    <div class="phase" id="phase-3">
+      <h3>第三期：受控的大规模与并发数据服务</h3>
+      <p><strong>上游成果：</strong>在更大对象/日期范围和多个自有任务并发时，仍能预判成本、有界消费、观察进度、停止读取，并准确理解中断后的结果。</p>
+      <div class="table-scroll"><table><thead><tr><th>当期交付</th><th>完整范围</th></tr></thead><tbody>
+        <tr><td>可测成本与读取优化</td><td>用代表性实际规模核验裁剪、集合读取、批次和关联规划，记录扫描文件/记录、耗时、内存与临时空间，拒绝不可接受量级。</td></tr>
+        <tr><td>并发与交付控制</td><td>限制研究任务间和对 DG 生产的资源竞争；消费者变慢或中断时不无界缓冲；取消和异常能够释放资源。</td></tr>
+        <tr><td>一致性与续读边界</td><td>校验来源在读取中的身份变化；跨进程续读仅在来源身份、读取顺序和游标合同可验证时实现，不满足则明确拒绝续读。</td></tr>
+        <tr><td>长期服务维护</td><td>持续观测成本与失败，验证证据存储的规模边界；在合同变化时定位消费者并按迁移规则处理。</td></tr>
+      </tbody></table></div>
+      <p><strong>明确不支持：</strong>无限并发或读取量、自动新增缓存/快照/查询副本、无条件跨版本续读，以及未经批准的公开多租户服务。</p>
+      <p><strong>验收场景：</strong>在获批容量样本和并发场景下，资源有可验证上限；超时、取消、消费者中断、源文件替换和合同升级都有清楚结果；不能把低效测量脚本造成的成本误判为必须新增状态系统。</p>
+      <p class="small">需求重心：扩大 U03、U06、U07、U10、U11 的规模范围，强化 U08、U09、U12 的服务稳定性。历史版本保留仍须单独评审，不自动计入三期。</p>
+    </div>
+  </section>
+
+  <section class="panel" id="phase-matrix">
+    <h2>8. 五大方向 × 三期交付对照</h2>
+    <p>按行可以看到一个方向贯穿三期的整体思路，按列可以检查一期能否完成上游使用场景。每一格表达当期可验收的支持范围，不是另建一套模块或合同。</p>
+    <div class="table-scroll"><table class="wide tight"><thead><tr><th>方向与能力</th><th>第一期：单数据集闭环</th><th>第二期：多数据协作</th><th>第三期：规模与持续运行</th></tr></thead><tbody>
+      <tr><td><strong>D01 目录与合同</strong><br>C01、C02、C03</td><td>发布范围内身份、字段、时间和版本限制完整；可程序化发现与解释。</td><td>声明显式关联键、身份映射和多来源时间/版本支持；合同变化可定位。</td><td>检查更大消费范围的合同影响与迁移一致性；不改变合同管理的职责。</td></tr>
+      <tr><td><strong>D02 读取与交付</strong><br>C02、C04、C06</td><td>单来源精确读取、稳定批次与完整结束；明确取消、部分和失败。</td><td>按明确规则关联多个输入，解释来源与行数变化，整体交付。</td><td>规模化裁剪和批次、并发交付与来源变化控制；仅支持可验证的续读。</td></tr>
+      <tr><td><strong>D03 质量与覆盖</strong><br>C05</td><td>结构与覆盖报告有依据；未检查、未知和异常分开，禁止静默修复。</td><td>关联前后覆盖和基数核验，依据多个明确事实解释缺失。</td><td>在获批容量下批量核验，保证报告完整性与计算成本，不降低检查含义。</td></tr>
+      <tr><td><strong>D04 来源与追溯</strong><br>C03、C07</td><td>串联请求、实际输入、交付与检查；证据缺失和降级可见。</td><td>串联多个来源和关联过程，比较请求、合同、覆盖及内容变化。</td><td>核验长读取/并发下证据一致性、规模与保留边界，解释来源变化和不可重放。</td></tr>
+      <tr><td><strong>D05 访问与治理</strong><br>C08</td><td>权限、只读、来源与成本准入、超时、取消、资源释放均有规则。</td><td>覆盖组合读取的权限、总成本、关联放大和整体失败。</td><td>核验并发、资源隔离、背压、恢复条件和长期运行观测。</td></tr>
+    </tbody></table></div>
+    <h3>每个方向保持一份完整设计</h3>
+    <p>方向的目标、输入输出、内部协作、异常、运行边界、演进和最终验收标准应在开发前整体说明。每期 LLD 引用并细化本方向设计，列清当期支持与不支持范围；不得为了阶段名称新建重复合同、第二套读取逻辑或兼容轨道。</p>
+  </section>
+
+  <section class="panel" id="gates">
+    <h2>9. 开工门禁与待确认事项</h2>
+    <p>本文完成的是能力规划。进入任一期编码或正式执行前，应在本总体方案和对应 LLD 中完成以下内容，不能仅凭本页的节奏表开工。</p>
+    <ul class="checklist">
+      <li><strong>目标与范围：</strong>当期数据形态、调用方、受支持操作、禁止项和可独立使用的交付链路。</li>
+      <li><strong>代码与影响：</strong>实际实现位置、CodeGraph 调用/消费者分析、现有合同和测试依据、与当前代码的差异。</li>
+      <li><strong>合同与状态：</strong>精确请求、输出、错误、部分结果、取消、结束与必要续读规则；证据与源身份的关联方式。</li>
+      <li><strong>配置与读写：</strong>每项配置的名字、默认值、来源、消费者、生效与运维方式；明确数据库/Lake/临时目录/证据的访问及写入范围。</li>
+      <li><strong>成本与性能：</strong>对象、日期、分区、字段、文件、SQL/源请求、扫描/返回量、内存、并发、临时空间、耗时和超限策略；先有界样本再扩大。</li>
+      <li><strong>失败与恢复：</strong>取消检查点、源变化、进程退出、已返回数据、证据写失败及恢复条件；未支持的恢复明确拒绝。</li>
+      <li><strong>验收：</strong>独立依据的正反样本、静态门禁、有界真实只读核验、性能与取消验证；不得只用 mock 声称真实集成通过。</li>
+      <li><strong>确认与授权：</strong>按现行规则完成设计确认、契约批准和执行授权。只读审计、代码修改、正式运行和写入边界分别处理。</li>
+    </ul>
+    <div class="table-scroll"><table><thead><tr><th>待确认事项</th><th>为什么现在不直接拍板</th></tr></thead><tbody>
+      <tr><td>服务/模块归属、端口与装配方式</td><td>DG 独立于生产 Web/Ops，QTF 只允许依赖自身与 Foundation；需要先审计依赖与消费者，不能把图中的方向直接变成跨包 import。</td></tr>
+      <tr><td>首期数据与实际查询范围</td><td>本轮明确暂不选择数据集；成本与语义验收需在选定范围后给出。</td></tr>
+      <tr><td>实际传输形式、文件交付与证据保存</td><td>需要明确生命周期、资源、权限和与 QTF 禁止来源副本规则的关系。</td></tr>
+      <tr><td>精确查询、关联、历史时间/版本合同</td><td>来源与身份合同需逐项核实，不能用统一参数名称掩盖不支持能力。</td></tr>
+      <tr><td>跨进程长读取与续读</td><td>需要证明源身份和游标可验证，并审计是否确需持久化状态；不默认新增状态系统。</td></tr>
+      <tr><td>具体工期、预算和阈值</td><td>尚未完成工作量与容量测量，不能用虚构周数或性能承诺代替评估。</td></tr>
+    </tbody></table></div>
+    <p>源数据版本保留、新增数据集、任意代码研究执行环境和公开数据分发不由本方案自动纳入。后续如确认需要，应先校准相应原方案与 LLD，并独立评审职责、成本和授权。</p>
+  </section>
+
+  <section class="panel" id="current-state">
+    <div class="section-kicker">附录 / 规划依据</div>
+    <h2>10. 当前实现起点与缺口</h2>
+    <p>以下仅记录 2026-10-17 对当前工作区的静态核对结果，不代表正式环境、物理数据或运行状态已经重新验收，也不是对全仓通用能力的完整审计。</p>
+    <div class="table-scroll"><table class="evidence"><thead><tr><th>当前依据</th><th>可复用的起点</th><th>仍需设计或审计</th></tr></thead><tbody>
+      <tr><td><code>LAKE_ASSET_CATALOG</code> 与 <code>LakeAssetCatalogEntry</code></td><td>已有资产身份、数据集、层级、来源、schema、路径、分区、检查和策略登记。</td><td>研究侧发布合同、语义缺口、适配与演进；不能直接把只读 registry 改成通用执行器。</td></tr>
+      <tr><td><code>ColumnContract</code> 与各资产 schema</td><td>字段名称、类型与说明有集中依据。</td><td>单位、NULL、时间和版本等信息需逐项核实；文档中存在说明不代表全部字段已有结构化合同。</td></tr>
+      <tr><td><code>SectorInputSource</code> / <code>SectorInputRequest</code></td><td>已有行业研究输入端口，以及明确时间范围、前后交易日数和源超时。</td><td>它是特定行业场景的输入，不是全数据平台通用接口；不能直接推广其默认值和对象语义。</td></tr>
+      <tr><td><code>ProdSectorInputSource</code></td><td>已有受限定合同的只读源读取与输入证据构造。</td><td>当前有整段读取并组装内存对象的方式，不能据此认定已经支持通用大表流式交付；源权限也不能扩展为所有查询均可读 Prod。</td></tr>
+      <tr><td><code>DatasetEvidence</code> 与输入预检</td><td>已有字段、范围、数量、主键状态、缺失/重复和内容指纹等证据。</td><td>通用查询证据、批次关联、关联结果覆盖及不同来源的适用性需设计，不能直接复用未经核实的业务预检规则。</td></tr>
+      <tr><td>QTF 执行器、App 接线与现有测试</td><td>可以追到输入预检与运行读取的消费者；外部 IO 经端口注入，运行输入会重新核对合同。</td><td>本规划不恢复旧 QTF M4 方向，不绕过现行里程碑；新数据基座和 QTF 的接入需另行全消费者审计。</td></tr>
+      <tr><td>统一 DuckDB 连接与性能规范</td><td>已有资源参数和受限策略，可作为读取成本与副作用审计入口。</td><td>managed 会创建临时目录，受限策略也不阻止显式 SQL 写文件；不直接照搬参数或声称天然只读。</td></tr>
+    </tbody></table></div>
+    <p>本方案不修改依赖矩阵。DG、Foundation、QTF 和 App 的既有职责仍适用；没有将 DG 直接装入生产 Web，也没有允许 QTF 导入 orchestrator 内部实现。</p>
+  </section>
+
+  <section class="panel" id="references">
+    <h2>11. 来源与本轮验证边界</h2>
+    <ul class="refs">
+      <li><a href="../../../AGENTS.md">仓库根规则</a>；<a href="../../AGENTS.md">Lake 工程规则</a>；<a href="../../orchestrator/AGENTS.md">Orchestrator 规则</a>；<a href="../../../qtf/AGENTS.md">QTF 规则</a>。</li>
+      <li><a href="../../../docs/architecture/subsystem-boundary-plan.md">子系统架构基线</a>；<a href="dagster-data-pipeline-performance-governance.md">DG 性能治理规范</a>；<a href="../../orchestrator/CODING_STANDARDS.md">Orchestrator 编码规范</a>。</li>
+      <li><a href="../../orchestrator/src/orchestrator/defs/catalog/lake_assets.py">DG 资产 registry</a>；<a href="../../orchestrator/src/orchestrator/defs/run_contracts/column_schema.py">字段合同</a>；<a href="../../orchestrator/src/orchestrator/defs/duckdb_connection.py">DuckDB 连接入口</a>。</li>
+      <li><a href="../../../qtf/application/ports/input_source.py">QTF 输入端口</a>；<a href="../../../qtf/modules/sector/input_contract.py">行业输入合同</a>；<a href="../../../qtf/adapters/prod/sector_source_adapter.py">行业来源适配器</a>；<a href="../../../qtf/contracts/runtime.py">输入证据合同</a>。</li>
+      <li><a href="../../../qtf/application/services/input_preflight_service.py">输入预检消费者</a>；<a href="../../../qtf/modules/sector/executor.py">运行输入消费者</a>；<a href="../../../src/app/api/v1/qtf.py">App API 装配</a>；<a href="../../../src/app/runtime/qtf_task_executor.py">App 执行器装配</a>。</li>
+      <li><a href="../../../qtf/tests/test_prod_sector_input_source.py">只读读取合同测试</a>；<a href="../../../qtf/tests/test_m3_execution_workflow.py">执行链路测试</a>；<a href="../../../tests/web/test_qtf_api.py">QTF API 测试</a>。本轮仅阅读相关实现与测试，未据此声称测试重新通过。</li>
+      <li><a href="../architecture/dagster-research-dataset-catalog.html">此前生成的研究数据业务目录</a>是有日期的静态快照，不替代当前 registry 或物理数据核验。</li>
+      <li><a href="../../../docs/architecture/qtf-quant-platform-architecture-v1.html">既有 QTF 总体方案</a>；<a href="../../../docs/architecture/qtf-quant-platform-low-level-design-v1.md">既有 QTF LLD</a>。其中目标设计、历史验收和被否决方向必须按原文状态区分，本规划不构成续做授权。</li>
+    </ul>
+    <p>本轮使用 CodeGraph 的 <code>codegraph_explore</code> 查找合同与消费者上下文，并补读当前源文件、装配入口和测试。图谱返回的宽泛名称匹配未直接作为架构结论。</p>
+    <p>本轮只编写规划文档与索引：未新增配置、依赖、代码、服务、资产或任务；未访问正式数据库、Dagster instance 或 Lake 文件；未执行 DG、研究、同步、物化或发布任务。</p>
+  </section>
+  <footer class="footer">Goldenshare · 量化研究数据基座总体方案 v1 · 2026-10-17<br>八项能力保持可追踪，五大方向保持完整，三期交付以独立可用的链路为验收单位。</footer>
+</main>
+</body>
+</html>
