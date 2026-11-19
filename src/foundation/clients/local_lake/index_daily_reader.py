@@ -10,15 +10,16 @@ import stat
 from threading import Timer
 from typing import Any
 
+from src.foundation.clients.reference_data import ReferenceDataReadError
+
+from .reference_data_reader import LakeTradeCalendarReader
 from .major_index_mins_contract import FORMAL_LAKE_ROOT as FORMAL_LAKE_ROOT
 
 _FACTOR_DIR = Path("silver/index/index_factor_pro")
 _DAILY_DIR = Path("silver/index_daily")
-_CALENDAR_FILE = Path("silver/calendar/trade_calendar/full/part-000.parquet")
 _BASIC_FILE = Path("silver/index_basic/full/part-000.parquet")
 _PARTITION_PREFIX = "trade_date="
 _PART_FILE = "part-000.parquet"
-_CALENDAR_COLUMNS = (("trade_date", "DATE"), ("is_open", "BOOLEAN"), ("pretrade_date", "DATE"))
 _IDENTITY_COLUMNS = ("ts_code", "name", "market", "publisher", "category")
 
 
@@ -35,37 +36,20 @@ class IndexDailyLakeReader:
         timeout_seconds: float | None = None,
     ) -> tuple[tuple[date, bool, date | None], ...]:
         """Read a bounded range of SSE dates, including closed days."""
-        path = str(self._path(_CALENDAR_FILE))
-        if recent_open_days is None:
-            rows = _read(
-                """
-                SELECT trade_date, is_open, pretrade_date
-                FROM read_parquet(?, hive_partitioning=false)
-                WHERE exchange = 'SSE' AND trade_date BETWEEN ? AND ?
-                ORDER BY trade_date
-                """,
-                [path, start if start is not None else end, end], _CALENDAR_COLUMNS, timeout_seconds=timeout_seconds,
-            )
-        else:
-            rows = _read(
-                """
-                WITH calendar AS MATERIALIZED (
-                    SELECT trade_date, is_open, pretrade_date
-                    FROM read_parquet(?, hive_partitioning=false)
-                    WHERE exchange = 'SSE' AND trade_date <= ?
-                ), recent_open AS (
-                    SELECT trade_date FROM calendar
-                    WHERE is_open
-                    ORDER BY trade_date DESC LIMIT ?
+        reader = LakeTradeCalendarReader(self.root)
+        try:
+            if recent_open_days is None:
+                rows = reader.range_rows(
+                    exchange="SSE", start=start or end, end=end, timeout_seconds=timeout_seconds,
                 )
-                SELECT trade_date, is_open, pretrade_date FROM calendar
-                WHERE trade_date >= COALESCE((SELECT min(trade_date) FROM recent_open), ?)
-                  AND trade_date >= ?
-                ORDER BY trade_date
-                """,
-                [path, end, recent_open_days, end, start or date.min], _CALENDAR_COLUMNS, timeout_seconds=timeout_seconds,
-            )
-        return tuple(rows)
+            else:
+                rows = reader.context_rows(
+                    exchange="SSE", start=start, end=end, recent_open_days=recent_open_days,
+                    timeout_seconds=timeout_seconds,
+                )
+        except ReferenceDataReadError as error:
+            raise IndexDailyLakeSourceError(str(error)) from error
+        return tuple((row.trade_date, row.is_open, row.pretrade_date) for row in rows)
 
     def factor_dates(self, *, start: date | None, end: date) -> tuple[date, ...]:
         return _partition_dates(self._path(_FACTOR_DIR), start=start, end=end)

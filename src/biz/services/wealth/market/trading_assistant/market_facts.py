@@ -11,6 +11,7 @@ import json
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.services.wealth.market.stock_search.stock_search_policy import A_SHARE_EXCHANGES
@@ -70,8 +71,13 @@ class MarketFactsReader:
         self.policy = policy
 
     def resolve_security(self, session: Session, ts_code: str, deadline: Deadline) -> SecurityFact:
-        apply_sql_budget(session, deadline, self.policy)
-        row = session.execute(select(Security.ts_code, Security.name, Security.exchange,
+        reference = local_reference_data(session)
+        if reference is not None:
+            deadline.remaining_ms()
+            row = reference.security.get(ts_code=ts_code)
+        else:
+            apply_sql_budget(session, deadline, self.policy)
+            row = session.execute(select(Security.ts_code, Security.name, Security.exchange,
                                      Security.security_type, Security.curr_type, Security.source).where(Security.ts_code == ts_code)).one_or_none()
         deadline.remaining_ms()
         if row is None or row.exchange not in A_SHARE_EXCHANGES or row.security_type != "EQUITY":
@@ -82,7 +88,9 @@ class MarketFactsReader:
             raise SecurityNotEligible("仅支持人民币 A 股股票", ts_code=ts_code)
         if not row.name or not row.source:
             raise MarketFactsUnavailable("证券身份资料不完整")
-        snapshot = dict(row._mapping)
+        snapshot = {name: getattr(row, name) for name in (
+            "ts_code", "name", "exchange", "security_type", "curr_type", "source",
+        )}
         return SecurityFact(row.ts_code, row.name, row.exchange, row.source, facts_digest(snapshot))
 
     def read_calendar(self, session: Session, exchange: str, from_date: date,
@@ -92,11 +100,18 @@ class MarketFactsReader:
         expected = (through_date - from_date).days + 1
         if expected > self.policy.page_rows:
             raise ValueError("Caller must page calendar windows within the execution budget")
-        apply_sql_budget(session, deadline, self.policy)
-        rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open, TradeCalendar.pretrade_date)
-            .where(TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= from_date,
-                   TradeCalendar.trade_date <= through_date).order_by(TradeCalendar.trade_date)
-            .limit(expected + 1)).all()
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.range_rows(
+                exchange="SSE", start=from_date, end=through_date,
+                timeout_seconds=deadline.remaining_ms() / 1000,
+            )
+        else:
+            apply_sql_budget(session, deadline, self.policy)
+            rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open, TradeCalendar.pretrade_date)
+                .where(TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= from_date,
+                       TradeCalendar.trade_date <= through_date).order_by(TradeCalendar.trade_date)
+                .limit(expected + 1)).all()
         deadline.remaining_ms()
         # The PK prevents duplicates; count + bounds prove every civil day is represented.
         if len(rows) != expected:

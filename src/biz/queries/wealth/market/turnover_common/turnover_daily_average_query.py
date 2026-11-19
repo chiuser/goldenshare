@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
@@ -32,17 +33,23 @@ class TurnoverDailyAverageQuery:
         *,
         end_trade_date: date,
     ) -> TurnoverDailyAverageSnapshot:
-        descending_dates = session.execute(
-            select(TradeCalendar.trade_date)
-            .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date <= end_trade_date,
-            )
-            .order_by(TradeCalendar.trade_date.desc())
-            .limit(_AVERAGE_WINDOW_DAYS)
-        ).scalars().all()
-        trade_dates = tuple(reversed(descending_dates))
+        reference = local_reference_data(session)
+        if reference is not None:
+            trade_dates = tuple(row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=end_trade_date, limit=_AVERAGE_WINDOW_DAYS,
+            ))
+        else:
+            descending_dates = session.execute(
+                select(TradeCalendar.trade_date)
+                .where(
+                    TradeCalendar.exchange == "SSE",
+                    TradeCalendar.is_open.is_(True),
+                    TradeCalendar.trade_date <= end_trade_date,
+                )
+                .order_by(TradeCalendar.trade_date.desc())
+                .limit(_AVERAGE_WINDOW_DAYS)
+            ).scalars().all()
+            trade_dates = tuple(reversed(descending_dates))
 
         amounts_by_date: dict[date, Decimal] = {}
         if trade_dates:

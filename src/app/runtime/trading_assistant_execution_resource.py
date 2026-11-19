@@ -14,12 +14,14 @@ from src.biz.services.wealth.market.trading_assistant.cutoff_discovery import Cu
 from src.biz.services.wealth.market.trading_assistant.cutoff_preparation import AccountCutoffPreparation
 from src.biz.services.wealth.market.trading_assistant.recalculation_execution import RecalculationExecution
 from src.biz.services.wealth.market.trading_assistant.rule_work import RuleWork
+from src.foundation.clients.reference_data import ReferenceData
 
 
 class TradingAssistantExecutionResource:
-    def __init__(self, database_url, policy, *, rule_version, minute_reader=None):
+    def __init__(self, database_url, policy, *, rule_version, minute_reader=None, reference_data=None):
         self.database_url, self.policy, self.rule_version = database_url, policy, rule_version
         self.minute_reader = minute_reader
+        self._session_info = {ReferenceData.__name__: reference_data} if reference_data is not None else {}
         self.executor_id = str(uuid4())
         self._executor = ThreadPoolExecutor(max_workers=policy.local_concurrency, thread_name_prefix="ta-calculation")
         self._runner = self._engine = self._active = None
@@ -57,7 +59,7 @@ class TradingAssistantExecutionResource:
             async with asyncio.timeout(budget_ms/1000):
                 async with self._engine.connect() as connection:
                     return await connection.run_sync(lambda sync: self._unit(
-                        sessionmaker(bind=sync, expire_on_commit=False), kind))
+                        sessionmaker(bind=sync, expire_on_commit=False, info=self._session_info), kind))
         except TimeoutError as error:
             if self._worker is None:
                 raise

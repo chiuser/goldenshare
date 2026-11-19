@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from src.foundation.models.core.board_moneyflow_dc import BoardMoneyflowDc
 from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_index import DcIndex
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -68,6 +70,21 @@ class SectorOverviewStateQuery:
             raise ValueError(f"unsupported market: {market}")
 
         local_now = datetime.now(_CN_TIMEZONE)
+        if local_reference_data(session) is not None:
+            context = MarketPageContextQuery().resolve_context(
+                session, market=market, requested_trade_date=requested_trade_date, now=local_now,
+            )
+            return SectorOverviewTradingDayContext(
+                market=context.market,
+                expected_trade_date=context.trade_date,
+                prev_trade_date=context.prev_trade_date,
+                is_trading_day=context.is_trading_day,
+                session_status=self._resolve_session_status(
+                    local_now=local_now,
+                    is_trading_day=context.is_trading_day and context.trade_date == local_now.date(),
+                ),
+                as_of_time=context.generated_at,
+            )
         latest_open_sq = (
             select(func.max(TradeCalendar.trade_date))
             .where(

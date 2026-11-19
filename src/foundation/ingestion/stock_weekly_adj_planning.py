@@ -23,6 +23,7 @@ from src.foundation.ingestion.stock_weekly_adj_scope import (
 from src.foundation.models.core.stock_weekly_adj_delivery import (
     StockWeeklyAdjDelivery as Delivery,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar as Calendar
 from src.foundation.models.core_serving.equity_adj_factor import (
     EquityAdjFactor as Factor,
@@ -45,26 +46,36 @@ def parse_day(value):
 def load_week_open_days(session, cutoff, *, previous=False):
     start = cutoff - timedelta(days=4)
     # SSE is the existing equity trade calendar convention. Require closed days too.
-    rows = session.execute(
-        select(Calendar.trade_date, Calendar.is_open)
-        .where(
-            Calendar.exchange == "SSE",
-            Calendar.trade_date >= start,
-            Calendar.trade_date <= cutoff,
-        )
-        .order_by(Calendar.trade_date)
-    ).all()
+    reference = local_reference_data(session)
+    if reference is not None:
+        rows = reference.calendar.range_rows(exchange="SSE", start=start, end=cutoff)
+    else:
+        rows = session.execute(
+            select(Calendar.trade_date, Calendar.is_open)
+            .where(
+                Calendar.exchange == "SSE",
+                Calendar.trade_date >= start,
+                Calendar.trade_date <= cutoff,
+            )
+            .order_by(Calendar.trade_date)
+        ).all()
     if [r.trade_date for r in rows] != [start + timedelta(days=n) for n in range(5)]:
         fail(f"{start} 至 {cutoff} 交易日历不完整")
     days = [r.trade_date for r in rows if r.is_open]
     if previous and days:
-        prior = session.scalar(
-            select(func.max(Calendar.trade_date)).where(
-                Calendar.exchange == "SSE",
-                Calendar.is_open.is_(True),
-                Calendar.trade_date < days[0],
+        if reference is not None:
+            recent = reference.calendar.recent_open_rows(
+                exchange="SSE", bound=days[0], limit=1, include_bound=False,
             )
-        )
+            prior = recent[0].trade_date if recent else None
+        else:
+            prior = session.scalar(
+                select(func.max(Calendar.trade_date)).where(
+                    Calendar.exchange == "SSE",
+                    Calendar.is_open.is_(True),
+                    Calendar.trade_date < days[0],
+                )
+            )
         if prior is None:
             fail(f"{days[0]} 缺少前一开市日")
         days.insert(0, prior)

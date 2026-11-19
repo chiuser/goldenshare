@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.foundation.clients.local_lake.major_index_mins_contract import (
     MAJOR_INDEX_TURNOVER_MAX_PARTITIONS,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -32,16 +33,22 @@ class IndexTurnoverInsightCalendarQuery:
     ) -> tuple[IndexTurnoverInsightCalendarDay, ...]:
         if not 1 <= limit <= MAJOR_INDEX_TURNOVER_MAX_PARTITIONS:
             raise ValueError("calendar candidate limit must be between 1 and 24")
-        rows = session.execute(
-            select(TradeCalendar.trade_date, TradeCalendar.pretrade_date)
-            .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date <= expected_trade_date,
-            )
-            .order_by(TradeCalendar.trade_date.desc())
-            .limit(limit)
-        ).all()
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reversed(reference.calendar.recent_open_rows(
+                exchange="SSE", bound=expected_trade_date, limit=limit,
+            ))
+        else:
+            rows = session.execute(
+                select(TradeCalendar.trade_date, TradeCalendar.pretrade_date)
+                .where(
+                    TradeCalendar.exchange == "SSE",
+                    TradeCalendar.is_open.is_(True),
+                    TradeCalendar.trade_date <= expected_trade_date,
+                )
+                .order_by(TradeCalendar.trade_date.desc())
+                .limit(limit)
+            ).all()
         candidates = tuple(
             IndexTurnoverInsightCalendarDay(
                 trade_date=row.trade_date,

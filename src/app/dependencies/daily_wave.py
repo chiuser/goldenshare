@@ -23,9 +23,10 @@ from src.biz.services.wealth.market.index_detail_daily_wave.budget import (
 
 
 class DailyWaveReadSession:
-    def __init__(self, *, budget, database_url=None):
+    def __init__(self, *, budget, database_url=None, calendar_reader=None):
         self.budget = budget
         self.database_url = database_url
+        self.calendar_reader = calendar_reader
         self.engine = self.connection = self.session = self.transaction = self.raw = None
         self.aborting = self.closed = False
         self._raw_closed = False
@@ -212,5 +213,5 @@ class DailyWaveReadSession:
         return False
 
 
-def daily_wave_session_factory(*, budget):
-    return DailyWaveReadSession(budget=budget)
+def daily_wave_session_factory(*, budget, calendar_reader=None):
+    return DailyWaveReadSession(budget=budget, calendar_reader=calendar_reader)

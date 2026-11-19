@@ -23,6 +23,7 @@ from src.foundation.models.core_serving.equity_daily_bar import (
 from src.foundation.models.core_serving.equity_daily_basic import (
     EquityDailyBasic as DailyBasic,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 
 SORT_COLUMNS = {
@@ -132,14 +133,13 @@ class WatchlistItemQuery:
         limit: int,
     ) -> list[Mapping[str, Any]]:
         w, d, b, m = Membership, DailyBar, DailyBasic, Moneyflow
+        reference = local_reference_data(session)
         columns = [
             w.id,
             w.ts_code,
             w.created_at,
             w.is_pinned,
-            Security.name,
-            Security.industry,
-            Security.list_status,
+            *((Security.name, Security.industry, Security.list_status) if reference is None else ()),
             d.close.label("price"),
             d.pct_chg,
             d.vol,
@@ -151,11 +151,9 @@ class WatchlistItemQuery:
         ]
         if sort.column is not None:
             columns.append(sort.column.label("sort_value"))
-        stmt = (
-            select(*columns)
-            .select_from(w)
-            .outerjoin(Security, Security.ts_code == w.ts_code)
-        )
+        stmt = select(*columns).select_from(w)
+        if reference is None:
+            stmt = stmt.outerjoin(Security, Security.ts_code == w.ts_code)
         for model in (d, b, m):
             stmt = stmt.outerjoin(
                 model, and_(model.ts_code == w.ts_code, model.trade_date == observed)
@@ -163,9 +161,22 @@ class WatchlistItemQuery:
         stmt = stmt.where(w.group_id == group_id)
         if cursor is not None:
             stmt = stmt.where(sort.after(cursor))
-        return list(
+        rows = list(
             session.execute(stmt.order_by(*sort.order_by()).limit(limit + 1)).mappings()
         )
+        if reference is None:
+            return rows
+        fields = ("ts_code", "name", "industry", "list_status")
+        identities = {
+            code: (name, industry, status)
+            for code, name, industry, status in reference.security.project_by_codes(
+                ts_codes=tuple(dict.fromkeys(row["ts_code"] for row in rows)), columns=fields,
+            )
+        }
+        return [
+            {**row, **dict(zip(fields[1:], identities.get(row["ts_code"], (None, None, None)), strict=True))}
+            for row in rows
+        ]
 
     def group_marks(
         self, session: Session, *, user_id: int, ts_codes: Sequence[str]
@@ -194,6 +205,14 @@ class WatchlistItemQuery:
     ) -> set[str]:
         if not ts_codes:
             return set()
+        reference = local_reference_data(session)
+        if reference is not None:
+            return {
+                code for code, status, currency, exchange in reference.security.project_by_codes(
+                    ts_codes=ts_codes, columns=("ts_code", "list_status", "curr_type", "exchange"),
+                )
+                if status == "L" and currency == "CNY" and exchange in A_SHARE_EXCHANGES
+            }
         return set(
             session.scalars(
                 select(Membership.ts_code).where(

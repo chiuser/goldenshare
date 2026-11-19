@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.clients.reference_data_relations import security_relation
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +31,12 @@ class SectorMemberQuery:
         sector_code: str,
         limit: int = 5,
     ) -> list[SectorMemberRow]:
+        security = security_relation(
+            session, columns=("ts_code", "security_type", "curr_type", "list_status", "list_date", "delist_date"),
+            codes=select(DcMember.con_code).where(
+                DcMember.trade_date == trade_date, DcMember.ts_code == sector_code,
+            ).distinct(),
+        )
         suspended = (
             select(EquitySuspendD.ts_code.label("stock_code"))
             .where(
@@ -49,15 +55,15 @@ class SectorMemberQuery:
             )
             .select_from(DcMember)
             .join(
-                Security,
+                security,
                 and_(
-                    Security.ts_code == DcMember.con_code,
-                    Security.security_type == "EQUITY",
-                    Security.curr_type == "CNY",
-                    Security.list_status.in_(("L", "D")),
-                    Security.list_date.is_not(None),
-                    Security.list_date <= trade_date,
-                    (Security.delist_date.is_(None) | (Security.delist_date > trade_date)),
+                    security.c.ts_code == DcMember.con_code,
+                    security.c.security_type == "EQUITY",
+                    security.c.curr_type == "CNY",
+                    security.c.list_status.in_(("L", "D")),
+                    security.c.list_date.is_not(None),
+                    security.c.list_date <= trade_date,
+                    (security.c.delist_date.is_(None) | (security.c.delist_date > trade_date)),
                 ),
             )
             .outerjoin(suspended, suspended.c.stock_code == DcMember.con_code)

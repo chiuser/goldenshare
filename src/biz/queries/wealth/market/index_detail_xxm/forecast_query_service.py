@@ -8,6 +8,7 @@ import time
 
 from sqlalchemy import select
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
@@ -29,8 +30,13 @@ def future_calendar(session, period, through, check, *, lake_calendar: XxmLakeCa
     anchor=date.fromisoformat(through[:10])
     end=anchor+timedelta(days=FORECAST_SPEC.future_calendar_days)
     check()
+    reference = local_reference_data(session)
     if lake_calendar is not None:
         rows=((day, opened) for day, opened, _ in lake_calendar.range(start=anchor,end=end))
+    elif reference is not None:
+        rows = ((row.trade_date, row.is_open) for row in reference.calendar.range_rows(
+            exchange="SSE", start=anchor, end=end,
+        ))
     else:
         rows=session.execute(select(TradeCalendar.trade_date,TradeCalendar.is_open).where(
             TradeCalendar.exchange=='SSE',TradeCalendar.trade_date>=anchor,TradeCalendar.trade_date<=end)

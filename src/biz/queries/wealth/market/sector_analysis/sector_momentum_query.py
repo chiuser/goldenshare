@@ -17,6 +17,8 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     classify_availability,
 )
 from src.foundation.models.core.dc_daily import DcDaily
+from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.clients.reference_data_relations import calendar_relation
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -34,15 +36,16 @@ class SectorMomentumQuery:
     ) -> SectorTradingDateResolution:
         if not sector_codes:
             raise SectorDataQueryError("sector hierarchy contains no codes")
+        calendar = calendar_relation(session, end=max(expected_trade_date, coverage_end_date), open_only=True)
         expected_count = len(sector_codes)
         coverage_start = (
             select(DcDaily.trade_date)
             .join(
-                TradeCalendar,
+                calendar,
                 and_(
-                    TradeCalendar.exchange == "SSE",
-                    TradeCalendar.is_open.is_(True),
-                    TradeCalendar.trade_date == DcDaily.trade_date,
+                    calendar.c.exchange == "SSE",
+                    calendar.c.is_open.is_(True),
+                    calendar.c.trade_date == DcDaily.trade_date,
                 ),
             )
             .where(
@@ -56,11 +59,11 @@ class SectorMomentumQuery:
         )
         expected_is_open = (
             select(func.count())
-            .select_from(TradeCalendar)
+            .select_from(calendar)
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date == expected_trade_date,
+                calendar.c.exchange == "SSE",
+                calendar.c.is_open.is_(True),
+                calendar.c.trade_date == expected_trade_date,
             )
             .scalar_subquery()
         )
@@ -80,7 +83,7 @@ class SectorMomentumQuery:
             expected_is_open.label("expected_is_open"),
             expected_valid_count.label("expected_valid_count"),
         ).cte("expected_sector_facts")
-        candidate_calendar = aliased(TradeCalendar)
+        candidate_calendar = calendar.alias()
         candidate_daily = aliased(DcDaily)
         candidate_valid_count = (
             select(func.count())
@@ -88,22 +91,22 @@ class SectorMomentumQuery:
             .where(
                 candidate_daily.category == "行业板块",
                 candidate_daily.ts_code.in_(sector_codes),
-                candidate_daily.trade_date == candidate_calendar.trade_date,
+                candidate_daily.trade_date == candidate_calendar.c.trade_date,
                 _valid_fact_predicate(candidate_daily),
             )
             .correlate(candidate_calendar)
             .scalar_subquery()
         )
         latest_complete_date = (
-            select(candidate_calendar.trade_date)
+            select(candidate_calendar.c.trade_date)
             .where(
-                candidate_calendar.exchange == "SSE",
-                candidate_calendar.is_open.is_(True),
-                candidate_calendar.trade_date >= expected_facts.c.coverage_start_date,
-                candidate_calendar.trade_date <= expected_trade_date,
+                candidate_calendar.c.exchange == "SSE",
+                candidate_calendar.c.is_open.is_(True),
+                candidate_calendar.c.trade_date >= expected_facts.c.coverage_start_date,
+                candidate_calendar.c.trade_date <= expected_trade_date,
                 candidate_valid_count == expected_count,
             )
-            .order_by(candidate_calendar.trade_date.desc())
+            .order_by(candidate_calendar.c.trade_date.desc())
             .limit(1)
             .scalar_subquery()
         )
@@ -166,6 +169,12 @@ class SectorMomentumQuery:
     ) -> tuple[date, ...]:
         if count <= 0 or count > 95:
             raise SectorDataQueryError("open-date window must be between 1 and 95")
+        reference = local_reference_data(session)
+        if reference is not None:
+            dates = tuple(row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=end_date, limit=count,
+            ))
+            return dates
         rows = session.scalars(
             select(TradeCalendar.trade_date)
             .where(

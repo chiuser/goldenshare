@@ -13,6 +13,8 @@ from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.clients.reference_data_relations import security_relation
 from src.foundation.models.core_serving.security_serving import Security
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.schemas.review_center import (
@@ -466,6 +468,12 @@ class ReviewCenterQueryService:
         if not normalized_keyword:
             return ReviewEquitySuggestResponse(items=[])
         limit = max(1, min(limit, 50))
+        reference = local_reference_data(session)
+        if reference is not None:
+            return ReviewEquitySuggestResponse(items=[
+                ReviewEquitySuggestItem(ts_code=code, name=name)
+                for code, name in reference.security.suggest_equities(keyword=normalized_keyword, limit=limit)
+            ])
         prefix_pattern = f"{normalized_keyword}%"
         contains_pattern = f"%{normalized_keyword}%"
         score_expr = case(
@@ -555,9 +563,13 @@ class ReviewCenterQueryService:
         else:
             membership_subq = union_all(ths_stmt, dc_stmt).subquery("membership_source")
 
+        security = security_relation(
+            session, columns=("ts_code", "name", "symbol", "cnspell") if keyword else ("ts_code", "name"),
+            codes=select(membership_subq.c.ts_code).distinct(),
+        )
         board_key_expr = membership_subq.c.provider + literal(":") + membership_subq.c.board_code
         board_count_expr = func.count(func.distinct(board_key_expr))
-        equity_name_expr = func.coalesce(func.max(Security.name), func.max(membership_subq.c.fallback_name))
+        equity_name_expr = func.coalesce(func.max(security.c.name), func.max(membership_subq.c.fallback_name))
         summary_stmt = (
             select(
                 membership_subq.c.ts_code.label("ts_code"),
@@ -565,7 +577,7 @@ class ReviewCenterQueryService:
                 board_count_expr.label("board_count"),
             )
             .select_from(membership_subq)
-            .outerjoin(Security, Security.ts_code == membership_subq.c.ts_code)
+            .outerjoin(security, security.c.ts_code == membership_subq.c.ts_code)
             .group_by(membership_subq.c.ts_code)
         )
         if keyword:
@@ -576,8 +588,8 @@ class ReviewCenterQueryService:
                 or_(
                     membership_subq.c.ts_code.ilike(pattern),
                     equity_name_expr.ilike(pattern),
-                    func.max(Security.symbol).ilike(prefix_pattern),
-                    func.max(Security.cnspell).ilike(prefix_pattern),
+                    func.max(security.c.symbol).ilike(prefix_pattern),
+                    func.max(security.c.cnspell).ilike(prefix_pattern),
                 )
             )
         if min_board_count > 0:

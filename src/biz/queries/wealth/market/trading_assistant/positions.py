@@ -3,6 +3,7 @@ from collections import defaultdict
 
 from sqlalchemy import select
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from src.biz.schemas.wealth.market.trading_assistant.common import AccountCoverage, AccountRef, Coverage, Scope, StockRef
 from src.biz.schemas.wealth.market.trading_assistant.positions import PositionDetail, PositionsResponse
@@ -99,10 +100,18 @@ class PositionsQuery:
 
     def _names(self, session, codes, deadline):
         result = {}
-        for offset in range(0, len(codes), self.policy.page_rows):
-            apply_sql_budget(session, deadline, self.policy)
-            result.update(session.execute(select(Security.ts_code, Security.name).where(
-                Security.ts_code.in_(codes[offset:offset + self.policy.page_rows]))).all())
+        reference = local_reference_data(session)
+        if reference is not None:
+            deadline.remaining_ms()
+            result.update(reference.security.project_by_codes(
+                ts_codes=tuple(codes), columns=("ts_code", "name"),
+            ))
+            deadline.remaining_ms()
+        else:
+            for offset in range(0, len(codes), self.policy.page_rows):
+                apply_sql_budget(session, deadline, self.policy)
+                result.update(session.execute(select(Security.ts_code, Security.name).where(
+                    Security.ts_code.in_(codes[offset:offset + self.policy.page_rows]))).all())
         if set(result) != set(codes) or any(not name for name in result.values()):
             raise ValueError("Accepted stocks have incomplete security identities")
         return result

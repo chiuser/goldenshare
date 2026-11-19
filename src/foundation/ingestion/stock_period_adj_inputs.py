@@ -5,6 +5,8 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, or_, select
 
+from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
 from src.foundation.datasets.stock_period_adj_contracts import StockPeriodAdjContractError, digest, period_start
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving_light.bse_mapping import BseMappingLight
@@ -18,8 +20,7 @@ def today():
 
 
 def open_days(session, start, end):
-    return list(session.scalars(select(TradeCalendar.trade_date).where(TradeCalendar.exchange == 'SSE',
-        TradeCalendar.is_open.is_(True), TradeCalendar.trade_date.between(start, end)).order_by(TradeCalendar.trade_date)))
+    return TradeCalendarDAO(session).get_open_dates('SSE', start, end)
 
 
 def confirmed_history_codes(session, codes):
@@ -44,8 +45,15 @@ def factor_changes(session, day, *, check=lambda: None):
     check()
     if not open_days(session, day, day):
         raise StockPeriodAdjContractError(f'{day}不是已有日历中的开市日', 'input_not_ready')
-    previous = session.scalar(select(func.max(TradeCalendar.trade_date)).where(
-        TradeCalendar.exchange == 'SSE', TradeCalendar.is_open.is_(True), TradeCalendar.trade_date < day))
+    reference = local_reference_data(session)
+    if reference is not None:
+        rows = reference.calendar.recent_open_rows(
+            exchange="SSE", bound=day, limit=1, include_bound=False,
+        )
+        previous = rows[0].trade_date if rows else None
+    else:
+        previous = session.scalar(select(func.max(TradeCalendar.trade_date)).where(
+            TradeCalendar.exchange == 'SSE', TradeCalendar.is_open.is_(True), TradeCalendar.trade_date < day))
     rows = session.execute(select(EquityAdjFactor.trade_date, EquityAdjFactor.ts_code, EquityAdjFactor.adj_factor)
         .where(EquityAdjFactor.trade_date.in_([previous, day]))
         .order_by(EquityAdjFactor.trade_date, EquityAdjFactor.ts_code)).all()

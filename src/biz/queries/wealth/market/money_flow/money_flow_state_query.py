@@ -8,6 +8,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.market_moneyflow_dc import MarketMoneyflowDc
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -48,6 +50,18 @@ class MoneyFlowStateQuery:
             raise ValueError(f"unsupported market: {market}")
 
         local_now = datetime.now(_CN_TIMEZONE)
+        if local_reference_data(session) is not None:
+            context = MarketPageContextQuery().resolve_context(
+                session, market=market, requested_trade_date=requested_trade_date, now=local_now,
+            )
+            return MoneyFlowTradingDayContext(
+                market=context.market,
+                expected_trade_date=context.trade_date,
+                prev_trade_date=context.prev_trade_date,
+                is_trading_day=context.is_trading_day,
+                session_status=context.session_status,
+                as_of_time=context.generated_at,
+            )
         resolved_trade_date = requested_trade_date or self._resolve_default_trade_date(session, local_now=local_now)
         trade_calendar_row = session.scalar(
             select(TradeCalendar).where(

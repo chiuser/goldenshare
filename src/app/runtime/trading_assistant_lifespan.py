@@ -63,8 +63,10 @@ async def trading_assistant_lifespan(app, *, database_url, logger, minute_reader
     # Resolve the source before allocating resources, including on invalid configuration.
     # Same configured DB and pool defaults as src/db.py; the original pool is untouched.
     engine = create_async_engine(database_url, pool_pre_ping=True, pool_recycle=300, pool_use_lifo=True)
+    reference_data = getattr(app.state, "reference_data", None)
     resource = TradingAssistantExecutionResource(database_url, policy,
-        rule_version=CALCULATION_RULE_VERSION, minute_reader=minute_reader)
+        rule_version=CALCULATION_RULE_VERSION, minute_reader=minute_reader,
+        reference_data=reference_data)
     stop = asyncio.Event()
     tasks, dependencies = [], None
     try:
@@ -72,7 +74,7 @@ async def trading_assistant_lifespan(app, *, database_url, logger, minute_reader
             raise RuntimeError("Trading-assistant execution schema is not ready")
         now = lambda: datetime.now(timezone.utc)
         dependencies = build_trading_assistant_dependencies(engine, policy=policy, now=now, executor_id=str(uuid4()),
-            rule_robots=rule_robots, credential_cipher=credential_cipher)
+            rule_robots=rule_robots, credential_cipher=credential_cipher, reference_data=reference_data)
         maintenance = RecoveryMaintenance(dependencies.transactions, WriteProtocol(policy), policy, now)
         app.state.trading_assistant = dependencies
         tasks = [asyncio.create_task(maintain_recovery(maintenance, policy, stop, logger), name="ta-recovery-maintenance"),

@@ -6,6 +6,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from src.biz.services.wealth.market.stock_search import A_SHARE_EXCHANGES
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -26,6 +27,12 @@ class StockSearchQuery:
         escaped_prefix: str,
         limit: int,
     ) -> list[StockSearchRow]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return [StockSearchRow(*row) for row in reference.security.search_a_shares(
+                keyword=keyword, escaped_prefix=escaped_prefix, limit=limit,
+                exchanges=tuple(A_SHARE_EXCHANGES),
+            )]
         normalized_symbol = func.upper(func.coalesce(Security.symbol, ""))
         normalized_ts_code = func.upper(func.coalesce(Security.ts_code, ""))
         normalized_cnspell = func.upper(func.coalesce(Security.cnspell, ""))

@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
+from src.foundation.clients.reference_data import ReferenceDataReadError
 from src.biz.schemas.wealth.market.trading_assistant.errors import TradingAssistantErrorDto, FieldErrorDto
 from src.biz.services.wealth.market.trading_assistant.transaction_boundary import CommitOutcomeUnknown
 from src.biz.services.wealth.market.trading_assistant.validation import InvalidLedger
@@ -109,7 +110,7 @@ class TradingAssistantRoute(APIRoute):
                 is_write = request.method in {"POST", "PUT"} and not request.url.path.endswith("preview")
                 return error_response("TA_WRITE_OUTCOME_UNKNOWN" if is_write else "TA_QUERY_FAILED",
                     "本次处理未完成，请核对原操作" if is_write else "读取未完成，请重试")
-            except (SQLAlchemyError, ValidationError, MarketFactsUnavailable):
+            except (SQLAlchemyError, ValidationError, MarketFactsUnavailable, ReferenceDataReadError):
                 is_write = request.method in {"POST", "PUT"} and not request.url.path.endswith("preview")
                 is_recovery = "/write-requests/" in request.url.path
                 code = ("TA_WRITE_OUTCOME_UNKNOWN" if is_write else

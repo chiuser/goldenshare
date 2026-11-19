@@ -24,6 +24,7 @@ from src.biz.schemas.wealth.market.stock_detail_news import (
     StockDetailNewsResponseDto,
 )
 from src.foundation.models.core_serving.news_stock_link import NewsStockLink
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving_light.news import NewsLight
 
@@ -47,7 +48,8 @@ class StockDetailNewsQuery:
         debug: bool,
     ) -> StockDetailNewsResponseDto:
         normalized_ts_code = ts_code.strip().upper()
-        security = session.scalar(
+        reference = local_reference_data(session)
+        security = reference.security.get(ts_code=normalized_ts_code) if reference is not None else session.scalar(
             select(Security).where(
                 Security.ts_code == normalized_ts_code,
                 Security.security_type == "EQUITY",

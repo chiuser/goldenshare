@@ -42,6 +42,7 @@ from src.biz.api.wealth.market import summary as wealth_market_summary
 from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.biz.api.wealth.market import turnover_insight as wealth_market_turnover_insight
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.local_lake.reference_data_reader import LakeTradeCalendarReader
 from src.foundation.clients.local_lake.major_index_mins_contract import FORMAL_LAKE_ROOT
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
@@ -136,7 +137,9 @@ def _include_local_xxm_routers(
     def open_daily_wave_session(*, budget):
         from src.app.dependencies.daily_wave import daily_wave_session_factory
 
-        return daily_wave_session_factory(budget=budget)
+        return daily_wave_session_factory(
+            budget=budget, calendar_reader=LakeTradeCalendarReader(daily_lake.root),
+        )
 
     target_router.include_router(index_detail_debug.build_daily_wave_router(
         session_factory=open_daily_wave_session,

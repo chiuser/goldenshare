@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import and_, func, not_, or_, select
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -12,6 +13,9 @@ class LeaderboardStockPoolQuery:
     """Load CN_A leaderboard stock pool codes for a target trade date."""
 
     def load_codes(self, session: Session, *, trade_date: date) -> set[str]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return set(reference.security.leaderboard_codes(trade_date=trade_date))
         upper_name = func.upper(Security.name)
         rows = session.execute(
             select(Security.ts_code).where(

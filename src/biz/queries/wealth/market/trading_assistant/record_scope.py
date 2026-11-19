@@ -4,6 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from src.biz.models.wealth.trading_assistant.accounts import Account
 from src.biz.schemas.wealth.market.trading_assistant.common import AccountRef, AccountCoverage, Coverage, Scope, StockRef
@@ -39,10 +40,18 @@ def read_record_scope(session, *, owner_id, basis, query, deadline, policy):
 def read_record_names(session, codes, *, deadline, policy):
     codes = sorted(set(codes))
     names = {}
-    for offset in range(0, len(codes), policy.page_rows):
-        apply_sql_budget(session, deadline, policy)
-        names.update(session.execute(select(Security.ts_code, Security.name).where(
-            Security.ts_code.in_(codes[offset:offset + policy.page_rows]))).all())
+    reference = local_reference_data(session)
+    if reference is not None:
+        deadline.remaining_ms()
+        names.update(reference.security.project_by_codes(
+            ts_codes=codes, columns=("ts_code", "name"),
+        ))
+        deadline.remaining_ms()
+    else:
+        for offset in range(0, len(codes), policy.page_rows):
+            apply_sql_budget(session, deadline, policy)
+            names.update(session.execute(select(Security.ts_code, Security.name).where(
+                Security.ts_code.in_(codes[offset:offset + policy.page_rows]))).all())
     if set(names) != set(codes) or any(not name for name in names.values()):
         raise WriteProtocolConflict("TA_OBJECT_NOT_FOUND")
     return names

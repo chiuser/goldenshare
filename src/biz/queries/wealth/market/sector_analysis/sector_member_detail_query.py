@@ -12,6 +12,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_detail_contrac
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorScopeInvalidError,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.dc_member import DcMember
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
@@ -27,6 +28,14 @@ class SectorMemberDetailQuery:
         trade_date: date,
         period: int,
     ) -> tuple[date, ...]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            dates = tuple(row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=trade_date, limit=period,
+            ))
+            if not dates or dates[-1] != trade_date:
+                raise SectorScopeInvalidError("tradeDate 必须是 SSE 开市日")
+            return dates
         rows = session.scalars(
             select(TradeCalendar.trade_date)
             .where(

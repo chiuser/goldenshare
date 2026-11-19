@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.clients.reference_data import SecurityReferenceRow, local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -44,7 +45,12 @@ def stock_daily_dates(ts_code, *, start, end, limit, before=None):
 class StockDetailQuery:
     """Read stock detail facts from the current serving tables."""
 
-    def load_security(self, session: Session, *, ts_code: str) -> Security | None:
+    def load_security(
+        self, session: Session, *, ts_code: str, timeout_seconds: float | None = None,
+    ) -> Security | SecurityReferenceRow | None:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return reference.security.get(ts_code=ts_code, timeout_seconds=timeout_seconds)
         return session.get(Security, ts_code)
 
     def load_latest_factor_row(

@@ -42,8 +42,11 @@ class StockDailyKlineService:
     def prepare(
         self, session: Session, request: StockDailyKlineRequest, *,
         load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
+        remaining_seconds: Callable[[], float] | None = None,
     ) -> StockDailyKlineInput:
-        return self._query.prepare_kline_input(session, request, load_rows=load_rows)
+        return self._query.prepare_kline_input(
+            session, request, load_rows=load_rows, remaining_seconds=remaining_seconds,
+        )
 
     def _validate_result(self, source: StockDailyKlineInput, result: CalculationResult) -> None:
         if not isinstance(result, CalculationResult):

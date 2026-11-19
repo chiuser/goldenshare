@@ -9,6 +9,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
@@ -120,7 +121,8 @@ class QuoteQueryService:
         normalized_market = inferred_market
 
         if normalized_security_type == "stock" or normalized_security_type is None:
-            security = session.scalar(
+            reference = local_reference_data(session)
+            security = reference.security.get(ts_code=normalized_ts_code) if reference is not None else session.scalar(
                 select(Security).where(Security.ts_code == normalized_ts_code).limit(1)
             )
             if security is not None:
@@ -485,15 +487,19 @@ class QuoteQueryService:
         start_date: date,
         end_date: date,
     ) -> MarketTradeCalendarResponse:
-        rows = session.scalars(
-            select(TradeCalendar)
-            .where(
-                TradeCalendar.exchange == exchange,
-                TradeCalendar.trade_date >= start_date,
-                TradeCalendar.trade_date <= end_date,
-            )
-            .order_by(TradeCalendar.trade_date.asc())
-        ).all()
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.range_rows(exchange=exchange, start=start_date, end=end_date)
+        else:
+            rows = session.scalars(
+                select(TradeCalendar)
+                .where(
+                    TradeCalendar.exchange == exchange,
+                    TradeCalendar.trade_date >= start_date,
+                    TradeCalendar.trade_date <= end_date,
+                )
+                .order_by(TradeCalendar.trade_date.asc())
+            ).all()
         return MarketTradeCalendarResponse(
             exchange=exchange,
             items=[

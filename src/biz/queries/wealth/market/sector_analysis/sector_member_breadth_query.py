@@ -16,7 +16,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_member_breadth_contra
 from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract import (
     SectorSelectionInvalidError,
 )
-from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.clients.reference_data_relations import calendar_relation
 from src.foundation.models.core_serving.dc_member import DcMember
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
@@ -40,14 +40,15 @@ class SectorMemberBreadthQuery:
             raise SectorMemberBreadthQueryError("member breadth selection is empty")
         if ma_period not in (5, 10, 15, 20, 30, 60):
             raise SectorSelectionInvalidError("成员广度均线周期不合法")
+        calendar = calendar_relation(session, end=target_date, limit=ma_period)
         open_date_rows = (
-            select(TradeCalendar.trade_date.label("trade_date"))
+            select(calendar.c.trade_date.label("trade_date"))
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date <= target_date,
+                calendar.c.exchange == "SSE",
+                calendar.c.is_open.is_(True),
+                calendar.c.trade_date <= target_date,
             )
-            .order_by(TradeCalendar.trade_date.desc())
+            .order_by(calendar.c.trade_date.desc())
             .limit(ma_period)
             .cte("member_breadth_projection_open_dates")
         )

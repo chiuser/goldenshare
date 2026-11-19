@@ -16,6 +16,7 @@ from src.ops.schemas.task_run import TaskRunListItem
 from src.ops.services.index_period_schedule import index_period_release_target, index_period_open_dates, TRADING_DAY_POINT
 
 from src.foundation.config.settings import get_settings
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_qfq_nineturn_daily import EquityQfqNineTurnDaily
 from src.foundation.models.core_serving.index_nineturn_daily import IndexNineTurnDaily
@@ -467,7 +468,8 @@ class BizTableCardQueryService:
         exchange = get_settings().default_exchange
         local_now = self._local_now()
         today = local_now.date()
-        today_row = session.scalar(
+        reference = local_reference_data(session)
+        today_row = reference.calendar.get(exchange=exchange, day=today) if reference is not None else session.scalar(
             select(TradeCalendar).where(
                 TradeCalendar.exchange == exchange,
                 TradeCalendar.trade_date == today,
@@ -493,6 +495,12 @@ class BizTableCardQueryService:
         before_or_on: date,
         strict_before: bool,
     ) -> date | None:
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.recent_open_rows(
+                exchange=exchange, bound=before_or_on, include_bound=not strict_before, limit=1,
+            )
+            return rows[0].trade_date if rows else None
         stmt = select(func.max(TradeCalendar.trade_date)).where(
             TradeCalendar.exchange == exchange,
             TradeCalendar.is_open.is_(True),
@@ -506,6 +514,12 @@ class BizTableCardQueryService:
 
     @staticmethod
     def _trading_day_lag(session: Session, *, latest_date: date, expected_date: date) -> int:
+        reference = local_reference_data(session)
+        if reference is not None:
+            count = sum(row.trade_date > latest_date for row in reference.calendar.range_rows(
+                exchange=get_settings().default_exchange, start=latest_date, end=expected_date, open_only=True,
+            ))
+            return count or max((expected_date - latest_date).days, 0)
         count = session.scalar(
             select(func.count()).where(
                 TradeCalendar.exchange == get_settings().default_exchange,

@@ -8,6 +8,7 @@ from sqlalchemy import and_, case, func, literal, select, true
 from sqlalchemy.orm import Session, aliased
 
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -45,11 +46,22 @@ class MarketPageContextQuery:
         market: str,
         requested_trade_date: date | None,
         now: datetime | None = None,
+        timeout_seconds: float | None = None,
     ) -> MarketPageContext:
         if market != "CN_A":
             raise ValueError(f"unsupported market: {market}")
 
         local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
+        reference = local_reference_data(session)
+        if reference is not None:
+            calendar = reference.calendar.context_rows(
+                exchange="SSE", end=requested_trade_date or local_now.date(), recent_open_days=2,
+                timeout_seconds=timeout_seconds,
+            )
+            return self.resolve_local_context(
+                None, market=market, requested_trade_date=requested_trade_date, now=local_now,
+                calendar_rows=tuple((row.trade_date, row.is_open, row.pretrade_date) for row in calendar),
+            )
         row = session.execute(self._context_statement(requested_trade_date, local_now)).one()
         return self._context_from_row(row, market, requested_trade_date, local_now)
 
@@ -57,6 +69,19 @@ class MarketPageContextQuery:
         self, session: Session, *, requested_trade_date: date | None, start: date, limit: int,
     ) -> tuple[MarketPageContext, tuple[CalendarRow, ...]]:
         local_now = _now_cn()
+        reference = local_reference_data(session)
+        if reference is not None:
+            calendar = reference.calendar.context_rows(
+                exchange="SSE", end=requested_trade_date or local_now.date(), recent_open_days=limit + 2,
+            )
+            rows = tuple((row.trade_date, row.is_open, row.pretrade_date) for row in calendar)
+            context = self.resolve_local_context(
+                None, market="CN_A", requested_trade_date=requested_trade_date, now=local_now,
+                calendar_rows=rows,
+            )
+            end = context.trade_date if context.is_trading_day else context.prev_trade_date
+            window = tuple(row for row in rows if end is not None and start <= row[0] <= end and row[1])
+            return context, window[-limit:] if limit else ()
         anchor = self._context_statement(requested_trade_date, local_now).cte("sse_kline_context")
         expected_end = case(
             (anchor.c.calendar_is_open.is_(True), anchor.c.resolved_trade_date),
@@ -79,6 +104,11 @@ class MarketPageContextQuery:
 
     @staticmethod
     def load_sse_preceding_dates(session: Session, *, before: date, start: date, limit: int) -> tuple[date, ...]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return tuple(row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=before, include_bound=False, start=start, limit=limit,
+            ))
         dates = session.scalars(
             select(TradeCalendar.trade_date)
             .where(TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True),
@@ -192,7 +222,7 @@ class MarketPageContextQuery:
 
     def resolve_local_context(
         self,
-        reader: IndexDailyLakeReader,
+        reader: IndexDailyLakeReader | None,
         *,
         market: str,
         requested_trade_date: date | None,
@@ -204,6 +234,8 @@ class MarketPageContextQuery:
         local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
         today = local_now.date()
         if calendar_rows is None:
+            if reader is None:
+                raise TypeError("Calendar rows or an index calendar reader are required")
             calendar_rows = reader.calendar_rows(end=requested_trade_date or today, recent_open_days=2)
         resolved = requested_trade_date
         if resolved is None:

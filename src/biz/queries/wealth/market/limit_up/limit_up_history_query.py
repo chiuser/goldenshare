@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.limit_list_ths import LimitListThs
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -27,6 +28,11 @@ class LimitUpHistoryQuery:
         end_trade_date: date,
         limit_days: int,
     ) -> list[date]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return [row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=end_trade_date, limit=limit_days,
+            )]
         rows = session.scalars(
             select(TradeCalendar.trade_date)
             .where(

@@ -51,6 +51,8 @@ from src.biz.services.wealth.market.sector_analysis.sector_relative_rotation_con
 from src.foundation.models.core_serving.wealth_sector_relative_rotation_daily import (
     WealthSectorRelativeRotationDaily,
 )
+from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.clients.reference_data_relations import calendar_relation
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import (
     WealthSectorAnalysisPublishBatch,
@@ -453,9 +455,10 @@ class SectorAnalysisFactReader:
                 .scalar_subquery(),
                 coverage_end_date,
             )
+        calendar = calendar_relation(session, end=coverage_end_date, open_only=True)
         rows = session.execute(
             select(
-                TradeCalendar.trade_date,
+                calendar.c.trade_date,
                 WealthSectorAnalysisPublishBatch.batch_id,
                 WealthSectorAnalysisPublishBatch.hierarchy_version,
                 WealthSectorAnalysisPublishBatch.formula_bundle_version,
@@ -470,7 +473,7 @@ class SectorAnalysisFactReader:
                 WealthSectorAnalysisPublishBatch,
                 and_(
                     WealthSectorAnalysisPublishBatch.trade_date
-                    == TradeCalendar.trade_date,
+                    == calendar.c.trade_date,
                     WealthSectorAnalysisPublishBatch.status == "PUBLISHED",
                 ),
             )
@@ -479,12 +482,12 @@ class SectorAnalysisFactReader:
                 summary.c.batch_id == WealthSectorAnalysisPublishBatch.batch_id,
             )
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date >= first_published_date,
-                TradeCalendar.trade_date <= coverage_end_date,
+                calendar.c.exchange == "SSE",
+                calendar.c.is_open.is_(True),
+                calendar.c.trade_date >= first_published_date,
+                calendar.c.trade_date <= coverage_end_date,
             )
-            .order_by(TradeCalendar.trade_date)
+            .order_by(calendar.c.trade_date)
         ).all()
         if not rows:
             raise SectorDataQueryError("published sector-analysis coverage is empty")
@@ -586,6 +589,12 @@ class SectorAnalysisFactReader:
     ) -> tuple[date, ...]:
         if count <= 0 or count > 60:
             raise SectorDataQueryError("published history window must be between 1 and 60")
+        reference = local_reference_data(session)
+        if reference is not None:
+            dates = tuple(row.trade_date for row in reference.calendar.recent_open_rows(
+                exchange="SSE", bound=end_date, limit=count,
+            ))
+            return dates
         rows = session.scalars(
             select(TradeCalendar.trade_date)
             .where(
@@ -1237,15 +1246,16 @@ class SectorAnalysisFactReader:
             .where(batch.status == "PUBLISHED")
             .scalar_subquery()
         )
+        calendar = calendar_relation(session, end=trade_date, limit=history_range)
         dates = (
-            select(TradeCalendar.trade_date)
+            select(calendar.c.trade_date)
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date >= first_date,
-                TradeCalendar.trade_date <= trade_date,
+                calendar.c.exchange == "SSE",
+                calendar.c.is_open.is_(True),
+                calendar.c.trade_date >= first_date,
+                calendar.c.trade_date <= trade_date,
             )
-            .order_by(TradeCalendar.trade_date.desc())
+            .order_by(calendar.c.trade_date.desc())
             .limit(history_range)
             .subquery()
         )

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
 from src.foundation.ingestion.plan_helpers import split_multi_values
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
@@ -287,6 +288,12 @@ class IndexDailySourceServiceabilityService:
     def latest_completed_open_trade_date(self, session: Session, *, now: datetime | None = None) -> date | None:
         current = now or datetime.now(timezone.utc)
         local_today = current.astimezone(INDEX_DAILY_RECONCILIATION_TIMEZONE).date()
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.recent_open_rows(
+                exchange=get_settings().default_exchange, bound=local_today, include_bound=False, limit=1,
+            )
+            return rows[0].trade_date if rows else None
         return session.scalar(
             select(TradeCalendar.trade_date)
             .where(TradeCalendar.exchange == get_settings().default_exchange)
@@ -362,6 +369,11 @@ class IndexDailySourceServiceabilityService:
 
     @staticmethod
     def _open_trade_dates_on_or_before(session: Session, *, trade_date: date, limit: int) -> list[date]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return [row.trade_date for row in reversed(reference.calendar.recent_open_rows(
+                exchange=get_settings().default_exchange, bound=trade_date, limit=limit,
+            ))]
         return list(
             session.scalars(
                 select(TradeCalendar.trade_date)

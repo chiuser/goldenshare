@@ -13,7 +13,7 @@ from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core.index_weight import IndexWeight
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
-from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.clients.reference_data_relations import security_relation
 
 
 _KLINE_PRICE_FIELDS = (
@@ -53,11 +53,11 @@ KLINE_COLUMNS = tuple(getattr(IndexFactorPro, field_name) for field_name in _KLI
 _A_SHARE_EXCHANGES = ("SSE", "SZSE", "BSE")
 
 
-def _a_share_security_conditions() -> tuple[Any, ...]:
+def _a_share_security_conditions(security) -> tuple[Any, ...]:
     return (
-        Security.security_type == "EQUITY",
-        Security.exchange.in_(_A_SHARE_EXCHANGES),
-        Security.curr_type == "CNY",
+        security.c.security_type == "EQUITY",
+        security.c.exchange.in_(_A_SHARE_EXCHANGES),
+        security.c.curr_type == "CNY",
     )
 
 
@@ -181,6 +181,11 @@ class IndexDetailQuery:
         contribution_trade_date: date,
         weight_trade_date: date,
     ) -> dict[str, int]:
+        security = security_relation(
+            session, columns=("ts_code", "security_type", "exchange", "curr_type"), codes=select(IndexWeight.con_code).where(
+                IndexWeight.index_code == ts_code, IndexWeight.trade_date == weight_trade_date,
+            ).distinct(),
+        )
         resolved_pct_chg = _resolved_constituent_pct_chg(
             contribution_trade_date=contribution_trade_date
         )
@@ -194,10 +199,10 @@ class IndexDetailQuery:
             )
             .select_from(IndexWeight)
             .join(
-                Security,
+                security,
                 and_(
-                    Security.ts_code == IndexWeight.con_code,
-                    *_a_share_security_conditions(),
+                    security.c.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(security),
                 ),
             )
             .outerjoin(
@@ -301,6 +306,11 @@ class IndexDetailQuery:
         ts_code: str,
         weight_trade_date: date,
     ) -> dict[str, int]:
+        security = security_relation(
+            session, columns=("ts_code", "security_type", "exchange", "curr_type"), codes=select(IndexWeight.con_code).where(
+                IndexWeight.index_code == ts_code, IndexWeight.trade_date == weight_trade_date,
+            ).distinct(),
+        )
         statement = (
             select(
                 func.count().label("total_count"),
@@ -309,10 +319,10 @@ class IndexDetailQuery:
             )
             .select_from(IndexWeight)
             .join(
-                Security,
+                security,
                 and_(
-                    Security.ts_code == IndexWeight.con_code,
-                    *_a_share_security_conditions(),
+                    security.c.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(security),
                 ),
             )
             .where(
@@ -335,6 +345,12 @@ class IndexDetailQuery:
         contribution_trade_date: date,
         weight_trade_date: date,
     ) -> list[dict[str, Any]]:
+        security = security_relation(
+            session, columns=("ts_code", "security_type", "exchange", "curr_type", "name"),
+            codes=select(IndexWeight.con_code).where(
+                IndexWeight.index_code == ts_code, IndexWeight.trade_date == weight_trade_date,
+            ).distinct(),
+        )
         resolved_pct_chg = _resolved_constituent_pct_chg(
             contribution_trade_date=contribution_trade_date
         )
@@ -342,15 +358,15 @@ class IndexDetailQuery:
             select(
                 IndexWeight.con_code,
                 IndexWeight.weight,
-                Security.name,
+                security.c.name,
                 resolved_pct_chg.label("pct_chg"),
             )
             .select_from(IndexWeight)
             .join(
-                Security,
+                security,
                 and_(
-                    Security.ts_code == IndexWeight.con_code,
-                    *_a_share_security_conditions(),
+                    security.c.ts_code == IndexWeight.con_code,
+                    *_a_share_security_conditions(security),
                 ),
             )
             .outerjoin(

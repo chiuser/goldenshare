@@ -7,6 +7,9 @@ import json
 
 from sqlalchemy import text
 
+from src.foundation.clients.local_lake.reference_data_reader import TRADE_CALENDAR_LOCATION
+from src.foundation.clients.reference_data import local_reference_data
+from src.foundation.clients.reference_data_relations import bind_calendar_records
 from .market_facts import apply_sql_budget, facts_digest
 
 
@@ -17,7 +20,30 @@ def read_suspension_carries(session, codes, day, policy, deadline):
     if len(codes) > policy.page_rows or len(set(codes)) != len(codes):
         raise ValueError("Expected a bounded unique stock page")
     apply_sql_budget(session, deadline, policy)
-    rows = session.execute(text("""
+    params = {"codes": list(codes), "day": day}
+    reference = local_reference_data(session)
+    calendar_source = "core_serving.trade_calendar"
+    if reference is not None:
+        first_price = session.scalar(text("""
+            SELECT min(p.trade_date)
+            FROM unnest(CAST(:codes AS text[])) AS s(code)
+            JOIN LATERAL (
+                SELECT trade_date FROM core_serving.equity_daily_bar
+                WHERE ts_code = s.code AND trade_date < :day
+                ORDER BY trade_date DESC LIMIT 1
+            ) p ON true
+        """), params)
+        if first_price is None:
+            return {}
+        calendar_rows = reference.calendar.range_rows(
+            exchange="SSE", start=first_price, end=day, timeout_seconds=deadline.remaining_ms() / 1000,
+        )
+        calendar_source = ("jsonb_to_recordset(:dg_calendar_rows) cal"
+                           "(exchange text, trade_date date, is_open boolean, pretrade_date date)")
+        apply_sql_budget(session, deadline, policy)
+    else:
+        calendar_source += " cal"
+    statement = text(f"""
         WITH prices AS MATERIALIZED (
           SELECT s.code, p.trade_date, p.close, p.source
           FROM unnest(CAST(:codes AS text[])) AS s(code)
@@ -61,13 +87,16 @@ def read_suspension_carries(session, codes, day, policy, deadline):
                  ) AS suspended_count,
                  bool_or(cal.trade_date = p.trade_date AND cal.is_open) AS price_open,
                  bool_or(cal.trade_date = :day AND cal.is_open) AS target_open
-          FROM core_serving.trade_calendar cal LEFT JOIN core.equity_adj_factor a
+          FROM {calendar_source} LEFT JOIN core.equity_adj_factor a
             ON a.ts_code = p.code AND a.trade_date = cal.trade_date
           WHERE cal.exchange = 'SSE' AND cal.trade_date BETWEEN p.trade_date AND :day
         ) c
         WHERE c.price_open AND c.target_open
         ORDER BY p.code
-    """), {"codes": list(codes), "day": day}).mappings().all()
+    """)
+    if reference is not None:
+        statement = bind_calendar_records(statement, calendar_rows)
+    rows = session.execute(statement, params).mappings().all()
     deadline.remaining_ms()
     found = {}
     for row in rows:
@@ -84,7 +113,8 @@ def read_suspension_carries(session, codes, day, policy, deadline):
             calendarDays=row["calendar_count"], tradingDays=row["open_count"],
             factorDays=row["factor_count"], factor=format(factor, "f"),
             suspendedDays=row["suspended_count"], hasEffectiveDividend=False,
-            sources=["core_serving.trade_calendar", "core.equity_adj_factor",
+            sources=[TRADE_CALENDAR_LOCATION if reference is not None else "core_serving.trade_calendar",
+                     "core.equity_adj_factor",
                      "core_serving.equity_suspend_d", "core_serving.equity_dividend"])
         evidence = json.dumps(proof, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         price_text = format(price, "f")

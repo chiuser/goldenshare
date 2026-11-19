@@ -14,6 +14,7 @@ from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeR
 from src.foundation.clients.local_lake.major_index_mins_contract import GOLD_INDICATOR_VERSION
 from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader, IndexMinuteReadRequest
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from goldenshare_technical_indicators.xxm.types import XxmBar, XxmPeriod
@@ -111,8 +112,13 @@ def plan_minute_window(session: Session, *, period: XxmPeriod, output_rows: int,
     end = requested_end.date()
     slots = ENDPOINTS[int(period[1:])]
     open_day_count = (read_rows + len(slots) - 1) // len(slots) + 1
+    reference = local_reference_data(session)
     if lake_calendar is not None:
         rows = tuple((day, opened) for day, opened, _ in lake_calendar.recent(end=end, open_days=open_day_count))
+    elif reference is not None:
+        rows = tuple((row.trade_date, row.is_open) for row in reference.calendar.context_rows(
+            exchange="SSE", end=end, recent_open_days=open_day_count,
+        ))
     else:
         recent = (select(TradeCalendar.trade_date).where(
             TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True), TradeCalendar.trade_date <= end)
@@ -149,15 +155,27 @@ def plan_minute_window(session: Session, *, period: XxmPeriod, output_rows: int,
 def calendar_dates(session: Session, *, start: date, end: date) -> tuple[date, ...]:
     if start > end:
         raise XxmSourceError("SSE 交易日历查询起止日期不合法。")
-    rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
-        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= start,
-        TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
+    reference = local_reference_data(session)
+    if reference is not None:
+        rows = [(row.trade_date, row.is_open) for row in reference.calendar.range_rows(
+            exchange="SSE", start=start, end=end,
+        )]
+    else:
+        rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
+            TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= start,
+            TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
     if not rows or rows[-1][0] != end:
         raise XxmSourceError("SSE 交易日历未覆盖计算日期。")
     return tuple(row[0] for row in rows if row[1])
 
 
 def is_open_date(session: Session, day: date) -> bool:
+    reference = local_reference_data(session)
+    if reference is not None:
+        row = reference.calendar.get(exchange="SSE", day=day)
+        if row is None:
+            raise XxmSourceError("SSE 交易日历未覆盖请求日期或字段异常。")
+        return row.is_open
     rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
         TradeCalendar.exchange == "SSE", TradeCalendar.trade_date == day)).all()
     if len(rows) != 1 or rows[0][0] != day or type(rows[0][1]) is not bool:

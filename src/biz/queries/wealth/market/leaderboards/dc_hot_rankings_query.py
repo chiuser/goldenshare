@@ -9,7 +9,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.dc_hot import DcHot
-from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.clients.reference_data_relations import security_relation
 
 
 HotBoardKey = Literal["popularity", "surge"]
@@ -90,10 +90,16 @@ class LeaderboardDcHotRankingsQuery:
         limit: int,
     ) -> list[DcHotRankingRow]:
         normalized_rank_time = func.nullif(func.trim(DcHot.rank_time), "")
+        security = security_relation(
+            session, columns=("ts_code", "name"), codes=select(DcHot.ts_code).where(
+                DcHot.trade_date == trade_date, DcHot.query_hot_type == hot_type,
+                DcHot.query_market == self._A_STOCK_MARKET_VALUE,
+            ).distinct(),
+        )
         ranked_subquery = (
             select(
                 DcHot.ts_code.label("ts_code"),
-                func.coalesce(DcHot.ts_name, Security.name).label("subject_name"),
+                func.coalesce(DcHot.ts_name, security.c.name).label("subject_name"),
                 DcHot.current_price.label("latest_price"),
                 DcHot.pct_change.label("change_pct"),
                 DcHot.rank.label("hot_rank"),
@@ -111,7 +117,7 @@ class LeaderboardDcHotRankingsQuery:
                 )
                 .label("rn"),
             )
-            .outerjoin(Security, Security.ts_code == DcHot.ts_code)
+            .outerjoin(security, security.c.ts_code == DcHot.ts_code)
             .where(
                 DcHot.trade_date == trade_date,
                 DcHot.query_hot_type == hot_type,

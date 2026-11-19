@@ -21,6 +21,7 @@ from src.foundation.datasets.freshness_policies import (
     SNAPSHOT_RUN_TRACE,
 )
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.dataset_definition_projection import (
     DatasetFreshnessProjection,
@@ -984,6 +985,11 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _open_trade_dates(session: Session) -> list[date]:
+        reference = local_reference_data(session)
+        if reference is not None:
+            return [row.trade_date for row in reference.calendar.range_rows(
+                exchange="SSE", start=date.min, end=date.max, open_only=True,
+            )]
         try:
             return list(
                 session.scalars(
@@ -1175,6 +1181,10 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _get_latest_open_date(session: Session, *, before_or_on: date) -> date:
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.recent_open_rows(exchange="SSE", bound=before_or_on, limit=1)
+            return rows[0].trade_date if rows else before_or_on
         latest_open_date = session.scalar(
             select(TradeCalendar.trade_date)
             .where(TradeCalendar.exchange == "SSE")

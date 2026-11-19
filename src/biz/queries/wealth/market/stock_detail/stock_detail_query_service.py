@@ -39,6 +39,8 @@ from src.foundation.config.settings import get_settings
 from src.foundation.config.stock_daily_trend_channel_capability import (
     resolve_stock_daily_trend_channel_capability,
 )
+from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION
+from src.foundation.clients.reference_data import SecurityReferenceRow, local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.sources.read_context import SourceReadContext
@@ -128,6 +130,10 @@ class StockDetailQueryService:
                     observed_trade_date=observed_trade_date,
                     limit=None,
                     basic_source=basic_source if factor_row is not None else None,
+                    security_source=(
+                        STOCK_BASIC_LOCATION if local_reference_data(session) is not None
+                        else "core_serving.security_serving"
+                    ),
                 )
                 if debug
                 else None
@@ -137,11 +143,16 @@ class StockDetailQueryService:
     def prepare_kline_input(
         self, session: Session, request: StockDailyKlineRequest,
         *, load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
+        remaining_seconds: Callable[[], float] | None = None,
     ) -> StockDailyKlineInput:
         context = self._context_query.resolve_context(
             session, market="CN_A", requested_trade_date=request.end_date or request.trade_date,
+            timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
         )
-        security = self._load_security_or_raise(session, ts_code=request.ts_code)
+        security = self._load_security_or_raise(
+            session, ts_code=request.ts_code,
+            timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
+        )
         query_end_date = request.end_date or context.trade_date
         rows = load_rows(request.ts_code, query_end_date, request.start_date, request.limit)
         # Strict indexing distinguishes a missing column from a legitimate SQL NULL.
@@ -156,14 +167,16 @@ class StockDetailQueryService:
             request, context, security.ts_code, security.name, query_end_date, bars,
         )
 
-    def _load_security_or_raise(self, session: Session, *, ts_code: str) -> Security:
-        security = self._query.load_security(session, ts_code=ts_code)
+    def _load_security_or_raise(
+        self, session: Session, *, ts_code: str, timeout_seconds: float | None = None,
+    ) -> Security | SecurityReferenceRow:
+        security = self._query.load_security(session, ts_code=ts_code, timeout_seconds=timeout_seconds)
         if security is None:
             raise StockDetailNotFoundError(f"未找到股票标的：{ts_code}")
         return security
 
     @staticmethod
-    def _to_stock_identity(security: Security) -> StockDetailStockIdentityDto:
+    def _to_stock_identity(security: Security | SecurityReferenceRow) -> StockDetailStockIdentityDto:
         tags = [value for value in [security.industry, security.area] if value]
         return StockDetailStockIdentityDto(
             tsCode=security.ts_code,
@@ -185,9 +198,10 @@ class StockDetailQueryService:
         observed_trade_date: date | None,
         limit: int | None,
         basic_source: str | None,
+        security_source: str,
     ) -> StockDetailDebugInfoDto:
         return StockDetailDebugInfoDto(
-            sourceTables=["core_serving.security_serving", "core_serving.equity_factor_pro",
+            sourceTables=[security_source, "core_serving.equity_factor_pro",
                           *([basic_source] if basic_source else [])],
             query={
                 "tsCode": ts_code,

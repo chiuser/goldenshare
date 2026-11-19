@@ -20,6 +20,7 @@ from src.biz.services.wealth.market.nine_turn.daily_nine_turn_cursor import (
     decode_daily_nine_turn_cursor,
     encode_daily_nine_turn_cursor,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 from goldenshare_technical_indicators.errors import SourceContractError, TechnicalIndicatorError
 
@@ -58,7 +59,8 @@ class StockNineTurnQueryService:
         load_dates=None,
     ) -> NineTurnSeriesDto:
         normalized_code = ts_code.strip().upper()
-        security = session.get(Security, normalized_code)
+        reference = local_reference_data(session)
+        security = reference.security.get(ts_code=normalized_code) if reference is not None else session.get(Security, normalized_code)
         if security is None or security.security_type != "EQUITY":
             raise StockNineTurnNotFoundError(f"未找到股票标的：{normalized_code}")
         if not 1 <= limit <= 2_000:

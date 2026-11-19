@@ -35,8 +35,9 @@ from src.biz.services.wealth.market.trading_assistant.notification_commands impo
 from .trading_assistant_transactions import TradingAssistantTransactions
 
 
-def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, rule_robots=None, credential_cipher=None):
-    transactions = TradingAssistantTransactions(engine)
+def build_trading_assistant_dependencies(engine, *, policy, now, executor_id, rule_robots=None,
+                                         credential_cipher=None, reference_data=None):
+    transactions = TradingAssistantTransactions(engine, reference_data=reference_data)
     market = MarketFactsReader(policy)
     positions = PositionsQuery(policy)
     robots = rule_robots if rule_robots is not None else RuleRobotAccess()

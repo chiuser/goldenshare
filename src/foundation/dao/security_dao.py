@@ -6,6 +6,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import SecurityPlanningRow, SecurityReferenceRow, local_reference_data
 from src.foundation.dao.base_dao import BaseDAO
 from src.foundation.models.core_serving.security_serving import Security
 
@@ -17,11 +18,17 @@ class SecurityDAO(BaseDAO[Security]):
     def upsert_many(self, rows: list[dict]) -> int:
         return self.bulk_upsert(rows)
 
-    def get_active_equities(self) -> list[Security]:
+    def get_active_equities(self) -> list[Security | SecurityPlanningRow]:
+        reference = local_reference_data(self.session)
+        if reference is not None:
+            return list(reference.security.planning_equities())
         stmt = select(Security).where(Security.security_type == "EQUITY", Security.list_status.in_(["L", "P", "D"]))
         return list(self.session.scalars(stmt))
 
-    def get_by_ts_code(self, ts_code: str) -> Security | None:
+    def get_by_ts_code(self, ts_code: str) -> Security | SecurityReferenceRow | None:
+        reference = local_reference_data(self.session)
+        if reference is not None:
+            return reference.security.get(ts_code=ts_code)
         return self.fetch_by_pk(ts_code)
 
     def get_existing_ts_codes(self, ts_codes: Sequence[str]) -> set[str]:
@@ -34,6 +41,11 @@ class SecurityDAO(BaseDAO[Security]):
     def get_listing_dates(self, ts_codes: Sequence[str]) -> dict[str, date | None]:
         """Read listing dates for the requested codes, including delisted stocks."""
         codes = sorted({code for code in ts_codes if code})
+        reference = local_reference_data(self.session)
+        if reference is not None:
+            return dict(reference.security.project_by_codes(
+                ts_codes=codes, columns=("ts_code", "list_date"),
+            ))
         dates: dict[str, date | None] = {}
         for start in range(0, len(codes), 500):
             stmt = select(Security.ts_code, Security.list_date).where(

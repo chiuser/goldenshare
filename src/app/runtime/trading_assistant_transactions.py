@@ -12,13 +12,15 @@ from sqlalchemy.orm import Session
 
 from src.biz.services.wealth.market.trading_assistant.execution_policy import Deadline
 from src.biz.services.wealth.market.trading_assistant.transaction_boundary import CommitOutcomeUnknown
+from src.foundation.clients.reference_data import bind_reference_data
 
 T = TypeVar("T")
 
 
 class TradingAssistantTransactions:
-    def __init__(self, engine: AsyncEngine):
+    def __init__(self, engine: AsyncEngine, *, reference_data=None):
         self.engine = engine
+        self.reference_data = reference_data
 
     async def run(self, work: Callable[[Session], T], *, deadline: Deadline, write: bool) -> T:
         committing = False
@@ -26,6 +28,7 @@ class TradingAssistantTransactions:
         async def execute():
             nonlocal committing
             async with AsyncSession(self.engine,expire_on_commit=False) as session:
+                bind_reference_data(session.sync_session, self.reference_data)
                 # The await includes waiting for a pooled connection and initial connect.
                 await session.connection()
                 deadline.remaining_ms()

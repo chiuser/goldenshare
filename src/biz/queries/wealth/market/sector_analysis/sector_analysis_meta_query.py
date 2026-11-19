@@ -12,7 +12,7 @@ from src.biz.services.wealth.market.sector_analysis.sector_momentum_contract imp
     classify_availability,
 )
 from src.foundation.models.core.dc_daily import DcDaily
-from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.clients.reference_data_relations import calendar_relation
 
 
 class SectorAnalysisMetaQuery:
@@ -27,17 +27,18 @@ class SectorAnalysisMetaQuery:
     ) -> tuple[date, tuple[SectorDateAvailabilityFact, ...]]:
         if not sector_codes:
             raise SectorDataQueryError("sector hierarchy contains no codes")
+        calendar = calendar_relation(session, end=coverage_end_date, open_only=True)
         daily_counts = (
             select(
                 DcDaily.trade_date.label("trade_date"),
                 func.count().label("valid_sector_count"),
             )
             .join(
-                TradeCalendar,
+                calendar,
                 and_(
-                    TradeCalendar.exchange == "SSE",
-                    TradeCalendar.is_open.is_(True),
-                    TradeCalendar.trade_date == DcDaily.trade_date,
+                    calendar.c.exchange == "SSE",
+                    calendar.c.is_open.is_(True),
+                    calendar.c.trade_date == DcDaily.trade_date,
                 ),
             )
             .where(
@@ -53,23 +54,23 @@ class SectorAnalysisMetaQuery:
         coverage_start = select(func.min(daily_counts.c.trade_date)).scalar_subquery()
         statement = (
             select(
-                TradeCalendar.trade_date,
+                calendar.c.trade_date,
                 func.coalesce(daily_counts.c.valid_sector_count, 0).label(
                     "valid_sector_count"
                 ),
             )
-            .select_from(TradeCalendar)
+            .select_from(calendar)
             .outerjoin(
                 daily_counts,
-                daily_counts.c.trade_date == TradeCalendar.trade_date,
+                daily_counts.c.trade_date == calendar.c.trade_date,
             )
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date >= coverage_start,
-                TradeCalendar.trade_date <= coverage_end_date,
+                calendar.c.exchange == "SSE",
+                calendar.c.is_open.is_(True),
+                calendar.c.trade_date >= coverage_start,
+                calendar.c.trade_date <= coverage_end_date,
             )
-            .order_by(TradeCalendar.trade_date)
+            .order_by(calendar.c.trade_date)
         )
         rows = session.execute(statement).all()
         if not rows:

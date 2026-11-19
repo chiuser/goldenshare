@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from src.biz.services.wealth.market.sector_analysis.daily_facts.replay_planner import (
     MIN_PUBLISH_DATE,
 )
-from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.clients.reference_data_relations import calendar_relation
 from src.foundation.models.core_serving.wealth_sector_analysis_publish_batch import (
     WealthSectorAnalysisPublishBatch as Batch,
 )
@@ -99,13 +99,14 @@ class SectorDailyInsightQuery:
     """Only calendar and immutable published insight facts; no method calculation."""
 
     def load_coverage(self, session: Session, *, end_date: date):
+        calendar_source = calendar_relation(session, start=MIN_PUBLISH_DATE, end=end_date, open_only=True)
         calendar = (
-            select(TradeCalendar.trade_date, TradeCalendar.pretrade_date)
+            select(calendar_source.c.trade_date, calendar_source.c.pretrade_date)
             .where(
-                TradeCalendar.exchange == "SSE",
-                TradeCalendar.is_open.is_(True),
-                TradeCalendar.trade_date >= MIN_PUBLISH_DATE,
-                TradeCalendar.trade_date <= end_date,
+                calendar_source.c.exchange == "SSE",
+                calendar_source.c.is_open.is_(True),
+                calendar_source.c.trade_date >= MIN_PUBLISH_DATE,
+                calendar_source.c.trade_date <= end_date,
             )
             .cte("insight_calendar")
         )

@@ -7,7 +7,7 @@
 | 工作 | 已确认的规则 | 实施通过条件 |
 | --- | --- | --- |
 | DG 交易日历 | 上交所 `SSE` 取消本地起止日期限制。复用现有 Job 手动更新一次 Raw、Silver | 两层覆盖至少到 2027-12-31，并保留原有历史。之后源继续提供更远日期则照常收入 |
-| 本地证券和日历 | Web、Ops、后台任务等本地运行入口读取这两类业务事实均走 DG。有效文件里查不到记录时沿用各入口原来的缺失处理 | §4 的读取入口全部换源。读 PostgreSQL 的两张旧表会报错的测试环境下，本地调用仍可走通 |
+| 本地证券和日历 | 阶段 2 覆盖本地 Web 请求实际读取的两类业务事实，包含业务与运维 API。有效文件里查不到记录时沿用各入口原来的缺失处理 | §4 中由本地 Web 请求实际执行的读取换源。读 PostgreSQL 的两张旧表会报错的测试环境下，本地调用仍可走通 |
 | 股票详情 | `/page-init` 的 `pageContext.tradeDate` 是整页最新日期。日 K 和指标只算一次，首屏盘口复用同一次的末根日 K | 每条后续日期请求都使用该日期，实际行情滞后和历史翻页不改变页面日期或盘口 |
 | Prod 与后续期 | Prod 继续使用现行 PostgreSQL、原响应模型和原参数行为。股票、指数分钟线的行情来源与指标升级放到下一期 | 共用前端分别验证两种首屏回包。原 Prod 响应 JSON 字段集合、值与 OpenAPI 模型通过回归 |
 
@@ -109,7 +109,7 @@ def _compare_published_history(
 
 沿用 [`Settings`](../../../../src/foundation/config/settings.py#L17)、现行 [内核运行时选择](../../../../src/app/runtime/technical_indicators/composition.py#L33) 和 [本地构建配置](../../../../scripts/local-build-and-run.sh)。`APP_ENV=dev/local` 选择 DG，`prod/production` 选择 PG。`GOLDENSHARE_LAKE_ROOT` 从同一套设置读取，本地正式配置预期为 `/Volumes/datasource/data_lake`。本地缺配置、文件读失败或合同错误直接走取数错误。通用交易日历接口继续接受调用方的 `exchange`。现行本地默认 `DEFAULT_EXCHANGE=SSE`，两个来源经核验均只含 SSE，因此接口收到一个合法但无记录的交易所时照常返回空列表，不自动映射成 SSE。沪深 A 股共用 SSE 日历的现有业务调用继续保留显式 SSE。
 
-- 在 App 组合根按显式部署模式一次构造 `ReferenceData`。Web 在 [`src/app/web/lifespan.py`](../../../../src/app/web/lifespan.py) 组装并通过各路由已有依赖或路由工厂传给 Biz、Ops 和日 K 后端。CLI 从 [`src/cli.py`](../../../../src/cli.py) 接线，后台任务从 [`ops_worker_factory.py`](../../../../src/app/runtime/ops_worker_factory.py#L80) 传给 worker、dispatcher、planner 与实际查询。Foundation 只定义读取合同和适配器。下层只接收解析完成的读取对象，依赖方向按 [子系统架构基线](../../../../docs/architecture/subsystem-boundary-plan.md#3-目标依赖方向)。
+- 在 App 组合根按显式部署模式一次构造本地的 `ReferenceData`。Web 在 [`src/app/web/lifespan.py`](../../../../src/app/web/lifespan.py) 组装。已有路由会话由 Web 依赖把已构造的读取对象放进本次会话的 `Session.info`，查询在涉及这两个来源时显式取用它。日 K 后端自建会话由其已有的 App 组装位置传递同一对象。Prod 调用保留原 PG 查询。阶段 2 沿用本地 Web 已配置的 `GOLDENSHARE_LAKE_ROOT`，范围涵盖本地 Web 内实际执行的读请求。独立 CLI、调度器和独立巡检进程列在 §4 仅用于识别调用边界。Foundation 只定义读取合同和适配器，依赖方向按 [子系统架构基线](../../../../docs/architecture/subsystem-boundary-plan.md#3-目标依赖方向)。
 - 新建角色专一的 `src/foundation/clients/reference_data.py` 保存独立行合同和读取接口，`local_lake/reference_data_reader.py` 实现两个 DG 文件读取。PG 直读方法复用现有 DAO 的查询条件与会话。调用方显式接收读取对象，不通过模块全局变量、导入时打开文件、线程本地变量或 ORM SQL 拦截做换源。只读对象可被多个请求复用，连接、候选行及异常属于该次请求或任务。
 - 每个请求每类文件在一个联表读步骤批量读一次。查询投影只含调用所需的列，筛选在文件扫描中完成。同一查询把所用行带到后续组装或传入同一 SQL 查询，避免每个证券重新打开文件。独立请求重新读正式文件，能看见已原子更新的数据。
 
@@ -148,36 +148,42 @@ class SecurityReferenceRow:
 
 class TradeCalendarReader(Protocol):
     # 最近开市日用 <= bound 或 < bound，由调用方显式指定。
-    def get(self, session, *, exchange: str, day: date) -> TradeCalendarRow | None: ...
-    def range_rows(self, session, *, exchange: str, start: date, end: date,
-                   open_only: bool = False) -> tuple[TradeCalendarRow, ...]: ...
-    def recent_open_rows(self, session, *, exchange: str, bound: date, limit: int,
+    def get(self, *, exchange: str, day: date) -> TradeCalendarRow | None: ...
+    def range_rows(self, *, exchange: str, start: date, end: date,
+                   open_only: bool = False, timeout_seconds: float | None = None
+                   ) -> tuple[TradeCalendarRow, ...]: ...
+    def recent_open_rows(self, *, exchange: str, bound: date, limit: int,
                          include_bound: bool = True, start: date | None = None
                          ) -> tuple[TradeCalendarRow, ...]: ...
-    def context_rows(self, session, *, exchange: str, end: date,
-                     recent_open_days: int) -> tuple[TradeCalendarRow, ...]: ...
+    def context_rows(self, *, exchange: str, end: date, recent_open_days: int,
+                     start: date | None = None, timeout_seconds: float | None = None
+                     ) -> tuple[TradeCalendarRow, ...]: ...
 
 class SecurityReferenceReader(Protocol):
-    def get(self, session, *, ts_code: str) -> SecurityReferenceRow | None: ...
-    def read_by_codes(self, session, *, ts_codes: Sequence[str]
+    def get(self, *, ts_code: str, timeout_seconds: float | None = None
+            ) -> SecurityReferenceRow | None: ...
+    def read_by_codes(self, *, ts_codes: Sequence[str], timeout_seconds: float | None = None
                       ) -> Mapping[str, SecurityReferenceRow]: ...
-    def listing_dates(self, session, *, ts_codes: Sequence[str]
-                      ) -> Mapping[str, date | None]: ...
-    # 保留各入口 filter、rank、limit 语义所需的具体实现，不共用单一股票池。
-    def search_a_shares(self, session, *, keyword: str, escaped_prefix: str,
-                        limit: int) -> tuple[SecurityReferenceRow, ...]: ...
-    def planning_equities(self, session) -> tuple[SecurityReferenceRow, ...]: ...
+    # 按本次 SQL 关联或展示使用的列投影。columns 含 ts_code。
+    def project_by_codes(self, *, ts_codes: Sequence[str], columns: Sequence[str]
+                         ) -> tuple[tuple, ...]: ...
+    # 各入口分别保留既有过滤规则、排名与上限。
+    def search_a_shares(self, *, keyword: str, escaped_prefix: str, limit: int,
+                        exchanges: Sequence[str]) -> tuple[tuple[str, str], ...]: ...
+    def leaderboard_codes(self, *, trade_date: date) -> tuple[str, ...]: ...
+    def suggest_equities(self, *, keyword: str, limit: int) -> tuple[tuple[str, str], ...]: ...
+    def planning_equities(self) -> tuple[SecurityPlanningRow, ...]: ...
 
 @dataclass(frozen=True, slots=True)
 class ReferenceData:
     calendar: TradeCalendarReader
     security: SecurityReferenceReader
 
-# App 的 Web、CLI、常驻进程入口复用此装配。不承担写入。
-def build_reference_data(settings: Settings) -> ReferenceData: ...
+# App 组装本地 Web 请求使用的读取对象。
+def build_reference_data(settings: Settings) -> ReferenceData | None: ...
 ```
 
-- PG 方法使用调用方已有的会话和事务。`session` 的类型为 `Session | None`，PG 需要现有会话，DG 直接读文件。对日 K、交易助手等已有请求时限的入口，把剩余工作时间传给 DG 读取，沿用对 [`IndexDailyLakeReader._read`](../../../../src/foundation/clients/local_lake/index_daily_reader.py#L169) 的 DuckDB 查询中断与连接清理做法。读入前与读入后都检查请求状态，取消或过期时保留原异常分类。直接读取方法按调用方已知过滤实现。给联表提供的内部投影固定白名单，日期、代码、筛选值和上限绑定传入。测试通过临时 Lake 根及指定的会话注入替身。
+- PG 方法使用调用方已有的会话和事务。DG 的适配器直接读文件，关系查询在 App 注入来源后仍使用原有 PostgreSQL 会话。日 K 和交易助手沿用各自的请求时限，读取日期范围可接收已有剩余秒数。给联表提供的内部投影固定白名单，日期、代码、筛选值和上限绑定传入。测试通过临时 Lake 根及指定的会话注入两类来源。
 - **日历来源。** 使用 Silver 正式文件。日期范围 `start/end` 两端包含，`range_rows()` 按日期升序，`recent_open_rows()` 先倒序限量再按日期升序返回。若函数只需最后一条开市日，从这个读取结果取最后一条即可。`context_rows()` 应含上界当天记录（即便休市）和指定数量的近期交易日，保留现有 [`IndexDailyLakeReader.calendar_rows`](../../../../src/foundation/clients/local_lake/index_daily_reader.py#L33) 的语义；由新的日历读取入口统一实现，原方法作为已有指数消费者的委托入口。
 - **证券来源。** 使用 `raw/tushare/stock_basic/full/part-000.parquet`。按 `ts_code`，保留所有上市状态。日期按显式 `YYYYMMDD -> DATE` 转换，合法空值为 `None)。`security_type=\"EQUITY\"`、`source=\"tushare\"` 是这个数据集的固定业务事实，来自 DG 的资产来源和 Prod 的 [证券合同](../../../../src/foundation/models/core_serving/security_serving.py#L12)。其他名称、状态、交易所、币种等字段逐列保持原值。Raw 无 PG 写入时间，现行调用方不使用该值作为业务事实。
 - [`get_active_equities`](../../../../src/foundation/dao/security_dao.py#L19) 实际接收 `L/P/D`，映射为 `planning_equities()` 保留条件。股票搜索和自选准入各自保留 `L + CNY + SSE/SZSE/BSE + EQUITY`，股票详情查找没有在市限制。板块历史池和成分股查询保留各自的上市与退市日期谓词，不能复用当前在市搜索结果。
@@ -192,7 +198,7 @@ def build_reference_data(settings: Settings) -> ReferenceData: ...
 
 ## 4. 本地调用方迁移清单
 
-清单来自 CodeGraph 的 `codegraph_explore` 对首屏、证券/日历查询和 DG Job 的三次调用链跟踪，以及仓库中对 ORM 别名、DAO 访问及原生 SQL 的核对。表内组别按改造动作划分。实际提交在每个入口补上新读取方法和回归用例。
+清单来自 CodeGraph 的 `codegraph_explore` 对首屏、证券/日历查询和 DG Job 的调用链跟踪，以及仓库中对 ORM 别名、DAO 访问及原生 SQL 的核对。按 Web 实际执行路径判断阶段 2 范围。相同服务由独立进程调用时，由该进程原有接线决定读取方式。按直接读取、筛选关联与分页、已有日 K 时限、运维业务参考读取验证。
 
 | 当前代码入口 | 本地改造与验收 |
 | --- | --- |
@@ -239,6 +245,14 @@ def build_reference_data(settings: Settings) -> ReferenceData: ...
 - 股票搜索和自选新增资格要求 `list_status=L`，这两条记录原本即不纳入。Prod 对这两个代码的自选成员、交易助手规则版本与账户初始持仓只读计数均为零。研判中心证券搜索未限定上市状态，本地全市场分钟行情计划的候选池也可含退市代码，所以这两个入口的候选集中会少这两条。 [股票搜索](../../../../src/biz/queries/wealth/market/stock_search/stock_search_query.py#L50) · [研判中心搜索](../../../../src/ops/queries/review_center_query_service.py#L480) · [分钟行情候选池](../../../../src/foundation/ingestion/unit_planner.py#L1893)
 - 现有股票详情路由允许这两个路径，`/page-init` 按证券原代码直接查身份。两码在 Prod 的股票不复权日线和股票日线技术因子中，2000-07-19 至 2006-10-20 按代码计数均为零。现有主数据能返回身份，迁移后本地若只读 DG，则会按原未找到合同返回 HTTP 404（`404001`），Prod 保留现状。范围外行情和其他存量业务表未纳入上述定点查询。 [详情身份查询](../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py#L44) · [详情错误映射](../../../../src/biz/api/wealth/market/stock_detail.py#L54)
 - **已确认。** 本地对这两个代码采用 DG 查无标的规则，给这两个代码增加本地 404 和 Prod 原行为的回归。
+
+### 阶段 2 开发与独立审计
+
+- 本地 Web 由 [应用启动](../../../../src/app/web/lifespan.py) 构造 DG 读取对象，经 [Web 会话依赖](../../../../src/app/dependencies/db.py) 或日 K、交易助手自己的会话入口传给查询。通用交易日历、股票详情与九转、证券搜索、自选、市场状态及日历窗口、指数和板块关联、交易助手、Web 运维查询与维护计划读取同一来源。独立调度、巡检和补数沿用各自入口。
+- [DG 读取实现](../../../../src/foundation/clients/local_lake/reference_data_reader.py) 读取股票基础信息 Raw 文件及交易日历 Silver 文件。直接读取按代码或日期过滤，关联读取先确定候选再按所需列投影，用 [有类型的 JSONB 参数](../../../../src/foundation/clients/reference_data_relations.py) 保留原 SQL 的过滤、聚合、关联和截取顺序。自选列表先按原游标分页，再补该页证券名称、行业和上市状态。历史股票日线技术因子与盘口组装属于阶段 3。
+- 新代码只读回查正式 DG 的五个股票代码和跨年五个自然日。平安银行的证券代码保留前导零，贵州茅台为上市状态，武钢股份的退市日期为 2017-02-14。两个已确认的旧证券代码仍查无记录。SSE 在 2027-01-01 休市、2027-01-04 开市，后者的上一交易日为 2026-12-31。2027-12-31 有记录，SZSE 请求返回空。测试记录中的 416.7 毫秒是冷启动后的第一笔五代码读取，8.4 毫秒是随后五日范围读取。样本计时用于说明测量范围。
+- 独立审计发现三处行为差异并各补回归。损坏的日历主键要报读失败。交易助手的 DG 文件读取异常返回既有查询失败码。股票日 K 的两次 DG 读取沿用已有工作时限，超时退出后走原错误分类和资源清理。[隔离测试](../../../../tests/test_local_web_reference_data.py) 验证直接 API、目录缺失、无效日期、已存在的时限和错误码，以及缺少两张旧表时实际 PostgreSQL 关联的空值、日期类型和先筛选后排名。
+- 467 项定向回归通过。复审加入空交易所反例后，8 项阶段 2 专用用例通过。独立复审确认正常空结果、合法查询区间和 Prod 路径保持原合同。文档及改动语法检查通过。交易助手执行资源中的 Ruff `F821` 在改造前的 `91f143a76` 同样存在。
 
 ## 5. 股票详情首屏
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.clients.reference_data_relations import security_relation
 
 
 EquityBoardKey = Literal["gainers", "losers", "amount", "turnover", "volumeRatio"]
@@ -53,10 +53,13 @@ class LeaderboardEquityRankingsQuery:
         if not stock_pool_codes:
             return []
 
+        security = security_relation(
+            session, columns=("ts_code", "name"), codes=stock_pool_codes,
+        )
         stmt = (
             select(
                 EquityDailyBar.ts_code,
-                Security.name.label("subject_name"),
+                security.c.name.label("subject_name"),
                 EquityDailyBar.close.label("latest_price"),
                 EquityDailyBar.pct_chg.label("change_pct"),
                 EquityDailyBasic.turnover_rate.label("turnover_rate"),
@@ -64,7 +67,7 @@ class LeaderboardEquityRankingsQuery:
                 EquityDailyBar.vol.label("volume"),
                 EquityDailyBar.amount.label("amount"),
             )
-            .join(Security, Security.ts_code == EquityDailyBar.ts_code)
+            .join(security, security.c.ts_code == EquityDailyBar.ts_code)
             .outerjoin(
                 EquityDailyBasic,
                 (EquityDailyBasic.ts_code == EquityDailyBar.ts_code)

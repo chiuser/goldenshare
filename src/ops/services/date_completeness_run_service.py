@@ -11,6 +11,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.schemas.date_completeness import DateCompletenessRunCreateRequest
@@ -258,6 +259,11 @@ class DateCompletenessRunCommandService:
             end_date=end_date,
             bucket_window_rule=bucket_window_rule,
         )
+        reference = local_reference_data(session)
+        if reference is not None:
+            return [row.trade_date for row in reference.calendar.range_rows(
+                exchange=exchange, start=calendar_start, end=calendar_end, open_only=True,
+            )]
         return list(
             session.scalars(
                 select(TradeCalendar.trade_date)

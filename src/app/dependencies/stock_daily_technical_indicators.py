@@ -25,6 +25,8 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
 from src.db import get_session_factory
+from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION
+from src.foundation.clients.reference_data import bind_reference_data
 from src.foundation.config.settings import get_settings
 from goldenshare_technical_indicators.errors import (
     CalculationDeadlineError, CalculationUnsupportedError, ResourceCleanupError,
@@ -146,14 +148,15 @@ def open_stock_daily_read_session(session_factory, control):
 
 
 class StockDailyKlineAppBackend:
-    def __init__(self, runtime, session_factory_provider=get_session_factory):
+    def __init__(self, runtime, session_factory_provider=get_session_factory, *, reference_data=None):
         self.runtime = runtime
         self.session_factory_provider = session_factory_provider
         self.service = StockDailyKlineService()
         self._price_query = StockDetailQuery()
         self._use_dg = runtime.config.data_location == "dg"
+        self._reference_data = reference_data
         self._source_tables = (
-            "core_serving.security_serving",
+            STOCK_BASIC_LOCATION if reference_data is not None else "core_serving.security_serving",
             *(("silver/quote/stock_daily", "silver/quote/adj_factor", "raw/tushare/daily_basic")
               if self._use_dg else
               ("core_serving.equity_daily_bar", "core.equity_adj_factor", "core_serving.equity_daily_basic")),
@@ -179,13 +182,25 @@ class StockDailyKlineAppBackend:
     def work(self, request, control):
         control.check_active()
 
+        def remaining_seconds():
+            control.check_active()
+            return control.work_until - control.clock()
+
         with open_stock_daily_read_session(self.session_factory_provider(), control) as session:
-            snapshot = self.service.prepare(
-                session, request,
-                load_rows=lambda code, end, start, count: self._load_page_fields(
-                    session, code, end, start, count, control,
-                ),
-            )
+            bind_reference_data(session, self._reference_data)
+            try:
+                snapshot = self.service.prepare(
+                    session, request,
+                    load_rows=lambda code, end, start, count: self._load_page_fields(
+                        session, code, end, start, count, control,
+                    ),
+                    **({"remaining_seconds": remaining_seconds} if self._reference_data is not None else {}),
+                )
+            except TimeoutError as error:
+                if self._reference_data is None:
+                    raise
+                control.check_active()
+                raise CalculationDeadlineError("stock_daily_reference_data/deadline") from error
         control.check_active()
         calculation = build_calculation_request(snapshot)
         result = None
@@ -259,7 +274,10 @@ async def stock_daily_technical_indicators_lifespan(
     try:
         settings = settings_provider()
         runtime = create_runtime(settings, session_factory=lambda: session_factory_provider()())
-        backend = StockDailyKlineAppBackend(runtime, session_factory_provider)
+        backend = StockDailyKlineAppBackend(
+            runtime, session_factory_provider,
+            reference_data=getattr(app.state, "reference_data", None),
+        )
         app.state.technical_indicator_runtime = runtime
         app.state.stock_daily_kline_backend = backend
         yield

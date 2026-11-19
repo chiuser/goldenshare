@@ -20,6 +20,7 @@ from src.foundation.datasets.financial_statement_contracts import (
 )
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion.errors import IngestionError
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.action_catalog import (
     WorkflowDefinition,
@@ -1075,6 +1076,14 @@ class TaskRunCommandService:
         month_start = date(year, month, 1)
         month_end = date(year, month, month_end_day)
         exchange = get_settings().default_exchange
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.recent_open_rows(
+                exchange=exchange, bound=month_end, start=month_start, limit=1,
+            )
+            if not rows:
+                raise WebAppError(status_code=422, code="validation_error", message=f"{year}-{month:02d} 未找到开市交易日")
+            return rows[0].trade_date
         stmt = (
             select(TradeCalendar.trade_date)
             .where(

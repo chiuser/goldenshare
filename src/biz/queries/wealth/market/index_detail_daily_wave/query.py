@@ -1,12 +1,16 @@
 """Fixed source projections; no display conversion or signal computation."""
 from collections.abc import Mapping
 from datetime import date
+from functools import partial
 from typing import Protocol
 
+import anyio
 from sqlalchemy import Select, select
 
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.clients.reference_data import ReferenceDataReadError
+from src.biz.services.wealth.market.index_detail_daily_wave.budget import DailyWaveBudgetExceeded
 
 
 class DailyWaveSourceError(ValueError):
@@ -42,6 +46,19 @@ class DailyWaveQuery:
         return await session.execute_read(statement)
 
     async def load_calendar(self, session, *, context_start: date, observation_end: date, spec):
+        calendar = getattr(session, "calendar_reader", None)
+        if calendar is not None:
+            try:
+                rows = await anyio.to_thread.run_sync(partial(
+                    calendar.range_rows, exchange="SSE", start=context_start, end=observation_end,
+                    timeout_seconds=min(spec.query_seconds, session.budget.remaining_ms() / 1000),
+                ))
+            except ReferenceDataReadError as error:
+                raise DailyWaveSourceError(str(error)) from error
+            except TimeoutError as error:
+                raise DailyWaveBudgetExceeded(str(error)) from error
+            return tuple({"exchange": row.exchange, "trade_date": row.trade_date,
+                          "is_open": row.is_open} for row in rows[:spec.max_calendar_days + 1])
         table = TradeCalendar.__table__
         statement = select(table.c.exchange, table.c.trade_date, table.c.is_open).where(
             table.c.exchange == "SSE", table.c.trade_date.between(context_start, observation_end),

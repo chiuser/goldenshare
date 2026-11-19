@@ -11,6 +11,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
@@ -268,6 +269,12 @@ class DateCompletenessScheduleCommandService:
         schedule: DatasetDateCompletenessSchedule,
     ) -> tuple[date, date]:
         exchange = self._calendar_exchange(schedule)
+        reference = local_reference_data(session)
+        if reference is not None:
+            rows = reference.calendar.recent_open_rows(exchange=exchange, bound=local_today, limit=count)
+            if not rows:
+                raise WebAppError(status_code=422, code="validation_error", message="交易日历缺少开市日期，无法生成审计窗口")
+            return rows[0].trade_date, rows[-1].trade_date
         open_dates = list(
             session.scalars(
                 select(TradeCalendar.trade_date)
@@ -298,6 +305,10 @@ class DateCompletenessScheduleCommandService:
         local_today = now.astimezone(zone).date()
         if start_date != local_today or end_date != local_today:
             return True
+        reference = local_reference_data(session)
+        if reference is not None:
+            row = reference.calendar.get(exchange=self._calendar_exchange(schedule), day=local_today)
+            return row is None or not row.is_open
         is_open = session.scalar(
             select(TradeCalendar.is_open)
             .where(TradeCalendar.exchange == self._calendar_exchange(schedule))

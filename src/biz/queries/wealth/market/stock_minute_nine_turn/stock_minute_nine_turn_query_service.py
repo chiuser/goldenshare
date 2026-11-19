@@ -19,6 +19,7 @@ from src.foundation.clients.local_lake.stock_nine_turn_reader import (
     StockNineTurnLakeReader,
     StockNineTurnReadRequest,
 )
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core_serving.security_serving import Security
 
 
@@ -44,7 +45,8 @@ class StockMinuteNineTurnQueryService:
         debug: bool,
     ) -> NineTurnSeriesDto:
         normalized_code = ts_code.strip().upper()
-        security = session.get(Security, normalized_code)
+        reference = local_reference_data(session)
+        security = reference.security.get(ts_code=normalized_code) if reference is not None else session.get(Security, normalized_code)
         if security is None or security.security_type != "EQUITY":
             raise StockNineTurnNotFoundError(f"未找到股票标的：{normalized_code}")
         page = self._reader.read(

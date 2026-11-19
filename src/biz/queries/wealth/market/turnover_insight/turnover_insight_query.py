@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.reference_data import local_reference_data
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import (
     WealthMarketTurnoverSnapshot,
@@ -45,23 +46,17 @@ class TurnoverInsightQuery:
         expected_trade_date: date,
         expected_prev_trade_date: date | None,
     ) -> TurnoverInsightCandidateSet:
+        reference = local_reference_data(session)
         statement = (
             select(
                 WealthMarketTurnoverSnapshot.trade_date,
-                TradeCalendar.pretrade_date,
+                *((TradeCalendar.pretrade_date,) if reference is None else ()),
                 WealthMarketTurnoverSnapshot.latest_trade_time,
                 WealthMarketTurnoverSnapshot.total_amount,
                 WealthMarketTurnoverSnapshot.source_row_count,
                 WealthMarketTurnoverSnapshot.security_count,
                 WealthMarketTurnoverSnapshot.points_json,
                 WealthMarketTurnoverSnapshot.built_at,
-            )
-            .outerjoin(
-                TradeCalendar,
-                and_(
-                    TradeCalendar.exchange == "SSE",
-                    TradeCalendar.trade_date == WealthMarketTurnoverSnapshot.trade_date,
-                ),
             )
             .where(
                 WealthMarketTurnoverSnapshot.type == "stock",
@@ -73,14 +68,25 @@ class TurnoverInsightQuery:
             .order_by(WealthMarketTurnoverSnapshot.trade_date.desc())
             .limit(_MAX_CANDIDATES)
         )
+        if reference is None:
+            statement = statement.outerjoin(
+                TradeCalendar,
+                and_(TradeCalendar.exchange == "SSE",
+                     TradeCalendar.trade_date == WealthMarketTurnoverSnapshot.trade_date),
+            )
         rows = session.execute(statement).all()
+        preceding = {}
+        if reference is not None and rows:
+            preceding = {day.trade_date: day.pretrade_date for day in reference.calendar.range_rows(
+                exchange="SSE", start=rows[-1].trade_date, end=rows[0].trade_date,
+            )}
         return TurnoverInsightCandidateSet(
             expected_trade_date=expected_trade_date,
             expected_prev_trade_date=expected_prev_trade_date,
             rows=tuple(
                 TurnoverInsightSnapshotRow(
                     trade_date=row.trade_date,
-                    pretrade_date=row.pretrade_date,
+                    pretrade_date=preceding.get(row.trade_date) if reference is not None else row.pretrade_date,
                     latest_trade_time=row.latest_trade_time,
                     total_amount_thousand_yuan=Decimal(str(row.total_amount)),
                     source_row_count=int(row.source_row_count),

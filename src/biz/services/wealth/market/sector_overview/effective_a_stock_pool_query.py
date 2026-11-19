@@ -11,7 +11,7 @@ from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.equity_limit_list import EquityLimitList
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core_serving.security_serving import Security
+from src.foundation.clients.reference_data_relations import security_relation
 
 from .sector_heat_contract import SectorPoolCounts
 
@@ -104,17 +104,21 @@ class EffectiveAStockPoolQuery:
             .distinct()
             .cte("sector_limit_ups")
         )
+        security = security_relation(
+            session, columns=("ts_code", "security_type", "curr_type", "list_status", "list_date", "delist_date"),
+            codes=select(source_members.c.stock_code).distinct(),
+        )
         eligible_join = and_(
-            Security.ts_code == source_members.c.stock_code,
-            Security.security_type == "EQUITY",
-            Security.curr_type == "CNY",
-            Security.list_status.in_(("L", "D")),
-            Security.list_date.is_not(None),
-            Security.list_date <= source_members.c.trade_date,
-            (Security.delist_date.is_(None) | (Security.delist_date > source_members.c.trade_date)),
+            security.c.ts_code == source_members.c.stock_code,
+            security.c.security_type == "EQUITY",
+            security.c.curr_type == "CNY",
+            security.c.list_status.in_(("L", "D")),
+            security.c.list_date.is_not(None),
+            security.c.list_date <= source_members.c.trade_date,
+            (security.c.delist_date.is_(None) | (security.c.delist_date > source_members.c.trade_date)),
         )
         from_clause = (
-            source_members.outerjoin(Security, eligible_join)
+            source_members.outerjoin(security, eligible_join)
             .outerjoin(
                 suspended,
                 and_(
@@ -137,17 +141,17 @@ class EffectiveAStockPoolQuery:
                 ),
             )
         )
-        eligible_stock = case((Security.ts_code.is_not(None), source_members.c.stock_code))
+        eligible_stock = case((security.c.ts_code.is_not(None), source_members.c.stock_code))
         suspended_stock = case(
-            (and_(Security.ts_code.is_not(None), suspended.c.stock_code.is_not(None)), source_members.c.stock_code)
+            (and_(security.c.ts_code.is_not(None), suspended.c.stock_code.is_not(None)), source_members.c.stock_code)
         )
         quote_eligible_stock = case(
-            (and_(Security.ts_code.is_not(None), suspended.c.stock_code.is_(None)), source_members.c.stock_code)
+            (and_(security.c.ts_code.is_not(None), suspended.c.stock_code.is_(None)), source_members.c.stock_code)
         )
         valid_quote_stock = case(
             (
                 and_(
-                    Security.ts_code.is_not(None),
+                    security.c.ts_code.is_not(None),
                     suspended.c.stock_code.is_(None),
                     valid_bars.c.stock_code.is_not(None),
                 ),
@@ -157,7 +161,7 @@ class EffectiveAStockPoolQuery:
         up_stock = case(
             (
                 and_(
-                    Security.ts_code.is_not(None),
+                    security.c.ts_code.is_not(None),
                     suspended.c.stock_code.is_(None),
                     valid_bars.c.stock_code.is_not(None),
                     valid_bars.c.pct_chg > 0,
@@ -168,7 +172,7 @@ class EffectiveAStockPoolQuery:
         down_stock = case(
             (
                 and_(
-                    Security.ts_code.is_not(None),
+                    security.c.ts_code.is_not(None),
                     suspended.c.stock_code.is_(None),
                     valid_bars.c.stock_code.is_not(None),
                     valid_bars.c.pct_chg < 0,
@@ -179,7 +183,7 @@ class EffectiveAStockPoolQuery:
         limit_up_stock = case(
             (
                 and_(
-                    Security.ts_code.is_not(None),
+                    security.c.ts_code.is_not(None),
                     suspended.c.stock_code.is_(None),
                     valid_bars.c.stock_code.is_not(None),
                     limit_ups.c.stock_code.is_not(None),
