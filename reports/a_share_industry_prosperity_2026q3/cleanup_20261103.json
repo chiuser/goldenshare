@@ -11213,8 +11213,8 @@
       "rules": "reports/.gitattributes"
     }
   },
-  "overall_deleted_files": 981,
-  "overall_deleted_bytes": 17798538,
+  "overall_deleted_files": 1136,
+  "overall_deleted_bytes": 39450791,
   "commit_scope": {
     "branch": "dev-interface",
     "path_count": 1039,
@@ -11228,5 +11228,1185 @@
     ],
     "unrelated_changes_verified": 277,
     "push": false
+  },
+  "third_cleanup": {
+    "deleted": [
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/README.md",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/data.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0427.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0433.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0436.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0437.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0438.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0456.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0464.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0478.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0479.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0486.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0728.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1035.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1200.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1201.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1202.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1203.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1204.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1205.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1206.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1207.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1208.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1209.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1210.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1211.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1212.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1213.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1214.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1215.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1216.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1217.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1283.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/artifact_manifest.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/build_receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/environment.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/final_acceptance.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/history_before.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/presentation_acceptance.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-desktop-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-desktop.png",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-mobile-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-mobile.png",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/source_manifest.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/standalone-browser-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/report.html",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/run.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0427.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0433.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0436.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0437.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0438.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0456.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0464.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0478.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0479.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0486.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0728.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1035.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1200.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1201.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1202.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1203.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1204.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1205.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1206.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1207.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1208.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1209.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1210.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1211.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1212.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1213.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1214.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1215.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1216.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1217.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1283.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/README.md",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/data.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0427.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0433.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0436.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0437.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0438.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0456.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0464.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0478.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0479.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0486.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0728.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1035.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1200.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1201.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1202.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1203.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1204.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1205.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1206.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1207.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1208.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1209.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1210.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1211.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1212.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1213.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1214.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1215.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1216.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1217.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1283.DC.receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/artifact_manifest.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/build_receipt.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/environment.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/final_acceptance.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/history_before.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/presentation_acceptance.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill-desktop-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill-mobile-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill.png",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/source_manifest.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/standalone-browser-qa.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/report.html",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/run.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0427.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0433.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0436.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0437.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0438.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0456.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0464.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0478.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0479.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0486.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0728.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1035.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1200.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1201.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1202.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1203.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1204.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1205.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1206.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1207.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1208.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1209.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1210.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1211.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1212.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1213.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1214.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1215.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1216.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1217.DC.json",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1283.DC.json"
+    ],
+    "deleted_bytes": 21652253,
+    "deleted_files": 155,
+    "files": [
+      {
+        "bytes": 1803,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/README.md",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "ef9babad1b8070f023a739e62cf077d6a3b29d91c6358d2a2f0a4b627c54dd50"
+      },
+      {
+        "bytes": 3091346,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/data.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e0776c68ab59ebf60d3f154d4e928cea94450d2acfd15832c4dbe32fa2990d24"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0427.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fe7cededecb470f573b519bcc51029c2184d9b94f4913aa6bbd858622fc0a86e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0433.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "463d7421396047d96f62f8464a2017e25934cf96be09c5e525a256822bc8cd4c"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0436.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "94c7550fd1e3c6e61d4ecf35510d8c46f0e90528a84631089a67be97ba51adf5"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0437.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b7be310c44d0337364f12849767f8d23be35281f76f6c7238b42e2e143ec7528"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0438.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "1502c5bd7c74e890719306aace2ad9117a9832a2065d502781b1bc39d9c109b7"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0456.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "97210f024eb9b3ae727190d5c45752fb4089be98555f9837153abc749f01223f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0464.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3c83a0f97c069c514d21397ee6f15331978f8e24f9f2df518ff07ea4519da28f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0478.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "df92bafc9813e3d4d29962c5e4f74897c9e1822ef10e80f56077f5dfb9b04380"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0479.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b585b5e66cf83acadf1361d4fe2b29e5a7646df3225e78ec404162b81e098265"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0486.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0b30a8a39e5ba91820b87e6ffc58b1c8b9a42ac787cb6884a0721d214cb38990"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK0728.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "d1fe56df01252d7967f509b22aee1fe1551b41408cd7818ab8fc59d1c8c2c8b4"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1035.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "aafa7f5f761e2e3e35b528f42dc90a62dd84f4da6b2d2eb819c1b128e1394aea"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1200.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "a99776b49911bd3c77042dfa7fbbf761f6b3bdf93fbd829d987316a901e74e9f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1201.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0525509368b31a2921d7e2c9c0d55b9ed85f51183618dcc1a7472f2cdf284980"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1202.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "54e360cdf4c85622600d3c3757fed591b054f6594e9cb3357735a3aa70a5d217"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1203.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "21802ce79bbaa5c2c543ad1ff618f763acb53f477582dd5d99bb632beb4a2a70"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1204.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e2d1708fb018005d25d92b7d0365bb04fdc4bb691dfef29ec9f2a5fafc7fc738"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1205.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e3bc4d56f19e63dd10084b2838cab8f9f068379ced7110372208c4785781056e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1206.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b244e17fc03b737cbdba070b2dd4c7954de68b12a81a6653f5b4e776d08a7330"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1207.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "55ae9f8a9b33e77ea7795fc28335635c5ab5c644b0cd0937cf85cebec4770fce"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1208.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "48dea05a314c3074da787c7ff8ee49fac2fe3ff2d2318052465ae538c67ba89b"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1209.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "aab387e56600384e0fabb55e9d707c75e36033020958d6b45500a30e1bd45fc9"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1210.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8430573905dd589abf8eee393c66ff381724b9bd6ce9cda9297e2c62497392a4"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1211.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9cb43ca20c5de0676facf932bd2e1a73c1d0a65863c082f82634f8d2a50e670f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1212.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "376cae6c36170e3df77673aa52ca847b8fd1b116513c11a925c875033ea8075e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1213.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f1e8743b5de9f8f7adb3443df893037e262c87d4e0f9399cb1f6bcf8a3c6252a"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1214.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "09240887aa874aac394fc61b281e1fd3589bb6c88f827f7409595ee4e5789114"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1215.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "69ff75a7feafc9c2b2b273889f6946385d278e576427237f748cba1767f772fb"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1216.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "710c138f59ee107cbb4c1b870f875ed5ad7bd41c23c8ab80fb12f0355d512b80"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1217.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "a2fd9c378853a92e2aa0235cc146bd71f970a5946ce902a62b9bef1283a58e37"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/BK1283.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3dd21f2702f9ffa724f942b7e2265a90f2972a1ef0d23f0324f422b8881bd034"
+      },
+      {
+        "bytes": 7843,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/artifact_manifest.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "a4024b4babd013f5c1e1af9e61ab475a0ed6a78d87233fceb26b414258c56e23"
+      },
+      {
+        "bytes": 281,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/build_receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3dd04877f698ee8ee88295b45ae56228a2acb4e16754e75b424cea28343d0f00"
+      },
+      {
+        "bytes": 375,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/environment.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "90a2484eb1562faf8dc4a7f52dfb3503c2de54bceb38a8daf05d5c315876d7fb"
+      },
+      {
+        "bytes": 2473,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/final_acceptance.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9f7e507716ad559b515424976bbb69d80e403c066fcd6036b7bd174af051cd90"
+      },
+      {
+        "bytes": 2238,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/history_before.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fe60ad0c50edc35bd481a8c5edacf4bcc37d9abe9b2d3a74cdbb6613e1d68685"
+      },
+      {
+        "bytes": 345,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/presentation_acceptance.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "68b5bc20747c60b2974970e04ffbf6a8af8d97889076083a26108b819379f050"
+      },
+      {
+        "bytes": 11842,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-desktop-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "7e56d7351e9e61659b3f6994ede3f2c5df9da7e1f053e10dbf8cb2d14afe44e0"
+      },
+      {
+        "bytes": 113585,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-desktop.png",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "5733533660e9e2bf2aab8c7a4e9f326433edd45b08447b16c27a4bda79a90079"
+      },
+      {
+        "bytes": 236,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-mobile-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9dd8493f6695cc8f1a874c6c893a591c2674d0e2878e6526ae971f996d0ab7f9"
+      },
+      {
+        "bytes": 32421,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/quadrant-mobile.png",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2a36365bdb3792fe9cc3f9614ce243851fbcf06be55478454a3968b53ac4de20"
+      },
+      {
+        "bytes": 3531,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/source_manifest.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "02ae1b5247f00348c43561184e6a2aea27454f5f3e7061f78250c94dc7110f6b"
+      },
+      {
+        "bytes": 11286,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/evidence/standalone-browser-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fdb06aae8cef0cac89c88bcc89511220bf43649e699fb8371607315c1d4328ce"
+      },
+      {
+        "bytes": 5548412,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/report.html",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "417a33a7a74a4c7289d5ce904f29ef78fb4b5e7639c5c56244678dae08ee76ec"
+      },
+      {
+        "bytes": 4429,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/run.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "93bd64bf08a79688629caf8576e7b28c1120284f20b30626831d13fe388dbe02"
+      },
+      {
+        "bytes": 44558,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0427.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "dde31235c2c04cfba559c42a66ac7b588100e61efa663e126b4dac44e44fcabd"
+      },
+      {
+        "bytes": 91468,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0433.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f847f9dd0838fb368ef9b443792aaa0f528f5bbf4308b4ae7a39e6a6373cc99c"
+      },
+      {
+        "bytes": 48662,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0436.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "5cf2b9ae562d1a164ecbb365a4e813fd3d7b147eaf645c084b110ccd620d6fa4"
+      },
+      {
+        "bytes": 31105,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0437.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "10c8d2fb03add5f2b0e5339ce33f964440cd6615f47f277d8e3766acde716ea6"
+      },
+      {
+        "bytes": 77159,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0438.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e0b88d691c33f5244e63ac7ccefc2aae8bdad72269b97b5ccced2da70b8945b4"
+      },
+      {
+        "bytes": 82117,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0456.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0231e18ebc3f7b5a2ee573a569d60b376b27b73d89636dbc94f8cd04c3d19729"
+      },
+      {
+        "bytes": 41766,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0464.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "ffc07062c32c2ff28bec9b035fc255a74432fb43dc5313ea8d64246d6e19c3b2"
+      },
+      {
+        "bytes": 70177,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0478.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8a3abe09a3d04362bfb25a059846b0d9341042f7bd6a7b463ac39eeff16c9ef4"
+      },
+      {
+        "bytes": 40910,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0479.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "7f466351fc3f81d7090e7f8d9c878b664ed78c5f27434d2fbd0775b9c999ae54"
+      },
+      {
+        "bytes": 76722,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0486.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "bbcb8e96915d187dc944ce74ff368f946ecc5089aa1ca338281ddf31e666556b"
+      },
+      {
+        "bytes": 43882,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK0728.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f7d96117b423be8766aba6fc2547fc56c68989ad7113164e39eceb90c0dbbd28"
+      },
+      {
+        "bytes": 39634,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1035.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2f2f087f4f72efc55956c150af42aa8be64a87622a3935ff35e7ef9eeb249122"
+      },
+      {
+        "bytes": 110700,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1200.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "92e0e84c17aaa944514e76e1042150de2b4c9c871453d25f183b870198005842"
+      },
+      {
+        "bytes": 121729,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1201.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2420a9f068be1d0662bd5b77162277522296dac7ceaf5e71700b169cf2b22959"
+      },
+      {
+        "bytes": 39007,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1202.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "7cc2693380df90b8e0e41eda63ce9108253265f7637a3fb8ea3b29c7b251ded8"
+      },
+      {
+        "bytes": 4259,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1203.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "751dc6ea7c9a1141f8ed1bf204048e74a859015f4a079fc9f41543d9d8f6cf5e"
+      },
+      {
+        "bytes": 70189,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1204.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "03b6b4c5ea429489d0881cb728e7c050285c2acc13178e9ab8a6ef0904e6e19a"
+      },
+      {
+        "bytes": 126705,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1205.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "4e501eb8bff2dc3958d6812d17d258d5175d0523c508a6c7da7d494098d062f7"
+      },
+      {
+        "bytes": 124058,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1206.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "76c959b13ecf9b350c72abe12b22e7021bd92193daa9a4373a712ad75cabfb6f"
+      },
+      {
+        "bytes": 80362,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1207.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "34ac6ec1fb70c21d0d24455b2bce8b2742c81cbe5c254e913a09d1ea99b9a1c2"
+      },
+      {
+        "bytes": 44943,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1208.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "efc9d4c73dbea37239630bcdcce51792590104d1f7a162aff0013fd995f757e7"
+      },
+      {
+        "bytes": 72255,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1209.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "892b78f83de60fc9908241c8caa0e6b71f07766fc5a7a821aa437584f8e28c92"
+      },
+      {
+        "bytes": 60030,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1210.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "31af21e86cc9fbaae22c99057360d9a260221e45b4d631db2db98655b2e76421"
+      },
+      {
+        "bytes": 89725,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1211.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e2dca1577f0f8bf8193321df1e8a084854d3a9a24b83a77aacd7e19d5444bc6e"
+      },
+      {
+        "bytes": 64653,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1212.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fa24abf8b3d973318a37a50c6bc8883d0ec206e3b2083c5aa15537cffb6ce4d8"
+      },
+      {
+        "bytes": 64815,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1213.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8e6923c84153ffadde0ceade77fe42613b6eb2eafd423f593dc9040f1027a85c"
+      },
+      {
+        "bytes": 62877,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1214.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "dd311b7efec8f20b24e67db30a5657e37b377bec40a46c95201b3a926edf1274"
+      },
+      {
+        "bytes": 42973,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1215.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8aa46614d4f50d2aa17bf1928305f9c0568a9058fd877d63319e2051df33e3fe"
+      },
+      {
+        "bytes": 123280,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1216.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "015d169372e678cee49d03a1fe398eea2c26ffcb5b63f4d0cc469147e2b1b281"
+      },
+      {
+        "bytes": 20986,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1217.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9797a8d4b9dd31fbc02f323cf51f9abe403512d86dd0a5460392b3b0a7957f93"
+      },
+      {
+        "bytes": 2221,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_05/units/BK1283.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "beb7908c0d909922cdae670b71ca5aefd91b56dd02b4748121996ec8cefc3348"
+      },
+      {
+        "bytes": 984,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/README.md",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8a8a4aecdac212d685503c595345975babb41fa1fc031137682ee00d4e040a1e"
+      },
+      {
+        "bytes": 3091346,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/data.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e0776c68ab59ebf60d3f154d4e928cea94450d2acfd15832c4dbe32fa2990d24"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0427.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fe7cededecb470f573b519bcc51029c2184d9b94f4913aa6bbd858622fc0a86e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0433.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "463d7421396047d96f62f8464a2017e25934cf96be09c5e525a256822bc8cd4c"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0436.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "94c7550fd1e3c6e61d4ecf35510d8c46f0e90528a84631089a67be97ba51adf5"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0437.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b7be310c44d0337364f12849767f8d23be35281f76f6c7238b42e2e143ec7528"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0438.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "1502c5bd7c74e890719306aace2ad9117a9832a2065d502781b1bc39d9c109b7"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0456.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "97210f024eb9b3ae727190d5c45752fb4089be98555f9837153abc749f01223f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0464.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3c83a0f97c069c514d21397ee6f15331978f8e24f9f2df518ff07ea4519da28f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0478.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "df92bafc9813e3d4d29962c5e4f74897c9e1822ef10e80f56077f5dfb9b04380"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0479.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b585b5e66cf83acadf1361d4fe2b29e5a7646df3225e78ec404162b81e098265"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0486.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0b30a8a39e5ba91820b87e6ffc58b1c8b9a42ac787cb6884a0721d214cb38990"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK0728.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "d1fe56df01252d7967f509b22aee1fe1551b41408cd7818ab8fc59d1c8c2c8b4"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1035.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "aafa7f5f761e2e3e35b528f42dc90a62dd84f4da6b2d2eb819c1b128e1394aea"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1200.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "a99776b49911bd3c77042dfa7fbbf761f6b3bdf93fbd829d987316a901e74e9f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1201.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0525509368b31a2921d7e2c9c0d55b9ed85f51183618dcc1a7472f2cdf284980"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1202.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "54e360cdf4c85622600d3c3757fed591b054f6594e9cb3357735a3aa70a5d217"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1203.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "21802ce79bbaa5c2c543ad1ff618f763acb53f477582dd5d99bb632beb4a2a70"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1204.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e2d1708fb018005d25d92b7d0365bb04fdc4bb691dfef29ec9f2a5fafc7fc738"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1205.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e3bc4d56f19e63dd10084b2838cab8f9f068379ced7110372208c4785781056e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1206.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "b244e17fc03b737cbdba070b2dd4c7954de68b12a81a6653f5b4e776d08a7330"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1207.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "55ae9f8a9b33e77ea7795fc28335635c5ab5c644b0cd0937cf85cebec4770fce"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1208.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "48dea05a314c3074da787c7ff8ee49fac2fe3ff2d2318052465ae538c67ba89b"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1209.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "aab387e56600384e0fabb55e9d707c75e36033020958d6b45500a30e1bd45fc9"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1210.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8430573905dd589abf8eee393c66ff381724b9bd6ce9cda9297e2c62497392a4"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1211.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9cb43ca20c5de0676facf932bd2e1a73c1d0a65863c082f82634f8d2a50e670f"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1212.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "376cae6c36170e3df77673aa52ca847b8fd1b116513c11a925c875033ea8075e"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1213.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f1e8743b5de9f8f7adb3443df893037e262c87d4e0f9399cb1f6bcf8a3c6252a"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1214.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "09240887aa874aac394fc61b281e1fd3589bb6c88f827f7409595ee4e5789114"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1215.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "69ff75a7feafc9c2b2b273889f6946385d278e576427237f748cba1767f772fb"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1216.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "710c138f59ee107cbb4c1b870f875ed5ad7bd41c23c8ab80fb12f0355d512b80"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1217.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "a2fd9c378853a92e2aa0235cc146bd71f970a5946ce902a62b9bef1283a58e37"
+      },
+      {
+        "bytes": 106,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/BK1283.DC.receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3dd21f2702f9ffa724f942b7e2265a90f2972a1ef0d23f0324f422b8881bd034"
+      },
+      {
+        "bytes": 7746,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/artifact_manifest.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "4a3904c304834b22341f49470de38340974453d192976dbc49a76c2739f99b62"
+      },
+      {
+        "bytes": 281,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/build_receipt.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f7d2cd092a634cf138e269e88817434abbcd49a45e0e21b9bfca98e4ae7ceb24"
+      },
+      {
+        "bytes": 375,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/environment.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "90a2484eb1562faf8dc4a7f52dfb3503c2de54bceb38a8daf05d5c315876d7fb"
+      },
+      {
+        "bytes": 1473,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/final_acceptance.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9114e019abb7bac56a018f6062a6dae0d6fa826dcb1d8a877ef86ba80e8e9c41"
+      },
+      {
+        "bytes": 2238,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/history_before.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fe60ad0c50edc35bd481a8c5edacf4bcc37d9abe9b2d3a74cdbb6613e1d68685"
+      },
+      {
+        "bytes": 345,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/presentation_acceptance.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "77213902453339642b2b1f1aae38946cd66bc82a949207ea6dd362bd79325b27"
+      },
+      {
+        "bytes": 982,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill-desktop-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3dadaebc029e74a402b5506dcdfe841906ad464ce83ea856664bbe2c218ba0fd"
+      },
+      {
+        "bytes": 659,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill-mobile-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "1e54e8ff042a248eaa631f7cfa2af778cb91fba77615777a87db4176f8fc8f30"
+      },
+      {
+        "bytes": 120590,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/quadrant-fill.png",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "3fed460a29dd2368ac720fae187e98814e5863423be88b734de829090a69c415"
+      },
+      {
+        "bytes": 3531,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/source_manifest.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "54f515c2468abd5b488b761a7693af5e00cff5132e3e900c4df433163649dbe3"
+      },
+      {
+        "bytes": 449,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/evidence/standalone-browser-qa.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2bccd85b1a730c12626d101f8785063527e6bbcd15f3efe8e25b391b32907f98"
+      },
+      {
+        "bytes": 5549953,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/report.html",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e585d5d20fd1f17f5d2e5451c662e4fd4a29019b4fb90176b22aa9cdebc5509d"
+      },
+      {
+        "bytes": 4429,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/run.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9f4f47421b4df11f7a58a0a3b91aff66111f14113821dcc059261ee6889e4487"
+      },
+      {
+        "bytes": 44558,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0427.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "dde31235c2c04cfba559c42a66ac7b588100e61efa663e126b4dac44e44fcabd"
+      },
+      {
+        "bytes": 91468,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0433.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f847f9dd0838fb368ef9b443792aaa0f528f5bbf4308b4ae7a39e6a6373cc99c"
+      },
+      {
+        "bytes": 48662,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0436.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "5cf2b9ae562d1a164ecbb365a4e813fd3d7b147eaf645c084b110ccd620d6fa4"
+      },
+      {
+        "bytes": 31105,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0437.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "10c8d2fb03add5f2b0e5339ce33f964440cd6615f47f277d8e3766acde716ea6"
+      },
+      {
+        "bytes": 77159,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0438.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e0b88d691c33f5244e63ac7ccefc2aae8bdad72269b97b5ccced2da70b8945b4"
+      },
+      {
+        "bytes": 82117,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0456.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "0231e18ebc3f7b5a2ee573a569d60b376b27b73d89636dbc94f8cd04c3d19729"
+      },
+      {
+        "bytes": 41766,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0464.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "ffc07062c32c2ff28bec9b035fc255a74432fb43dc5313ea8d64246d6e19c3b2"
+      },
+      {
+        "bytes": 70177,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0478.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8a3abe09a3d04362bfb25a059846b0d9341042f7bd6a7b463ac39eeff16c9ef4"
+      },
+      {
+        "bytes": 40910,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0479.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "7f466351fc3f81d7090e7f8d9c878b664ed78c5f27434d2fbd0775b9c999ae54"
+      },
+      {
+        "bytes": 76722,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0486.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "bbcb8e96915d187dc944ce74ff368f946ecc5089aa1ca338281ddf31e666556b"
+      },
+      {
+        "bytes": 43882,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK0728.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "f7d96117b423be8766aba6fc2547fc56c68989ad7113164e39eceb90c0dbbd28"
+      },
+      {
+        "bytes": 39634,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1035.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2f2f087f4f72efc55956c150af42aa8be64a87622a3935ff35e7ef9eeb249122"
+      },
+      {
+        "bytes": 110700,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1200.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "92e0e84c17aaa944514e76e1042150de2b4c9c871453d25f183b870198005842"
+      },
+      {
+        "bytes": 121729,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1201.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "2420a9f068be1d0662bd5b77162277522296dac7ceaf5e71700b169cf2b22959"
+      },
+      {
+        "bytes": 39007,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1202.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "7cc2693380df90b8e0e41eda63ce9108253265f7637a3fb8ea3b29c7b251ded8"
+      },
+      {
+        "bytes": 4259,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1203.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "751dc6ea7c9a1141f8ed1bf204048e74a859015f4a079fc9f41543d9d8f6cf5e"
+      },
+      {
+        "bytes": 70189,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1204.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "03b6b4c5ea429489d0881cb728e7c050285c2acc13178e9ab8a6ef0904e6e19a"
+      },
+      {
+        "bytes": 126705,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1205.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "4e501eb8bff2dc3958d6812d17d258d5175d0523c508a6c7da7d494098d062f7"
+      },
+      {
+        "bytes": 124058,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1206.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "76c959b13ecf9b350c72abe12b22e7021bd92193daa9a4373a712ad75cabfb6f"
+      },
+      {
+        "bytes": 80362,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1207.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "34ac6ec1fb70c21d0d24455b2bce8b2742c81cbe5c254e913a09d1ea99b9a1c2"
+      },
+      {
+        "bytes": 44943,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1208.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "efc9d4c73dbea37239630bcdcce51792590104d1f7a162aff0013fd995f757e7"
+      },
+      {
+        "bytes": 72255,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1209.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "892b78f83de60fc9908241c8caa0e6b71f07766fc5a7a821aa437584f8e28c92"
+      },
+      {
+        "bytes": 60030,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1210.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "31af21e86cc9fbaae22c99057360d9a260221e45b4d631db2db98655b2e76421"
+      },
+      {
+        "bytes": 89725,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1211.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "e2dca1577f0f8bf8193321df1e8a084854d3a9a24b83a77aacd7e19d5444bc6e"
+      },
+      {
+        "bytes": 64653,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1212.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "fa24abf8b3d973318a37a50c6bc8883d0ec206e3b2083c5aa15537cffb6ce4d8"
+      },
+      {
+        "bytes": 64815,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1213.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8e6923c84153ffadde0ceade77fe42613b6eb2eafd423f593dc9040f1027a85c"
+      },
+      {
+        "bytes": 62877,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1214.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "dd311b7efec8f20b24e67db30a5657e37b377bec40a46c95201b3a926edf1274"
+      },
+      {
+        "bytes": 42973,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1215.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "8aa46614d4f50d2aa17bf1928305f9c0568a9058fd877d63319e2051df33e3fe"
+      },
+      {
+        "bytes": 123280,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1216.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "015d169372e678cee49d03a1fe398eea2c26ffcb5b63f4d0cc469147e2b1b281"
+      },
+      {
+        "bytes": 20986,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1217.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "9797a8d4b9dd31fbc02f323cf51f9abe403512d86dd0a5460392b3b0a7957f93"
+      },
+      {
+        "bytes": 2221,
+        "path": "reports/a_share_industry_prosperity_2026q3/narrative_20261103_06/units/BK1283.DC.json",
+        "reason": "纯展示修改重复复制的数据、行业结果及过程文件；正式HTML与04计算依据保留",
+        "sha256": "beb7908c0d909922cdae670b71ca5aefd91b56dd02b4748121996ec8cefc3348"
+      }
+    ],
+    "final_html_after_sha256": "e585d5d20fd1f17f5d2e5451c662e4fd4a29019b4fb90176b22aa9cdebc5509d",
+    "final_html_before_sha256": "e585d5d20fd1f17f5d2e5451c662e4fd4a29019b4fb90176b22aa9cdebc5509d",
+    "financial_calculations": 0,
+    "git_commit": false,
+    "protected_files_verified": 52,
+    "protected_sha256": {
+      "reports/A股行业研究报告_2026年前三季度.html": "e585d5d20fd1f17f5d2e5451c662e4fd4a29019b4fb90176b22aa9cdebc5509d",
+      "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/data.json": "7952412aa12b409a8a54a1e0f464dea8d23665d3f5ccfc2b574fb6a3bd6107ad",
+      "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/evidence/artifact_manifest.json": "00c37c3d0edc6f41330c4769e8b7f76d56408a9092864389ef273ab65bbaf24c",
+      "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/report.html": "4ea52b21ffac1f750bdc0a99b028ec9311d15ac2dd5111d56efacda3325e7674",
+      "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+      "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/report.html": "3f8134e1e6435331bb9f6d656a46cabbf5eaf3804ccbd02c0d21de7d057461cf",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/data.json": "e0776c68ab59ebf60d3f154d4e928cea94450d2acfd15832c4dbe32fa2990d24",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/evidence/artifact_manifest.json": "ff2decbbeceb8cf2045d967fecb544771e30d2a77b16d130c9a4f604cfd2ebeb",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/report.html": "9ee84c5d0299b0da503bdfc00dd868fb6baad19499fa42a2e319e175f63c52d8",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0427.DC.json": "dde31235c2c04cfba559c42a66ac7b588100e61efa663e126b4dac44e44fcabd",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0433.DC.json": "f847f9dd0838fb368ef9b443792aaa0f528f5bbf4308b4ae7a39e6a6373cc99c",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0436.DC.json": "5cf2b9ae562d1a164ecbb365a4e813fd3d7b147eaf645c084b110ccd620d6fa4",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0437.DC.json": "10c8d2fb03add5f2b0e5339ce33f964440cd6615f47f277d8e3766acde716ea6",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0438.DC.json": "e0b88d691c33f5244e63ac7ccefc2aae8bdad72269b97b5ccced2da70b8945b4",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0456.DC.json": "0231e18ebc3f7b5a2ee573a569d60b376b27b73d89636dbc94f8cd04c3d19729",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0464.DC.json": "ffc07062c32c2ff28bec9b035fc255a74432fb43dc5313ea8d64246d6e19c3b2",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0478.DC.json": "8a3abe09a3d04362bfb25a059846b0d9341042f7bd6a7b463ac39eeff16c9ef4",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0479.DC.json": "7f466351fc3f81d7090e7f8d9c878b664ed78c5f27434d2fbd0775b9c999ae54",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0486.DC.json": "bbcb8e96915d187dc944ce74ff368f946ecc5089aa1ca338281ddf31e666556b",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK0728.DC.json": "f7d96117b423be8766aba6fc2547fc56c68989ad7113164e39eceb90c0dbbd28",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1035.DC.json": "2f2f087f4f72efc55956c150af42aa8be64a87622a3935ff35e7ef9eeb249122",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1200.DC.json": "92e0e84c17aaa944514e76e1042150de2b4c9c871453d25f183b870198005842",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1201.DC.json": "2420a9f068be1d0662bd5b77162277522296dac7ceaf5e71700b169cf2b22959",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1202.DC.json": "7cc2693380df90b8e0e41eda63ce9108253265f7637a3fb8ea3b29c7b251ded8",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1203.DC.json": "751dc6ea7c9a1141f8ed1bf204048e74a859015f4a079fc9f41543d9d8f6cf5e",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1204.DC.json": "03b6b4c5ea429489d0881cb728e7c050285c2acc13178e9ab8a6ef0904e6e19a",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1205.DC.json": "4e501eb8bff2dc3958d6812d17d258d5175d0523c508a6c7da7d494098d062f7",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1206.DC.json": "76c959b13ecf9b350c72abe12b22e7021bd92193daa9a4373a712ad75cabfb6f",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1207.DC.json": "34ac6ec1fb70c21d0d24455b2bce8b2742c81cbe5c254e913a09d1ea99b9a1c2",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1208.DC.json": "efc9d4c73dbea37239630bcdcce51792590104d1f7a162aff0013fd995f757e7",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1209.DC.json": "892b78f83de60fc9908241c8caa0e6b71f07766fc5a7a821aa437584f8e28c92",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1210.DC.json": "31af21e86cc9fbaae22c99057360d9a260221e45b4d631db2db98655b2e76421",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1211.DC.json": "e2dca1577f0f8bf8193321df1e8a084854d3a9a24b83a77aacd7e19d5444bc6e",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1212.DC.json": "fa24abf8b3d973318a37a50c6bc8883d0ec206e3b2083c5aa15537cffb6ce4d8",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1213.DC.json": "8e6923c84153ffadde0ceade77fe42613b6eb2eafd423f593dc9040f1027a85c",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1214.DC.json": "dd311b7efec8f20b24e67db30a5657e37b377bec40a46c95201b3a926edf1274",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1215.DC.json": "8aa46614d4f50d2aa17bf1928305f9c0568a9058fd877d63319e2051df33e3fe",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1216.DC.json": "015d169372e678cee49d03a1fe398eea2c26ffcb5b63f4d0cc469147e2b1b281",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1217.DC.json": "9797a8d4b9dd31fbc02f323cf51f9abe403512d86dd0a5460392b3b0a7957f93",
+      "reports/a_share_industry_prosperity_2026q3/narrative_20261103_04/units/BK1283.DC.json": "beb7908c0d909922cdae670b71ca5aefd91b56dd02b4748121996ec8cefc3348",
+      "scripts/research/industry_financial/analysis.py": "2da63c2eef2357e4e8d552d5b9d37cdee56c856b350f5650362bddbda74c42f1",
+      "scripts/research/industry_financial/charts.py": "faa252d55d5da256ba6efd54780b46ba363c65daa8e1b4ea17a24eff4abc7e3f",
+      "scripts/research/industry_financial/extract.py": "9d6675c048f07fe56424325ad307d6893147737dc65a8551baaad8f45e9a6f18",
+      "scripts/research/industry_financial/forecast.py": "cc519201747b98db6ad88131ee62736f02b62ec7ac7947ffe88ac96fcb063ed4",
+      "scripts/research/industry_financial/formal.py": "e806c422d15d07c59f669b5e44baad8903a4be53d09e3f950a6872c416bf927e",
+      "scripts/research/industry_financial/metrics.py": "481546b67b72e2db77df1632da6a76f17e59e904876330f005efaa8f4d6e72eb",
+      "scripts/research/industry_financial/ranking.py": "83f6713c1288b52bb45709eed23ff8ad1d13591094a12ec69a02c9b3c39499c7",
+      "scripts/research/industry_financial/report.py": "8237ca751ec8a8e34d5ea864068885b74222fe385211bb64f8afefbfa0074184",
+      "scripts/research/industry_financial/run.py": "83051498b72d6fd7f74edcc67cd90cc5542c92bfe05dfeb9c5f080c5fba44dc1",
+      "scripts/research/industry_financial/spec.py": "20a058ea62f58f57e2a15890ab1828090739e37b6e8a3c094c256f66559b4d6f",
+      "scripts/research/industry_financial/storage.py": "ef1e25a55a12bd8013e2b57abcd244dfe2eb99f6810281bfbb07bfe3104145e3",
+      "scripts/research/industry_financial/validation.py": "561c9e42e418efa5a1432b76da2af98f2f35039731d074d21c101391d032be89"
+    },
+    "real_export_validation": {
+      "build_seconds": 0.9989833333529532,
+      "business_queries": 35,
+      "changed": false,
+      "file_set_unchanged": true,
+      "files_after": 1160,
+      "files_before": 1160,
+      "final_html_byte_identical": true,
+      "final_html_not_rewritten": true,
+      "new_report_archives": 0,
+      "report_sha256": "e585d5d20fd1f17f5d2e5451c662e4fd4a29019b4fb90176b22aa9cdebc5509d",
+      "source_bytes": 3100379,
+      "source_data_unchanged": true
+    },
+    "reason": "管理员要求不再为展示小改重复生成归档，清理05/06副本",
+    "retained_preview": {
+      "path": "reports/a_share_industry_prosperity_2026q3/quadrant-preview.png",
+      "sha256": "3fed460a29dd2368ac720fae187e98814e5863423be88b734de829090a69c415"
+    },
+    "source_connections": 0,
+    "status": "COMPLETE",
+    "tests_passed": 81,
+    "docs_integrity": "PASS",
+    "cli_help": "PASS",
+    "whitespace_check": "PASS",
+    "codegraph_sync_status": "UP_TO_DATE",
+    "obsolete_copy_entry_references": 0,
+    "navigation_links_verified": 60
   }
 }

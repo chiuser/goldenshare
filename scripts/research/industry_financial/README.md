@@ -2,6 +2,8 @@
 
 当前正式交付：[完整独立HTML报告](../../../reports/A股行业研究报告_2026年前三季度.html)。已合入三批内容，可离线打开；中间展示清理及底稿目录说明见[报告目录](../../../reports/a_share_industry_prosperity_2026q3/README.md)。以下命令及阶段记录保留原执行含义。
 
+当前四象限包含29个行业名称、实心蓝点及黑色粗坐标，右上淡红、左上更淡红、左下淡绿、右下更淡绿；颜色集中在QUADRANT_LAYOUT.fills。35个查询及原计算数据保持不变，当前呈现已完成桌面/手机验收。后续纯展示修改使用下方refresh_presentation，复用04数据，仅更新固定正式HTML；旧重复归档入口及05/06目录已清理。新增布局用例由主题pytest调用已有Node内置测试，不安装依赖。
+
 依据两份原研究文档 `docs/product/a-share-industry-prosperity-2026q3-*v1.md`。试算（五行业100家）及正式范围（当前5,571候选）共用公式、季度差分、Q4冲突、湖北宜化重述边界及四维七项；旧九图仅作历史追溯。新版按已认可样章和原计算口径§10.11—10.15制作，执行范围单独冻结，不开放研究参数。
 
 在仓库根使用现有环境：
@@ -64,4 +66,16 @@ formal.py按现有psql-remote.sh只读入口读取151批：身份3、树1、成�
 .venv/bin/python -m scripts.research.industry_financial.publication --output reports/a_share_industry_prosperity_2026q3/narrative_新日期_序号 --forecast-from reports/a_share_industry_prosperity_2026q3/narrative_20261103_03
 ```
 
-恢复同一命令加`--resume`，构建另用`--build --complete`。forecast_publication复用PublicationRun及源验证，只投影groups/ranking/sensitivity；模型/评分的公司范围、原名次及并列保留。最新完整报告为narrative_20261103_04，300图、74项主题测试、真实取消恢复及桌面/手机检查通过，详见其README和原计算口径§10.15.1。本目录3轮构建已用尽，不再构建；源、代码或配置变化不能强行续跑，应按原设计明确新修订目录。原核心12文件、旧报告与数据保持只读，无Prod/Lake写入或提交发布。
+恢复同一命令加`--resume`，构建另用`--build --complete`。forecast_publication复用PublicationRun及源验证，只投影groups/ranking/sensitivity；模型/评分的公司范围、原名次及并列保留。完整计算依据为narrative_20261103_04，300图、74项主题测试、真实取消恢复及桌面/手机检查通过，详见其README和原计算口径§10.15.1。本目录3轮研究构建已用尽，不再构建；研究输入、算法或范围变化不能强行续跑，应先按原设计明确新的研究运行。原核心12文件、旧报告与数据保持只读，无Prod/Lake写入或提交发布。
+
+当前名称、颜色、排版等纯展示修改按计算口径§10.20执行：维护report_app，在既有临时作者项目内构建，只更新固定正式HTML。不创建新研究运行，不复制data、31份行业结果、日志或验收目录。05/06重复展示目录已清理，04继续作为只读数据来源。已验收的当前预览固定为reports/a_share_industry_prosperity_2026q3/quadrant-preview.png。
+
+```bash
+.venv/bin/python - <<'PY'
+from scripts.research.industry_financial.publication import refresh_presentation
+from scripts.research.industry_financial.storage import OUTPUT_ROOT
+print(refresh_presentation(OUTPUT_ROOT / 'narrative_20261103_04'))
+PY
+```
+
+此入口核对冻结数据及历史保护项后导出；失败保留现有正式HTML，成功原子替换，字节相同时不重写。输出回执仅返回内存，不向reports保存过程文件。命令不读取生产库或重算财务。

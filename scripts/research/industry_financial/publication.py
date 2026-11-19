@@ -671,6 +671,82 @@ def revise_current(output, previous_output, resume=False):
     print('CURRENT_REVISED',run.path,flush=True)
 
 
+def _author_environment(environment):
+    app, node, plugin = Path(environment['app']), environment['node'], Path(environment['plugin'])
+    if not app.is_dir() or app.parent != Path('/private/tmp') or not app.name.startswith('industry_financial_chapter_samples_'):
+        raise ValueError('Approved author project unavailable')
+    return app, node, plugin
+
+
+def _export_report_app(snapshot, environment, build_seconds):
+    """Render in the existing temporary author project; never create report archives."""
+    app, node, plugin = _author_environment(environment)
+    if load(app / 'src/data.json')['id'] != snapshot['id']:
+        raise ValueError('Author project identity changed')
+    atomic_json(app / 'src/data.json', snapshot)
+    for name in ('ReportContent.jsx', 'report.css', 'HistoryChapters.jsx', 'ForecastChapters.jsx',
+                 'NativeQuadrantLabels.jsx', 'quadrant-layout.mjs'):
+        shutil.copyfile(Path(__file__).parent / 'report_app' / name, app / 'src/content/report' / name)
+    cli = plugin / 'output_formats/html/scripts/data-app.mjs'
+    export = app / '.data-app-offline/exports/current-financial.html'
+    started = time.monotonic()
+    commands = ([node, str(cli), 'build', '--project-dir', str(app), '--separate-data'],
+                [node, str(cli), 'export-html', '--project-dir', str(app), '--output', str(export)])
+    receipts = []
+    for command in commands:
+        result = subprocess.run(command, capture_output=True, text=True, timeout=build_seconds)
+        if result.returncode:
+            raise RuntimeError(result.stderr[-3000:])
+        receipts.append(result.stdout)
+    return export, receipts, time.monotonic() - started
+
+
+def refresh_presentation(source_output):
+    """Refresh only the fixed deliverable from completed data, without a new run."""
+    source_output = Path(source_output).resolve()
+    if source_output.parent != OUTPUT_ROOT or not source_output.name.startswith('narrative_'):
+        raise ValueError('Unsafe presentation source')
+    started = time.monotonic()
+    source = FrozenSource(source_output)
+    data_path = source.verified('data.json')
+    environment_path = source.verified('evidence/environment.json')
+    input_bytes = sum((source_output / p).stat().st_size for p in source.used)
+    if input_bytes > 8 * 1024**2:
+        raise ValueError('Presentation input exceeds 8MiB')
+    snapshot = json.loads(data_path.read_text())
+    if snapshot['buildStatus'] != 'complete' or snapshot['study']['stage'] != 'forecast':
+        raise ValueError('Presentation refresh requires a completed forecast report')
+    validate_snapshot(snapshot, inherited_sample())
+    protected = protect_history()
+    destination = ROOT / 'reports/A股行业研究报告_2026年前三季度.html'
+    previous_sha = digest(destination)
+    export, _, seconds = _export_report_app(snapshot, load(environment_path), FORECAST_SPEC.build_seconds)
+    export_sha = digest(export)
+    temporary = destination.with_suffix('.html.part')
+    created = False
+    try:
+        with temporary.open('xb') as target:
+            created = True
+            with export.open('rb') as rendered:
+                shutil.copyfileobj(rendered, target)
+        if any(digest(safe_relative(source_output, p)) != sha for p, sha in source.used.items()):
+            raise ValueError('Presentation source changed during export')
+        if protect_history() != protected:
+            raise ValueError('Protected history changed during export')
+        if digest(destination) != previous_sha:
+            raise ValueError('Final report changed during export')
+        if time.monotonic() - started > 120 or rss_bytes() > FORECAST_SPEC.memory_bytes:
+            raise ValueError('Presentation refresh budget exceeded')
+        if export_sha != previous_sha:
+            temporary.replace(destination)
+    finally:
+        if created:
+            temporary.unlink(missing_ok=True)
+    return {'report_sha256': export_sha, 'changed': export_sha != previous_sha,
+            'source_bytes': input_bytes, 'build_seconds': seconds,
+            'business_queries': len(snapshot['queries']), 'new_report_archives': 0}
+
+
 def build(output, complete=False):
     output = Path(output).resolve()
     state = load(output / 'run.json')
@@ -690,9 +766,7 @@ def build(output, complete=False):
             if digest(safe_relative(previous_root, rel)) != sha:
                 raise ValueError('Previous report artifact changed before build')
     env = load(output / 'evidence/environment.json')
-    app, node, plugin = Path(env['app']), env['node'], Path(env['plugin'])
-    if not app.is_dir() or app.parent != Path('/private/tmp') or not app.name.startswith('industry_financial_chapter_samples_'):
-        raise ValueError('Approved author project unavailable')
+    app, _, _ = _author_environment(env)
     builds = int(state.get('builds', 0))
     if builds >= spec.max_builds:
         raise ValueError('Current report build budget exhausted')
@@ -712,23 +786,11 @@ def build(output, complete=False):
     if load(app / 'src/data.json')['id'] != snapshot['id']:
         raise ValueError('Author project identity changed')
     snapshot['buildStatus'] = 'complete' if complete else 'updating'
-    atomic_json(output / 'data.json', snapshot); atomic_json(app / 'src/data.json', snapshot)
-    for name in ('ReportContent.jsx', 'report.css', 'HistoryChapters.jsx', 'ForecastChapters.jsx'):
-        shutil.copyfile(Path(__file__).parent / 'report_app' / name, app / 'src/content/report' / name)
-    cli = plugin / 'output_formats/html/scripts/data-app.mjs'
-    started = time.monotonic()
-    commands = ([node, str(cli), 'build', '--project-dir', str(app), '--separate-data'],
-                [node, str(cli), 'export-html', '--project-dir', str(app), '--output', str(app / '.data-app-offline/exports/current-financial.html')])
-    receipts = []
-    for command in commands:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=spec.build_seconds)
-        if result.returncode:
-            raise RuntimeError(result.stderr[-3000:])
-        receipts.append(result.stdout)
+    atomic_json(output / 'data.json', snapshot)
+    export, receipts, seconds = _export_report_app(snapshot, env, spec.build_seconds)
     (output / 'evidence' / f'build_{builds+1}.txt').write_text('\n'.join(receipts))
-    export = app / '.data-app-offline/exports/current-financial.html'
     temporary = output / 'report.html.part'; shutil.copyfile(export, temporary); temporary.replace(output / 'report.html')
-    atomic_json(output / 'evidence/build_receipt.json', {'round': builds + 1, 'seconds': time.monotonic() - started,
+    atomic_json(output / 'evidence/build_receipt.json', {'round': builds + 1, 'seconds': seconds,
         'report_sha256': digest(output / 'report.html'), 'complete_current_batch': complete, 'stage': spec.stage,
         'app_id': snapshot['id'], 'no_installations': True})
     print(app / 'dist', flush=True)

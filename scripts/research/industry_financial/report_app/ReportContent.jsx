@@ -3,6 +3,8 @@ import {RichNarrative, ReportSection, EvidenceChart, ChartTooltip, chartConfigEn
 import './report.css';
 import {HistoryChapters,HistoryDetails} from './HistoryChapters.jsx';
 import {ExecutiveSummary,ForecastChapters,ForecastDetails} from './ForecastChapters.jsx';
+import {NativeQuadrantLabels} from './NativeQuadrantLabels.jsx';
+import {QUADRANT_LAYOUT} from './quadrant-layout.mjs';
 
 const nr=v=>Number(v).toLocaleString('zh-CN',{maximumFractionDigits:2});
 const signed=v=>(v>0?'+':'')+nr(v);
@@ -33,12 +35,13 @@ function tooltipFor(fields,unit='',options={}){
 }
 function Quadrant(){
   const {snapshot,reviewedRows,visible}=useDataApp();const rows=reviewedRows('industry_quadrant');
-  const [chart]=chartConfigEntries({id:'industry-quadrant',title:'一级行业景气四象限',rows,spec:snapshot.study.quadrantSpec,height:560});
+  const spec={...snapshot.study.quadrantSpec,annotations:[]};
+  const [chart]=chartConfigEntries({id:'industry-quadrant',title:'一级行业景气四象限',rows,spec,height:QUADRANT_LAYOUT.height});
   if(!visible('industry-quadrant'))return null;
   return <EvidenceChart {...chart} queryId="industry_quadrant" sourceRows={rows}
     description="2026年1—9月较2025年同期。29个非金融一级行业；两轴使用同一批收入、扣非利润均可比的公司。"
     chartOptions={{tooltipContent:tooltipFor(['收入增长（%）','利润率变化（百分点）','本期扣非利润率（%）','本期扣非利润（亿元）'])}}
-    renderPlot={plot=><div className="quadrant-layout"><div className="quad-caption top"><span>↖ 收入下降 · 利润率提高</span><span>收入增长 · 利润率提高 ↗</span></div>{plot}<div className="quad-caption bottom"><span>↙ 收入下降 · 利润率下降</span><span>收入增长 · 利润率下降 ↘</span></div><div className="quadrant-legend" aria-label="四象限图例"><span><i className="legend-point"/>一级行业</span><span><i className="legend-zero"/>零线：收入或利润率同比持平</span></div></div>}/>;
+    renderPlot={(plot,effective)=><div className="quadrant-layout quadrant-fully-labeled"><div className="quad-caption top"><span>↖ 收入下降 · 利润率提高</span><span>收入增长 · 利润率提高 ↗</span></div><NativeQuadrantLabels plot={plot} rows={rows} spec={effective}/><div className="quad-caption bottom"><span>↙ 收入下降 · 利润率下降</span><span>收入增长 · 利润率下降 ↘</span></div><div className="quadrant-legend" aria-label="四象限图例"><span><i className="legend-point"/>一级行业</span><span><i className="legend-zero"/>零线：收入或利润率同比持平</span></div></div>}/>;
 }
 function Bars({id,queryId,title,fields,rows:provided,unit='',note,height,percentageLabels=false,topNames=false,receivable=false}){
   const {snapshot,reviewedRows,visible}=useDataApp();const sourceRows=provided||reviewedRows(queryId);

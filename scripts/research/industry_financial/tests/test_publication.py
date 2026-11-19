@@ -171,3 +171,87 @@ def test_receivable_parent_child_amount_and_count_reconciliation():
     with pytest.raises(ValueError,match='amounts differ'):reconcile_receivable(parent)
     parent['children']=[ar_group('40','50',2),ar_group('80','50',1)]
     with pytest.raises(ValueError,match='counts differ'):reconcile_receivable(parent)
+
+
+@pytest.fixture
+def presentation_files(tmp_path, monkeypatch):
+    """Use the accepted 04 snapshot/manifest, not a hand-invented consumer schema.
+
+    Only rendering and unrelated historical-file protection are isolated here;
+    real offline rendering and full hash guards are checked separately in §10.20.
+    """
+    from scripts.research.industry_financial import publication as pub
+    frozen = pub.OUTPUT_ROOT / 'narrative_20261103_04'
+    approved = pub.inherited_sample()
+    root = tmp_path / 'repo'
+    output_root = root / 'reports/study'
+    source = output_root / 'narrative_source'
+    (source / 'evidence').mkdir(parents=True)
+    for relative in ('data.json', 'evidence/environment.json', 'evidence/artifact_manifest.json'):
+        (source / relative).write_bytes((frozen / relative).read_bytes())
+    destination = root / 'reports/A股行业研究报告_2026年前三季度.html'
+    destination.write_bytes(b'<!doctype html><title>previous accepted report</title>')
+    rendered = tmp_path / 'rendered.html'
+    rendered.write_bytes(b'<!doctype html><title>updated presentation</title>')
+    monkeypatch.setattr(pub, 'ROOT', root)
+    monkeypatch.setattr(pub, 'OUTPUT_ROOT', output_root)
+    monkeypatch.setattr(pub, 'inherited_sample', lambda: approved)
+    monkeypatch.setattr(pub, 'protect_history', lambda: {'unchanged': 'literal-protected-hash'})
+    return pub, root, source, destination, rendered
+
+
+def test_presentation_refresh_updates_only_final_html_and_reuses_same_data(presentation_files, monkeypatch):
+    pub, root, source, destination, rendered = presentation_files
+    before = {p.relative_to(root): digest(p) for p in root.rglob('*') if p.is_file()}
+    def render(snapshot, environment, seconds):
+        assert len(snapshot['queries']) == 35
+        assert len(snapshot['queries']['industry_quadrant']['rows']) == 29
+        assert seconds == 45
+        return rendered, ['temporary output'], .1
+    monkeypatch.setattr(pub, '_export_report_app', render)
+    result = pub.refresh_presentation(source)
+    after = {p.relative_to(root): digest(p) for p in root.rglob('*') if p.is_file()}
+    assert before.keys() == after.keys()
+    assert {p for p in before if before[p] != after[p]} == {destination.relative_to(root)}
+    assert destination.read_bytes() == b'<!doctype html><title>updated presentation</title>'
+    assert result['changed'] is True
+    assert result['new_report_archives'] == 0
+    stamp = destination.stat().st_mtime_ns
+    assert pub.refresh_presentation(source)['changed'] is False
+    assert destination.stat().st_mtime_ns == stamp
+
+
+@pytest.mark.parametrize('failure', ['render', 'source_change', 'target_change', 'copy'])
+def test_presentation_failure_keeps_final_and_removes_temporary_file(presentation_files, monkeypatch, failure):
+    pub, root, source, destination, rendered = presentation_files
+    accepted = destination.read_bytes()
+    files = {p.relative_to(root) for p in root.rglob('*') if p.is_file()}
+    def render(*args):
+        if failure == 'render':
+            raise RuntimeError('independent renderer failure')
+        if failure == 'source_change':
+            (source / 'data.json').write_text('{}')
+        if failure == 'target_change':
+            destination.write_bytes(b'concurrent reviewed change')
+        return rendered, [], .1
+    monkeypatch.setattr(pub, '_export_report_app', render)
+    if failure == 'copy':
+        def fail_copy(*args):
+            raise OSError('independent interrupted copy')
+        monkeypatch.setattr(pub.shutil, 'copyfileobj', fail_copy)
+    message = {'render': 'renderer failure', 'source_change': 'source changed',
+               'target_change': 'Final report changed', 'copy': 'interrupted copy'}[failure]
+    with pytest.raises((RuntimeError, ValueError, OSError), match=message):
+        pub.refresh_presentation(source)
+    assert destination.read_bytes() == (b'concurrent reviewed change' if failure == 'target_change' else accepted)
+    assert files == {p.relative_to(root) for p in root.rglob('*') if p.is_file()}
+
+
+def test_presentation_rejects_changed_data_before_rendering(presentation_files, monkeypatch):
+    pub, _, source, destination, _ = presentation_files
+    accepted = destination.read_bytes()
+    (source / 'data.json').write_text('{}')
+    monkeypatch.setattr(pub, '_export_report_app', lambda *args: pytest.fail('unverified data rendered'))
+    with pytest.raises(ValueError, match='hash mismatch'):
+        pub.refresh_presentation(source)
+    assert destination.read_bytes() == accepted

@@ -416,3 +416,14 @@
 @media(max-width:1000px){.industry-current .current-heat-grid{grid-template-columns:1fr;}.industry-current .case-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
 @media(max-width:850px){.industry-current .current-chart-pair,.industry-current .contribution-grid{grid-template-columns:1fr;}}
 @media(max-width:640px){.industry-current .case-grid{grid-template-columns:1fr;}.industry-current .sample-nav{gap:8px 18px;}.industry-current .group-index{font-size:11px;}}
+.industry-current .quadrant-scroll{max-width:100%;overflow-x:auto;}
+.industry-current .named-quadrant{position:relative;isolation:isolate;}
+.industry-current .quadrant-fill-layer{position:absolute;inset:0;z-index:-1;pointer-events:none;}
+.industry-current .quadrant-name-layer{position:absolute;inset:0;pointer-events:none;overflow:visible;}
+.industry-current .quadrant-name-layer text{font-size:14px;font-weight:500;fill:#000;paint-order:stroke;stroke:var(--surface);stroke-width:4px;stroke-linejoin:round;}
+.industry-current .quadrant-name-connector{stroke:#59636f;stroke-width:1;}
+.industry-current .quadrant-fully-labeled :is(.quad-caption,.quadrant-legend){color:#000;font-weight:700;}
+.industry-current .quadrant-fully-labeled .legend-zero{border-top:2.5px solid #000;}
+.industry-current .native-quadrant-plot :is(svg text,.chart-axis-label,.chart-axis-title,.chart-x-label,.chart-y-label){fill:#000;color:#000;font-weight:700;}
+.industry-current .native-quadrant-plot .recharts-reference-line-line{stroke:#000;stroke-width:2.5px;stroke-dasharray:none;}
+.industry-current .native-quadrant-plot .recharts-label{fill:#000!important;font-weight:700!important;}
