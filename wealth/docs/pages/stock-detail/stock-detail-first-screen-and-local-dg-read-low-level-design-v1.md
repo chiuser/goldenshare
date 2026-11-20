@@ -9,7 +9,7 @@
 | DG 交易日历 | 上交所 `SSE` 取消本地起止日期限制。复用现有 Job 手动更新一次 Raw、Silver | 两层覆盖至少到 2027-12-31，并保留原有历史。之后源继续提供更远日期则照常收入 |
 | 本地证券和日历 | 阶段 2 覆盖本地 Web 请求实际读取的两类业务事实，包含业务与运维 API。有效文件里查不到记录时沿用各入口原来的缺失处理 | §4 中由本地 Web 请求实际执行的读取换源。读 PostgreSQL 的两张旧表会报错的测试环境下，本地调用仍可走通 |
 | 股票详情 | `/page-init` 的 `pageContext.tradeDate` 是整页最新日期。本地首屏用现有 `tradeDate` 和 `endDate` 传同一日期，只算一次日 K 和指标，盘口复用末根日 K | 每条后续日期请求都使用该日期。即使实际行情滞后，页面日期仍取初始化结果 |
-| Prod 与后续事项 | Prod 继续使用现行 PostgreSQL、原响应模型和原参数行为。股票、指数分钟线的行情来源与指标升级放到下一期。股票日 K 向前翻页在本期完成后单独开发，见 §5.4 | 共用前端分别验证两种首屏回包。原 Prod 响应 JSON 字段集合、值与 OpenAPI 模型通过回归 |
+| Prod 与后续事项 | Prod 继续使用现行 PostgreSQL、原响应模型和原参数行为。股票、指数分钟线的行情来源与指标升级放到下一期。本地首屏已切换，独立的股票日 K 向前翻页设计见 §5.4 | 共用前端分别验证两种首屏回包。原 Prod 响应 JSON 字段集合、值与 OpenAPI 模型通过回归 |
 
 下列核验记录交易日历接口的实际行为和证券来源切换口径。
 
@@ -332,20 +332,49 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 具体日期和状态断言如下。若显式选休市日 2026-11-15，本地首屏日 K 的 `tradeDate` 和 `endDate` 都是 11-15，顶部指数、新闻窗口和图层也以 11-15 为边界。若首屏在 DG 查到的最新目标日 K 是 11-13，则 `quote.tradeDate=2026-11-13`，`dataStatus.expectedTradeDate=2026-11-15`、`observedTradeDate=2026-11-13`、`status=DELAYED`。同一轮重新请求日 K 或重试图层时沿用 D。用户主动刷新整个页面时，可以重新发 `/page-init` 并取新的默认日期。
 
-### 5.4 后续事项：股票日 K 向前翻页
+### 5.4 本地股票日 K 向前翻页
 
-本期完成后单独开发。当前个股图只拖动已经加载的日 K。本期的本地首屏请求仍按 §5.1，`/kline` 的 `meta` 沿用现有字段。
+本节是本地首屏切换后的独立开发设计。§5.1–5.3 记录首屏切换时的合同。先修复本地股票趋势通道取数并独立验收，再沿用[上证综指的拖动及加载方式](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L161)接入股票日 K 翻页和两个续页图层。
 
-后续沿用上证综指 [用 `nextEndDate` 请求下一批](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L161) 的方式。后端在每批日 K 的 `meta.nextEndDate` 中返回下一批可用的截止日，必须早于本批最早一根日 K。没有更早可读的数据时返回 `null`，前端停止翻页。翻页请求使用同一个 `/kline`，`tradeDate` 始终等于最初的页面日期，`endDate` 取上一批返回的 `nextEndDate`。
+#### 第一步 修复本地股票趋势通道取数
 
-例如，页面日期是 2026-11-18，首批最早日期是 2024-10-28，后端给出 `nextEndDate=2024-10-25`。前端按下表传参。
+[`StockDailyTrendChannelLakeReader.read`](../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py#L68) 目前按文件数提前截断，再按股票代码读取。现统一为与日 K 相同的计数口径。`limit` 表示指定股票的实际结果条数。沿用 `/trend-channel` 的 `tsCode`、`endDate` 和 `limit`，默认 300 条、最大 2,000 条，回包字段、日期解析、空态和错误包络沿用现行实现。阶段一的修改落在读取器和测试，首屏仍使用现有请求。
 
-| 请求 | `tradeDate` | `endDate` | 回包中的盘口 |
-| --- | --- | --- | --- |
-| 首屏 | 2026-11-18 | 2026-11-18 | 有 `quote`，无目标日 K 时值为 `null` |
-| 向前翻页 | 2026-11-18 | 2024-10-25 | 使用普通日 K 回包，省略 `quote` |
+1. 复用现有正式目录发现和路径校验，按 `endDate` 截止（含当天）排列日期，由近到远。读到某一批时才校验该批对应的正式文件，按股票代码筛选 `gold/indicator/stock_daily_trend_channel` 的已产出结果。
+2. 第一批文件数最多为 `limit`，后续每批只选至多等于剩余结果条数的文件。对该批复用现有字段投影、分区和日期一致性、单日唯一性、公式版本及数值校验。只有指定股票通过校验的记录计数。有效文件里无该股票时继续向前。已选中的正式文件缺失、格式非法或查询失败时沿用原错误路径。
+3. 找满 `limit` 条或读到最早可用分区即停止。按交易日期升序组装响应，最新日期和 `meta.count` 取实际结果。少于 `limit` 时返回现有记录。有可读正式分区但该股票没有结果时返回原 `EMPTY`，截止日内无可用正式分区时沿用源未就绪。整个请求复用现有单连接，成功或失败均由路由关闭。原请求重试从同一截止日重新读取。
 
-前端把续页的日 K 和指标接到图表左侧。页面日期和右侧盘口仍用首屏结果。后续开发时验收固定页面日期、每次取数截止日正确、相邻批次日期无重叠、续页回包省略 `quote`、右侧盘口稳定以及 `nextEndDate=null` 后停止请求。
+**读取预算与验收。** 有连续记录的普通请求仍只读一批。遇到停牌或无该股票记录时，后续按剩余条数逐批往前读。记录实际访问文件数、结果条数和耗时，分别核对连续样本、停牌样本和历史不足时的开销。旧性能实测的每个文件都有该股票记录，只用来对照连续样本。第一步用[读取器测试](../../../../tests/test_stock_daily_trend_channel_reader.py)和[真实路由测试](../../../../tests/web/test_wealth_stock_trend_channel_api.py)验证停牌和只有其他股票的文件不占名额。用周一、周二、周五有数据且周三、周四无该股票结果的夹具，请求截止周五的 3 条，必须拿到周一、周二、周五，额外在更老分区放记录证明满 3 条即停止。覆盖历史不足、合法空结果、已有源错误和同参数重试。用有界本地 DG 样本复验返回记录和读取开销，核对回包字段及连接归还。第一步验收通过后进入第二步。 [原性能实测范围](../../../../lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md#7-本地-api-读取)
+
+#### 第二步 接入本地股票日 K 翻页
+
+##### 请求和计算
+
+现有 `/kline` 参数含义照旧，`tradeDate` 是首次 `/page-init` 确定的页面日期，`endDate` 是本批含当天的截止日。用页面日期 2026-11-18、首批最早日 K 为 2024-10-28、上一根实际日 K 为 2024-10-25 举例。
+
+| 本地请求（省略 `startDate`） | `tradeDate` | `endDate` | `meta.nextEndDate` | 盘口 |
+| --- | --- | --- | --- | --- |
+| 首屏 | 2026-11-18 | 2026-11-18 | `2024-10-25`，无更早行情时为 `null` | 返回 `quote`，无目标日 K 时为 `null` |
+| 向前翻页 | 2026-11-18 | 2024-10-25 | 本批最早日 K 之前的上一根实际行情日期，已到最早时为 `null` | 省略 `quote` |
+
+- **确定下一批日期。** 在 [`StockDailyKlineAppBackend._load_page_fields`](../../../../src/app/dependencies/stock_daily_technical_indicators.py#L224) 复用 `daily_page_dates`。本地两日期显式给出、`endDate <= tradeDate` 且无 `startDate` 时，日期查询最多找 `limit + 1` 个匹配日。因为日期按升序返回，若多一根，以第一根日期作为 `nextEndDate`，仅用余下 `limit` 根读取本批业务字段和发起计算。找不到额外一根时，包括恰好 `limit` 根、短页和空页，返回 `null`。日期来自该股票的实际行情，跳过休市与无行情日期。仅有 `endDate`、有 `startDate` 或 `endDate > tradeDate` 等其他本地查询，以及 Prod，保留原取数和回包。
+- **回包。** `StockDailyKlineService.assemble` 接收日期读取阶段得到的下一批截止日。本地分页的元数据增加必有但允许为 `null` 的 `nextEndDate`，在本地首屏 DTO 与本地续页 DTO 中使用。`build_router` 只在本地 `/kline` 的响应声明纳入对应 DTO。原 `StockKlineMetaDto` 和 Prod 路由继续使用原字段。首屏仍由 `is_stock_detail_first_page` 决定。续页的 `meta.endDate`、`dataStatus` 和回包内的 `pageContext` 沿用现有查询语义，整页日期始终以首次 `/page-init` 为准。
+- **算子。** `build_calculation_request` 继续按本批首末根实际日期组装区间，一批有目标日 K 时计算一次，无行情时直接返回现有空态。内核从 DG 的 `silver/quote/stock_daily` 和 `silver/quote/adj_factor` 读取不复权日线与股票复权因子，并沿用原前复权和预热规则计算价格及 MA、BOLL、MACD、KDJ。`CalculationResult.price_adjustment` 已含 `basis_date`、`basis_value`。它们留在内核结果中，股票详情 HTTP 回包沿用现有价格字段。跨请求遇到 DG 更新时接受各自按当时可用的因子计算，前端展示回包值。
+
+##### 前端和两个图层
+
+- [`StockDetailPage`](../../../src/pages/stock-detail/StockDetailPage.tsx#L128) 保留首屏快照。本地日线首批有 `meta.nextEndDate` 时，用股票详情的续页状态管理当前游标和页结果。`StockChartWorkspace` 接入共享 `DetailChartWorkspace` 的 `onHistoryViewport` 和 `historyPhase`。沿用上证综指的触发条件，向左拖到已加载行情左端剩 100 根时请求下一批。同一批在途时合并重复触发，按日期将更早行情和指标接到左侧，保持当前视野。失败时保留图表，下次向左拖重试同一截止日。切换证券、日期或离开日线时取消旧请求并丢弃迟到结果。`nextEndDate` 为 `null` 后停止续取。右侧盘口、顶部指数和新闻继续使用首屏数据及日期。
+- **九转。** 续页日 K 返回后，沿用 [`fetchStockNineTurnSeries`](../../../src/features/nine-turn/api/nineTurnApiClient.ts#L40)，使用日线能力、股票代码、该批最早和最晚的实际日 K 日期作为 `startDate/endDate`，`limit` 沿用日 K 页大小。续页使用日 K 提供的日期窗口，沿用九转已有数据来源、日期匹配和缺失检查。按日期将结果交给原九转图层。
+- **趋势通道。** 沿用现有能力开关和选择指标后加载的时机。对于已经加载的历史日 K 批次，复用 [`fetchStockTrendChannel`](../../../src/features/stock-detail/trend-channel/api/stockTrendChannelApiClient.ts#L13)，传股票代码、该批最后一根日 K 的日期作为 `endDate`、本批实际根数作为 `limit`。图层用该批已有的日 K 日期对齐趋势结果，只画对应日期的点。DG 缺少某日的趋势结果时该日留空，查询补足数量而返回的更早结果依日期排除在本批图层之外。首屏继续使用页面日期发出原请求。
+- 每批各图层使用自己的加载状态，任一失败保留日 K 和已成功图层。重试只补该批失败的图层。首屏的两路图层和分钟周期的加载方式沿用现有路径。
+
+##### 开发和验收
+
+趋势通道读取修复验收后，先实现本地 `/kline` 日期游标，再接图表及两个图层。复用 §6 的请求时限、取消、资源归还和本机回退流程。每批最多返回 500 根目标日 K，只额外查一个匹配日期用于游标。存在停牌时，找到这一根所经过的 DG 日期分区数可能超过一个，验收记录实际读取成本。每批最多发一个日 K 请求以及两个图层请求，图层重试仅重发对应请求。复用已记录的阶段 4 性能样本作为对照，测量首批、续页及断开重试，保留现有时限配置。
+
+- 扩充[日 K 真实路由测试](../../../../tests/app/technical_indicators/test_stock_daily_source_repair.py)，覆盖首批和续页相邻、长停牌、末批短页、恰好满页但已到最早、空页、源失败和重试。验证每批日 K 与指标时间一致、续页省略盘口、不复权日线与股票复权因子沿用原来源。Prod 和非分页本地回包按原合同回归。
+- 扩充[股票详情前端测试](../../../src/pages/stock-detail/StockDetailPage.test.tsx)和[共享图表测试](../../../src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx)的对应场景。检查固定页面日期、向左拖触发和保持视野、无重叠、到末页停止、首屏盘口稳定、换股换日期后旧回包失效、九转和趋势通道按实际批次查询，以及单图层失败可独立重试。断言趋势通道请求的截止日和根数来自该批，图层按日 K 日期对齐，缺失日期留空，更早的结果不会画到本批图上。
+- 用实际本地版本和有界 DG 样本复核贵州茅台首批与至少一批历史日 K，同时核对盘口和两个图层。上证综指保持原拖动及续页方式。按 §7 对照交付清单，以实际接口和浏览器证据验收。
 
 ## 6. 开发顺序和验收清单
 
@@ -365,6 +394,8 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 ## 7. 编码门禁矩阵
 
 逐项对照 [Wealth 模块交付清单](../../system/module-delivery-checklist-v1.md)。本期变更的是已上线页面的取数、响应分工和请求时序。沿用 [股票详情视觉验收基线](stock-detail-figma-pixel-verification-ledger-v1.md)。以下是开工和提测要核对的项目。
+
+股票日 K 翻页按 §5.4 核对本地响应合同、现有能力开关、日期边界、请求和重试成本、图层状态及真实页面展示。该后续事项沿用本节对应的交付门禁、现有图表坐标和视觉基线。
 
 | 通用清单 | 本期适用性、落点及核验 |
 | --- | --- |

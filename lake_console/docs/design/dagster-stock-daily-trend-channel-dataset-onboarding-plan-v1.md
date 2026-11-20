@@ -895,6 +895,8 @@ AND trend result/state roots readable
 
 ### 14.2 API 方向
 
+本地股票日 K 翻页开发前，先修正本接口的取数计数。`limit` 只计指定股票的有效结果，按日期从近到远分批查找，满额或到达最早数据后结束。接口参数和数据集沿用现行合同。 [后续修正方案](../../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-plan-v1.md#6-本地股票日-k-向前翻页)
+
 建议本地 API：
 
 ```http
