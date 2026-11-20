@@ -18,7 +18,7 @@ function resolveDirection(quote: StockQuoteSnapshotDto) {
   return directionFromNumber(valueOrZero(quote.changePct));
 }
 
-function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockCandlePoint {
+export function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockCandlePoint {
   return {
     time: bar.tradeDate,
     fullDate: bar.tradeDate,

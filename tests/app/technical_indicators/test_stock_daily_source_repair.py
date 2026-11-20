@@ -151,7 +151,7 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
     }
     assert {item["$ref"].rsplit("/", 1)[-1] for item in
             schema["responses"]["200"]["content"]["application/json"]["schema"]["anyOf"]} == {
-        "LocalStockDetailFirstKlineResponseDto", "StockDetailKlineResponseDto",
+        "LocalStockDetailFirstKlineResponseDto", "LocalStockDetailPagedKlineResponseDto", "StockDetailKlineResponseDto",
     }
     payload = response.json()
     check_values(payload, DAYS[-2:])
@@ -169,11 +169,11 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
     for field in ("tradeDate", "open", "high", "low", "close", "preClose", "change",
                   "changePct", "vol", "volDisplay", "amount", "turnoverRate", "volumeRatio"):
         assert payload["quote"][field] == latest[field]
-    assert "nextEndDate" not in payload["meta"]
+    assert payload["meta"]["nextEndDate"] == "2026-01-29"
     assert len(source_client.calculations) == 1
 
 
-@pytest.mark.parametrize("params", [{}, {"tradeDate": "2026-02-03"},
+@pytest.mark.parametrize("params", [{}, {"tradeDate": "2026-01-30"},
                                      {"tradeDate": "2026-02-02", "startDate": "2026-02-02"}])
 def test_local_ordinary_daily_requests_keep_original_shape(source_client, params):
     with source_client.client_for() as client:
@@ -182,6 +182,46 @@ def test_local_ordinary_daily_requests_keep_original_shape(source_client, params
     payload = response.json()
     assert "quote" not in payload and "nextEndDate" not in payload["meta"]
     check_values(payload, DAYS[-1:] if "startDate" in params else DAYS)
+
+
+@pytest.mark.parametrize("limit", [7, 10])
+def test_stock_daily_pages_use_previous_actual_date_and_stop_at_oldest(source_client, limit):
+    anchor = OTHER_DAY.isoformat()
+    with source_client.client_for() as client:
+        end = anchor
+        for page_number in range(3):
+            stop = len(DAYS) - page_number * limit
+            start = max(0, stop - limit)
+            response = request(client, tradeDate=anchor, endDate=end, limit=limit)
+            assert response.status_code == 200, response.text
+            payload = response.json()
+            check_values(payload, DAYS[start:stop])
+            assert payload["meta"]["startDate"] is None
+            assert payload["meta"]["endDate"] == end
+            assert ("quote" in payload) == (page_number == 0)
+            expected_next = DAYS[start - 1].isoformat() if start else None
+            assert payload["meta"]["nextEndDate"] == expected_next
+            end = expected_next
+    assert len(source_client.calculations) == 3
+
+
+def test_stock_daily_cursor_crosses_days_without_stock_data(source_client):
+    for day in DAYS[-4:-2]:
+        path = f"silver/quote/stock_daily/trade_date={day}/part-000.parquet"
+        original = pq.ParquetFile(source_client.root / path).read().to_pylist()[0]
+        write_table(source_client.root, path, [{**original, "ts_code": "601398.SH"}])
+        suspend = f"silver/quote/stock_suspend_daily/trade_date={day}/part-000.parquet"
+        write_table(source_client.root, suspend, [
+            {"ts_code": CODE, "trade_date": day, "suspend_type": "S", "suspend_timing": None},
+        ], pq.read_schema(source_client.root / suspend))
+    anchor = OTHER_DAY.isoformat()
+    with source_client.client_for() as client:
+        first = request(client, tradeDate=anchor, endDate=anchor, limit=2)
+        assert first.status_code == 200, first.text
+        assert first.json()["meta"]["nextEndDate"] == DAYS[-5].isoformat()
+        second = request(client, tradeDate=anchor, endDate=DAYS[-5].isoformat(), limit=2)
+        assert second.status_code == 200, second.text
+        check_values(second.json(), DAYS[-6:-4])
 
 
 def test_stock_uses_latest_basis_even_on_an_older_page(source_client):
@@ -231,6 +271,7 @@ def test_empty_and_missing_source(source_client):
         assert response.json()["bars"] == []
         assert response.json()["dataStatus"]["status"] == "EMPTY"
         assert "quote" in response.json() and response.json()["quote"] is None
+        assert response.json()["meta"]["nextEndDate"] is None
         for path in (INIT_PATH, PATH):
             assert client.get(path, params={"tsCode": "T00018.SH"}).json()["code"] == "404001"
     with source_client.client_for(source_root=source_client.root / "absent") as client:

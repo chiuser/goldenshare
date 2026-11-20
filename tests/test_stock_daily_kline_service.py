@@ -17,7 +17,7 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
     build_calculation_request, validate_stock_daily_request,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import (
-    StockDailyKlineInput, StockDailyKlineRequest, StockDailyKlineRow,
+    StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest, StockDailyKlineRow,
 )
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 
@@ -149,9 +149,9 @@ def test_mapping_and_legal_nulls(monkeypatch):
     rows[0]["pre_close"] = Decimal("10.00000000001")
     monkeypatch.setattr(query._query, "load_kline_rows", lambda session, **kw: (
         order.append(("bars", kw)) or rows))
-    load_rows = lambda code, end, start, count: query._query.load_kline_rows(
+    load_rows = lambda code, end, start, count: StockDailyKlinePage(query._query.load_kline_rows(
         object(), ts_code=code, end_date=end, start_date=start, limit=count,
-    )
+    ))
     prepared = service.prepare(object(), source.request, load_rows=load_rows)
     assert [name for name, _ in order] == ["context", "security", "bars"]
     assert order[-1][1] == {"ts_code": "600000.SH", "end_date": date(2026, 1, 9),

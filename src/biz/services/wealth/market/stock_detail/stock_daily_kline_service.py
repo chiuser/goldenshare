@@ -1,16 +1,16 @@
-"""Prepare detached business facts and map kernel results to the unchanged DTO."""
+"""Prepare detached business facts and map kernel results to the stock daily response."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import date
-from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailQueryService
 from src.biz.schemas.wealth.market.stock_detail import (
-    LocalStockDetailFirstKlineResponseDto, StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
+    LocalStockDetailFirstKlineResponseDto, LocalStockDetailPagedKlineResponseDto, LocalStockKlineMetaDto,
+    StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
     StockDetailStockRefDto, StockKdjDto, StockKlineFactorDto, StockKlineMetaDto,
     StockMacdDto, StockMovingAverageDto,
 )
@@ -21,7 +21,7 @@ from goldenshare_technical_indicators.errors import OutputContractError
 from .stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS, STOCK_DAILY_OUTPUT_FIELDS,
 )
-from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlineRequest
+from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest
 from .stock_detail_field_mapper import (
     build_data_status, build_kline_bar, build_page_context, build_quote_from_kline_bar, to_float,
 )
@@ -44,11 +44,12 @@ class StockDailyKlineService:
 
     def prepare(
         self, session: Session | None, request: StockDailyKlineRequest, *,
-        load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
+        load_rows: Callable[[str, date, date | None, int], StockDailyKlinePage],
         remaining_seconds: Callable[[], float] | None = None,
+        paginated: bool = False,
     ) -> StockDailyKlineInput:
         return self._query.prepare_kline_input(
-            session, request, load_rows=load_rows, remaining_seconds=remaining_seconds,
+            session, request, load_rows=load_rows, remaining_seconds=remaining_seconds, paginated=paginated,
         )
 
     def _validate_result(self, source: StockDailyKlineInput, result: CalculationResult) -> None:
@@ -88,7 +89,7 @@ class StockDailyKlineService:
 
     def assemble(
         self, source: StockDailyKlineInput, result: CalculationResult | None,
-        *, source_tables: tuple[str, ...], include_quote: bool = False,
+        *, source_tables: tuple[str, ...], include_quote: bool = False, paginated: bool = False,
     ) -> StockDetailKlineResponseDto:
         if source.bars:
             self._validate_result(source, result)
@@ -127,12 +128,15 @@ class StockDailyKlineService:
                 bars.append(build_kline_bar(row, factors))
             request = source.request
             observed = source.bars[-1].trade_date if source.bars else None
+            meta_fields = dict(count=len(bars), limit=request.limit,
+                               startDate=request.start_date, endDate=source.query_end_date)
+            meta = (LocalStockKlineMetaDto(**meta_fields, nextEndDate=source.next_end_date)
+                    if paginated else StockKlineMetaDto(**meta_fields))
             response_fields = dict(
                 pageContext=build_page_context(source.context),
                 stockRef=StockDetailStockRefDto(tsCode=source.ts_code, name=source.name),
                 period="day", adjustment="forward", sourceAdjustment="qfq", bars=bars,
-                meta=StockKlineMetaDto(count=len(bars), limit=request.limit,
-                                      startDate=request.start_date, endDate=source.query_end_date),
+                meta=meta,
                 dataStatus=build_data_status(expected_trade_date=source.query_end_date,
                                              observed_trade_date=observed),
                 debugInfo=StockDetailDebugInfoDto(sourceTables=list(source_tables), query={
@@ -145,6 +149,8 @@ class StockDailyKlineService:
                 return LocalStockDetailFirstKlineResponseDto(
                     **response_fields, quote=build_quote_from_kline_bar(bars[-1]) if bars else None,
                 )
+            if paginated:
+                return LocalStockDetailPagedKlineResponseDto(**response_fields)
             return StockDetailKlineResponseDto(**response_fields)
         except ValidationError as error:
             # Pydantic itself can retain input. Only bounded, input-free diagnostics survive.

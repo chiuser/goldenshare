@@ -1,7 +1,9 @@
 """Immutable stock daily request and detached database rows (integration LLD §04)."""
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
+from typing import Any
 
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext
 
@@ -55,6 +57,12 @@ class StockDailyKlineRow:
 
 
 @dataclass(frozen=True, slots=True)
+class StockDailyKlinePage:
+    rows: Sequence[Mapping[str, Any]]
+    next_end_date: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class StockDailyKlineInput:
     request: StockDailyKlineRequest
     context: MarketPageContext
@@ -62,6 +70,7 @@ class StockDailyKlineInput:
     name: str
     query_end_date: date
     bars: tuple[StockDailyKlineRow, ...]
+    next_end_date: date | None = None
 
     def __post_init__(self) -> None:
         rows = tuple(self.bars)

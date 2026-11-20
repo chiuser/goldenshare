@@ -14,6 +14,7 @@ import { useMajorIndexTickers } from "../../features/major-indices/model/useMajo
 import { buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
+import { useStockDailyHistory, type StockDailyHistorySeed } from "../../features/stock-detail/controller/useStockDailyHistory";
 import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/StockBreadcrumbActionBar";
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
@@ -45,6 +46,7 @@ interface StockDetailLoad {
   state: "loading" | "ready" | "empty" | "error";
   pageInit?: StockDetailPageInitResponseDto;
   viewModel?: StockDetailViewModel;
+  historySeed?: StockDailyHistorySeed;
   errorMessage?: string;
 }
 
@@ -99,6 +101,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
     tsCode,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
+  const dailyHistory = useStockDailyHistory(currentLoad?.historySeed ?? null, activePeriod === "day");
   const nineTurnCapabilities = activePageInit?.capabilities;
   const nineTurnControl = useNineTurnDisplayControl(tsCode,
     activeNineTurnPeriod !== null && isStockNineTurnPeriod(activeNineTurnPeriod)
@@ -151,8 +154,13 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
           return;
         }
         const nextViewModel = buildStockDetailViewModel(pageInit, kline);
+        const historySeed = local && kline.meta.nextEndDate ? {
+          tsCode, tradeDate: anchor, nextEndDate: kline.meta.nextEndDate,
+          candles: nextViewModel.chart.candles, debug,
+          supportsNineTurn: pageInit.capabilities.supportsNineTurn && pageInit.capabilities.nineTurnPeriods.includes("day"),
+        } : undefined;
         setActivePeriod(nextViewModel.activePeriod);
-        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel });
+        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel, historySeed });
       } catch (error) {
         if (!isCurrent()) return;
         setLoad({
@@ -278,6 +286,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
         {activePeriod === "day" ? (
           <StockChartWorkspace
             candles={viewModel.chart.candles}
+            history={dailyHistory}
             indicatorControls={indicatorControls}
             indicatorTabs={viewModel.indicatorTabs}
             nineTurnControl={nineTurnControl}
@@ -286,7 +295,10 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
               if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
             }}
             onAction={showToast}
-            onTrendSelect={trendChannel.ensure}
+            onTrendSelect={() => {
+              trendChannel.ensure();
+              dailyHistory.ensureTrend();
+            }}
             supportsTrendChannel={activePageInit?.capabilities.supportsTrendChannel ?? false}
             trend={trendChannel.data}
             tsCode={viewModel.stock.tsCode}

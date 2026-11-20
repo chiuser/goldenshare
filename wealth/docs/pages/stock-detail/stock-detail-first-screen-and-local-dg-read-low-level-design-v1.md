@@ -367,6 +367,7 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 | 向前翻页 | 2026-11-18 | 2024-10-25 | 本批最早日 K 之前的上一根实际行情日期，已到最早时为 `null` | 省略 `quote` |
 
 - **确定下一批日期。** 在 [`StockDailyKlineAppBackend._load_page_fields`](../../../../src/app/dependencies/stock_daily_technical_indicators.py#L224) 复用 `daily_page_dates`。本地两日期显式给出、`endDate <= tradeDate` 且无 `startDate` 时，日期查询最多找 `limit + 1` 个匹配日。因为日期按升序返回，若多一根，以第一根日期作为 `nextEndDate`，仅用余下 `limit` 根读取本批业务字段和发起计算。找不到额外一根时，包括恰好 `limit` 根、短页和空页，返回 `null`。日期来自该股票的实际行情，跳过休市与无行情日期。仅有 `endDate`、有 `startDate` 或 `endDate > tradeDate` 等其他本地查询，以及 Prod，保留原取数和回包。
+- **确定股票历史起点。** 本地分页将当前业务准备已读取的上市日用作日期查询的内部下限，包含上市当日。上市日缺失时以最早可用日线分区为界。这个日期仅限制目标日期和游标的查找，回包 `startDate`、预热方式和其他请求的读取规则沿用原口径。
 - **回包。** `StockDailyKlineService.assemble` 接收日期读取阶段得到的下一批截止日。本地分页的元数据增加必有但允许为 `null` 的 `nextEndDate`，在本地首屏 DTO 与本地续页 DTO 中使用。`build_router` 只在本地 `/kline` 的响应声明纳入对应 DTO。原 `StockKlineMetaDto` 和 Prod 路由继续使用原字段。首屏仍由 `is_stock_detail_first_page` 决定。续页的 `meta.endDate`、`dataStatus` 和回包内的 `pageContext` 沿用现有查询语义，整页日期始终以首次 `/page-init` 为准。
 - **算子。** `build_calculation_request` 继续按本批首末根实际日期组装区间，一批有目标日 K 时计算一次，无行情时直接返回现有空态。内核从 DG 的 `silver/quote/stock_daily` 和 `silver/quote/adj_factor` 读取不复权日线与股票复权因子，并沿用原前复权和预热规则计算价格及 MA、BOLL、MACD、KDJ。`CalculationResult.price_adjustment` 已含 `basis_date`、`basis_value`。它们留在内核结果中，股票详情 HTTP 回包沿用现有价格字段。跨请求遇到 DG 更新时接受各自按当时可用的因子计算，前端展示回包值。
 
@@ -384,6 +385,16 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 - 扩充[日 K 真实路由测试](../../../../tests/app/technical_indicators/test_stock_daily_source_repair.py)，覆盖首批和续页相邻、长停牌、末批短页、恰好满页但已到最早、空页、源失败和重试。验证每批日 K 与指标时间一致、续页省略盘口、不复权日线与股票复权因子沿用原来源。Prod 和非分页本地回包按原合同回归。
 - 扩充[股票详情前端测试](../../../src/pages/stock-detail/StockDetailPage.test.tsx)和[共享图表测试](../../../src/shared/charts/detail-workspace/DetailChartWorkspace.test.tsx)的对应场景。检查固定页面日期、向左拖触发和保持视野、无重叠、到末页停止、首屏盘口稳定、换股换日期后旧回包失效、九转和趋势通道按实际批次查询，以及单图层失败可独立重试。断言趋势通道请求的截止日和根数来自该批，图层按日 K 日期对齐，缺失日期留空，更早的结果不会画到本批图上。
 - 用实际本地版本和有界 DG 样本复核贵州茅台首批与至少一批历史日 K，同时核对盘口和两个图层。上证综指保持原拖动及续页方式。按 §7 对照交付清单，以实际接口和浏览器证据验收。
+
+##### 第二步实施与审计
+
+2026-11-20 · 在隔离的本机服务运行本轮构建并用浏览器验收。日 K 和趋势通道读取 DG 正式文件，九转从现有本机接口进行有界只读查询。测试会话隔离了自选及其他非目标请求。常用本地服务和 Prod 均未切换。
+
+- **开始和衔接。** 贵州茅台 `600519.SH` 页面日期为 2026-11-19，首批 500 根日 K 覆盖 2024-10-30 至 2026-11-19，盘口收盘价为 1460.21 元。向左拖动只发出一次续页请求，`tradeDate` 仍是 2026-11-19，`endDate` 来自上一批的 2024-10-29。续页 500 根覆盖 2022-09-30 至 2024-10-29，下一截止日为 2022-09-29，省略盘口。两批无重叠，数据接入图表后可视日期和右侧盘口保持稳定。
+- **图层。** 续页九转按实际首末日期查询，500 个行情日期均匹配。首次续页趋势请求人为返回 503，图表和九转保持可用。点击趋势通道的重试只重发该图层，结果 500 条与续页日 K 日期逐一对齐。验收浏览器无脚本错误。
+- **历史边界。** 新上市样本 `920309.BJ` 请求 500 根，返回上市后 3 根和 `nextEndDate: null`。请求截止日早于上市日时返回空日 K、`quote: null` 和 `nextEndDate: null`。真实路由测试覆盖最后一批恰好满页、短页、空页和跨停牌。
+- **性能和中断。** 首次浏览器与测试并行运行时首批触发一次现有工作时限。单独复验首批 4.717 秒、续页 4.464 秒。另从真实 HTTP 请求中观察到续页占用计算名额后断开，约 12 毫秒后观察到占用和等待均为 0。按同一截止日重试，5.470 秒返回 500 根，结束后资源归零。沿用现有时限配置。
+- **回归和边界。** 44 项后端、80 项前端定向回归通过。前端使用串行执行复查了初次并行测试中的一个分钟线用例。类型检查和前端构建通过。Prod 股票详情 OpenAPI 与本轮开发前逐项相同。用 CodeGraph 核对本地股票日 K 路由、计算调用、股票图表和现有图层消费者。指数和股票分钟线继续使用原实现。
 
 ## 6. 开发顺序和验收清单
 

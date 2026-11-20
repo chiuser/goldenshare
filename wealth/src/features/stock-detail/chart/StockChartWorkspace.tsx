@@ -21,6 +21,7 @@ import type { MarketDirection } from "../../../shared/model/market";
 import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
 import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/trendChannelGeometry";
 import type { StockTrendChannelViewModel } from "../trend-channel/api/stockTrendChannelViewModelAdapter";
+import type { StockDailyHistory } from "../controller/useStockDailyHistory";
 import type {
   StockCandlePoint,
   StockIndicatorTab,
@@ -29,6 +30,7 @@ import type {
 
 interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
+  history?: StockDailyHistory;
   indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
   nineTurnControl: NineTurnDisplayControl;
@@ -43,10 +45,11 @@ interface StockChartWorkspaceProps {
 
 export function StockChartWorkspace({
   candles,
+  history,
   indicatorControls,
   indicatorTabs,
   nineTurnControl,
-  nineTurnLayer,
+  nineTurnLayer: initialNineTurn,
   onNineTurnRetry,
   onAction,
   onTrendSelect,
@@ -61,7 +64,29 @@ export function StockChartWorkspace({
   useEffect(() => {
     if (!supportsTrendChannel && overlay === "TREND_CHANNEL") setOverlay("MA");
   }, [overlay, supportsTrendChannel]);
-  const points = useMemo(() => candles.map(toDetailChartPoint), [candles]);
+  const historical = history?.visible;
+  const chartCandles = historical?.candles ?? candles;
+  const points = useMemo(() => chartCandles.map(toDetailChartPoint), [chartCandles]);
+  const pages = historical?.pages;
+  const initialDates = useMemo(() => new Set(candles.map(candle => candle.fullDate)), [candles]);
+  const nineTurnLayer = useMemo(() => pages?.length ? {
+    ...initialNineTurn,
+    markers: [
+      ...pages.flatMap(page => page.nineTurn?.phase === "ready" ? page.nineTurn.points : []),
+      ...initialNineTurn.markers.filter(marker => initialDates.has(marker.tradeDate)),
+    ],
+  } : initialNineTurn, [initialDates, initialNineTurn, pages]);
+  const trendPoints = useMemo(() => {
+    const initial = trend?.points ?? [];
+    if (!pages?.length) return initial;
+    return [
+      ...pages.flatMap(page => page.trend?.phase === "ready" ? page.trend.points : []),
+      ...initial.filter(point => initialDates.has(point.time)),
+    ];
+  }, [initialDates, pages, trend]);
+  const failedLayers = pages?.flatMap(page => (["nineTurn", "trend"] as const)
+    .filter(layer => page[layer]?.phase === "error")
+    .map(layer => ({ page, layer }))) ?? [];
   const mainLines = useMemo<DetailChartLineDefinition[]>(
     () => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [],
     [overlay],
@@ -75,17 +100,17 @@ export function StockChartWorkspace({
     visible: nineTurnControl.visible,
   });
   const trendByTime = useMemo(
-    () => new Map((trend?.points ?? []).map((point) => [point.time, point])),
-    [trend],
+    () => new Map(trendPoints.map((point) => [point.time, point])),
+    [trendPoints],
   );
   const trendPrimitives = useMemo(() => {
-    if (overlay !== "TREND_CHANNEL" || !trend) return [];
+    if (overlay !== "TREND_CHANNEL" || trendPoints.length === 0) return [];
     const lines = buildTrendChannelLines(
-      trend.points,
+      trendPoints,
       points.map((point) => String(point.time)),
     );
     return [new TrendChannelPanePrimitive(lines)];
-  }, [overlay, points, trend]);
+  }, [overlay, points, trendPoints]);
   const mainPrimitives = useMemo(
     () => [...trendPrimitives, ...nineTurnChartLayer.mainPrimitives],
     [nineTurnChartLayer.mainPrimitives, trendPrimitives],
@@ -112,12 +137,23 @@ export function StockChartWorkspace({
       bottomBarAriaLabel="底部指标栏"
       dataKey={dataKey}
       hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
+      historyPhase={history?.active ? historical?.phase ?? "idle" : undefined}
+      onHistoryViewport={history?.active ? history.onViewport : undefined}
       mainLayerAccessory={(
-        <NineTurnLayerStatus
+        <><NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
-        />
+        />{failedLayers.length > 0 ? (
+          <div className="stock-history-layer-errors">
+            {failedLayers.map(({ page, layer }) => (
+              <div key={`${page.endDate}|${layer}`} role="status">
+                <span>{layer === "nineTurn" ? "九转" : "趋势通道"}历史数据加载失败</span>
+                <button type="button" onClick={() => history?.retryLayer(page, layer)}>重试</button>
+              </div>
+            ))}
+          </div>
+        ) : null}</>
       )}
       mainLines={mainLines}
       mainPrimitives={mainPrimitives}

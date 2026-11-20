@@ -23,6 +23,7 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS,
     build_calculation_request, is_stock_detail_first_page, validate_stock_daily_request,
 )
+from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlinePage
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION
@@ -181,6 +182,10 @@ class StockDailyKlineAppBackend:
 
     def work(self, request, control):
         control.check_active()
+        paginated = (
+            self._use_dg and request.start_date is None and request.trade_date is not None
+            and request.end_date is not None and request.end_date <= request.trade_date
+        )
 
         def remaining_seconds():
             control.check_active()
@@ -191,9 +196,9 @@ class StockDailyKlineAppBackend:
                 snapshot = self.service.prepare(
                     None, request,
                     load_rows=lambda code, end, start, count: self._load_page_fields(
-                        None, code, end, start, count, control,
+                        None, code, end, start, count, control, paginated=paginated,
                     ),
-                    remaining_seconds=remaining_seconds,
+                    remaining_seconds=remaining_seconds, paginated=paginated,
                 )
             except TimeoutError as error:
                 control.check_active()
@@ -217,29 +222,35 @@ class StockDailyKlineAppBackend:
         dto = self.service.assemble(
             snapshot, result, source_tables=self._source_tables,
             include_quote=self._use_dg and is_stock_detail_first_page(request),
+            paginated=paginated,
         )
         control.check_active()
         return dto.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
 
-    def _load_page_fields(self, session, code, end, start, limit, control):
+    def _load_page_fields(self, session, code, end, start, limit, control, *, paginated=False):
         if not self._use_dg:
-            return self._price_query.load_kline_rows(
+            return StockDailyKlinePage(self._price_query.load_kline_rows(
                 session, ts_code=code, end_date=end, start_date=start, limit=limit,
-            )
+            ))
         source = self.runtime.source
         with_args = {"control": control, "read_context": SourceReadContext(self.runtime.config)}
-        dates = source.daily_page_dates("stock_daily", code, start=start, end=end, limit=limit, **with_args)
+        dates = source.daily_page_dates(
+            "stock_daily", code, start=start, end=end, limit=limit + int(paginated), **with_args,
+        )
+        next_end_date = dates[0] if len(dates) > limit else None
+        dates = dates[-limit:]
         quotes = source.daily_rows("stock_daily", code, dates, STOCK_DAILY_AUX_FIELDS, **with_args)
         basics = source.daily_rows("stock_daily_basic", code, dates, STOCK_DAILY_BASIC_FIELDS, **with_args)
         if tuple(quotes) != dates:
             raise SourceReadError("读取数据失败", detail="数据缺失")
-        return [
+        rows = [
             {
                 **quotes[day], "change": quotes[day]["change_amount"],
                 **{field: basics.get(day, {}).get(field) for field in STOCK_DAILY_BASIC_FIELDS},
             }
             for day in dates
         ]
+        return StockDailyKlinePage(rows, next_end_date)
 
 
 class StockDailyKlineResponse(Response):

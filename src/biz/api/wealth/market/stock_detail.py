@@ -16,6 +16,7 @@ from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service impor
 )
 from src.biz.schemas.wealth.market.stock_detail import (
     LocalStockDetailFirstKlineResponseDto,
+    LocalStockDetailPagedKlineResponseDto,
     LocalStockDetailPageInitResponseDto,
     StockDetailKlineResponseDto,
     StockDetailPageInitResponseDto,
@@ -96,7 +97,8 @@ def build_router(*, local: bool) -> APIRouter:
     )
     router.add_api_route(
         "/kline", get_stock_detail_kline, methods=["GET"], response_class=JSONResponse,
-        response_model=(LocalStockDetailFirstKlineResponseDto | StockDetailKlineResponseDto
+        response_model=(LocalStockDetailFirstKlineResponseDto | LocalStockDetailPagedKlineResponseDto
+                        | StockDetailKlineResponseDto
                         if local else StockDetailKlineResponseDto),
     )
     return router

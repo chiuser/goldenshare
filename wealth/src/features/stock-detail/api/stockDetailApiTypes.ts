@@ -147,6 +147,7 @@ export interface StockDetailKlineResponseDto {
     limit: number;
     startDate?: string | null;
     endDate?: string | null;
+    nextEndDate?: string | null;
   };
   dataStatus: StockDetailDataStatusDto;
   debugInfo?: unknown;

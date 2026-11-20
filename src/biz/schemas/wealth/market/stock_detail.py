@@ -175,6 +175,10 @@ class StockKlineMetaDto(BaseModel):
     endDate: date | None = None
 
 
+class LocalStockKlineMetaDto(StockKlineMetaDto):
+    nextEndDate: date | None
+
+
 class StockDetailDebugInfoDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -219,5 +223,9 @@ class StockDetailKlineResponseDto(BaseModel):
     debugInfo: StockDetailDebugInfoDto | None = None
 
 
-class LocalStockDetailFirstKlineResponseDto(StockDetailKlineResponseDto):
+class LocalStockDetailPagedKlineResponseDto(StockDetailKlineResponseDto):
+    meta: LocalStockKlineMetaDto
+
+
+class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDto):
     quote: StockQuoteSnapshotDto | None

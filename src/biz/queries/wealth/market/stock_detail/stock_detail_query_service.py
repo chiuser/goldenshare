@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable
 from datetime import date
-from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -27,7 +26,7 @@ from src.biz.services.wealth.market.stock_detail.stock_detail_field_mapper impor
     build_quote,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import (
-    StockDailyKlineInput, StockDailyKlineRequest, StockDailyKlineRow,
+    StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest, StockDailyKlineRow,
 )
 
 from src.foundation.config.local_minute_capability import (
@@ -156,8 +155,9 @@ class StockDetailQueryService:
 
     def prepare_kline_input(
         self, session: Session | None, request: StockDailyKlineRequest,
-        *, load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
+        *, load_rows: Callable[[str, date, date | None, int], StockDailyKlinePage],
         remaining_seconds: Callable[[], float] | None = None,
+        paginated: bool = False,
     ) -> StockDailyKlineInput:
         context = self._context_query.resolve_context(
             session, market="CN_A", requested_trade_date=request.end_date or request.trade_date,
@@ -169,7 +169,8 @@ class StockDetailQueryService:
             timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
         )
         query_end_date = request.end_date or context.trade_date
-        rows = load_rows(request.ts_code, query_end_date, request.start_date, request.limit)
+        start = security.list_date if paginated else request.start_date
+        page = load_rows(request.ts_code, query_end_date, start, request.limit)
         # Strict indexing distinguishes a missing column from a legitimate SQL NULL.
         bars = tuple(StockDailyKlineRow(
             trade_date=row["trade_date"],
@@ -177,9 +178,9 @@ class StockDetailQueryService:
             **{name: None if row[name] is None else float(row[name]) for name in (
                 "pre_close", "change", "pct_chg", "turnover_rate", "volume_ratio",
             )},
-        ) for row in rows)
+        ) for row in page.rows)
         return StockDailyKlineInput(
-            request, context, security.ts_code, security.name, query_end_date, bars,
+            request, context, security.ts_code, security.name, query_end_date, bars, page.next_end_date,
         )
 
     def _load_security_or_raise(
