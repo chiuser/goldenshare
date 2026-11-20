@@ -4,27 +4,37 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_basic import (
     raw_tushare_index_basic,
     silver_index_basic,
 )
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     INDEX_BASIC_RAW_COLUMNS,
     INDEX_BASIC_SILVER_COLUMNS,
     count_parquet_query,
     describe_parquet_query,
-    duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.index_basic_publication import (
+    INDEX_BASIC_COVERAGE_METADATA_KEY,
+)
+from orchestrator.defs.io.index_basic_snapshot import (
+    duplicate_codes_sql,
+    invalid_raw_dates_sql,
+    terminated_index_predicate,
+)
+from orchestrator.defs.io.stock_period_raw import file_version
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_BASIC_SCHEMA,
 )
-from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-from orchestrator.defs.run_contracts.metadata import READY_FOR_TRADE_DATE_METADATA_KEY
-
+from orchestrator.defs.run_contracts.metadata import (
+    READY_FOR_TRADE_DATE_METADATA_KEY,
+    CheckScope,
+    build_check_metadata,
+)
 
 INDEX_BASIC_SILVER_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_INDEX_BASIC_SCHEMA
@@ -77,6 +87,7 @@ def _combined_check_result(
     *,
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
+    coverage_metadata: dict | None = None,
 ) -> dg.AssetCheckResult:
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
@@ -98,31 +109,39 @@ def _combined_check_result(
                 ),
                 "rule_summary": [rule_name for rule_name, _ in rule_results],
                 "rule_passed": {
-                    rule_name: bool(result.passed)
-                    for rule_name, result in rule_results
+                    rule_name: bool(result.passed) for rule_name, result in rule_results
                 },
                 "failed_rule_names": failed_rule_names,
+                **(coverage_metadata or {}),
             },
         ),
     )
 
 
-def _latest_ready_for_trade_date(instance: dg.DagsterInstance) -> str | None:
+def _latest_snapshot(instance: dg.DagsterInstance, asset: str):
     records = instance.fetch_materializations(
-        dg.AssetRecordsFilter(asset_key=dg.AssetKey("silver_index_basic")),
+        dg.AssetRecordsFilter(asset_key=dg.AssetKey(asset)),
         limit=1,
     ).records
-    if not records:
-        return None
+    return records[0] if records else None
 
-    materialization = records[0].asset_materialization
-    if materialization is None:
-        return None
-    metadata_value = materialization.metadata.get(READY_FOR_TRADE_DATE_METADATA_KEY)
-    if metadata_value is None:
-        return None
-    value = getattr(metadata_value, "value", metadata_value)
-    return str(value) if value else None
+
+def _coverage_metadata(record, path: Path) -> dict:
+    if record is None or record.asset_materialization is None or not path.is_file():
+        return {}
+    value = record.asset_materialization.metadata.get(INDEX_BASIC_COVERAGE_METADATA_KEY)
+    evidence = getattr(value, "value", None)
+    if not isinstance(evidence, dict) or evidence.get("file_version") != file_version(
+        path
+    ):
+        return {}
+    return {
+        INDEX_BASIC_COVERAGE_METADATA_KEY: {
+            **evidence,
+            "materialization_id": record.storage_id,
+            "materialization_run_id": record.run_id,
+        }
+    }
 
 
 def raw_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
@@ -206,13 +225,7 @@ def raw_index_basic_unique_ts_code(
     if not path.exists():
         return _missing_file_result(path)
 
-    duplicate_keys_sql = f"""
-    SELECT ts_code, count(*) AS row_count
-    FROM {read_parquet(path, hive_partitioning=False)}
-    WHERE ts_code IS NOT NULL AND trim(ts_code) != ''
-    GROUP BY ts_code
-    HAVING count(*) > 1
-    """
+    duplicate_keys_sql = duplicate_codes_sql(path)
     with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
@@ -260,25 +273,7 @@ def raw_index_basic_date_strings_parseable(
     if not path.exists():
         return _missing_file_result(path)
 
-    invalid_date_rows_sql = f"""
-    SELECT ts_code, 'base_date' AS field_name, base_date AS field_value
-    FROM {read_parquet(path, hive_partitioning=False)}
-    WHERE base_date IS NOT NULL
-      AND trim(CAST(base_date AS VARCHAR)) != ''
-      AND try_strptime(trim(CAST(base_date AS VARCHAR)), '%Y%m%d') IS NULL
-    UNION ALL
-    SELECT ts_code, 'list_date' AS field_name, list_date AS field_value
-    FROM {read_parquet(path, hive_partitioning=False)}
-    WHERE list_date IS NOT NULL
-      AND trim(CAST(list_date AS VARCHAR)) != ''
-      AND try_strptime(trim(CAST(list_date AS VARCHAR)), '%Y%m%d') IS NULL
-    UNION ALL
-    SELECT ts_code, 'exp_date' AS field_name, exp_date AS field_value
-    FROM {read_parquet(path, hive_partitioning=False)}
-    WHERE exp_date IS NOT NULL
-      AND trim(CAST(exp_date AS VARCHAR)) != ''
-      AND try_strptime(trim(CAST(exp_date AS VARCHAR)), '%Y%m%d') IS NULL
-    """
+    invalid_date_rows_sql = invalid_raw_dates_sql(path)
     with connect_configured_duckdb() as connection:
         invalid_date_count = int(
             connection.execute(
@@ -400,13 +395,7 @@ def silver_index_basic_unique_ts_code(
     if not path.exists():
         return _missing_file_result(path)
 
-    duplicate_keys_sql = f"""
-    SELECT ts_code, count(*) AS row_count
-    FROM {read_parquet(path, hive_partitioning=False)}
-    WHERE ts_code IS NOT NULL AND trim(ts_code) != ''
-    GROUP BY ts_code
-    HAVING count(*) > 1
-    """
+    duplicate_keys_sql = duplicate_codes_sql(path)
     with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
@@ -507,7 +496,14 @@ def silver_index_basic_no_terminated_indexes(
     if not path.exists():
         return _missing_file_result(path)
 
-    ready_for_trade_date = _latest_ready_for_trade_date(context.instance)
+    snapshot = _latest_snapshot(context.instance, "silver_index_basic")
+    materialization = snapshot.asset_materialization if snapshot is not None else None
+    date_metadata = (
+        materialization.metadata.get(READY_FOR_TRADE_DATE_METADATA_KEY)
+        if materialization
+        else None
+    )
+    ready_for_trade_date = getattr(date_metadata, "value", None)
     if not ready_for_trade_date:
         return dg.AssetCheckResult(
             passed=False,
@@ -520,15 +516,15 @@ def silver_index_basic_no_terminated_indexes(
             ),
         )
 
+    ready_for_trade_date = str(ready_for_trade_date)
+    predicate = terminated_index_predicate(ready_for_trade_date)
     with connect_configured_duckdb() as connection:
-        ready_date = f"DATE {duckdb_string(ready_for_trade_date)}"
         terminated_count = int(
             connection.execute(
                 f"""
                 SELECT count(*) AS terminated_count
                 FROM {read_parquet(path, hive_partitioning=False)}
-                WHERE exp_date IS NOT NULL
-                  AND exp_date <= {ready_date}
+                WHERE {predicate}
                 """
             ).fetchone()[0]
         )
@@ -536,8 +532,7 @@ def silver_index_basic_no_terminated_indexes(
             f"""
             SELECT ts_code, name, exp_date
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE exp_date IS NOT NULL
-              AND exp_date <= {ready_date}
+            WHERE {predicate}
             ORDER BY exp_date, ts_code
             LIMIT 10
             """
@@ -554,6 +549,7 @@ def silver_index_basic_no_terminated_indexes(
                 "terminated_sample_rows": _sample_dicts(
                     ["ts_code", "name", "exp_date"], rows
                 ),
+                **_coverage_metadata(snapshot, path),
             },
         ),
     )
@@ -561,6 +557,7 @@ def silver_index_basic_no_terminated_indexes(
 
 @dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_contract_check(
+    context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
@@ -574,6 +571,10 @@ def raw_index_basic_contract_check(
             ("required_columns", raw_index_basic_required_columns(lake_root, duckdb)),
         ),
         check_scope=CheckScope.SCHEMA,
+        coverage_metadata=_coverage_metadata(
+            _latest_snapshot(context.instance, "raw_tushare_index_basic"),
+            raw_index_basic_path(lake_root.root()),
+        ),
     )
 
 

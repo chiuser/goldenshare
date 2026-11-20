@@ -1,5 +1,5 @@
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
@@ -479,6 +479,23 @@ def _fetch_all_pages(
 ) -> tuple[list[dict[str, Any]], int]:
     rows: list[dict[str, Any]] = []
     page_count = 0
+    for _, page_rows in iter_tushare_pages(
+        tushare=tushare, api_name=api_name, api_params=api_params,
+        field_names=field_names, limit=limit,
+    ):
+        rows.extend(page_rows)
+        page_count += 1
+    return rows, page_count
+
+
+def iter_tushare_pages(
+    *,
+    tushare: TushareResource,
+    api_name: str,
+    api_params: Mapping[str, Any],
+    field_names: tuple[str, ...],
+    limit: int = TUSHARE_API_PAGE_LIMIT,
+) -> Iterator[tuple[int, list[dict[str, Any]]]]:
     offset = 0
     while True:
         page_params = {**dict(api_params), "limit": limit, "offset": offset}
@@ -490,13 +507,10 @@ def _fetch_all_pages(
                 f"expected {list(field_names)}."
             )
 
-        rows.extend(page_rows)
-        page_count += 1
+        yield offset, page_rows
         if len(page_rows) < limit:
             break
         offset += limit
-
-    return rows, page_count
 
 
 def _fetch_namechange_announcement_windows(
@@ -572,6 +586,7 @@ def _write_rows_to_parquet(
     fields: tuple[str, ...],
     column_types: Mapping[str, str],
     target_path: Path,
+    verify_candidate: bool = False,
 ) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = target_path.with_name(f"{target_path.name}.tmp")
@@ -599,8 +614,30 @@ def _write_rows_to_parquet(
         connection.execute(
             copy_query_to_parquet(f"SELECT {select_sql} FROM api_rows", temporary_path)
         )
+        if verify_candidate:
+            candidate = read_parquet(temporary_path, hive_partitioning=False)
+            differences = connection.execute(
+                f"""SELECT count(*) FROM (
+                  (SELECT {select_sql} FROM api_rows EXCEPT ALL SELECT * FROM {candidate})
+                  UNION ALL
+                  (SELECT * FROM {candidate} EXCEPT ALL SELECT {select_sql} FROM api_rows)
+                ) differences"""
+            ).fetchone()[0]
+            if differences:
+                raise ValueError(f"Raw Parquet differs from Tushare rows: {differences}")
 
     os.replace(temporary_path, target_path)
+
+
+def write_verified_tushare_raw_candidate(
+    *, duckdb: DuckDBResource, rows: list[dict[str, Any]], fields: tuple[str, ...],
+    column_types: Mapping[str, str], target_path: Path,
+) -> None:
+    _validate_contract(fields, column_types)
+    _write_rows_to_parquet(
+        duckdb=duckdb, rows=rows, fields=fields, column_types=column_types,
+        target_path=target_path, verify_candidate=True,
+    )
 
 
 def _write_distinct_rows_to_parquet(

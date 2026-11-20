@@ -176,6 +176,7 @@
     <div class="callout">
       <strong>已替代的历史阶段 LLD（2026-07-15 校正）：</strong>本文保留主要指数和 raw-by-code 的历史代码结构与验收记录，不能作为当前 asset/job/sensor 实现指南。当前指数日线权威是 <a href="dagster-index-daily-raw-by-date-prod-db-migration-plan.md">raw by-date / prod core DB migration plan</a> 与其 <a href="dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md">LLD</a>；现行入口见 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a>。
     </div>
+    <p>DG 指数基础信息的后续维护见<a href="#index-basic-refresh-lld">第 8 节刷新与日更 LLD</a>。下文其余历史阶段的范围和状态保持原记录。</p>
   </section>
 
   <section>
@@ -490,6 +491,67 @@ silver_index_daily_update_job[trade_date]
     <p class="small">
       详细实现细节继续维护在 <a href="dagster-phase-3-index-daily-refactor-low-level-design.html">Index Daily 重构 LLD</a>。
     </p>
+  </section>
+  <section id="index-basic-refresh-lld">
+    <h2>8. DG 指数基础信息刷新与日更 LLD</h2>
+    <p class="small">2026-11-20 · 第一阶段刷新流程已实现并通过离线验收。正式首刷与日更接入待执行。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
+
+    <h3>8.1 复用入口与影响面</h3>
+    <table>
+      <thead><tr><th>位置</th><th>现状和本次设计</th></tr></thead>
+      <tbody>
+        <tr><td><a href="../../orchestrator/src/orchestrator/defs/jobs/index_basic_update.py"><code>jobs/index_basic_update.py</code></a></td><td>沿用 <code>index_basic_update_job</code>、两层资产及其阻断 Check。全链 Job 使用本节的配对发布流程，保留手动启动和空配置合同。指数基础信息仍为无分区快照。</td></tr>
+        <tr><td><a href="../../orchestrator/src/orchestrator/defs/assets/index_basic.py"><code>assets/index_basic.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/tushare_api_io.py"><code>tushare_api_io.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/duckdb_sql.py"><code>duckdb_sql.py</code></a></td><td>复用分页、原列合同、Silver 交易日解析和过滤 SQL。将现有正式目标旁的临时写入改为本次执行目录内生成候选。主链在 Raw 阶段准备并验证两份候选，Raw Check 通过后由 Silver 阶段接续发布同批候选。</td></tr>
+        <tr><td><a href="../../orchestrator/src/orchestrator/defs/checks/index_basic_checks.py"><code>checks/index_basic_checks.py</code></a></td><td>保留现有阻断 Check 的名称和通过条件。Raw 文件合同 Check 明细附本次源响应与 Raw 候选的对账结果，Silver 生命周期 Check 明细附本次 Raw 与 Silver 候选的双向对账结果。新增明细只供审计读取。候选核验与现有 Check 使用的共同规则从同一实现派生。</td></tr>
+        <tr><td><a href="../../orchestrator/src/orchestrator/defs/sensors/stock_basic_sensor.py"><code>sensors/stock_basic_sensor.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/sensors/index_trade_day_sensor.py"><code>index_trade_day_sensor.py</code></a></td><td>参考前者的成功交付判定和幂等提交方式，使用后者登记的指数交易日。首刷验收后再接入专用 <code>index_basic_update_job_sensor</code>。登记交易日和提交更新 Job 各由现有与新增的 Sensor 负责。</td></tr>
+      </tbody>
+    </table>
+    <p>指数行情与主要指数 Gold 继续按现有就绪条件和执行顺序运行。指数周月线继续读取现有阻断 Check 的通过结果，主要指数 Gold 继续按现有文件规则判就绪，两条链路都不读取新增的对账明细。18:00 的时间条件只用于指数基础信息日更。首刷前核对候选对主要指数 Gold 的 seed 输入以及指数周月线当前引用的代码有何影响。如有缺少或生效边界变化，报告列明代码、原因及受影响的任务。基础信息候选始终按源端和现行 Silver 规则生成。</p>
+
+    <h3>8.2 取数范围和首刷验证</h3>
+    <ol>
+      <li>从 <a href="../../../docs/sources/tushare/指数专题/0094_指数基本信息.md">Tushare <code>index_basic</code>（doc_id=94）</a> 请求现行 Raw 合同的 13 列。业务参数为空。<code>limit=6000</code>，<code>offset</code> 从 0 每次加 6000，末页少于 6000 条时结束。检查页字段、每页条数、总体非空及跨页主键唯一。重复键或请求失败保留诊断并停止，禁止通过静默去重得到候选。</li>
+      <li>首刷在同一个取数窗口，用支持 <code>limit/offset</code> 的请求按已知 8 类市场分别分页，将各市场唯一代码集合与不传 <code>market</code> 的结果对账。已知范围是 <code>BSE</code>、<code>CI</code>、<code>CNI</code>、<code>CSI</code>、<code>NH</code>、<code>SSE</code>、<code>SW</code>、<code>SZSE</code>。每组都须取完，尤其是上次已有 9,079 条的 <code>CSI</code>。若全量请求出现新的市场，核实后保留。独立取数与主请求无法对齐时先定位是漏页、源端在两次请求间变化，还是接口筛选行为不同，再决定能否发布。当前没有覆盖所有潜在市场取值的独立名单。</li>
+      <li>保存请求时间、各页 <code>offset</code> 和返回行数、每市场唯一代码数及差异。候选 Raw 的代码和 13 列值与同批主请求对账，按现行合同转换空值和类型。与旧 Raw 比较得到新增、移除和业务字段变化，用于解释替换内容。旧代码本次重新出现时照常保留。</li>
+    </ol>
+    <p>同一个 Job 使用可选的类型化运行配置。首刷手动启用 <code>verify_source_market_coverage</code>，在本次发布前验证市场覆盖。日更使用空业务请求参数和例行校验，Sensor 另外传入 <code>scheduled_trade_date</code> 作为取数前的日期校验。普通手动运行仍可用空配置，由 Job 自行选择最新已登记交易日。配置沿统一构造入口进入 Job，两个选项均不会传给 Tushare。</p>
+
+    <h3>8.3 候选、发布与恢复</h3>
+    <ol>
+      <li><strong>固定本批输入。</strong> Job 在开始时解析并记录实际采用的指数交易日 <code>D</code>。Raw 候选以本次分页结果生成，Silver 候选只读该 Raw 候选，用固定的 <code>D</code> 应用现行 <code>exp_date IS NULL OR exp_date &gt; D</code>。现行日期归一化及字段类型继续生效。没有可用 <code>D</code> 时，本批不能完成两层发布。</li>
+      <li><strong>先核候选。</strong> 两份 Parquet 和逐文件记录留在 <code>/Volumes/datasource/data_lake_staging/index_basic/</code> 的本次执行目录。记录执行身份、取数时间、适用交易日、源和候选的行数与摘要、正式目标原身份。验证两份文件可读、列类型、主键和日期。用本批 Raw 及 <code>D</code> 生成 Silver 应有结果，双向核对代码和终止日期，分别记录应有、实际、缺码、多码和终止日期不符的数量与样例。两层候选都通过且同一文件系统才开始替换正式文件。此步骤由全链 Job 的 Raw 阶段执行。单资产运行只准备和发布所选层。单跑 Silver 时，以本次实际读取的正式 Raw 版本为输入，同样先对账再发布。单层发布不能计为全链日更成功。</li>
+      <li><strong>逐文件发布并检查。</strong> 目标仍是 <code>/Volumes/datasource/data_lake/raw/tushare/index_basic/full/part-000.parquet</code> 和 <code>/Volumes/datasource/data_lake/silver/index_basic/full/part-000.parquet</code>。先发布 Raw 并读回，Raw 阻断 Check 通过后，Silver 阶段校验正式 Raw 仍是当前执行的输入，发布同批 Silver 候选并读回。每次替换用同文件系统的 <code>os.replace()</code>，发布前后记录摘要和完成状态。启动前确认两个目标无其他写入任务。当两层发布并取得对应 Check 后，才记全链当天成功。</li>
+      <li><strong>中断按事实续跑。</strong> 候选校验失败时原正式文件继续使用。已完成一层替换时保留该层的结果和本批记录，核对目标摘要后继续未完成层。Dagster 重执行通过原始 run ID 找到同一批次，复用固定 <code>D</code> 和有效候选。实际目标、候选或源文件与记录不符时停止续跑并报告变化。若文件已替换但 Dagster 记录缺失，先对齐正式文件和本批记录，再由获准的 Dagster 重执行补齐该层证据。两份文件是各自原子替换，分层发布期间按各层实际状态呈现。</li>
+    </ol>
+    <p>参考<a href="dagster-index-daily-staging-write-plan-and-low-level-design.md">指数日线候选写入和续跑设计</a>。该 writer 的日期列校验及路径适用于日线分区。指数基础信息候选沿用快照路径和字段合同。</p>
+
+    <h3>8.4 日更触发与审计读取</h3>
+    <ul>
+      <li>Sensor 按北京时间（<code>Asia/Shanghai</code>）评估。18:00 前或当天指数交易日未登记时跳过。18:00 起，当天交易日已登记且没有当晚成功交付时，提交一次 <code>index_basic_update_job</code>。以当日 18:00 起取数的更新批次、Job 成功结果、该批次两层物化及各自的 Check 判定交付。中途续跑的两层可有不同 run ID，须能归到同一批次，且每层 Check 都与该层物化记录匹配。18:00 前的手动刷新记录实际交付时间，当晚仍按上述规则触发。Sensor 只读这些交付证据和当日交易日登记状态。</li>
+      <li>以 <code>D</code> 为执行单元，用 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/run_keys.py"><code>build_asset_update_run_key</code></a> 去重。任务第一次取数前，若 <code>scheduled_trade_date</code> 与北京时间当天或实际解析出的 <code>D</code> 不一致，停止取数并记录原因。完整候选已存在的中断任务按其固定输入继续。失败在 DG 和审计明细中展示，按本批记录人工重执行。每日独立触发，离线漏跑的日期保留原交付事实。</li>
+      <li><strong>把候选验证结果绑定到正式产出。</strong> 通过发布读回确认正式文件摘要等于本次已核验的候选摘要。Raw 物化记录本批源请求和 Raw 覆盖结果，Silver 物化记录实际使用的 Raw 版本、<code>ready_for_trade_date</code> 和本批对账结果。现有的 Raw 文件合同 Check 和 Silver 生命周期 Check 读取各自目标物化的覆盖结果并写入明细，保留原有 <code>passed</code> 判定。发布后的 Check 及页面无需重做源端或两层对账。</li>
+      <li><strong>按版本复用证据。</strong> 审计按业务日期找到各层产出，再以物化记录 ID 和 run ID 匹配 Check，核对其中的覆盖证据属于同一产出。后来单跑 Raw 导致当前 Raw 版本变化时，旧 Silver 的对账证据仍只对应它原来使用的 Raw。旧版缺证据或关联不上时，齐备显示「待确认」。重跑旧文件 Check 不构成当日更新，也不能用当前 Raw 给旧 Silver 补造证据。</li>
+      <li><strong>分开显示结果。</strong> 更新状态读取各层实际交付。若 Raw 已发布、Silver 未完成，分别呈现，整个日更 Job 仍未完成。齐备状态结合各层对应的正式 Check 和覆盖证据。对账失败发生在发布前，差异记在该次运行明细，不能把未发布候选的缺口归给仍在使用的旧快照。</li>
+    </ul>
+
+    <h3>8.5 性能与验收</h3>
+    <ul>
+      <li><strong>范围和请求数。</strong> 每次读取一批指数基础信息，写两个全表快照。以已知 8 类市场的 12,648 条做估算，不传 <code>market</code> 主查询为 <code>floor(12648 / 6000) + 1 = 3</code> 次。首刷交叉取数按上次各市场行数估算，7 个市场各 1 页、<code>CSI</code> 2 页，另约 9 次。这个估算以独立查询也支持 <code>limit/offset</code> 为前提，实际页数和配额消耗以正式验证为准。例行日更使用主查询，候选和读回的本地对账不再请求源端。</li>
+      <li><strong>本地开销。</strong> 现有两文件分别约 508 KB 与 468 KB。生产 SQL 只读本次 Raw 候选生成 Silver，旧快照只用于首刷差异与影响核对。每层校验和发布读回各针对本层文件，续跑根据记录读取仍需复核的候选与正式目标。输入预先完整时无需再次分页取数。上线前记录实测的页数、耗时、内存峰值、候选和临时磁盘用量，包括中断继续和发布后读回。</li>
+      <li><strong>离线验证。</strong> 扩展 <a href="../../orchestrator/tests/test_index_basic_contracts.py"><code>test_index_basic_contracts.py</code></a>，验证源端移除的旧代码消失、源端仍有的终止指数留在 Raw、<code>exp_date = D</code> 在 Silver 排除，空值和 <code>exp_date &gt; D</code> 保留。覆盖跨页重复、分页请求失败、Silver 漏码或终止日期不符时两层候选不发布，以及 Raw 已发布后的续跑。另验证 Check 明细绑定同次产出，旧版缺证据时显示「待确认」，单独刷新 Raw 后原 Silver 的 Check 通过条件不变。日更用例覆盖 18:00 边界、当日未登记、同日去重及跨日排队。下游回归覆盖当晚尚未刷新时，满足现有就绪条件的指数行情和主要指数 Gold 仍可启动。</li>
+      <li><strong>正式验收。</strong> 首刷在获准的窗口和数据范围内完成源端交叉取数及两份候选核对，报告本次增删改和对下游固定代码的影响。发布后确认两个正式文件、各层对应 Check 及全链 Job 状态。后续独立验收 Sensor 在北京时间 18:00 起且当日已登记时只提交一次、正式 Job 当日成功、审计能复用两个状态。执行前列明实际运行入口、<code>DAGSTER_HOME</code>、读写范围及中断后处理。</li>
+    </ul>
+    <h3 id="index-basic-refresh-acceptance">8.6 第一阶段验收记录</h3>
+    <p>在隔离 Dagster instance 和临时 Lake 中使用模拟 Tushare 响应执行现有 Job。指数基础信息、基础资料合同、主要指数就绪、周月线 Sensor、ETF 定义及运行合同门禁共 185 项通过，另有 45 个子用例通过。静态检查通过，共享的 Tushare IO 文件保留了修改前已有的两条 lint 告警。</p>
+    <table>
+      <thead><tr><th>已核对的预期</th><th>验证结果</th></tr></thead>
+      <tbody>
+        <tr><td>Raw 按本批分页结果整表替换，Silver 从实际使用的 Raw 按 <code>D</code> 生成</td><td>隔离 Job 逐代码核对。源端移除的旧南华代码消失，仍在源端的终止指数保留在 Raw；<code>exp_date = D</code> 的指数不进入 Silver。</td></tr>
+        <tr><td>两层候选通过后才开始发布，续跑使用同批输入</td><td>模拟分页失败、跨页重键、市场对账不符、Silver 漏码和终止日期不符，两份原文件内容均保持原样。模拟 Raw 替换后中断，用原批次记录读回并发布 Silver，无需再次请求源端。</td></tr>
+        <tr><td>对账明细能复用，原阻断 Check 通过条件照旧</td><td>实际 Check 事件带有对应物化 ID、run ID 和批次证据。单独刷新 Raw 后，原 Silver 的 Check 仍按原条件通过；历史物化缺少覆盖证据时，原 Check 结果仍有效。</td></tr>
+      </tbody>
+    </table>
+    <p>按上次源端市场规模构造的 12,648 条模拟记录使用 6,000 条分页，主查询和首刷市场交叉验证合计 12 次模拟请求。候选生成、验证和两层发布共 3.834 秒，Raw 发布后重新打开批次记录并完成 Silver 用时 0.002 秒。该测试进程峰值内存约 294 MiB，包含模块装载。实测范围是本机 IO，无真实源请求或正式写入。首刷仍须核验正式环境的分页、覆盖、耗时及事后读回。</p>
   </section>
 </main>
 <section><h2>2026-10-24 日线写入安全修正</h2><p>管理员已授权主要指数日线Gold与上游指数日线Silver使用staging、逐文件记录和中断继续核对；不改公式、seed、字段、日期和正式路径。实施以<a href="dagster-index-daily-staging-write-plan-and-low-level-design.md">本步方案和LLD</a>为准；验证结果另行追加。</p></section>

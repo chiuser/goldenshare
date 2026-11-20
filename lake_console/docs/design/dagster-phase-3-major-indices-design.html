@@ -188,6 +188,7 @@
     <div class="callout">
       <strong>已替代的历史阶段设计（2026-07-15 校正）：</strong>本文保留主要指数与早期 raw-by-code 链路的阶段证据；其中 raw-by-code 不是当前生产入口。当前指数日线权威是 <a href="dagster-index-daily-raw-by-date-prod-db-migration-plan.md">raw by-date / prod core DB migration plan</a> 与其 <a href="dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md">LLD</a>；主要指数现行依赖以 <a href="../architecture/dagster-asset-job-topology.html">Dagster asset/job topology</a> 为准。
     </div>
+    <p>DG 指数基础信息的后续维护见<a href="#index-basic-refresh">第 8 节刷新与日更方案</a>。下文其余历史阶段的范围和状态保持原记录。</p>
   </section>
 
   <section>
@@ -450,6 +451,35 @@ data_lake/raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code><
     <p class="small">
       本文件不再保留旧 active pool 方案的实现步骤。需要追溯旧方案时只看 git 历史，不在当前工作文档中继续传播。
     </p>
+  </section>
+  <section id="index-basic-refresh">
+    <h2>8. DG 指数基础信息刷新与日更方案</h2>
+    <p class="small">2026-11-20 · 第一阶段刷新流程已实现并通过离线验收。正式首刷与日更接入待执行。<a href="dagster-phase-3-major-indices-low-level-design.html#index-basic-refresh-acceptance">第一阶段验收记录</a></p>
+    <p>先刷新本地 DG 的指数基础信息 Raw 和 Silver，修复现有快照落后于 Tushare 的问题。首刷验收后，沿用同一个更新 Job 接入交易日日更。这两份文件都是全表快照。日更按业务交易日判断是否成功交付，存储仍是单份当前快照。</p>
+
+    <h3>8.1 已确认的数据口径</h3>
+    <table>
+      <thead><tr><th>层</th><th>保留规则</th><th>验收依据</th></tr></thead>
+      <tbody>
+        <tr><td>Raw <code>raw_tushare_index_basic</code></td><td>以 Tushare <code>index_basic</code> 本次分页返回的全集整表替换。源端继续返回的已终止指数保留。源端本次不再返回的旧代码移出当前 Raw，南华旧代码同样处理。</td><td>同批响应与 Raw 文件的代码和字段一致。首刷用已知市场的独立分页结果核对代码覆盖。发布前记录新增、移除和字段变化。</td></tr>
+        <tr><td>Silver <code>silver_index_basic</code></td><td>从同批 Raw 生成。沿用最新已登记指数交易日 <code>D</code>，保留 <code>exp_date</code> 为空或大于 <code>D</code> 的代码。</td><td>发布前以本次实际使用的 Raw 和 <code>D</code> 为准，双向核对代码和终止日期。对账通过才能发布新候选。报告展示实际适用交易日及过滤数量。</td></tr>
+      </tbody>
+    </table>
+    <p>例如，源端仍返回 <code>930994.CSI</code> 且终止日期为 2026-11-16 时，Raw 保留该代码，Silver 从 11 月 16 日起排除它。上次源端未返回的 150 个南华代码只作为首刷差异线索。移除范围以正式取数为准，口径也适用于其他市场。此次写入范围是两份 DG 基础信息文件，历史行情、指数池配置和 Prod 数据都在范围之外。</p>
+    <p>11 月 20 日核查的本地 Raw 和 Silver 文件仍为 7 月 10 日产生的 12,367 条和 11,581 条。此前在已知 8 个市场查到 12,648 个源端唯一代码，其中 431 个在本地 Raw 缺失。该组数字用于估算规模和解释刷新原因，正式验收以同一次取数的结果为准。<a href="dagster-daily-data-audit-rules-review-v1.md">已有数据审计记录第 3.6 节</a></p>
+
+    <h3>8.2 实施顺序</h3>
+    <ol>
+      <li><strong>先做一次手动刷新。</strong> 复用 <code>index_basic_update_job</code> 的两层资产与正式 Check。现行实现先替换文件后执行 Check。本次增加候选发布流程，两份候选先在 staging 生成并核验，随后逐文件发布、读回并记录每层 Check。首刷在同一取数窗口交叉核对已知市场，发现漏页、主键重复或未解释的源端差异时暂停发布。</li>
+      <li><strong>首刷通过后接入日更。</strong> 参考股票基础信息的触发方式，增加 <code>index_basic_update_job_sensor</code>。由本机 Dagster daemon 轮询是否到了当日更新窗口、当日指数交易日是否已登记、当天是否已有成功交付。满足条件时提交现有 Job。日更继续复用本批响应和文件的核验结果。</li>
+      <li><strong>审计页面读取交付证据。</strong> 更新状态按各层当日发布和运行结果判断。齐备状态同时使用本次产出的正式 Check 结果和其中记录的发布前覆盖证据。首刷和日更均记录版本、取数时间和 Silver 适用日。缺少同版覆盖证据时显示「待确认」。无需另行请求 Tushare 或重读文件。</li>
+    </ol>
+
+    <h3>8.3 已确认的日更与下游规则</h3>
+    <ol>
+      <li><strong>日更时点。</strong> 北京时间 18:00 起，当天指数交易日已登记且当晚尚无成功交付时，由本机 Dagster 提交一次更新。若本机当天离线，下一交易日直接更新最新快照，漏跑日期在审计中按缺少当日交付处理。<a href="https://tushare.pro/document/2?doc_id=94">Tushare 指数基本信息</a></li>
+      <li><strong>下游就绪规则。</strong> 指数行情与主要指数 Gold 沿用现有就绪条件。原阻断 Check 的通过条件和下游读取方式照旧。新对账约束本次候选发布，结果写入对应 Check 明细供审计复用。单独刷新 Raw 时，原 Silver 的就绪仍按现行规则判断。首刷报告仍列出名单变动对现行主要指数和周月线名单的影响。</li>
+    </ol>
   </section>
 </main>
 <section><h2>2026-10-24 日线写入安全修正</h2><p>管理员已授权主要指数日线Gold与上游指数日线Silver使用staging、逐文件记录和中断继续核对；不改公式、seed、字段、日期和正式路径。实施以<a href="dagster-index-daily-staging-write-plan-and-low-level-design.md">本步方案和LLD</a>为准；验证结果另行追加。</p></section>
