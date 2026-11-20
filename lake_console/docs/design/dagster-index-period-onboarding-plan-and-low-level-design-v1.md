@@ -2,11 +2,13 @@
 
 状态：**F 已完成启用，尚未全部验收，见 §11.18。管理员确认后，已通过原队列人工接续 2026-11-18 的周／月 Silver，两个当前分区十一代码均截至 18 日；四 sensor 已为 RUNNING，首个真实自然 tick 均因凌晨不在窗口而正确跳过，未提交业务任务。自动日更待 19 日晚间真实链路，周／月正式自动覆盖分别待实际发布，不能预填通过。E 已随 `6564bfaa2` 提交并验收；本轮只改原方案和现有拓扑说明，未改源码、单位或调度窗口，F 启用及审计记录随本次提交归档。**
 
-更新日期：2026-11-18；§2 的 Prod 审计日期及历史数量保持原记录。
+更新日期：2026-11-20；§2 的 Prod 审计日期及历史数量保持原记录。
 
 日期：2026-11-17。本文按 [DG 新增数据集模板](../templates/dagster-dataset-onboarding-template.html) 编写，将方案与 LLD 合在一份文件维护。业务口径采用本次讨论中已经确认的决定；分区、job、sensor、check 对应关系以 §3、§6、§7 为准。初稿不分区、联合 Silver job、周月链重新下载日线及重复探测 Tushare 日线的设计均已撤回；日更实际输入为已有 `silver_index_daily`。实现进度只以 §11 的阶段记录为准，未完成阶段仍是设计要求。
 
 ## 1. 目标、范围与已经确认的决定
+
+2026-11-20 当期触发条件修复：管理员已确认只修复 Silver sensor 在当期日线／日更未完成时提前提交正式覆盖的问题。方案和 LLD 修订已完成；本轮按管理员新指令先提交文档、再修改源码和对应回归用例，不执行验证、不重启或重载 DG。具体范围和进度见 §11.20，不以源码修改表示正式运行已生效。
 
 为 DG 现有的 11 个主要指数接入指数周线 `index_weekly`、指数月线 `index_monthly`，同时保存历史和每天更新的当期 K 线。
 
@@ -215,7 +217,9 @@ change, pct_chg, vol, amount
 
 ### 5.3 期末数据覆盖与人工补齐
 
-Raw 周／月线成功更新后，对应 Silver sensor 另触发同一个周／月分区的更新，配置只传 `mode=period`，原期末从所选分区和交易日历推导，不另传 `trade_date`，与 §7.5 一致。覆盖目标按 `ts_code, period_start_date` 定位，不能将历史期末替换成触发当天，也不能只看该分区当天已物化就跳过新 Raw 覆盖。北证 50 没有新 Raw 时保留已经结束且完整的合成 K 线，不为本次覆盖再次读取和计算它的全周期日线；其目标周期尚未完成则失败并交人工。
+Raw 周／月线成功更新后，对应 Silver sensor 在下述触发条件满足后另提交同一个周／月分区的更新，配置只传 `mode=period`，原期末从所选分区和交易日历推导，不另传 `trade_date`，与 §7.5 一致。若该 Raw 属于当天所在周／月，必须先等当天 DG 指数日线 Silver 运行成功、原四项检查通过且十一代码齐备，优先执行既有 `mode=daily` 日更；该周期 Silver 成功物化、关联检查通过并截至当天后，才允许后续 tick 提交当期正式覆盖。日线未就绪或当期日更尚未完成时，即使 Raw 已成功也只等待，不将该 Raw 批次标为已处理。旧周期正式覆盖继续按原目标周期的 Raw 及完整合成记录处理，不增加执行当天的日线依赖。
+
+覆盖目标按 `ts_code, period_start_date` 定位，不能将历史期末替换成触发当天，也不能只看该分区当天已物化就跳过新 Raw 覆盖。北证 50 没有新 Raw 时保留已经结束且完整的合成 K 线，不为本次覆盖再次读取和计算它的全周期日线。现有 writer 的完整性判断保持不变：人工直接提交或旧周期确实缺少完整合成记录时，仍失败并交人工；本次只阻止 sensor 在已知当期日更未完成时提前提交任务。
 
 有期末 Raw 时优先写其值；没有新 Raw 时不能用较早日线结果覆盖较晚截至日。人工使用 `mode=repair` 补齐明确指定的已结束周期时，只从 DG 日线 Silver 读取所需完整窗口，不要求事先存在上一交易日的周／月 Silver，已有完整记录直接保留。DG 日线历史不足时先由运营补齐上游，本链不自动请求 Tushare／Prod 日线。当日漏跑造成接续失败时，人工先补缺失目标日，或选择已结束周期补齐；sensor 不提交 repair，也不自动领取历史缺口。
 
@@ -265,8 +269,8 @@ Silver 的真实只读依赖为 `silver_index_daily`、同频率 Raw、`silver_t
 | --- | --- | --- | --- |
 | `raw_index_weekly_update_job_sensor` | `raw_index_weekly_update_job` | 当周最后交易日 19:00–00:00，点查上证指数该期周线已发布；`partition_key=本周最后交易日` | 当周行情发布后，触发主要指数周线原始行情更新。 |
 | `raw_index_monthly_update_job_sensor` | `raw_index_monthly_update_job` | 次月首个交易日 19:00–00:00，点查上证指数上月实际期末月线已发布；`partition_key=上月 YYYY-MM` | 上月行情发布后，触发主要指数月线原始行情更新。 |
-| `silver_index_weekly_update_job_sensor` | `silver_index_weekly_update_job` | 当天 DG 指数日线 Silver 成功并通过已有 checks、11 个目标代码齐备后，以本周分区、`mode=daily, trade_date=T` 更新；另消费新成功周线 Raw，提交原周 `mode=period` | DG 指数日线成功后更新当前周，并覆盖新到的期末周线。 |
-| `silver_index_monthly_update_job_sensor` | `silver_index_monthly_update_job` | 当天 DG 指数日线 Silver 成功并通过已有 checks、11 个目标代码齐备后，以本月分区、`mode=daily, trade_date=T` 更新；另消费新成功月线 Raw，提交原月 `mode=period` | DG 指数日线成功后更新当前月，并覆盖新到的期末月线。 |
+| `silver_index_weekly_update_job_sensor` | `silver_index_weekly_update_job` | 当天 DG 指数日线 Silver 成功并通过已有 checks、11 个目标代码齐备后，以本周分区、`mode=daily, trade_date=T` 更新；当周 Raw 覆盖须等本周日更成功并截至 T，旧周 Raw 覆盖仍按原周条件提交 `mode=period` | DG 指数日线成功后更新当前周，并覆盖新到的期末周线。 |
+| `silver_index_monthly_update_job_sensor` | `silver_index_monthly_update_job` | 当天 DG 指数日线 Silver 成功并通过已有 checks、11 个目标代码齐备后，以本月分区、`mode=daily, trade_date=T` 更新；当月 Raw 覆盖须等本月日更成功并截至 T，旧月 Raw 覆盖仍按原月条件提交 `mode=period` | DG 指数日线成功后更新当前月，并覆盖新到的期末月线。 |
 
 四者均 `minimum_interval_seconds=600`、时区 `Asia/Shanghai`，只在交易日 19:00 至次日 00:00 前判断更新。600 秒是既有同类 sensor 间隔，不新增独立轮询配置，不保证日线成功即刻执行。Silver sensor 通过已有事实轮询等待上游成功，不在日线 job 内新增触发代码。每个 sensor 每 tick 最多一个 RunRequest、一个本频率缺失分区键登记；Silver sensor 的 Tushare 请求数为 0，Raw sensor 至多一次正常发布探测。相应 Silver sensor 优先完成当日日更，期末覆盖后续 tick 判断，不丢弃新 Raw 批次。
 
@@ -278,7 +282,7 @@ Silver 日更门禁按以下顺序，只读当天 T 的上游事实：
 2. §2.4 的四个既有 blocking checks 全部通过，并原生关联到这次 T 日线物化。实现按该生产 run 有界读取四种检查结果、核对关联物化；不重复执行 checks。旧日线 check 的 event partition 为空时不能直接用 `partition_filter=T` 查询并永久等待，也不能拿其他日期的绿灯代替。当前通用 `asset_readiness_status` 会逐 check 扫最多 5000 条历史，本门禁不调用这条历史扫描路径；不因此改现有日线检查定义。
 3. 读取 T 日线 Silver 文件中的代码、日期两列，过滤目标 11 个代码确认齐备。仅有文件或日线总行数不够；缺目标指数则等待并显示代码摘要，不向 Tushare 补取。完整周期输入的必要校验由 job 在读取实际窗口时完成。
 
-基础日历／指数基础信息仍须成功及原 checks 通过，日历覆盖所需周期。日更依赖日线成功；期末正式值覆盖是另一个分支，依据原周／月 Raw 分区本次物化及 check，不要求触发当天的新日线再次完成，按 §5.3 保留已完成的合成记录或报缺失失败。两分支均不执行上游 writer／checks，不深扫历史。新的日更是同一周／月分区再次物化，昨日结果不代表今天完成。
+基础日历／指数基础信息仍须成功及原 checks 通过，日历覆盖所需周期。日更依赖日线成功；正式覆盖仍是另一个分支，但不能绕过当期日更：当前 Raw 的原分区与当日日更目标分区相同时，复用本 tick 已取得的当前 Silver 物化、关联 check 及实际截至日，未完成当天日更就等待；不额外执行或重复读取一遍日线检查。原分区是旧周期时，继续依据该 Raw 本次物化及 check，按 §5.3 保留目标周期已完整的合成记录，不因执行当天日线未完成而阻挡。两分支均不执行上游 writer／checks，不深扫历史。新的日更是同一周／月分区再次物化，昨日结果不代表今天完成。
 
 定义分类通过 `build_sensor_tags`：领域 `INDEX_TOPIC`，目标层为对应 `RAW` 或 `SILVER`，职责 `ASSET_UPDATE`。提交通过 `build_run_request`，显式设置正确的 `partition_key`，typed config 经运行合同转换，不拼深层 `ops` 配置。需要登记新键时使用同一次 `SensorResult` 的动态分区请求，不在 helper 内随意写 instance。
 
@@ -290,7 +294,7 @@ cursor 使用 `build_sensor_cursor` v1 结构，仅保存本 tick 决策、目�
 | --- | --- | --- |
 | Raw 更新 | 目标 job、`partition_key=P`；`build_asset_update_run_key` 的 subject 为对应 job，unit 为 P | 同一频率同一期末只自动提交一次 |
 | Silver 日更 | 目标 job、`partition_key=P`、`mode=daily, trade_date=T`；同类 builder 的 unit 同时包含 P 和 T | 17 日、18 日虽同一周／月，仍是不同日更；不能只拿 P 当 run key，导致整周／月只跑一次 |
-| 新 Raw 覆盖 | 对应 Silver job、原 Raw 分区 P、`mode=period`；`build_upstream_triggered_run_key` 使用对应 consumer 与 Raw 的 `upstream_batch_id` | 当日已日更也能另提交覆盖；不会误更新到触发当天所在的其他周期 |
+| 新 Raw 覆盖 | 对应 Silver job、原 Raw 分区 P、`mode=period`；`build_upstream_triggered_run_key` 使用对应 consumer 与 Raw 的 `upstream_batch_id` | 当期先完成当日日更，等待期间不消费 Raw 批次；完成后仍可另提交正式覆盖。旧周期按原分区独立处理，不被执行当天日线阻挡 |
 
 执行参数来自显式 partition key、typed config、日历和 Raw metadata，不解析 run key。sensor 按本次分区及截至日读取匹配的物化／check 事实，cursor 不作为就绪证据。失败后不自动换 key 重试；运营在同一 job 选择原分区，重跑原模式和目标日，不重跑已经成功的另一频率。
 
@@ -1034,6 +1038,49 @@ Silver 的 94／22 来自 §2 已审计的科创综指已结束周期，另各�
 本批正式变更范围为两个已获批的人工 Silver 日更和四个 sensor 启用；未改其他 sensor／schedule、全局队列、源码、单位、检查或配置项，未安装依赖。补充了现有[资产与 job 拓扑说明](../architecture/dagster-asset-job-topology.html)的四个周期资产、四个 job、分区／完整文件及 check／sensor 对应关系；其运行状态引用本文和正式 instance，不再另存重复运行报告。
 
 **独立审计结论：启用和当前凌晨窗口行为符合预期；F 尚未全部验收，真实自动日更与周／月正式自动覆盖证据仍未取得。** 不用两次人工接续或 E 的手动覆盖证明自动链路，不因日期尚未到来就判失败；保留四 sensor 运行，等待上述真实条件。后续验收继续按既定有界范围读取相关 run／check、当前十一行和必要样本，不重算已有历史。
+
+### 11.20 当期指数周线、月线 Silver 触发条件修复（2026-11-20，代码待实施）
+
+本次只解决 `929f2825-d1bb-4081-a854-44ba978ab411` 暴露的触发顺序问题。管理员已确认：现有北证 50 日线合成、正式值优先、完整文件合并及 checks 均保留；仅修正周／月共用 Silver sensor 的触发判断，并补对应回归。此前已完成本方案和 LLD 修订并向管理员汇报。管理员随后要求先提交文档、再修复，不重启 DG，也不需要验证；本轮据此修改源码和对应回归用例，但不执行 pytest、Ruff、Definitions 或正式运行验证，不重跑任务、不启停 sensor、不重载正式 location 或写正式数据。
+
+#### 已有证据与原因
+
+复用本次已完成的只读分析，不重新读取源数据或审计历史。11 月 20 日 19:00:52，周线 Raw 运行 `cdd32b24-d478-4cc0-b81b-e75efac93f34` 成功，本期十行且关联检查通过，北证 50 合法空。19:02:37，Silver sensor 在当天指数日线尚未物化、当周 Silver 十一码仍截至 19 日时，提交 `mode=period` 的 `929f2825…`；19:02:45 writer 报“期末Raw缺失且无完整Silver：('899050.BJ',)”。本次没有生成候选、成功物化或检查结果，正式 Silver 未改写。上述日期与当前数据状态仅指该次失败及截至 19:37 的分析证据，不推断后续运行结果。
+
+当前 `evaluate_index_period_sensor` 在日线未就绪后仍继续读取新 Raw，并可进入 `period_requested`。原 §7.2 将正式覆盖与日更分成两条独立分支，没有区分当期覆盖和旧周期覆盖；我此前设计及验收漏掉了“正式 Raw 先到、当天日线后到”的正常顺序。writer 拒绝不完整北证 50 记录符合原完整性规则，不应修改该判断来消除报错。既有测试 `test_raw_after_daily_overrides_original_partition_and_dedups` 提前准备了完整北证 50 记录，不能证明本次顺序正确。
+
+#### 唯一生产代码改动与影响面
+
+| 硬口径 | 实现位置与处理 |
+| --- | --- |
+| 只改共用 Silver sensor 判断 | 后续仅修改 `src/orchestrator/defs/sensors/index_period_update_job_sensors.py:evaluate_index_period_sensor` 的 Silver 分支；两个 Raw sensor 分支不改，周／月 Silver 同时使用该修正 |
+| 当期不能绕过当天日线／日更 | 保持现有 `index_period_daily_readiness` 和 `daily_requested` 顺序。新增判断放在原 Raw 来源、生产运行及关联检查处理之后，构造 period run key／判断批次已处理之前：Raw 原分区 `original_key == key` 且本 tick 的 `completed` 为假时，不提交 `mode=period`；先等日线运行成功、原四检查通过、十一代码齐备，再沿原分支提交 daily。已有当天日更在排队或运行时沿用 `job_active` 等待；当日日更失败／取消时沿用人工处理，不另发 period 绕过 |
+| 当期完成后仍允许正式覆盖 | `completed` 继续采用已读取的当前周期 Silver 成功物化／关联 check 及 `goldenshare/trade_date == today`，不以文件存在、昨日记录或日更刚提交代替。完成后保留原 Raw 成功及关联 check 判断、原批次 run key 和 period 配置 |
+| 等待不丢 Raw，失败不自动重试 | 尚未满足当期条件时，保留 `raw_after_storage_id`，不把候选标为已处理、不制造消费 run。沿用本 tick 已有的日线未就绪／日更状态说明。既有 `period_attempt_exists` 及人工重试规则保持；不换 key、不清 cursor，不自动重放 `929f2825…` |
+| 旧周期覆盖不新增依赖 | `original_key != key` 时继续原路径；旧周／旧月可以在执行当天日线未完成或当天日更失败时覆盖。目标周期缺完整合成记录仍由原 writer 失败处理，不增加旧周期 readiness helper 或扫描 |
+
+CodeGraph explore 和当前源码核对覆盖：四 sensor 包装入口 → 共用 `evaluate_index_period_sensor` → 原生日线／周期就绪读取 → 原 job → `write_index_period_silver`；对应消费为四个既有 job 中的两个 Silver job，无 API／前端消费者或跨工程接口变更。修复不改 `index_period_daily_readiness.py`、writer、下载组件、资产／job／check 定义、Catalog、schema、单位、分区、文件路径、19:00–00:00 窗口、600 秒间隔或全局单任务队列；不增加 helper、配置项、状态表或生产检查。后续源码改动只落上述 sensor 文件，测试只落 `tests/test_index_period_sensors.py`；本轮文档只改本文。
+
+#### 回归与验收
+
+复用现有隔离 instance、原生物化／检查夹具及 `index_period_test_support.py` 的输入合同；新场景的独立预期取自本次真实顺序：十码正式 Raw 已成功、北证 50 当期记录仍截至上一开市日、当日日线尚未就绪。原生成功和关联检查分别构造，不以 cursor 或 mock 的 ready 布尔值代替全部证据；不改 writer 预期或先补完整北证 50 来绕过失败条件。
+
+| 验收场景 | 必须证明的结果 |
+| --- | --- |
+| 当期 Raw 先到、当日日线未完成 | 周／月参数化复现，旧代码会错误请求 period，修复后无 RunRequest、无分区登记／业务写入，Raw 批次未被消费。结合既有日线反例覆盖运行未成功、关联检查未通过及缺目标代码，确认均不能绕到当期覆盖 |
+| 当日日线正常完成 | 同一场景补齐真实合同所需的当日日线及原生成功／四检查／十一代码后，优先请求原分区 `mode=daily, trade_date=T`；已有周／月 writer 负责已到正式值与北证 50 合成，不能被新条件误拦 |
+| 日更完成、正式 Raw 后到 | 沿用并核对既有“日更后覆盖”用例；本次物化及关联 check 成功且截至 T 后，允许原批次 period，保留原周期、原 run key 与后续去重，不因当天已日更而永久挡住正式值 |
+| 日更失败与旧周期覆盖 | 当期日更失败／取消不自动重试或转 period；既有 `test_raw_original_month_independent_of_today_daily` 必须继续通过，证明旧月覆盖不依赖执行当天日线；同样核对旧周路径不受当期条件影响 |
+
+上述表格保留为本次修复的回归要求，补写对应用例，不删除或放宽既有断言。管理员本轮明确要求“不需要验证”，因此本轮不运行旧代码复现、新回归、Ruff、Definitions 或正式运行验证；此前“先运行失败用例再修复、运行专项测试”的执行顺序仅对本轮按管理员指令不执行，不能将未运行写成通过。后续确需验收时再按上述场景及现有隔离环境执行，不扩展为无关全套测试。正式数据与真实源边界复用已有 E／F 证据，不重新调用 Tushare／Prod 或重算历史。
+
+#### 读取、写入和失败成本
+
+新增条件只比较本 tick 已有的 `original_key`、`key`、`completed`，状态说明复用已有 `attempt`、`reason`／`missing`。因此新增数据读取、PG 查询、源请求、Parquet 扫描及生产 check 数均为 **0**；这是依据上述既有变量和原调用链的增量推导，不是新的性能实测。原日线门禁仍只读目标 T 的一次物化／生产运行和最多四条原检查，文件读取仍是目标 T 的代码／日期投影，不重复执行门禁；原 tick 预算和每 tick 最多一个 RunRequest 继续适用。
+
+等待不提交任务，不形成新行情文件或物化／check；条件满足后的任务沿用 §9 原读写成本，修复不新增第二遍计算或写入。隔离回归全部使用 `/private/tmp` 下本任务临时资源；不安装依赖、不访问正式凭据。测试失败直接报告，修正本次判断后仅重跑受影响测试；中断后的测试重跑只重建相同隔离夹具，最后验收复用已保存的本次失败证据和隔离结果，不重新承担正式完整历史读写。代码修复与原失败任务恢复分开，未另获明确执行指令不重跑原任务或改变正式 sensor／运行状态。
+
+**文档提交前状态：方案和 LLD 已修订并获管理员指示推进修复；先提交本文，随后只修改上述 sensor 和对应回归用例。本轮不验证、不重启或重载 DG，代码完成情况另记，不能预填验收通过。**
 
 ## 12. 本版确认范围与实施约束
 
