@@ -7,7 +7,7 @@ import re
 from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -21,6 +21,7 @@ from psycopg2.extras import Json, RealDictCursor
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 READ_URL = "LAKE_META_POSTGRES_URL"
 WRITE_URL = "LAKE_META_POSTGRES_WRITE_URL"
+CONFIRMED_FACTS_READ_FAILED = "confirmed_business_facts_read_failed"
 
 
 class FactType(StrEnum):
@@ -80,6 +81,13 @@ class FactRevision:
     reason: str
     recorded_by: str
     recorded_at: datetime
+
+    def applies_on(self, day: date) -> bool:
+        start = datetime.combine(day, time.min, tzinfo=SHANGHAI)
+        end = start + timedelta(days=1)
+        return self.effective_from < end and (
+            self.effective_until is None or self.effective_until > start
+        )
 
 
 @dataclass(frozen=True)

@@ -92,6 +92,7 @@ def resolved_job(f, resource):
     from orchestrator.defs.checks.etf_daily_checks import silver_etf_adj_factor_checks
     from orchestrator.defs.jobs.etf_daily import silver_etf_adj_factor_update_job
     from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
+    from orchestrator.defs.resources import ConfirmedBusinessFactsResource
 
     f.instance.add_dynamic_partitions(cn_a_etf_mins_trade_days.name, [DAY])
     definitions = dg.Definitions(
@@ -105,6 +106,7 @@ def resolved_job(f, resource):
         resources={
             "duckdb": resource,
             "lake_root": LakeRootResource(root_path=str(f.lake)),
+            "confirmed_business_facts": ConfirmedBusinessFactsResource(),
         },
     )
     return definitions.resolve_job_def(SILVER_ETF_ADJ_FACTOR_JOB_NAME)

@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Any, cast
@@ -26,6 +27,12 @@ from orchestrator.defs.asset_guards.etf_adj_factor_history_completion import (
     load_completion_evidence,
     require_prepared_basic,
 )
+from orchestrator.defs.confirmed_business_facts import (
+    CONFIRMED_FACTS_READ_FAILED,
+    ConfirmedFactsError,
+    FactRevision,
+    FactType,
+)
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -44,7 +51,7 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     audit_etf_daily_source_parity,
     validate_etf_daily_basic_reference,
 )
-from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.resources import ConfirmedBusinessFactsResource, DuckDBResource
 from orchestrator.defs.run_contracts.etf_basic import (
     EtfBasicSilverSnapshotReference,
 )
@@ -252,6 +259,7 @@ def _failed_status(
     file_exists: bool,
     row_count: int | None = None,
     content_hash: str | None = None,
+    reason_code: str = "materialized_check_failed",
 ) -> EtfDailyPartitionReadiness:
     return EtfDailyPartitionReadiness(
         asset_key=asset_key,
@@ -260,7 +268,7 @@ def _failed_status(
         materialized=True,
         file_exists=file_exists,
         checks_passed=False,
-        reason_code="materialized_check_failed",
+        reason_code=reason_code,
         row_count=row_count,
         content_hash=content_hash,
     )
@@ -381,6 +389,8 @@ def _silver_status(
     history_evidence: FactorHistoryEvidence | None = None,
     completion_errors: tuple[str, ...] | None = None,
     completion_cache: CompletionBasicCache | None = None,
+    liquidation_facts: tuple[FactRevision, ...] = (),
+    confirmed_facts_read_failed: bool = False,
 ) -> EtfDailyPartitionReadiness:
     path = spec.target_path_builder(lake_root, trade_date)
     file_exists = path.is_file()
@@ -519,12 +529,25 @@ def _silver_status(
             ),
         ]
         if spec.asset_key == FUND_ADJ_SILVER_SPEC.asset_key:
+            if confirmed_facts_read_failed:
+                return _failed_status(
+                    asset_key=spec.asset_key,
+                    trade_date=trade_date,
+                    file_exists=True,
+                    row_count=row_count,
+                    content_hash=content_hash,
+                    reason_code=CONFIRMED_FACTS_READ_FAILED,
+                )
+            day = date.fromisoformat(trade_date)
             coverage = audit_etf_daily_basic_coverage(
                 connection,
                 raw_relation_sql=raw_sql,
                 silver_relation_sql=silver_sql,
                 basic_relation_sql=basic_sql,
                 partition_key=trade_date,
+                liquidating_codes=tuple(
+                    fact.subject_key for fact in liquidation_facts if fact.applies_on(day)
+                ),
             )
             errors.extend(coverage.error_codes)
         expected_counts = {
@@ -589,6 +612,7 @@ def _batch_readiness(
     spec: EtfDailyRawSpec | EtfDailySilverSpec,
     trade_dates: Sequence[str],
     prepared_basic: PreparedCompletionBasic | None = None,
+    confirmed_business_facts: ConfirmedBusinessFactsResource | None = None,
 ) -> EtfDailyBatchReadiness:
     started_at = perf_counter()
     if prepared_basic is not None:
@@ -669,6 +693,26 @@ def _batch_readiness(
                         for day in targets
                     }
                 )
+    liquidation_facts: tuple[FactRevision, ...] = ()
+    confirmed_facts_read_failed = False
+    if spec is FUND_ADJ_SILVER_SPEC and confirmed_business_facts is not None:
+        coverage_dates = [
+            day for day in dates
+            if day in evidences
+            and day not in history_targets
+            and ETF_FACTOR_COMPLETION_METADATA_KEY not in evidences[day].metadata
+            and spec.target_path_builder(lake_root, day).is_file()
+        ]
+        if coverage_dates:
+            try:
+                liquidation_facts = confirmed_business_facts.read_facts(
+                    subject_type="etf",
+                    fact_types=(FactType.FUND_LIQUIDATION_STARTED,),
+                    window_start=date.fromisoformat(coverage_dates[0]),
+                    window_end_exclusive=date.fromisoformat(coverage_dates[-1]) + timedelta(days=1),
+                )
+            except ConfirmedFactsError:
+                confirmed_facts_read_failed = True
     validated_basic_references: dict[str, EtfBasicSilverSnapshotReference] = {}
     statuses: list[EtfDailyPartitionReadiness] = []
     for trade_date in dates:
@@ -695,6 +739,8 @@ def _batch_readiness(
                     history_evidence=history_evidences.get(trade_date),
                     completion_errors=completion_errors.get(trade_date),
                     completion_cache=completion_cache,
+                    liquidation_facts=liquidation_facts,
+                    confirmed_facts_read_failed=confirmed_facts_read_failed,
                 )
             )
         else:

@@ -21,6 +21,7 @@ from orchestrator.defs.asset_guards.etf_daily_lake_readiness import (
 from orchestrator.defs.asset_guards.etf_daily_source_probe import (
     EtfDailySourcePublication,
 )
+from orchestrator.defs.confirmed_business_facts import CONFIRMED_FACTS_READ_FAILED
 from orchestrator.defs.run_contracts.etf_basic import (
     build_etf_basic_silver_snapshot_reference,
 )
@@ -89,6 +90,7 @@ def _context() -> SimpleNamespace:
             ),
             duckdb=_FakeDuckDB(),
             tushare=object(),
+            confirmed_business_facts=object(),
         ),
     )
 
@@ -499,6 +501,40 @@ def test_existing_invalid_silver_blocks_before_basic_selection(monkeypatch) -> N
     assert "拒绝自动覆盖" in str(result.skip_reason)
 
 
+def test_factor_sensor_passes_registry_and_reports_unavailable_read(monkeypatch):
+    _patch_window(monkeypatch)
+    context = _context()
+    batch = _batch("silver_etf_adj_factor", "ready", "invalid", "missing")
+    batch = replace(
+        batch,
+        statuses=(
+            batch.statuses[0],
+            replace(batch.statuses[1], reason_code=CONFIRMED_FACTS_READ_FAILED),
+            batch.statuses[2],
+        ),
+    )
+
+    def factor_readiness(**kwargs):
+        assert kwargs["confirmed_business_facts"] is context.resources.confirmed_business_facts
+        return batch
+
+    monkeypatch.setattr(
+        etf_daily_sensor,
+        "_SILVER_ETF_ADJ_FACTOR_SPEC",
+        replace(
+            etf_daily_sensor._SILVER_ETF_ADJ_FACTOR_SPEC,
+            raw_readiness=lambda **_: _batch("raw_tushare_fund_adj", "ready", "ready", "ready"),
+            silver_readiness=factor_readiness,
+        ),
+    )
+    result = evaluate_silver_etf_adj_factor_sensor(context, evaluated_at=NOW)
+    assert not result.run_requests
+    assert "读取已确认业务事实失败" in str(result.skip_reason)
+    cursor = json.loads(result.cursor)
+    assert cursor["details"]["reason_code"] == CONFIRMED_FACTS_READ_FAILED
+    assert cursor["target_date"] == batch.statuses[1].trade_date
+
+
 def test_silver_selects_earliest_gap_with_stable_key_and_two_lineage_queries(
     monkeypatch,
 ) -> None:  # type: ignore[no-untyped-def]
@@ -567,4 +603,9 @@ def test_four_definitions_are_stopped_tagged_and_resource_bounded() -> None:
     assert silver_etf_daily_update_job_sensor.required_resource_keys == {
         "lake_root",
         "duckdb",
+    }
+    assert silver_etf_adj_factor_update_job_sensor.required_resource_keys == {
+        "lake_root",
+        "duckdb",
+        "confirmed_business_facts",
     }

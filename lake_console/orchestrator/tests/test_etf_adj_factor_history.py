@@ -42,7 +42,11 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     audit_etf_daily_silver_relation,
     write_etf_adj_factor_silver_partition,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import (
+    ConfirmedBusinessFactsResource,
+    DuckDBResource,
+    LakeRootResource,
+)
 from orchestrator.defs.run_contracts.etf_daily import (
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
 )
@@ -638,7 +642,7 @@ def test_later_unfinished_check_does_not_fall_back_to_original_success(history_f
 
 
 def test_real_checks_only_job_accepts_old_file_and_binds_all_six_to_original(
-    history_factory,
+    history_factory, monkeypatch,
 ):
     from orchestrator.defs.checks import etf_daily_checks as checks
     from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
@@ -646,6 +650,8 @@ def test_real_checks_only_job_accepts_old_file_and_binds_all_six_to_original(
     f = history_factory()
     original = latest(f.instance)
     selected = [checks.silver_etf_adj_factor_checks]
+    monkeypatch.delenv("LAKE_META_POSTGRES_URL", raising=False)
+    registry = ConfirmedBusinessFactsResource()
 
     # Installed Dagster validates partition_key through selected materializable assets.
     # A no-I/O test asset supplies that execution context; the six real checks still
@@ -673,6 +679,7 @@ def test_real_checks_only_job_accepts_old_file_and_binds_all_six_to_original(
         resources={
             "lake_root": LakeRootResource(root_path=str(f.lake)),
             "duckdb": DuckDBResource(),
+            "confirmed_business_facts": registry,
         },
     )
     f.instance.add_dynamic_partitions(cn_a_etf_mins_trade_days.name, [DAY])
@@ -697,6 +704,7 @@ def test_real_checks_only_job_accepts_old_file_and_binds_all_six_to_original(
             connection=connection,
             lake_root=f.lake,
             trade_dates=[DAY],
+            confirmed_business_facts=registry,
         )
     assert ready.statuses[0].ready
     assert {p: p.read_bytes() for p in f.files} == f.bytes

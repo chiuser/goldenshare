@@ -1,7 +1,7 @@
 """Basic-filtered Silver writers and audits for ETF daily datasets."""
 
 import os
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -662,6 +662,7 @@ def audit_etf_daily_basic_coverage(
     silver_relation_sql: str,
     basic_relation_sql: str,
     partition_key: str,
+    liquidating_codes: Sequence[str] = (),
 ) -> EtfDailyCoverageAudit:
     """Return coverage facts; callers apply the daily WARN or factor ERROR policy."""
 
@@ -669,7 +670,7 @@ def audit_etf_daily_basic_coverage(
     raw_sql = _relation_select(raw_relation_sql)
     silver_sql = _relation_select(silver_relation_sql)
     basic_sql = _relation_select(basic_relation_sql)
-    expected_sql = f"""
+    eligible_sql = f"""
     SELECT ts_code
     FROM ({basic_sql}) basic_rows
     WHERE (ends_with(ts_code, '.SH') OR ends_with(ts_code, '.SZ'))
@@ -678,56 +679,67 @@ def audit_etf_daily_basic_coverage(
       AND list_date IS NOT NULL
       AND list_date <= CAST({duckdb_string(trade_date)} AS DATE)
     """
-    raw_codes_sql = f"SELECT DISTINCT ts_code FROM ({raw_sql}) rows"
-    silver_codes_sql = f"SELECT DISTINCT ts_code FROM ({silver_sql}) rows"
+    coverage_relations = f"""
+    WITH eligible AS ({eligible_sql}),
+    required AS (
+      SELECT ts_code FROM eligible
+      WHERE ts_code NOT IN (SELECT unnest(?::VARCHAR[]))
+    ),
+    raw_codes AS (SELECT DISTINCT ts_code FROM ({raw_sql}) rows),
+    silver_codes AS (SELECT DISTINCT ts_code FROM ({silver_sql}) rows)
+    """
+    excluded = list(liquidating_codes)
     counts = connection.execute(
         f"""
+        {coverage_relations}
         SELECT
-          (SELECT count(*) FROM ({expected_sql}) rows),
+          (SELECT count(*) FROM required),
           (SELECT count(*) FROM (
-            SELECT ts_code FROM ({expected_sql})
-            INTERSECT SELECT ts_code FROM ({raw_codes_sql})
+            SELECT ts_code FROM required
+            INTERSECT SELECT ts_code FROM raw_codes
           ) rows),
-          (SELECT count(*) FROM ({silver_codes_sql}) rows),
+          (SELECT count(*) FROM silver_codes),
           (SELECT count(*) FROM (
-            SELECT ts_code FROM ({expected_sql})
-            EXCEPT SELECT ts_code FROM ({silver_codes_sql})
-          ) rows),
-          (SELECT count(*) FROM (
-            SELECT ts_code FROM ({raw_codes_sql})
-            EXCEPT SELECT ts_code FROM ({expected_sql})
+            SELECT ts_code FROM required
+            EXCEPT SELECT ts_code FROM silver_codes
           ) rows),
           (SELECT count(*) FROM (
-            SELECT ts_code FROM ({silver_codes_sql})
-            EXCEPT SELECT ts_code FROM ({expected_sql})
+            SELECT ts_code FROM raw_codes
+            EXCEPT SELECT ts_code FROM eligible
+          ) rows),
+          (SELECT count(*) FROM (
+            SELECT ts_code FROM silver_codes
+            EXCEPT SELECT ts_code FROM eligible
           ) rows)
-        """
+        """,
+        [excluded],
     ).fetchone()
     samples = connection.execute(
         f"""
+        {coverage_relations}
         SELECT reason_code, ts_code FROM (
           SELECT 'MISSING_EXPECTED_CODE' AS reason_code, ts_code
           FROM (
-            SELECT ts_code FROM ({expected_sql})
-            EXCEPT SELECT ts_code FROM ({silver_codes_sql})
+            SELECT ts_code FROM required
+            EXCEPT SELECT ts_code FROM silver_codes
           ) rows
           UNION ALL
           SELECT 'RAW_EXTRA_CODE' AS reason_code, ts_code
           FROM (
-            SELECT ts_code FROM ({raw_codes_sql})
-            EXCEPT SELECT ts_code FROM ({expected_sql})
+            SELECT ts_code FROM raw_codes
+            EXCEPT SELECT ts_code FROM eligible
           ) rows
           UNION ALL
           SELECT 'SILVER_EXTRA_CODE' AS reason_code, ts_code
           FROM (
-            SELECT ts_code FROM ({silver_codes_sql})
-            EXCEPT SELECT ts_code FROM ({expected_sql})
+            SELECT ts_code FROM silver_codes
+            EXCEPT SELECT ts_code FROM eligible
           ) rows
         ) differences
         ORDER BY reason_code, ts_code
         LIMIT ?
         """,
-        [ETF_DAILY_DIAGNOSTIC_SAMPLE_LIMIT],
+        [excluded, ETF_DAILY_DIAGNOSTIC_SAMPLE_LIMIT],
     ).fetchall()
     return EtfDailyCoverageAudit(
         expected_code_count=int(counts[0] or 0),

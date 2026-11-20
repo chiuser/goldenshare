@@ -29,6 +29,7 @@ from orchestrator.defs.asset_guards.etf_daily_source_probe import (
     probe_fund_adj_publication,
     probe_fund_daily_publication,
 )
+from orchestrator.defs.confirmed_business_facts import CONFIRMED_FACTS_READ_FAILED
 from orchestrator.defs.jobs.etf_daily import (
     raw_fund_adj_update_job,
     raw_fund_daily_update_job,
@@ -499,6 +500,11 @@ def _evaluate_silver(
                 connection=connection,
                 lake_root=context.resources.lake_root.root(),
                 trade_dates=dates,
+                **(
+                    {"confirmed_business_facts": context.resources.confirmed_business_facts}
+                    if spec is _SILVER_ETF_ADJ_FACTOR_SPEC
+                    else {}
+                ),
             )
         target_status: EtfDailyPartitionReadiness | None = None
         target_raw_status: EtfDailyPartitionReadiness | None = None
@@ -524,13 +530,20 @@ def _evaluate_silver(
             if silver_status.ready:
                 continue
             if silver_status.materialized or silver_status.file_exists:
+                registry_failed = silver_status.reason_code == CONFIRMED_FACTS_READ_FAILED
                 return _skip(
                     evaluated_at=now,
                     sensor_name=spec.sensor_name,
                     job_name=spec.job_name,
                     asset_family=spec.asset_family,
-                    reason_code="existing_file_check_failed",
-                    message="ETF 日频 Silver 已有文件或证据但检查失败，拒绝自动覆盖。",
+                    reason_code=(
+                        CONFIRMED_FACTS_READ_FAILED if registry_failed else "existing_file_check_failed"
+                    ),
+                    message=(
+                        "读取已确认业务事实失败，等待登记库恢复。"
+                        if registry_failed
+                        else "ETF 日频 Silver 已有文件或证据但检查失败，拒绝自动覆盖。"
+                    ),
                     blocked_component=silver_status.asset_key,
                     target_date=trade_date,
                     window_dates=dates,
@@ -726,7 +739,7 @@ def silver_etf_daily_update_job_sensor(
     job=silver_etf_adj_factor_update_job,
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    required_resource_keys={"lake_root", "duckdb"},
+    required_resource_keys={"lake_root", "duckdb", "confirmed_business_facts"},
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.QUOTE_DATA,
         target_layer=SensorTargetLayer.SILVER,

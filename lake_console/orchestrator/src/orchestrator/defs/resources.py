@@ -2,14 +2,22 @@ import os
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
 import dagster as dg
 import duckdb
+import psycopg2
 from dagster_clickhouse import ClickhouseResource
 
+from orchestrator.defs.confirmed_business_facts import (
+    ConfirmedFactsError,
+    FactRevision,
+    FactType,
+    connect_confirmed_facts,
+    find_effective_facts,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.health.lake_root import assert_lake_root_available_for_run
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource
@@ -41,6 +49,32 @@ class DuckDBResource(dg.ConfigurableResource):
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
         with connect_configured_duckdb() as connection:
             yield connection
+
+
+class ConfirmedBusinessFactsResource(dg.ConfigurableResource):
+    """Read the registry only when a dataset explicitly requests facts."""
+
+    def read_facts(
+        self,
+        *,
+        subject_type: str,
+        fact_types: Sequence[FactType],
+        window_start: date,
+        window_end_exclusive: date,
+    ) -> tuple[FactRevision, ...]:
+        try:
+            with connect_confirmed_facts() as connection:
+                return tuple(
+                    find_effective_facts(
+                        connection,
+                        subject_type=subject_type,
+                        fact_types=fact_types,
+                        window_start=window_start,
+                        window_end_exclusive=window_end_exclusive,
+                    )
+                )
+        except (ValueError, psycopg2.Error) as error:
+            raise ConfirmedFactsError("读取已确认业务事实失败。") from error
 
 
 @dataclass(frozen=True)
@@ -259,6 +293,7 @@ defs = dg.Definitions(
     resources={
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
+        "confirmed_business_facts": ConfirmedBusinessFactsResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
         "prod_postgres": ProdPostgresResource(),
         "prod_postgres_write": ProdPostgresWriteResource(),

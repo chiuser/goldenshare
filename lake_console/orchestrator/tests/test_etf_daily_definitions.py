@@ -39,6 +39,7 @@ from orchestrator.defs.jobs.etf_daily import (
 )
 from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
 from orchestrator.defs.resources import (
+    ConfirmedBusinessFactsResource,
     DuckDBResource,
     LakeRootResource,
     TushareResource,
@@ -166,6 +167,7 @@ def test_silver_assets_checks_and_jobs_match_the_frozen_p3_contract() -> None:
             "lake_root": LakeRootResource(root_path="/tmp/etf-daily-p3-lake"),
             "duckdb": DuckDBResource(),
             "tushare": TushareResource(token="fake-token"),
+            "confirmed_business_facts": ConfirmedBusinessFactsResource(),
         },
     )
     dg.Definitions.validate_loadable(definitions)

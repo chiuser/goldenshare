@@ -6,13 +6,22 @@ six-result/blocking boundary; missing-file cases exercise the real audit.
 """
 
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import dagster as dg
 import pytest
 
 from orchestrator.defs.assets import etf_daily as assets
 from orchestrator.defs.checks import etf_daily_checks as checks
+from orchestrator.defs.confirmed_business_facts import (
+    CONFIRMED_FACTS_READ_FAILED,
+    SHANGHAI,
+    ConfirmedFactsError,
+    FactRevision,
+    FactType,
+)
 from orchestrator.defs.io.etf_daily_silver_writer import FUND_ADJ_SILVER_SPEC
 from orchestrator.defs.jobs.etf_daily import silver_etf_adj_factor_update_job
 from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
@@ -21,8 +30,10 @@ from orchestrator.defs.run_contracts.etf_daily import (
     ETF_FACTOR_COMPLETION_METADATA_KEY,
     SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS,
 )
+from tests.etf_daily_test_support import basic_row
 from tests.test_etf_daily_silver_checks import (
     PARTITION,
+    _adj_row,
     _report_materialization,
     _write_adj,
 )
@@ -39,8 +50,8 @@ KINDS = (
 
 
 @pytest.fixture
-def merged_partition(tmp_path, monkeypatch):
-    lake, written = _write_adj(tmp_path)
+def merged_partition(tmp_path, monkeypatch, request):
+    lake, written = _write_adj(tmp_path, **getattr(request, "param", {}))
     instance_dir = tmp_path / "instance"
     instance_dir.mkdir()
     with dg.DagsterInstance.ephemeral(
@@ -55,6 +66,9 @@ def merged_partition(tmp_path, monkeypatch):
             resources={
                 "lake_root": LakeRootResource(root_path=str(lake)),
                 "duckdb": DuckDBResource(),
+                "confirmed_business_facts": dg.ResourceDefinition.hardcoded_resource(
+                    SimpleNamespace(read_facts=lambda **_: ())
+                ),
             },
         )
         full_job = definitions.resolve_job_def("silver_etf_adj_factor_update_job")
@@ -152,11 +166,85 @@ def test_one_real_checks_only_run_audits_once_and_keeps_original_target(
     assert len(audit_calls) == len(basic_calls) == 1
     assert audit_calls[0]["check_kinds"] == frozenset(KINDS)
     assert not result.get_asset_materialization_events()
+    coverage = result.get_asset_check_evaluations()[-1]
+    assert coverage.metadata["goldenshare/confirmed_business_fact_versions"].value == []
     assert all(
         ev.target_materialization_data.storage_id == target.storage_id
         for ev in result.get_asset_check_evaluations()
     )
     assert (written.raw_path.read_bytes(), written.target_path.read_bytes()) == before
+
+
+@pytest.mark.parametrize(
+    ("merged_partition", "expected_missing", "has_factor"),
+    [
+        ({"basic_rows": (basic_row("510330.SH"), basic_row("530080.SH"))}, [], False),
+        (
+            {
+                "basic_rows": (basic_row("510330.SH"), basic_row("530080.SH")),
+                "rows": (_adj_row(), _adj_row("530080.SH")),
+            },
+            [],
+            True,
+        ),
+        (
+            {"basic_rows": (basic_row("510330.SH"), basic_row("530080.SH"), basic_row("159919.SZ"))},
+            ["159919.SZ"],
+            False,
+        ),
+    ],
+    indirect=["merged_partition"],
+)
+def test_confirmed_liquidation_only_changes_required_coverage(
+    merged_partition, expected_missing, has_factor
+):
+    _, written, _, execute = merged_partition
+    day = datetime.fromisoformat(PARTITION).replace(tzinfo=SHANGHAI)
+    fact = FactRevision(
+        "19bd6af3-ecec-4c17-a983-ca5d2a8b13eb", 1, "confirm", "etf", "530080.SH",
+        FactType.FUND_LIQUIDATION_STARTED, "day", day, None, (), "测试公告", "test", day,
+    )
+    read_calls = []
+
+    def read_facts(**kwargs):
+        read_calls.append(kwargs)
+        return (fact,)
+
+    original = written.target_path.read_bytes()
+    result = execute(resources={
+        "confirmed_business_facts": dg.ResourceDefinition.hardcoded_resource(
+            SimpleNamespace(read_facts=read_facts)
+        )
+    })
+    assert evaluations_by_kind(result) == (True, True, True, True, True, not expected_missing)
+    coverage = result.get_asset_check_evaluations()[-1]
+    assert len(read_calls) == 1 and read_calls[0]["window_start"] == day.date()
+    assert coverage.metadata["goldenshare/confirmed_business_fact_versions"].value == [
+        {"ts_code": "530080.SH", "fact_id": fact.fact_id, "revision": 1}
+    ]
+    assert coverage.metadata["goldenshare/missing_expected_code_count"].value == len(expected_missing)
+    assert coverage.metadata["goldenshare/silver_extra_code_count"].value == 0
+    assert [s["ts_code"] for s in coverage.metadata["goldenshare/failure_samples"].value] == expected_missing
+    assert written.written_row_count == (2 if has_factor else 1)
+    assert written.target_path.read_bytes() == original
+
+
+def test_registry_failure_blocks_coverage_only(merged_partition):
+    _, _, _, execute = merged_partition
+
+    def unavailable(**_):
+        raise ConfirmedFactsError("读取已确认业务事实失败。")
+
+    result = execute(resources={
+        "confirmed_business_facts": dg.ResourceDefinition.hardcoded_resource(
+            SimpleNamespace(read_facts=unavailable)
+        )
+    })
+    assert evaluations_by_kind(result) == (True, True, True, True, True, False)
+    coverage = result.get_asset_check_evaluations()[-1]
+    assert coverage.metadata["goldenshare/reason_code"].value == CONFIRMED_FACTS_READ_FAILED
+    assert coverage.metadata["goldenshare/conclusion"].value == "读取已确认业务事实失败。"
+    assert "goldenshare/confirmed_business_fact_versions" not in coverage.metadata
 
 
 @pytest.mark.parametrize(

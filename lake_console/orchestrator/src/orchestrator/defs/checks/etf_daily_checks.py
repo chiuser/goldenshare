@@ -2,6 +2,7 @@
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,12 @@ from orchestrator.defs.assets.etf_daily import (
     raw_tushare_fund_daily,
     silver_etf_adj_factor,
     silver_etf_daily,
+)
+from orchestrator.defs.confirmed_business_facts import (
+    CONFIRMED_FACTS_READ_FAILED,
+    ConfirmedFactsError,
+    FactRevision,
+    FactType,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.etf_daily_raw_writer import (
@@ -51,7 +58,11 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     validate_etf_daily_basic_reference,
 )
 from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import (
+    ConfirmedBusinessFactsResource,
+    DuckDBResource,
+    LakeRootResource,
+)
 from orchestrator.defs.run_contracts.etf_basic import (
     EtfBasicSilverSnapshotReference,
 )
@@ -100,6 +111,8 @@ class EtfDailySilverFileAudit:
     error_type: str | None
     history: FactorHistoryAudit | None = None
     missing_file_paths: tuple[Path, ...] = ()
+    liquidation_facts: tuple[FactRevision, ...] | None = None
+    confirmed_facts_read_failed: bool = False
 
 
 def _metadata_scalar(value: Any) -> Any:
@@ -317,6 +330,7 @@ def audit_etf_daily_silver_partition(
     check_kinds: frozenset[str] | None = None,
     prepared_basic: PreparedCompletionBasic | None = None,
     maintenance_plan_hash: str | None = None,
+    confirmed_business_facts: ConfirmedBusinessFactsResource | None = None,
 ) -> EtfDailySilverFileAudit:
     """Build one shared audit used by all six checks for a Silver asset."""
 
@@ -502,6 +516,8 @@ def audit_etf_daily_silver_partition(
     source_parity: EtfDailySourceParityAudit | None = None
     domain: EtfDailyDomainAudit | None = None
     coverage: EtfDailyCoverageAudit | None = None
+    liquidation_facts: tuple[FactRevision, ...] | None = None
+    confirmed_facts_read_failed = False
     raw_errors: tuple[str, ...] = ("raw_file_missing",) if raw_missing else ()
     error_type: str | None = None
     try:
@@ -583,13 +599,31 @@ def audit_etf_daily_silver_partition(
                     and not raw_errors
                     and not relation.error_codes
                 ):
-                    coverage = audit_etf_daily_basic_coverage(
-                        connection,
-                        raw_relation_sql=raw_sql,
-                        silver_relation_sql=silver_sql,
-                        basic_relation_sql=basic_sql,
-                        partition_key=partition_key,
-                    )
+                    if (
+                        spec is FUND_ADJ_SILVER_SPEC
+                        and confirmed_business_facts is not None
+                    ):
+                        day = date.fromisoformat(partition_key)
+                        try:
+                            liquidation_facts = confirmed_business_facts.read_facts(
+                                subject_type="etf",
+                                fact_types=(FactType.FUND_LIQUIDATION_STARTED,),
+                                window_start=day,
+                                window_end_exclusive=day + timedelta(days=1),
+                            )
+                        except ConfirmedFactsError:
+                            confirmed_facts_read_failed = True
+                    if not confirmed_facts_read_failed:
+                        coverage = audit_etf_daily_basic_coverage(
+                            connection,
+                            raw_relation_sql=raw_sql,
+                            silver_relation_sql=silver_sql,
+                            basic_relation_sql=basic_sql,
+                            partition_key=partition_key,
+                            liquidating_codes=tuple(
+                                fact.subject_key for fact in liquidation_facts or ()
+                            ),
+                        )
     except Exception as error:  # noqa: BLE001 - checks report corrupt files.
         error_type = type(error).__name__
     return EtfDailySilverFileAudit(
@@ -613,6 +647,8 @@ def audit_etf_daily_silver_partition(
         basic_reference_errors=tuple(dict.fromkeys(reference_errors)),
         raw_errors=raw_errors,
         error_type=error_type,
+        liquidation_facts=liquidation_facts,
+        confirmed_facts_read_failed=confirmed_facts_read_failed,
         missing_file_paths=(
             *missing_paths,
             *(
@@ -892,6 +928,8 @@ def _silver_failed_rules(
             return ("domain_not_evaluated",)
         return audit.domain.error_codes
     if check_kind == "coverage":
+        if audit.confirmed_facts_read_failed:
+            return (CONFIRMED_FACTS_READ_FAILED,)
         if audit.coverage is None:
             return tuple(
                 dict.fromkeys(
@@ -959,6 +997,7 @@ def build_etf_daily_silver_check_result(
     spec = audit.spec
     partition_key = audit.partition_key
     is_coverage = check_kind == "coverage"
+    registry_error = is_coverage and audit.confirmed_facts_read_failed
     coverage_warn_only = (
         is_coverage and spec.asset_key == FUND_DAILY_SILVER_SPEC.asset_key
     )
@@ -1050,11 +1089,27 @@ def build_etf_daily_silver_check_result(
                 "reason_code": (
                     "ready"
                     if passed
+                    else CONFIRMED_FACTS_READ_FAILED
+                    if registry_error
                     else "coverage_warning"
                     if coverage_warn_only and coverage is not None
                     else f"etf_daily_silver_{check_kind}_failed"
                 ),
                 "failed_rule_names": list(failed_rules),
+                **(
+                    {
+                        "confirmed_business_fact_versions": [
+                            {
+                                "ts_code": fact.subject_key,
+                                "fact_id": fact.fact_id,
+                                "revision": fact.revision,
+                            }
+                            for fact in audit.liquidation_facts
+                        ]
+                    }
+                    if is_coverage and audit.liquidation_facts is not None
+                    else {}
+                ),
                 "raw_row_count": parity.raw_row_count if parity is not None else 0,
                 "selected_row_count": (
                     parity.selected_row_count if parity is not None else 0
@@ -1121,6 +1176,8 @@ def build_etf_daily_silver_check_result(
                     if passed and audit.history is not None
                     else "Silver 分区通过当前检查。"
                     if passed
+                    else "读取已确认业务事实失败。"
+                    if registry_error
                     else "Silver 分区存在覆盖差异；本检查只告警，不阻断。"
                     if coverage_warn_only and coverage is not None
                     else "Silver 分区未通过准入检查。"
@@ -1128,6 +1185,8 @@ def build_etf_daily_silver_check_result(
                 "next_action": (
                     "无需处理。"
                     if passed
+                    else "核对业务事实登记库的只读连接后重试。"
+                    if registry_error
                     else "查看覆盖差异样本；日线缺码保持告警，不自动补值。"
                     if coverage_warn_only and coverage is not None
                     else "检查因子缺码及 Basic 基线；分区不可用，不自动填值或覆盖。"
@@ -1221,7 +1280,12 @@ _FACTOR_CHECK_KINDS = (
         for name in SILVER_ETF_ADJ_FACTOR_BLOCKING_CHECKS
     ],
     can_subset=True,
-    required_resource_keys={"lake_root", "duckdb", "prepared_basic"},
+    required_resource_keys={
+        "lake_root",
+        "duckdb",
+        "prepared_basic",
+        "confirmed_business_facts",
+    },
     resource_defs={"prepared_basic": dg.ResourceDefinition.hardcoded_resource(None)},
 )
 def silver_etf_adj_factor_checks(
@@ -1270,6 +1334,7 @@ def silver_etf_adj_factor_checks(
         current_run_id=context.run.run_id,
         prepared_basic=prepared_basic,
         maintenance_plan_hash=plan_hash,
+        confirmed_business_facts=context.resources.confirmed_business_facts,
     )
     for name, kind in selected_checks:
         yield build_etf_daily_silver_check_result(
