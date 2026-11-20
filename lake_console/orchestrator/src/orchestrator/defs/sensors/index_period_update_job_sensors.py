@@ -216,6 +216,14 @@ def evaluate_index_period_sensor(context, now, *, period, layer):
         return result(key=original_key, reason="raw_superseded", summary="该周期已有更新的Raw批次，下一次检查处理新批次。")
     if not ready:
         return result(key=original_key, reason="raw_checks_not_ready", summary="等待正式Raw与本次物化关联的检查通过。", component=period.raw_asset)
+    if original_key == key and not completed:
+        failed = attempt is not None and attempt.status in (
+            dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED,
+        )
+        return result(key=key, reason="daily_attempt_failed" if failed else reason,
+            missing=missing, component=job if attempt is not None else "silver_index_daily",
+            summary=(f"{key}截至{today}的日更失败或已取消，请人工在原job重跑原分区。" if failed
+                     else f"等待{today}DG指数日线及当期日更成功后，再提交{key}正式覆盖。"))
     run_key = build_upstream_triggered_run_key(consumer=job, upstream_batch_id=metadata["goldenshare/upstream_batch_id"].value)
     previous = _existing_attempt(context.instance, job, run_key)
     if previous:

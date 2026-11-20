@@ -263,6 +263,90 @@ def test_non_release_or_closed_has_no_source_calls(isolated, monkeypatch, layer,
     assert not tick(context, layer=layer, day=day).run_requests
 
 
+@pytest.mark.parametrize("period,key,start,day,previous", [
+    (INDEX_WEEKLY, "2026-07-03", "2026-06-29", "2026-07-03", "2026-07-02"),
+    (INDEX_MONTHLY, "2026-06", "2026-06-01", "2026-06-30", "2026-06-29"),
+])
+@pytest.mark.parametrize("problem,expected_reason", [
+    ("missing", "daily_materialization_missing"),
+    ("failed_run", "daily_run_not_success"),
+    ("red", "daily_checks_not_ready"),
+    ("missing_code", "daily_codes_missing"),
+])
+def test_current_raw_waits_for_daily_and_keeps_batch(
+    isolated, monkeypatch, period, key, start, day, previous, problem, expected_reason,
+):
+    # 929f2825的真实先后顺序：Raw十码先成功，北证50尚未合成到期末。
+    # 字段由既有生产者schema夹具提供；这里验证门禁，不验收合成公式。
+    defs, context, instance, root = isolated
+    seed_silver(root, period, start=start, day=previous)
+    emit_delivery(instance, period.silver_asset, day=key,
+        metadata={"goldenshare/trade_date": previous})
+    fake_source(monkeypatch, period)
+    instance.add_dynamic_partitions(period.partition_set, [key])
+    assert defs.resolve_job_def(period.raw_asset + "_update_job").execute_in_process(
+        instance=instance, partition_key=key,
+    ).success
+    if problem != "missing":
+        emit_delivery(instance, "silver_index_daily", day=day,
+            bad=problem if problem in ("failed_run", "red") else None)
+    if problem == "missing_code":
+        daily_input(root, day, (100, 100, 100, 100, 100, 0, 0),
+            codes=tuple(code for code in EXPECTED_CODES if code != "899050.BJ"))
+
+    waiting = tick(context, period=period, day=day)
+    assert not waiting.run_requests and not waiting.dynamic_partitions_requests
+    assert reason(waiting) == expected_reason
+    assert json.loads(waiting.cursor)["details"].get("runtime_state", {}).get("raw_after_storage_id") is None
+    context.update_cursor(waiting.cursor)
+
+    daily_input(root, day, (100, 100, 100, 100, 100, 0, 0))
+    emit_delivery(instance, "silver_index_daily", day=day)
+    daily = tick(context, period=period, day=day)
+    assert reason(daily) == "daily_requested"
+    assert daily.run_requests[0].partition_key == key
+    assert daily.run_requests[0].run_config == {
+        "ops": {period.silver_asset: {"config": {"mode": "daily", "trade_date": day}}},
+    }
+    context.update_cursor(daily.cursor)
+    # 用原生夹具模拟日更完成，证明等待没有消费Raw，也不会永久挡住正式覆盖。
+    seed_silver(root, period, start=start, day=day)
+    emit_delivery(instance, period.silver_asset, day=key,
+        metadata={"goldenshare/trade_date": day})
+    formal = tick(context, period=period, day=day)
+    assert reason(formal) == "period_requested"
+    assert formal.run_requests[0].partition_key == key
+    assert formal.run_requests[0].run_config == {
+        "ops": {period.silver_asset: {"config": {"mode": "period"}}},
+    }
+
+
+@pytest.mark.parametrize("period,key,start,day,previous", [
+    (INDEX_WEEKLY, "2026-07-03", "2026-06-29", "2026-07-03", "2026-07-02"),
+    (INDEX_MONTHLY, "2026-06", "2026-06-01", "2026-06-30", "2026-06-29"),
+])
+@pytest.mark.parametrize("status", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED])
+def test_current_raw_cannot_bypass_failed_daily(
+    isolated, monkeypatch, period, key, start, day, previous, status,
+):
+    defs, context, instance, root = isolated
+    seed_silver(root, period, start=start, day=previous)
+    emit_delivery(instance, period.silver_asset, day=key,
+        metadata={"goldenshare/trade_date": previous})
+    fake_source(monkeypatch, period)
+    instance.add_dynamic_partitions(period.partition_set, [key])
+    assert defs.resolve_job_def(period.raw_asset + "_update_job").execute_in_process(
+        instance=instance, partition_key=key,
+    ).success
+    job = period.silver_asset + "_update_job"
+    instance.create_run_for_job(defs.resolve_job_def(job), status=status,
+        run_config=build_index_period_silver_run_config(period, IndexPeriodSilverConfig(mode="daily", trade_date=day)),
+        tags={"dagster/run_key": f"{job}:{key}:{day}"})
+    waiting = tick(context, period=period, day=day)
+    assert not waiting.run_requests and reason(waiting) == "daily_attempt_failed"
+    assert json.loads(waiting.cursor)["details"].get("runtime_state", {}).get("raw_after_storage_id") is None
+
+
 def test_raw_after_daily_overrides_original_partition_and_dedups(isolated, monkeypatch):
     defs, context, instance, _ = isolated
     emit_delivery(instance, "silver_index_daily", day="2026-07-03")
@@ -302,6 +386,20 @@ def test_raw_original_month_independent_of_today_daily(isolated, monkeypatch):
     assert execute_request(defs, instance, result, INDEX_MONTHLY.silver_asset).success
 
 
+def test_old_week_raw_does_not_wait_for_today_daily(isolated, monkeypatch):
+    defs, context, instance, root = isolated
+    seed_silver(root, INDEX_WEEKLY, start="2026-06-22", day="2026-06-26")
+    fake_source(monkeypatch, INDEX_WEEKLY)
+    instance.add_dynamic_partitions(INDEX_WEEKLY.partition_set, ["2026-06-26"])
+    assert defs.resolve_job_def("raw_index_weekly_update_job").execute_in_process(
+        instance=instance, partition_key="2026-06-26",
+    ).success
+    request = tick(context)
+    assert reason(request) == "period_requested"
+    assert request.run_requests[0].partition_key == "2026-06-26"
+    assert execute_request(defs, instance, request, INDEX_WEEKLY.silver_asset).success
+
+
 def test_real_daily_producer_four_checks_then_both_period_jobs(isolated, monkeypatch):
     period_defs, context, instance, root = isolated
     seed_silver(root, INDEX_WEEKLY)
@@ -335,9 +433,9 @@ def test_real_daily_producer_four_checks_then_both_period_jobs(isolated, monkeyp
 
 @pytest.mark.parametrize("superseded", [False, True])
 def test_bootstrap_origin_then_new_raw_batches_are_not_lost(isolated, monkeypatch, superseded):
-    defs, context, instance, _ = isolated
+    defs, context, instance, root = isolated
     emit_delivery(instance, INDEX_WEEKLY.raw_asset, day="2026-06-19", metadata={"goldenshare/source_method": "index_period_bootstrap"})
-    origin = tick(context)
+    origin = tick(context, day="2026-07-03")
     assert reason(origin) == "bootstrap_origin" and not origin.run_requests
     context.update_cursor(origin.cursor)
     fake_source(monkeypatch, INDEX_WEEKLY)
@@ -346,7 +444,7 @@ def test_bootstrap_origin_then_new_raw_batches_are_not_lost(isolated, monkeypatc
     raw_job = defs.resolve_job_def("raw_index_weekly_update_job")
     for key in keys:
         assert raw_job.execute_in_process(instance=instance, partition_key=key).success
-    candidate = tick(context)
+    candidate = tick(context, day="2026-07-03")
     if superseded:
         assert reason(candidate) == "raw_superseded"
     else:
@@ -354,10 +452,15 @@ def test_bootstrap_origin_then_new_raw_batches_are_not_lost(isolated, monkeypatc
         instance.create_run_for_job(defs.resolve_job_def("silver_index_weekly_update_job"),
             run_config=candidate.run_requests[0].run_config, status=dg.DagsterRunStatus.SUCCESS,
             tags={"dagster/run_key": candidate.run_requests[0].run_key})
-        candidate = tick(context)
+        candidate = tick(context, day="2026-07-03")
         assert reason(candidate) == "period_attempt_exists"
     context.update_cursor(candidate.cursor)
-    following = tick(context)
+    if not superseded:
+        # 此用例验证批次游标；消费当期Raw前明确提供已经完成的当期日更。
+        seed_silver(root, INDEX_WEEKLY, day="2026-07-03")
+        emit_delivery(instance, INDEX_WEEKLY.silver_asset, day="2026-07-03",
+            metadata={"goldenshare/trade_date": "2026-07-03"})
+    following = tick(context, day="2026-07-03")
     assert reason(following) == "period_requested"
     assert following.run_requests[0].partition_key == keys[1]
 
@@ -425,21 +528,25 @@ def test_holiday_week_end_and_incomplete_calendar(isolated, monkeypatch):
 
 
 def test_same_raw_batch_failure_needs_manual_retry_and_new_batch_is_independent(isolated, monkeypatch):
-    defs, context, instance, _ = isolated
+    defs, context, instance, root = isolated
+    # 覆盖失败及人工重试的前提：当期日更已完成；不再绕过新的当期触发条件。
+    seed_silver(root, INDEX_WEEKLY, day="2026-07-03")
+    emit_delivery(instance, INDEX_WEEKLY.silver_asset, day="2026-07-03",
+        metadata={"goldenshare/trade_date": "2026-07-03"})
     fake_source(monkeypatch, INDEX_WEEKLY)
     instance.add_dynamic_partitions(INDEX_WEEKLY.partition_set, ["2026-07-03"])
     raw_job = defs.resolve_job_def("raw_index_weekly_update_job")
     assert raw_job.execute_in_process(instance=instance, partition_key="2026-07-03").success
-    request = tick(context)
+    request = tick(context, day="2026-07-03")
     instance.create_run_for_job(defs.resolve_job_def("silver_index_weekly_update_job"),
         status=dg.DagsterRunStatus.FAILURE, run_config=request.run_requests[0].run_config,
         tags={"dagster/run_key": request.run_requests[0].run_key})
-    failed = tick(context)
+    failed = tick(context, day="2026-07-03")
     assert not failed.run_requests and reason(failed) == "period_attempt_exists"
     context.update_cursor(failed.cursor)
-    assert not tick(context).run_requests
+    assert not tick(context, day="2026-07-03").run_requests
     assert raw_job.execute_in_process(instance=instance, partition_key="2026-07-03").success
-    updated = tick(context)
+    updated = tick(context, day="2026-07-03")
     assert updated.run_requests[0].run_key != request.run_requests[0].run_key
 
 
