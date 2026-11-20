@@ -494,7 +494,7 @@ silver_index_daily_update_job[trade_date]
   </section>
   <section id="index-basic-refresh-lld">
     <h2>8. DG 指数基础信息刷新与日更 LLD</h2>
-    <p class="small">2026-11-20 · 第一阶段刷新流程已实现并通过离线验收。正式首刷与日更接入待执行。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
+    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。交易日日更待接入。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
 
     <h3>8.1 复用入口与影响面</h3>
     <table>
@@ -552,6 +552,15 @@ silver_index_daily_update_job[trade_date]
       </tbody>
     </table>
     <p>按上次源端市场规模构造的 12,648 条模拟记录使用 6,000 条分页，主查询和首刷市场交叉验证合计 12 次模拟请求。候选生成、验证和两层发布共 3.834 秒，Raw 发布后重新打开批次记录并完成 Silver 用时 0.002 秒。该测试进程峰值内存约 294 MiB，包含模块装载。实测范围是本机 IO，无真实源请求或正式写入。首刷仍须核验正式环境的分页、覆盖、耗时及事后读回。</p>
+
+    <h3 id="index-basic-refresh-live-acceptance">8.7 第二阶段正式首刷验收</h3>
+    <p>2026-11-20 北京时间 17:10:02 至 17:10:18，正式 <code>index_basic_update_job</code> 成功完成，执行耗时约 16.1 秒。适用指数交易日 <code>D=2026-11-20</code>。两层物化记录分别为 Raw <code>8260458</code> 和 Silver <code>8260494</code>。6 项 Check 全部通过，并与各自物化记录匹配。两层覆盖明细均指向本批次。<a href="http://127.0.0.1:3000/runs/a1f201b1-53f4-4526-b222-f5f15656c85d">DG 运行记录</a></p>
+    <ul>
+      <li>Raw 主查询返回 3 页，分别为 6,000、6,000、648 条。8 个已知市场分组另用 9 次请求核对代码，中证返回 6,000 和 3,079 条两页。各组与主查询对应代码集合一致。正式 Raw 从 12,367 条更新到 12,648 条，均为唯一代码。</li>
+      <li>与旧 Raw 对照，新增 431 个、移除 150 个，150 个移除代码均为南华。按 Raw 全部业务字段比较，共有代码中有 298 个发生变化，其中简称、发布日期或终止日期有变化的代码为 164 个。首刷差异记录未发现现行主要指数及周月线配置代码的可用性或日期边界变化。</li>
+      <li>Silver 从 11,581 条更新到 11,848 条。同批 Raw 中有 800 个指数截至 <code>D</code> 已终止。读回按代码和终止日双向核对，缺码、多码及终止日期不符均为 0。<code>930994.CSI</code> 保留在 Raw，已从 Silver 排除。正式 Raw、Silver 的文件摘要与候选发布记录一致。</li>
+    </ul>
+    <p>逐代码增删改和发布记录保存在该批次 staging 目录的 <code>first_refresh_changes.json</code> 与 <code>publication.json</code>。本次验收范围为指数基础信息两层正式快照。日更 Sensor 留待第三阶段接入。</p>
   </section>
 </main>
 <section><h2>2026-10-24 日线写入安全修正</h2><p>管理员已授权主要指数日线Gold与上游指数日线Silver使用staging、逐文件记录和中断继续核对；不改公式、seed、字段、日期和正式路径。实施以<a href="dagster-index-daily-staging-write-plan-and-low-level-design.md">本步方案和LLD</a>为准；验证结果另行追加。</p></section>

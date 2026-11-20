@@ -454,7 +454,7 @@ data_lake/raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code><
   </section>
   <section id="index-basic-refresh">
     <h2>8. DG 指数基础信息刷新与日更方案</h2>
-    <p class="small">2026-11-20 · 第一阶段刷新流程已实现并通过离线验收。正式首刷与日更接入待执行。<a href="dagster-phase-3-major-indices-low-level-design.html#index-basic-refresh-acceptance">第一阶段验收记录</a></p>
+    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。交易日日更待接入。<a href="dagster-phase-3-major-indices-low-level-design.html#index-basic-refresh-live-acceptance">正式首刷验收记录</a></p>
     <p>先刷新本地 DG 的指数基础信息 Raw 和 Silver，修复现有快照落后于 Tushare 的问题。首刷验收后，沿用同一个更新 Job 接入交易日日更。这两份文件都是全表快照。日更按业务交易日判断是否成功交付，存储仍是单份当前快照。</p>
 
     <h3>8.1 已确认的数据口径</h3>
