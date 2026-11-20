@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 
 import duckdb
@@ -19,7 +20,7 @@ from src.foundation.clients.local_lake.stock_daily_trend_channel_reader import (
 from src.foundation.models.core_serving.security_serving import Security
 
 
-def _write_partition(root: Path, trade_date: str) -> None:
+def _write_partition(root: Path, trade_date: str, *, ts_code: str = "000001.SZ") -> None:
     target = (
         root
         / "gold/indicator/stock_daily_trend_channel"
@@ -32,7 +33,7 @@ def _write_partition(root: Path, trade_date: str) -> None:
         connection.execute(
             """
             CREATE TABLE result AS SELECT
-              '000001.SZ'::VARCHAR AS ts_code,
+              ?::VARCHAR AS ts_code,
               ?::DATE AS trade_date,
               10.0::DOUBLE AS open, 11.0::DOUBLE AS high,
               9.0::DOUBLE AS low, 10.5::DOUBLE AS close,
@@ -43,7 +44,7 @@ def _write_partition(root: Path, trade_date: str) -> None:
               'UP_DOWN'::VARCHAR AS combined_state,
               'stock-daily-trend-channel-v1'::VARCHAR AS formula_version
             """,
-            [trade_date],
+            [ts_code, trade_date],
         )
         connection.execute("COPY result TO ? (FORMAT PARQUET)", [str(target)])
     finally:
@@ -67,7 +68,7 @@ def _client(root: Path, monkeypatch, db_session) -> TestClient:
     return TestClient(app)
 
 
-def _seed_stock(db_session) -> None:
+def _seed_stock(db_session, *, list_date: date | None = None) -> None:
     db_session.add(
         Security(
             ts_code="000001.SZ",
@@ -77,6 +78,7 @@ def _seed_stock(db_session) -> None:
             list_status="L",
             security_type="EQUITY",
             source="tushare",
+            list_date=list_date,
         )
     )
     db_session.commit()
@@ -139,6 +141,39 @@ def test_api_returns_camel_case_bars_in_lake_order(
     }
     assert payload["dataStatus"]["status"] == "READY"
     assert len(closed_readers) == 1
+
+
+def test_api_stops_at_listing_date_and_keeps_valid_empty_response(
+    tmp_path: Path,
+    monkeypatch,
+    db_session,
+) -> None:
+    _seed_stock(db_session, list_date=date(2026, 8, 25))
+    for day in (24, 25, 26, 27, 28):
+        ts_code = "000001.SZ" if day in (25, 28) else "600000.SH"
+        _write_partition(tmp_path, f"2026-08-{day}", ts_code=ts_code)
+    scanned_file_counts: list[int] = []
+    original_read = StockDailyTrendChannelLakeReader.read
+
+    def track_read(reader, request):
+        result = original_read(reader, request)
+        scanned_file_counts.append(result.scanned_file_count)
+        return result
+
+    monkeypatch.setattr(StockDailyTrendChannelLakeReader, "read", track_read)
+    with _client(tmp_path, monkeypatch, db_session) as client:
+        path = "/wealth/market/stock-detail/trend-channel"
+        params = {"tsCode": "000001.SZ", "limit": 3}
+        response = client.get(path, params={**params, "endDate": "2026-08-28"})
+        before_listing = client.get(path, params={**params, "endDate": "2026-08-24"})
+
+    assert response.status_code == 200
+    assert [bar["tradeDate"] for bar in response.json()["bars"]] == ["2026-08-25", "2026-08-28"]
+    assert response.json()["meta"] == {"count": 2, "endDate": "2026-08-28", "limit": 3}
+    assert before_listing.status_code == 200
+    assert before_listing.json()["bars"] == []
+    assert before_listing.json()["dataStatus"]["status"] == "EMPTY"
+    assert scanned_file_counts == [4, 0]
 
 
 def test_api_applies_default_and_maximum_limits(

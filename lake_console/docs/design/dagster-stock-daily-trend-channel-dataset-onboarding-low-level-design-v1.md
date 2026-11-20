@@ -1393,7 +1393,7 @@ env:
 
 ### 14.2 Foundation
 
-本节记录首次接入设计。本地股票日 K 翻页开发前，读取器的 `limit` 改为只计指定股票的有效结果，由近到远逐批读取，达到条数或最早分区时停止。后续实现以[股票详情 LLD §5.4](../../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md#54-本地股票日-k-向前翻页)中的读取修正和验收为准。
+本节记录首次接入设计。本地股票日 K 翻页开发前，读取器的 `limit` 改为只计指定股票的有效结果，由近到远逐批读取，达到条数或读完该股票可用历史时停止。业务查询将既有证券的上市日传给读取器作为内部读取下限，上市日缺失时以最早正式分区为界。后续实现以[股票详情 LLD §5.4](../../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md#54-本地股票日-k-向前翻页)中的读取修正和验收为准。
 
 新增：
 

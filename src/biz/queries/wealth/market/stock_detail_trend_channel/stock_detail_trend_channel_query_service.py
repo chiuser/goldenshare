@@ -85,6 +85,7 @@ class StockDetailTrendChannelQueryService:
                 ts_code=normalized_code,
                 end_date=query_end_date,
                 limit=limit,
+                list_date=security.list_date,
             )
         )
         bars = [_to_bar(row) for row in result.rows]

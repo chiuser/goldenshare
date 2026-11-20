@@ -3,9 +3,10 @@ from __future__ import annotations
 import math
 import time
 from collections import defaultdict
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 from datetime import date
+from itertools import islice, takewhile
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -44,6 +45,7 @@ class StockDailyTrendChannelReadRequest:
     ts_code: str
     end_date: date | None
     limit: int
+    list_date: date | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,19 +73,35 @@ class StockDailyTrendChannelLakeReader:
     ) -> StockDailyTrendChannelReadResult:
         started = time.perf_counter()
         normalized = _normalize_request(request)
-        partitions = _select_partition_files(self._lake_root, normalized)
-        if not partitions:
+        dataset_root = stock_daily_trend_channel_dataset_root(self._lake_root)
+        dated_directories = _list_partition_directories(dataset_root, normalized.end_date)
+        if not dated_directories:
             raise StockDailyTrendChannelSourceNotReadyError(
                 "股票趋势通道正式分区尚未准备完成。"
             )
 
-        paths = tuple(item.path for item in partitions)
+        directories = iter(dated_directories)
+        list_date = normalized.list_date
+        if list_date is not None:
+            directories = takewhile(lambda partition: partition[0] >= list_date, directories)
+
+        rows: list[dict[str, Any]] = []
+        scanned_file_count = 0
         try:
             with self._connection_lock:
-                connection = self._connection_for_read()
-                _validate_file_schemas(connection, paths)
-                rows = _query_rows(connection, paths, normalized)
-            _validate_result_rows(rows, partitions, normalized)
+                while len(rows) < normalized.limit:
+                    remaining = normalized.limit - len(rows)
+                    partitions = _select_partition_files(dataset_root, islice(directories, remaining))
+                    if not partitions:
+                        break
+                    paths = tuple(item.path for item in partitions)
+                    batch_request = replace(normalized, limit=len(partitions))
+                    connection = self._connection_for_read()
+                    _validate_file_schemas(connection, paths)
+                    batch_rows = _query_rows(connection, paths, batch_request)
+                    _validate_result_rows(batch_rows, partitions, batch_request)
+                    rows.extend(batch_rows)
+                    scanned_file_count += len(partitions)
         except StockDailyTrendChannelReaderError:
             raise
         except Exception as exc:
@@ -91,10 +109,11 @@ class StockDailyTrendChannelLakeReader:
                 "股票趋势通道本地读取失败。"
             ) from exc
 
+        rows.sort(key=lambda row: row["trade_date"])
         return StockDailyTrendChannelReadResult(
             rows=tuple(rows),
             observed_trade_date=rows[-1]["trade_date"] if rows else None,
-            scanned_file_count=len(paths),
+            scanned_file_count=scanned_file_count,
             elapsed_ms=(time.perf_counter() - started) * 1000,
         )
 
@@ -138,20 +157,15 @@ def _normalize_request(
         )
     if not 1 <= request.limit <= MAX_TREND_CHANNEL_LIMIT:
         raise StockDailyTrendChannelRequestError("limit 必须在 1 到 2000 之间。")
-    return StockDailyTrendChannelReadRequest(
-        ts_code=ts_code,
-        end_date=request.end_date,
-        limit=request.limit,
-    )
+    return replace(request, ts_code=ts_code)
 
 
-def _select_partition_files(
-    lake_root: Path,
-    request: StockDailyTrendChannelReadRequest,
-) -> tuple[_PartitionFile, ...]:
-    dataset_root = stock_daily_trend_channel_dataset_root(lake_root)
+def _list_partition_directories(
+    dataset_root: Path,
+    end_date: date | None,
+) -> list[tuple[date, Path]]:
     if not dataset_root.is_dir():
-        return ()
+        return []
 
     partition_directories: list[tuple[date, Path]] = []
     try:
@@ -170,13 +184,20 @@ def _select_partition_files(
             raise StockDailyTrendChannelSourceNotReadyError(
                 f"股票趋势通道分区日期非法：{child.name}。"
             ) from exc
-        if request.end_date is not None and trade_date > request.end_date:
+        if end_date is not None and trade_date > end_date:
             continue
         partition_directories.append((trade_date, child))
 
     partition_directories.sort(key=lambda item: item[0], reverse=True)
+    return partition_directories
+
+
+def _select_partition_files(
+    dataset_root: Path,
+    directories: Iterable[tuple[date, Path]],
+) -> tuple[_PartitionFile, ...]:
     candidates: list[_PartitionFile] = []
-    for trade_date, child in partition_directories[: request.limit]:
+    for trade_date, child in directories:
         target = (child / "part-000.parquet").resolve()
         if not target.is_relative_to(dataset_root.resolve()) or not target.is_file():
             raise StockDailyTrendChannelSourceNotReadyError(

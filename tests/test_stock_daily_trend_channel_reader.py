@@ -18,6 +18,7 @@ def _write_partition(
     root: Path,
     *,
     trade_date: str,
+    has_target_stock: bool = True,
     formula_version: str = "stock-daily-trend-channel-v1",
     duplicate: bool = False,
 ) -> Path:
@@ -68,6 +69,8 @@ def _write_partition(
     ]
     if duplicate:
         rows.append(rows[0])
+    if not has_target_stock:
+        rows = rows[1:]
     connection = duckdb.connect(database=":memory:")
     try:
         connection.execute(
@@ -121,6 +124,31 @@ def test_reader_selects_bounded_partitions_and_returns_strict_ascending_rows(
     ]
     assert {row["ts_code"] for row in result.rows} == {"000001.SZ"}
     assert result.scanned_file_count == 2
+
+
+def test_reader_counts_stock_results_across_gaps_and_stops_when_full(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for day in (21, 24, 25, 26, 27, 28):
+        _write_partition(
+            tmp_path,
+            trade_date=f"2026-08-{day}",
+            has_target_stock=day not in (26, 27),
+        )
+    reader = _reader(tmp_path, monkeypatch)
+    request = StockDailyTrendChannelReadRequest("000001.SZ", date(2026, 8, 28), 3)
+    try:
+        result = reader.read(request)
+        repeated = reader.read(request)
+    finally:
+        reader.close()
+
+    assert [row["trade_date"] for row in result.rows] == [
+        date(2026, 8, 24), date(2026, 8, 25), date(2026, 8, 28),
+    ]
+    assert result.scanned_file_count == repeated.scanned_file_count == 5
+    assert repeated.rows == result.rows
 
 
 @pytest.mark.parametrize("failure", ["formula", "duplicate"])
