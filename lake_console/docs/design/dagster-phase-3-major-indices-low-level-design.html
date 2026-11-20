@@ -494,7 +494,7 @@ silver_index_daily_update_job[trade_date]
   </section>
   <section id="index-basic-refresh-lld">
     <h2>8. DG 指数基础信息刷新与日更 LLD</h2>
-    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。交易日日更待接入。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
+    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。第三阶段日更 LLD 已补齐，Sensor 待开发与正式启用。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
 
     <h3>8.1 复用入口与影响面</h3>
     <table>
@@ -527,11 +527,43 @@ silver_index_daily_update_job[trade_date]
 
     <h3>8.4 日更触发与审计读取</h3>
     <ul>
-      <li>Sensor 按北京时间（<code>Asia/Shanghai</code>）评估。18:00 前或当天指数交易日未登记时跳过。18:00 起，当天交易日已登记且没有当晚成功交付时，提交一次 <code>index_basic_update_job</code>。以当日 18:00 起取数的更新批次、Job 成功结果、该批次两层物化及各自的 Check 判定交付。中途续跑的两层可有不同 run ID，须能归到同一批次，且每层 Check 都与该层物化记录匹配。18:00 前的手动刷新记录实际交付时间，当晚仍按上述规则触发。Sensor 只读这些交付证据和当日交易日登记状态。</li>
-      <li>以 <code>D</code> 为执行单元，用 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/run_keys.py"><code>build_asset_update_run_key</code></a> 去重。任务第一次取数前，若 <code>scheduled_trade_date</code> 与北京时间当天或实际解析出的 <code>D</code> 不一致，停止取数并记录原因。完整候选已存在的中断任务按其固定输入继续。失败在 DG 和审计明细中展示，按本批记录人工重执行。每日独立触发，离线漏跑的日期保留原交付事实。</li>
       <li><strong>把候选验证结果绑定到正式产出。</strong> 通过发布读回确认正式文件摘要等于本次已核验的候选摘要。Raw 物化记录本批源请求和 Raw 覆盖结果，Silver 物化记录实际使用的 Raw 版本、<code>ready_for_trade_date</code> 和本批对账结果。现有的 Raw 文件合同 Check 和 Silver 生命周期 Check 读取各自目标物化的覆盖结果并写入明细，保留原有 <code>passed</code> 判定。发布后的 Check 及页面无需重做源端或两层对账。</li>
       <li><strong>按版本复用证据。</strong> 审计按业务日期找到各层产出，再以物化记录 ID 和 run ID 匹配 Check，核对其中的覆盖证据属于同一产出。后来单跑 Raw 导致当前 Raw 版本变化时，旧 Silver 的对账证据仍只对应它原来使用的 Raw。旧版缺证据或关联不上时，齐备显示「待确认」。重跑旧文件 Check 不构成当日更新，也不能用当前 Raw 给旧 Silver 补造证据。</li>
       <li><strong>分开显示结果。</strong> 更新状态读取各层实际交付。若 Raw 已发布、Silver 未完成，分别呈现，整个日更 Job 仍未完成。齐备状态结合各层对应的正式 Check 和覆盖证据。对账失败发生在发布前，差异记在该次运行明细，不能把未发布候选的缺口归给仍在使用的旧快照。</li>
+    </ul>
+
+    <h4 id="index-basic-daily-sensor-definition">8.4.1 Sensor 定义与启用</h4>
+    <p>新增 <code>defs/sensors/index_basic_update_job_sensor.py</code>，定义 <code>index_basic_update_job_sensor</code>，目标是既有 <code>index_basic_update_job</code>。通过 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/sensor_tags.py"><code>build_sensor_tags</code></a> 构造三项定义标签。<code>goldenshare/sensor_domain=index_topic</code>，<code>goldenshare/sensor_target_layer=raw_silver</code>，<code>goldenshare/sensor_role=asset_update</code>。编写时同步<a href="dagster-run-contract-governance.html">运行合同治理</a>、<a href="../architecture/dagster-asset-job-topology.html">资产与任务拓扑</a>和<a href="../../orchestrator/tests/test_run_contract_static_gates.py">Sensor 静态门禁</a>，将分类作为定义标签注册。</p>
+    <p>默认 <code>STOPPED</code>，部署并核对定义后单独启用。最短轮询间隔沿用<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_basic_sensor.py">股票基础信息 Sensor</a>的 600 秒。每天在北京时间 <code>[18:00, 次日 00:00)</code> 按 daemon 实际轮询决定是否提交。<code>D</code> 只取北京时间当天，在 <code>cn_a_index_trade_days</code> 核对该日是否已登记。读取交易日登记使用现有 <code>index_trade_day_sensor</code> 的结果，更新 Job 和两个资产仍为无分区快照。</p>
+
+    <h4>8.4.2 每轮判断与查询上限</h4>
+    <p>先用只读路径检查确认正式 Lake 挂载与 staging 根存在，再判断本地时间。此阶段不写探针文件。任一条件不满足就跳过，Dagster 数据查询为 0。符合窗口时按下表顺序读取，能作出决定时提前结束。</p>
+    <table>
+      <thead><tr><th>顺序</th><th>查询与范围</th><th>处理</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><code>has_dynamic_partition</code> 查 <code>cn_a_index_trade_days</code> 的当天 <code>D</code>，1 次。</td><td>未登记就跳过。休市和本机离线漏跑日都不补拉历史快照。</td></tr>
+        <tr><td>2</td><td>按目标 Job、Dagster 原生 Sensor 名称标签及当日 run key 查提交记录，<code>get_run_records(limit=1)</code>，1 次。</td><td>当日自动任务已提交则跳过。失败或取消显示原因，由人工按原批次重执行。</td></tr>
+        <tr><td>3</td><td>按目标 Job 和状态 <code>NOT_STARTED</code>、<code>QUEUED</code>、<code>STARTING</code>、<code>STARTED</code>、<code>CANCELING</code> 查询，<code>get_run_records(limit=1)</code>，1 次。</td><td>同一 Job 正在排队或执行时等下一轮。其他作业继续使用现有 Dagster 队列规则。</td></tr>
+        <tr><td>4</td><td><code>get_asset_records</code> 一次读取 Raw、Silver 两个资产的最新物化记录，最多 2 条。</td><td>核对同批发布、时间及适用日。缺少当前产出或两个版本并非同批时，都不能作为当晚完整交付。</td></tr>
+        <tr><td>5</td><td>按资产目录登记的 6 个阻断 Check 键批量读取最新执行结果，<code>get_latest_asset_check_execution_by_key</code>，1 次，最多 6 条。</td><td>分别用目标物化 ID 和 run ID 关联两层产出。只核对本次交付证据，正式阻断条件保持原样。</td></tr>
+        <tr><td>6</td><td>仅按上两步收集的物化及 Check 执行 run ID 批量读取运行记录，<code>get_run_records</code>，1 次，去重后最多 8 条。</td><td>确认该批 <code>index_basic_update_job</code> 有成功的完成记录。可由同批的恢复运行完成。</td></tr>
+      </tbody>
+    </table>
+    <p>每轮最多调用 6 次 Dagster 查询 API，由上表六项各一次相加。每轮最多返回 18 条记录，由两条运行筛选记录、两条物化记录、六条 Check 记录和最多八条关联运行记录相加。单轮最多提交 1 个 <code>RunRequest</code>。DuckDB 查询、Parquet 扫描及 Tushare 请求各为 0。查询报错或超出次数、记录数预算时中止本轮、记录原因、不提交。部署前用隔离测试断言上限并记录满足条件路径和早退路径的实际耗时，首次启用验收记录正式轮询的耗时。600 秒是两轮的最短间隔，耗时预算以测试实测为依据。</p>
+
+    <h4>8.4.3 交付、去重和游标</h4>
+    <ol>
+      <li><strong>当晚交付证据。</strong> 当前两层的 <code>goldenshare/index_basic_coverage</code> 均包含通过结果和相同的 <code>batch_id</code>，且 Silver 记录的 <code>raw_sha256</code> 等于本批 Raw 的 <code>sha256</code>。Raw 的 <code>fetched_at</code> 换算到北京时间后须落在 <code>D</code> 当晚窗口。Silver 的 <code>goldenshare/ready_for_trade_date</code> 须等于 <code>D</code>。6 项 Check 均通过并绑定各自物化；两份带覆盖明细的 Check 同时核对其中的批次和目标物化 ID。成功的 Job 或恢复运行须属于 <code>index_basic_update_job</code>，其原始 run ID（无父运行时为自身 run ID）与批次相同，结束时间不早于两层中较晚的物化。两层可以来自同一批次的不同运行。独立重跑 Check 不能补出相同批次的成功交付。</li>
+      <li><strong>提交方式。</strong> 当日有登记、当前两层尚未构成当晚完整交付且未提交自动任务时，用 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/run_keys.py"><code>build_asset_update_run_key</code></a> 生成 <code>subject=index_basic_update_job, unit_id=D</code> 的 run key，由 Dagster 对同一个 Sensor 去重。用 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/requests.py"><code>build_run_request</code></a> 提交，<code>partition_key=None</code>。在 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/configs.py"><code>run_contracts/configs.py</code></a> 增加 <code>build_index_basic_update_job_run_config</code>，只构造 <code>ops.raw_tushare_index_basic.config.scheduled_trade_date=D</code>。首刷专用的 <code>verify_source_market_coverage</code> 保持默认 <code>false</code>。运行日期从配置传入 Job。</li>
+      <li><strong>日期及失败边界。</strong> 18:00 前的手动首刷不满足当晚时点。当晚手动运行相同 Job 并产生完整交付时跳过自动提交。如果当前只发布了一层，且当天还没有自动提交，则按日更规则补一次两层更新；当天已有自动提交时保留实际状态，依原批次人工恢复。任务排到次日才开始取数时，现有 Job 用 <code>scheduled_trade_date</code> 拦截。冻结候选已存在的续跑仍按其固定输入继续。</li>
+      <li><strong>游标与诊断。</strong> 通过 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/cursors.py"><code>build_sensor_cursor</code></a> 保留 <code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code> 和最多一个日期样本。<code>details</code> 由 <a href="../../orchestrator/src/orchestrator/defs/run_contracts/cursor_payloads.py"><code>build_cursor_details</code></a> 构造，只含 <code>sensor_name</code>、<code>job_name</code>、<code>asset_family</code>、<code>partition_set</code>、<code>reason_code</code>、<code>blocked_component</code>、<code>summary</code>、<code>next_action</code> 和本轮总耗时 <code>performance_ms.total</code>。游标用于解释当轮决定。去重与交付以前述正式运行和 Check 记录为准。</li>
+    </ol>
+
+    <h4>8.4.4 第三阶段验收</h4>
+    <ul>
+      <li>离线测 <code>17:59</code> 跳过、<code>18:00</code> 且当天已登记可提交、休市或未登记跳过、跨日排队停止、同一日重复轮询只提交一次、自动失败后保留人工恢复入口。用 2026-11-20 17:10 的首刷作对照，它的两层已发布且 6 项 Check 通过，但仍早于当晚窗口。</li>
+      <li>交付回归覆盖晚间手动全链成功、单层发布、错批、Check 关联错误和同一批次跨 run 续跑。验证同期指数行情与主要指数 Gold 在满足原就绪条件时仍可运行。</li>
+      <li>正式启用后观察一个已登记指数交易日，核对自动提交次数、实际取数日、两份文件及各自的 Check。以两层实际交付回答更新状态，以同版覆盖明细回答齐备状态。该项可直接在 DG 验收，数据中心页面接入后再核对显示。</li>
     </ul>
 
     <h3>8.5 性能与验收</h3>
