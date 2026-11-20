@@ -1,5 +1,7 @@
+import json
 import unittest
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 
 import dagster as dg
@@ -26,6 +28,7 @@ from orchestrator.defs.resources import (
     TushareResource,
     TushareResult,
 )
+from orchestrator.defs.sensors import index_basic_update_job_sensor as daily
 
 
 class IndexBasicContractTests(unittest.TestCase):
@@ -345,15 +348,32 @@ def test_old_silver_without_coverage_preserves_blocking_pass(refresh):
     assert publication_io.INDEX_BASIC_COVERAGE_METADATA_KEY not in result.metadata
 
 
-def test_scheduled_date_mismatch_stops_before_calling_source(refresh):
+@pytest.mark.parametrize(
+    ("requested_day", "local_time"),
+    [
+        ("2026-11-18", "2026-11-19T18:05:00+08:00"),
+        ("2026-11-19", "2026-11-20T00:01:00+08:00"),
+    ],
+)
+def test_scheduled_date_mismatch_stops_before_calling_source(
+    refresh, monkeypatch, requested_day, local_time
+):
     root, instance, job, source = refresh
+    queued_at = datetime.fromisoformat(local_time)
+
+    class JobClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return queued_at.astimezone(tz)
+
+    monkeypatch.setattr(assets, "datetime", JobClock)
     result = job.execute_in_process(
         instance=instance,
         raise_on_error=False,
         run_config={
             "ops": {
                 "raw_tushare_index_basic": {
-                    "config": {"scheduled_trade_date": "2026-11-18"}
+                    "config": {"scheduled_trade_date": requested_day}
                 }
             }
         },
@@ -361,6 +381,36 @@ def test_scheduled_date_mismatch_stops_before_calling_source(refresh):
     assert not result.success
     assert not source["calls"]
     assert not raw_index_basic_path(root).exists()
+
+
+def test_daily_sensor_reuses_real_isolated_job_events(
+    refresh, monkeypatch, record_property
+):
+    _root, instance, job, source = refresh
+    source["rows"] = [_source_row("000001.SH", "SSE")]
+    fetched = datetime.fromisoformat("2026-11-19T18:01:00+08:00")
+
+    class SnapshotClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return fetched.astimezone(tz)
+
+    monkeypatch.setattr(snapshots, "datetime", SnapshotClock)
+    monkeypatch.setattr(daily, "_lake_available", lambda: True)
+    assert job.execute_in_process(instance=instance).success
+    with dg.build_sensor_context(instance=instance) as context:
+        early = daily.evaluate_index_basic_update(
+            context, datetime.fromisoformat("2026-11-19T17:59:00+08:00")
+        )
+        complete = daily.evaluate_index_basic_update(context, fetched)
+    for result, expected in (
+        (early, "outside_window"),
+        (complete, "already_delivered"),
+    ):
+        details = json.loads(result.cursor)["details"]
+        assert details["reason_code"] == expected
+        assert not result.run_requests
+        record_property(f"{expected}_tick_ms", details["performance_ms"]["total"])
 
 
 if __name__ == "__main__":

@@ -604,6 +604,14 @@
       名称、触发和验收以<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6</a>为准。
       当时的静态名单和直接测试已同步，正式接线结果见共享LLD第11.13节。新日更、回刷、退市清理及后续旧入口清退的分阶段结果见<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld">共享LLD第13节</a>。实现时同步拓扑、运行契约和现有静态定义门禁。
     </p>
+    <p id="index-basic-sensor-classification">
+      指数基础信息 <code>index_basic_update_job_sensor</code> 使用
+      <code>index_topic / raw_silver / asset_update</code>，由 <code>build_sensor_tags</code> 构造定义标签，默认 <code>STOPPED</code>。
+      北京时间 18:00 起只针对当天已登记的指数交易日提交无分区 <code>index_basic_update_job</code>。
+      <code>build_asset_update_run_key</code> 按日期去重，<code>build_index_basic_update_job_run_config</code> 传入 <code>scheduled_trade_date</code>。
+      是否已交付由当晚同批两层产出和对应 Check 判断。游标只记录本轮诊断，定义标签只用于分类。
+      <a href="dagster-phase-3-major-indices-low-level-design.html#index-basic-daily-sensor-definition">指数基础信息日更 LLD</a>
+    </p>
     <p>
       股票技术因子分区注册 <code>stock_factor_pro_trade_day_sensor</code> 使用
       <code>quote_data / partition / partition_registration</code>，定义默认 <code>STOPPED</code>。

@@ -494,7 +494,7 @@ silver_index_daily_update_job[trade_date]
   </section>
   <section id="index-basic-refresh-lld">
     <h2>8. DG 指数基础信息刷新与日更 LLD</h2>
-    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。第三阶段日更 LLD 已补齐，Sensor 待开发与正式启用。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
+    <p class="small">2026-11-20 · 第一阶段刷新流程通过离线验收。第二阶段正式首刷通过发布及读回验收。第三阶段日更 Sensor 通过离线验收，待正式启用。业务规则见<a href="dagster-phase-3-major-indices-design.html#index-basic-refresh">刷新与日更方案第 8 节</a>。</p>
 
     <h3>8.1 复用入口与影响面</h3>
     <table>
@@ -593,6 +593,10 @@ silver_index_daily_update_job[trade_date]
       <li>Silver 从 11,581 条更新到 11,848 条。同批 Raw 中有 800 个指数截至 <code>D</code> 已终止。读回按代码和终止日双向核对，缺码、多码及终止日期不符均为 0。<code>930994.CSI</code> 保留在 Raw，已从 Silver 排除。正式 Raw、Silver 的文件摘要与候选发布记录一致。</li>
     </ul>
     <p>逐代码增删改和发布记录保存在该批次 staging 目录的 <code>first_refresh_changes.json</code> 与 <code>publication.json</code>。本次验收范围为指数基础信息两层正式快照。日更 Sensor 留待第三阶段接入。</p>
+
+    <h3 id="index-basic-daily-sensor-acceptance">8.8 第三阶段日更离线验收</h3>
+    <p>217 项测试及 45 个子用例通过。<a href="../../orchestrator/tests/test_index_basic_update_job_sensor.py">Sensor 回归</a>覆盖 18:00 边界、当日交易日登记、同日去重、自动失败后人工恢复、活跃 Job、单层交付、批次或 Check 不匹配、同批续跑及查询异常。<a href="../../orchestrator/tests/test_index_basic_contracts.py">Job 回归</a>确认跨日排队的首次取数会被拦截，且可用隔离 Dagster 中真实产生的两层物化和 6 项 Check 识别当晚已交付。周月线和主要指数 Gold 的原有就绪条件通过回归。</p>
+    <p>测试断言满足全部条件的单轮最多调用 6 次 Dagster 查询 API，关联运行最多查询 8 个 run ID。隔离 Dagster 使用 SQLite 事件存储，本次测试中窗口外提前返回耗时 0.010 毫秒，读取完整交付证据后跳过耗时 5.565 毫秒。轮询阶段只查询 Dagster 记录和检查挂载路径，没有 DuckDB 查询、Parquet 扫描或 Tushare 请求。正式轮询耗时及实际触发仍待启用后验收。</p>
   </section>
 </main>
 <section><h2>2026-10-24 日线写入安全修正</h2><p>管理员已授权主要指数日线Gold与上游指数日线Silver使用staging、逐文件记录和中断继续核对；不改公式、seed、字段、日期和正式路径。实施以<a href="dagster-index-daily-staging-write-plan-and-low-level-design.md">本步方案和LLD</a>为准；验证结果另行追加。</p></section>

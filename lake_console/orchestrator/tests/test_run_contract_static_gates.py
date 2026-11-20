@@ -165,6 +165,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/idx_factor_pro_partition_sensor.py:idx_factor_pro_trade_day_sensor",
         "sensors/idx_factor_pro_sensor.py:raw_tushare_idx_factor_pro_update_job_sensor",
         "sensors/idx_factor_pro_sensor.py:silver_index_factor_pro_update_job_sensor",
+        "sensors/index_basic_update_job_sensor.py:index_basic_update_job_sensor",
         "sensors/index_daily_nineturn_prod_core_sensor.py:prod_core_index_daily_nineturn_sync_job_sensor",
         "sensors/index_global_late_empty_sensor.py:raw_index_global_late_empty_sensor",
         "sensors/index_global_retry_sensor.py:raw_index_global_retry_sensor",
@@ -3149,6 +3150,7 @@ def use_nested_resource(context):
                                     "moneyflow_mkt_dc_sensor.py",
                                     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
                                     "gold_wealth_market_turnover_sensor.py",
+                                    "index_basic_update_job_sensor.py",
                                     "major_index_mins_sensor.py",
                                     "daily_basic_sensor.py",
                                 }

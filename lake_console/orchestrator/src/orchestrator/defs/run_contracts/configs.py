@@ -425,6 +425,11 @@ def build_raw_index_daily_update_job_run_config(
     }
 
 
+def build_index_basic_update_job_run_config(*, scheduled_trade_date: str) -> dict:
+    day = normalize_iso_trade_date(scheduled_trade_date, field_name="scheduled_trade_date")
+    return {"ops": {"raw_tushare_index_basic": {"config": {"scheduled_trade_date": day}}}}
+
+
 def build_silver_dc_industry_hierarchy_update_job_run_config(
     *,
     reference_trade_date: str,

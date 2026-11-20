@@ -748,7 +748,7 @@
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td>无分区，全量文件</td>
           <td><code>index_basic_update_job</code> 调 Tushare <code>index_basic</code>，silver 使用最新已注册指数交易日过滤终止指数。</td>
-          <td>低频或日更 full snapshot，先确保 <code>cn_a_index_trade_days</code> 已注册可用交易日。</td>
+          <td><code>index_basic_update_job_sensor</code> 在北京时间 18:00 起只检查当天已登记的指数交易日，同一日最多自动提交一次。默认 <code>STOPPED</code>。</td>
           <td>指数基础信息事实源；主要指数名单通过 checks 校验代码有效性。</td>
         </tr>
         <tr>
@@ -1070,8 +1070,8 @@
           <td><code>index_basic_update_job</code></td>
           <td><code>raw_tushare_index_basic</code>、<code>silver_index_basic</code> + checks</td>
           <td>指数基础信息 raw/silver full file。</td>
-          <td>人工触发；未来可低频或日更。</td>
-          <td>自动使用 <code>cn_a_index_trade_days</code> 中最近 60 个可运行交易日内的最早 raw 有效缺口；不得由业务 gold job 代写。</td>
+          <td>支持人工触发。日更由 <code>index_basic_update_job_sensor</code> 提交，分类为 <code>index_topic / raw_silver / asset_update</code>。</td>
+          <td>只提交当天更新，不补拉历史快照。成功依据为当晚同批交付与对应 Check。指数行情及主要指数 Gold 继续使用各自的准入条件。<a href="../design/dagster-phase-3-major-indices-low-level-design.html#index-basic-daily-sensor-definition">日更 LLD</a></td>
         </tr>
         <tr>
           <td><code>raw_index_daily_update_job</code></td>
