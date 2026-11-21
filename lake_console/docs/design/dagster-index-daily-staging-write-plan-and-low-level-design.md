@@ -316,6 +316,23 @@ Prod原发布和原分区检查均读回本日11行，检查失败0行，Gold与
 
 23:56验收结果保存在`/private/tmp/dg_index_recovery_20261113_20261113/acceptance.json`，两条Prod来源的只读SQL和结果另保留`prod_source.sql`、`prod_source.txt`。原23:39全目录审计JSON不改写；本节和上述验收只将其中本条链五项销账，不重扫或声称其他缺口已修复。重复的临时请求、响应、检查事件副本及状态快照在收尾清理，正式数据、原Dagster事件和日志、业务staging均保留。没有中断或重试，没有启停传感器、修改cursor、调整配置、安装依赖或重启DG。仅本原方案与LLD追加本次执行内容，不提交、不推送。
 
+## 13. 2026-11-19 指数日线及下游补齐
+
+管理员在补齐 Prod 来源后要求推进 11 月 19 日的 DG 指数日线及下游。复用第 12.2–12.3 节五个原任务、原检查及恢复规则。11 月 20 日 09:06，北京时间，原传感器查到 820 个代码齐全。09:26 已核实 Raw、Silver、主要指数日线 Gold 的三次原运行成功，10 项检查均通过且绑定本次产出，复用三份正式文件。剩余目标为本日日线九转 Gold 及 `core_serving.index_nineturn_daily` 本日发布。
+
+先检查自动提交的同日任务。有任务入队或运行时跟踪到终态，已成功且关联检查通过时复用结果。没有原任务且前序检查已通过时，经正式 `orchestrator / __repository__` 队列一次只提交一个未完成原任务。目标为 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 对应的现有 `http://127.0.0.1:3000/graphql`，从 `/Users/congming/github/goldenshare/lake_console/orchestrator` 执行。沿第 12.2 节 `launchRun` 选择器，分区改用 `2026-11-19`，九转 Gold 与发布配置均为 `{}`。若需要人工提交，两个原任务分别使用以下命令，先验收九转 Gold 再提交生产发布。
+
+```bash
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-index-recovery-20261119/gold_major_index_daily_nineturn_update_job.launch.json --output /private/tmp/dg-index-recovery-20261119/gold_major_index_daily_nineturn_update_job.launch-response.json
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-index-recovery-20261119/prod_core_index_daily_nineturn_sync_job.launch.json --output /private/tmp/dg-index-recovery-20261119/prod_core_index_daily_nineturn_sync_job.launch-response.json
+```
+
+九转 Gold 按 `plan_gold_major_index_daily_nineturn_source` 读取截至 11 月 19 日的 20 份主要指数日线（10 月 23 日至 11 月 19 日，共 52,529 字节）及 11 月 18 日九转承接文件（1,210 字节）。以上是正式输入文件压缩大小。候选及正式目录位于同一文件系统，目标只更新 19 日九转文件。生产发布读取本日主要指数日线和九转两份 Gold，事务内仅更新 `core_serving.index_nineturn_daily` 的本日数据并读回。失败或中断后保留原运行、已完成数据和候选记录。需要续跑时先查未完成步骤的运行与产出，再承担该步同样的输入、候选或发布事务，已验收的步骤继续复用。
+
+验收复用三个已完成运行及其原检查。余下两步核对各自的终态、19 日物化、关联检查和 11 行覆盖，依生产发布读回和独立按日计数核对生产表。本次不增加源请求、全目录验收、隔离测试或额外检查任务。指数周月线 Silver 使用其现行方案单独接续。
+
+**20 日 09:29 验收完成。** 原传感器自动提交了剩余两步。日线九转 Gold 运行 `e33c25df-5ce7-4010-830a-9862ebf3bcb4` 于 09:27:58 成功，原物化记录 21 份来源文件。生产发布运行 `fc03a866-82fb-4662-bbbc-cb920c1b9115` 于 09:28:33 成功。两个原检查均绑定本次 19 日物化，每项检查覆盖 11 行，失败 0 行。独立只读核对确认 Gold 文件及生产 `core_serving.index_nineturn_daily` 均有本日 11 个应有指数，各一行。此前同日 Raw、Silver、主要指数日线 Gold 分别读回 820、820、11 行。五步合计 12 项原检查通过。原始缺口报告保留，补齐证据保存在 `/private/tmp/dg-index-recovery-20261119/daily-status-092601.json` 与 `/private/tmp/dg-index-recovery-20261119/daily-092901112370.json`。
+
 ## 14. 2026-11-20 指数日线及下游补齐方案与 LLD
 
 管理员已补齐 Prod 的碳中和60、福建100，并要求先推进指数日线，再推进下游。21 日 01:02 北京时间，沿规定 Prod 只读入口确认 `core_serving.index_daily_serving` 的 20 日登记集合为 820 个代码、820 行、无缺码；DG 尚无当天 Raw、Silver 文件及相应运行。本次只处理 20 日，沿第 12.2 节 D1—D5 的五个原任务、12 项原检查和原读写合同，随后接续指数周线、月线 Silver，后两项执行边界见周期原方案 §11.21。不涉及分钟线、其他指数数据集或其他日期，不改业务代码、sensor 开关／游标、队列、名单、单位或公式，不请求 Tushare。

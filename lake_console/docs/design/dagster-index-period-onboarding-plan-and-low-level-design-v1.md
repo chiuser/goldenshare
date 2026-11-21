@@ -1039,6 +1039,23 @@ Silver 的 94／22 来自 §2 已审计的科创综指已结束周期，另各�
 
 **独立审计结论：启用和当前凌晨窗口行为符合预期；F 尚未全部验收，真实自动日更与周／月正式自动覆盖证据仍未取得。** 不用两次人工接续或 E 的手动覆盖证明自动链路，不因日期尚未到来就判失败；保留四 sensor 运行，等待上述真实条件。后续验收继续按既定有界范围读取相关 run／check、当前十一行和必要样本，不重算已有历史。
 
+### 11.19 人工接续 2026-11-19 指数周线和月线 Silver
+
+19 日指数日线 Silver 到 20 日 09:16 才成功，已错过 19 日的自动日更窗口。对应运行四项原检查均通过。两份周期 Silver 当期各有 11 个指数，均截至上一交易日 18 日，满足现行 `write_index_period_silver` 的连续更新条件。按已核实的交易日历，周分区为 `2026-11-20`，月分区为 `2026-11`。本周 20 日和本月 30 日期末 Raw 当前均为零行，19 日用现有 DG 指数日线合成，周月线 Raw 仍按自身期末规则运行。
+
+管理员已批准人工接续 19 日的指数周线、月线 Silver，以及由原任务读入并原子替换两份完整历史文件。沿用 §11.17 的正式队列、逐项提交与原检查。先查询同一业务日与分区的原任务，已发起的任务先跟踪，已有成功并通过关联检查的结果直接复用。新增运行依次为 `silver_index_weekly_update_job`、`silver_index_monthly_update_job`，从 `/Users/congming/github/goldenshare/lake_console/orchestrator` 提交到对应 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 的 `orchestrator / __repository__`。两个请求分别使用原分区键及 `build_index_period_silver_run_config` 生成的 `mode=daily, trade_date=2026-11-19`，按原规则对分区和截至日去重。手动提交命令如下，周线成功及关联检查通过后再提交月线。
+
+```bash
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-index-recovery-20261119/silver_index_weekly_update_job.launch.json --output /private/tmp/dg-index-recovery-20261119/silver_index_weekly_update_job.launch-response.json
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-index-recovery-20261119/silver_index_monthly_update_job.launch.json --output /private/tmp/dg-index-recovery-20261119/silver_index_monthly_update_job.launch-response.json
+```
+
+两份 Silver 当前压缩大小分别为 514,468 和 124,588 字节，共 639,056 字节，上一版已核实总行数分别为 8,890 和 2,102。现行合并按当期和指数代码更新，其余周期随候选保留，必须读入原完整文件才能原子替换。已核实日线文件齐全，周读 4 个开市日，月读 14 个开市日，按 11 个代码分别为 44、154 行逻辑输入，窗口重叠后为 154 个独立代码／日期组合。只读两份 Raw 对应期末，不请求 Tushare、不连接 Prod、不重算其他周期。每步一次候选与一次替换。失败或中断保留成功文件和原运行记录，恢复时先核对候选、当前文件及日期，只为需要的频率重新承担上述读写成本。若当前周期已推进到晚于 19 日，停下核实证据，不把截至日退回。
+
+验收核对每步一次物化与一次关联原检查、当期 11 个指数各一条且 `trade_date=2026-11-19`，并对照完整文件总行数。最后只读取本次运行及当期代码、日期和必要计数。保留原自动任务、窗口与检查；人工接续的结果单独记录。
+
+**20 日 09:29 验收完成。** 周线运行 `3bfb2c65-4f56-407e-b048-ec31f2f9495f` 于 09:28:21 成功，月线运行 `448e665d-7021-4c76-a44d-8022c2e6ef12` 于 09:28:56 成功。每项的原检查均绑定本次物化，检查覆盖 11 行，失败 0 行。周线实际消费 4 份日线文件、44 行，月线消费 14 份、154 行。读回确认周线、月线当期各 11 个应有指数且均截至 19 日，完整文件仍为 8,890 和 2,102 行。读回与运行证据保存在 `/private/tmp/dg-index-recovery-20261119/period-092902439769.json`。
+
 ### 11.20 当期指数周线、月线 Silver 触发条件修复（2026-11-20，源码已修改、未验证）
 
 本次只解决 `929f2825-d1bb-4081-a854-44ba978ab411` 暴露的触发顺序问题。管理员已确认：现有北证 50 日线合成、正式值优先、完整文件合并及 checks 均保留；仅修正周／月共用 Silver sensor 的触发判断，并补对应回归。此前已完成本方案和 LLD 修订并向管理员汇报。管理员随后要求先提交文档、再修复，不重启 DG，也不需要验证；本轮据此修改源码和对应回归用例，但不执行 pytest、Ruff、Definitions 或正式运行验证，不重跑任务、不启停 sensor、不重载正式 location 或写正式数据。
