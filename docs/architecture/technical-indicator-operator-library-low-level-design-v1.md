@@ -541,6 +541,16 @@ internal_calculations = {
 - `CalculationEngine`、`CalculationSession`、`CalculationOutput`、`BatchCalculationOutputs`、`SqlStep`、`ControlReadStep`、`ExecutionStats`、`DuckDBExecutor`：复用，字段及方法见附录。引擎为每个请求单独准备状态，同一行情批次依赖在先、指标在后；跨批次保留必要窗口及递推状态，处理完释放本批临时资源。不得对每个指标重新查源。
 - 参数和输出格式可用现有 `describe_calculation` / `list_calculations` 查询。装配时用 `market_datasets` 和 `KernelConfig.enabled_adjustments()` 生成当前环境的 `SourceCapability`，两项查询继续按算子支持的周期筛选。生成说明只读取配置。
 
+### 4.1 九转算子计数口径
+
+**2026-11-22 确认，待实现。** 九转沿用 DG 现有的价格比较规则。每根 K 线的收盘价和前第 4 根的收盘价比较，同向就连续累加，换向就从 1 开始，相等或前面不足 4 根时归零。算子返回的计数最高为 **13**。同向继续时保持 13，直到换向或归零。13 表示连续同向至少 13 次，仍使用前第 4 根收盘价的比较规则。[DG 现有比较与计数](../../lake_console/orchestrator/src/orchestrator/defs/nineturn_formula.py#L70)
+
+算子直接使用输入会话准备好的收盘价。股票前复权日线和其他算子共用同一次取数、同一复权基准和同一批已复权行情。前端沿用现有标记规则，计数 1–9 时画标记，恰好为 9 时标记完成，10–13 留空。[共享行情批次](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/engine.py#L122) · [标记规则](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L82)
+
+首根目标行情最多需要 **16 根前置 K 线**。判定是否连续同向 13 次时，最早一次比较发生在当前根往前第 12 根，它要和再往前第 4 根比较，合计回看 16 根。预热和分批传递方式见[实施 LLD §9](technical-indicator-operator-library-implementation-lld-v1.md#9-九转算子接入约定)。
+
+本地股票详情的首批和续页由同一次日 K 计算提供九转标记。接口、前端接入和验收见[九转专项方案](technical-indicator-nine-turn-plan-v1.md)与[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)。
+
 ## 5. 输出合法性检查
 
 **格式。** 每项输出由固定算子 ID、实际有效参数和算子版本标明，结果字段由算子定义。共享的 `times` 递增、唯一，字段数组长度与其相等。所有周期的 `requested.start/end` 都带上海时区。行情位置 `times`、实际读取区间及输出区间仍按周期表达，分钟带上海时区，日、周、月为日期。周、月的 `source_as_of` 逐根对应 `times`，返回实际截止日期，日线及分钟该字段为 `None`。用同一请求算 MA20 和 MA60，两个结果都用 `value` 字段，由实际有效参数区分。

@@ -323,3 +323,14 @@ DG 分区日期为 `YYYY-MM-DD`，股票每日指标文件内的 `trade_date` �
 - 使用 CodeGraph `codegraph_explore` 跟踪内核入口、准备、定位、输入会话和输出，以及股票/上证应用入口和测试；再用精确引用搜索补查受影响的 JSON 编码、诊断脚本和前端。CodeGraph 中同名 `calculate` 的其他业务结果未列入本方案。
 - 本轮先将受保护的 D3 用例与普通回归一同执行，这是测试范围选择不当：182 项通过，11 项被 [D3 受保护夹具](../../tests/foundation/technical_indicators/d3_support.py#L398)在准备阶段拦下，没有运行相应用例；未修改计划、未绕过守卫。另单独执行合同、注册表、执行控制、股票/上证日线集成和股票 API 的现行隔离回归，**87 项通过**。两次数量有重叠，不累计，不把任何结果表述成新设计已验收。
 - 本轮没有重新查询 Prod 行情、没有重读 DG 全局行情、没有改变正式入口或文件。上一轮表/路径存在性核对仅作位置清单的依据。真实数据语义、PG 只读访问和取消、复权基准及页面迁移仍是明确的实施验收门禁。
+
+## 9. 九转算子接入约定
+
+**2026-11-22 确认计数与展示口径，待实现。** 首轮以股票前复权日线验收。现有 DG 九转产物继续保存完整连续计数。本节定义新增算子库结果。[整体设计 §4.1](technical-indicator-operator-library-low-level-design-v1.md#41-九转算子计数口径)
+
+本地股票详情首批和续页从 `/kline` 直接取得九转标记。算子文件、HTTP 字段、前端切换及分阶段验收按[九转专项方案](technical-indicator-nine-turn-plan-v1.md)和[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)执行。
+
+- **计数和输出。** 以当前收盘价和前第 4 根收盘价的大小关系判断方向。方向相同且非零时加 1，上限为 13。换向时新方向从 1 开始，相等或没有比较对象时两个方向均为 0。沿用 `up_count`、`down_count` 命名，各根返回两个 0–13 的整数值，复用现有 `DOUBLE` 数值输出。13 表示至少连续 13 次。前端只展示 1–9，恰好到 9 时标记完成。[价格比较](../../lake_console/orchestrator/src/orchestrator/defs/nineturn_formula.py#L70) · [现有数值输出](../../packages/technical_indicators/src/goldenshare_technical_indicators/output/collector.py#L117) · [页面标记规则](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L82)
+- **声明历史需求。** `HistoryRequirement` 只需要 `close`，请求起点最多向前取 16 根实际 K 线。以首根目标行情位置 `i` 为例，判定是否达到 13 要检查 `i` 到 `i−12` 的 13 次比较，最早比较用 `i−16`。到达真实行情起点时用已有 K 线，前 4 根输出零计数。同一次请求中批次之间保留前 4 根收盘价、上一根方向及封顶后的计数。按新行递推进度，保留的旧行只供比较。[历史需求合并](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/history.py#L12) · [共享批次与状态](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/engine.py#L122)
+- **行情和分页。** 沿用股票不复权日线与股票复权因子计算前复权收盘价。与 MA、BOLL、MACD、KDJ 同请求时，读取层取各算子所需历史的最大范围，新行情每批统一复权一次。现有股票日 K 请求的预热已覆盖 16 根，不为九转单独取数或复权。独立请求九转时按其自身历史需求读入。输出仍只收集目标区间，业务首批和续页各自计算并接上更早的结果。[股票日 K 默认算子](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py#L16) · [复权与历史保留](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/session.py#L253) · [目标行输出](../../packages/technical_indicators/src/goldenshare_technical_indicators/output/collector.py#L325)
+- **验收。** 用可手算的收盘价覆盖向上、向下、相等归零、到 9 后继续计数、到 13 后保持、换向重启。覆盖同向计数跨请求起点和执行批次，以及真实行情起点不足 4 根。以同一份收盘序列跑从头计算、从中间请求和分批计算，三种结果在重叠日期逐根相等。再用同一输入将算子结果与 DG 的完整计数逐根对照，DG 超过 13 的计数以 13 为对照值。核对单算历史读取范围、与现有指标合算时的行情读取和复权次数，以及每页输出范围和 1–9 标记。
