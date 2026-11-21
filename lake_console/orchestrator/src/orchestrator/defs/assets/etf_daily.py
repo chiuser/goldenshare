@@ -1,12 +1,15 @@
 """Dagster Raw and Silver assets for ETF daily market data."""
 
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+from pydantic import PositiveInt
 
 from orchestrator.defs.asset_guards.etf_basic_readiness import (
+    EtfBasicReadinessError,
+    select_historical_etf_basic_snapshot_reference,
     select_latest_etf_basic_snapshot_reference,
 )
 from orchestrator.defs.assets.etf_basic import silver_etf_basic
@@ -74,6 +77,15 @@ _FUND_ADJ_DATA_CONTRACT = "tushare_fund_adj_full_source_mirror"
 _ETF_DAILY_SILVER_DATA_CONTRACT = "latest_basic_filtered_etf_daily"
 _ETF_ADJ_FACTOR_SILVER_DATA_CONTRACT = "latest_basic_filtered_etf_adj_factor"
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
+
+
+class HistoricalEtfBasic(dg.Config):
+    raw_storage_id: PositiveInt
+    silver_storage_id: PositiveInt
+
+
+class EtfAdjFactorSilverConfig(dg.Config):
+    historical_basic: HistoricalEtfBasic | None = None
 
 
 def _materialization_result(result: EtfDailyRawWriteResult) -> dg.MaterializeResult:
@@ -362,18 +374,33 @@ def silver_etf_daily(
 )
 def silver_etf_adj_factor(
     context: dg.AssetExecutionContext,
+    config: EtfAdjFactorSilverConfig,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     today = _shanghai_today()
-    basic_reference = select_latest_etf_basic_snapshot_reference(
-        instance=context.instance,
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        eligibility_as_of=today,
-        required_freshness_date=today,
-    )
+    historical = config.historical_basic
+    if historical is None:
+        basic_reference = select_latest_etf_basic_snapshot_reference(
+            instance=context.instance,
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            eligibility_as_of=today,
+            required_freshness_date=today,
+        )
+    else:
+        trade_date = date.fromisoformat(context.partition_key)
+        if trade_date >= today:
+            raise EtfBasicReadinessError("仅早于执行日的交易日可指定历史 ETF 基础信息。")
+        basic_reference = select_historical_etf_basic_snapshot_reference(
+            instance=context.instance,
+            lake_root_path=lake_root.root(),
+            duckdb_resource=duckdb,
+            trade_date=trade_date,
+            raw_storage_id=historical.raw_storage_id,
+            silver_storage_id=historical.silver_storage_id,
+        )
     result = write_etf_adj_factor_silver_partition(
         lake_root_path=lake_root.root(),
         staging_root_path=Path(DEFAULT_LAKE_STAGING_ROOT),

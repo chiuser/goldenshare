@@ -1,4 +1,4 @@
-"""Latest-only, fail-closed ETF Basic snapshot selectors."""
+"""Checked ETF Basic snapshot selectors."""
 
 from datetime import date, datetime
 from pathlib import Path
@@ -6,6 +6,9 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+    AssetCheckEvaluation,
+)
 from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
@@ -170,6 +173,24 @@ def _select_latest_raw_reference(
         materialization_storage_id=raw_record.storage_id,
         check_names=RAW_ETF_BASIC_CHECKS,
     )
+    return (
+        _raw_reference_from_record(
+            raw_record,
+            lake_root_path=lake_root_path,
+            duckdb_resource=duckdb_resource,
+            required_date=required_freshness_date,
+        ),
+        raw_record,
+    )
+
+
+def _raw_reference_from_record(
+    raw_record,
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    required_date: date,
+) -> EtfBasicRawSnapshotReference:
     metadata = _materialization_metadata(raw_record)
     raw_snapshot_hash = _require_string_metadata(
         metadata,
@@ -178,7 +199,7 @@ def _select_latest_raw_reference(
     raw_uri = _require_string_metadata(metadata, "dagster/uri")
     raw_observed_at = _require_observed_on_date(
         metadata.get("goldenshare/observed_at"),
-        required_date=required_freshness_date,
+        required_date=required_date,
         field_name="raw_observed_at",
     )
     try:
@@ -203,13 +224,10 @@ def _select_latest_raw_reference(
             "etf_basic_latest_raw_file_invalid: "
             f"failures={(*audit.source_contract_failures, *audit.key_domain_failures, *audit.content_hash_failures)}."
         )
-    return (
-        build_etf_basic_raw_snapshot_reference(
-            raw_snapshot_hash=raw_snapshot_hash,
-            raw_uri=raw_uri,
-            raw_observed_at=raw_observed_at,
-        ),
-        raw_record,
+    return build_etf_basic_raw_snapshot_reference(
+        raw_snapshot_hash=raw_snapshot_hash,
+        raw_uri=raw_uri,
+        raw_observed_at=raw_observed_at,
     )
 
 
@@ -272,6 +290,23 @@ def select_latest_etf_basic_snapshot_reference(
         materialization_storage_id=silver_record.storage_id,
         check_names=SILVER_ETF_BASIC_CHECKS,
     )
+    return _silver_reference_from_record(
+        silver_record,
+        raw_reference=raw_reference,
+        lake_root_path=lake_root_path,
+        duckdb_resource=duckdb_resource,
+        required_date=freshness_date,
+    )
+
+
+def _silver_reference_from_record(
+    silver_record,
+    *,
+    raw_reference: EtfBasicRawSnapshotReference,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    required_date: date,
+) -> EtfBasicSilverSnapshotReference:
     metadata = _materialization_metadata(silver_record)
     raw_snapshot_hash = _require_string_metadata(
         metadata,
@@ -289,12 +324,12 @@ def select_latest_etf_basic_snapshot_reference(
     silver_uri = _require_string_metadata(metadata, "dagster/uri")
     silver_observed_at = _require_observed_on_date(
         metadata.get("goldenshare/observed_at"),
-        required_date=freshness_date,
+        required_date=required_date,
         field_name="silver_observed_at",
     )
     metadata_raw_observed_at = _require_observed_on_date(
         metadata.get("goldenshare/raw_observed_at"),
-        required_date=freshness_date,
+        required_date=required_date,
         field_name="silver_raw_observed_at",
     )
     if metadata_raw_observed_at != raw_reference.raw_observed_at:
@@ -331,7 +366,7 @@ def select_latest_etf_basic_snapshot_reference(
         for row in silver_audit.rows
         if classify_etf_basic_requestability(
             row,
-            eligibility_as_of=eligibility_date,
+            eligibility_as_of=required_date,
         )
         is None
     )
@@ -342,14 +377,82 @@ def select_latest_etf_basic_snapshot_reference(
         silver_uri=silver_uri,
         raw_observed_at=raw_reference.raw_observed_at,
         silver_observed_at=silver_observed_at,
-        eligibility_as_of=eligibility_date,
+        eligibility_as_of=required_date,
         requestable_code_count=len(requestable_rows),
         requestable_code_hash=compute_etf_requestable_target_hash(requestable_rows),
     )
 
 
+def _checked_historical_materialization(
+    instance: dg.DagsterInstance,
+    asset_key: dg.AssetKey,
+    storage_id: int,
+    check_names: tuple[str, ...],
+):
+    records = instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=asset_key, storage_ids=[storage_id]),
+        limit=1,
+    ).records
+    if not records:
+        raise EtfBasicReadinessError(
+            f"etf_basic_historical_materialization_missing: {asset_key}, {storage_id}."
+        )
+    materialization = records[0]
+    events = instance.get_records_for_run(
+        materialization.run_id,
+        of_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+        limit=len(check_names) + 1,
+    ).records
+    evidence = [event.event_log_entry.dagster_event.event_specific_data for event in events]
+    if len(evidence) != len(check_names) or not all(
+        isinstance(check, AssetCheckEvaluation)
+        and check.asset_key == asset_key
+        and check.passed
+        and check.blocking
+        and check.target_materialization_data is not None
+        and check.target_materialization_data.storage_id == storage_id
+        for check in evidence
+    ) or {check.check_name for check in evidence} != set(check_names):
+        raise EtfBasicReadinessError(
+            f"etf_basic_historical_checks_not_passed: {asset_key}, {storage_id}."
+        )
+    return materialization
+
+
+def select_historical_etf_basic_snapshot_reference(
+    *,
+    instance: dg.DagsterInstance,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    trade_date: date,
+    raw_storage_id: int,
+    silver_storage_id: int,
+) -> EtfBasicSilverSnapshotReference:
+    """Validate the exact checked Raw/Silver pair for one historical trade date."""
+    raw_record = _checked_historical_materialization(
+        instance, raw_tushare_etf_basic.key, raw_storage_id, RAW_ETF_BASIC_CHECKS
+    )
+    silver_record = _checked_historical_materialization(
+        instance, silver_etf_basic.key, silver_storage_id, SILVER_ETF_BASIC_CHECKS
+    )
+    raw_reference = _raw_reference_from_record(
+        raw_record,
+        lake_root_path=lake_root_path,
+        duckdb_resource=duckdb_resource,
+        required_date=trade_date,
+    )
+    return _silver_reference_from_record(
+        silver_record,
+        raw_reference=raw_reference,
+        lake_root_path=lake_root_path,
+        duckdb_resource=duckdb_resource,
+        required_date=trade_date,
+    )
+
+
 __all__ = [
     "EtfBasicReadinessError",
+    "select_historical_etf_basic_snapshot_reference",
     "select_latest_etf_basic_raw_snapshot_reference",
     "select_latest_etf_basic_snapshot_reference",
 ]

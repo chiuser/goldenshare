@@ -9,6 +9,11 @@ from types import SimpleNamespace
 import dagster as dg
 import duckdb
 import pytest
+from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+    AssetCheckEvaluation,
+    AssetCheckEvaluationTargetMaterializationData,
+)
+from dagster._core.events import StepMaterializationData
 from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
@@ -18,12 +23,21 @@ from orchestrator.defs.asset_guards.etf_basic_readiness import (
     select_latest_etf_basic_raw_snapshot_reference,
     select_latest_etf_basic_snapshot_reference,
 )
+from orchestrator.defs.assets import etf_daily
 from orchestrator.defs.assets.etf_basic import (
     build_etf_basic_silver_materialization_metadata,
     write_etf_basic_silver_snapshot,
 )
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_cli import _latest_basic
-from orchestrator.defs.paths import raw_etf_basic_snapshot_path
+from orchestrator.defs.checks.etf_daily_checks import silver_etf_adj_factor_checks
+from orchestrator.defs.io.etf_daily_raw_writer import FUND_ADJ_RAW_SPEC
+from orchestrator.defs.jobs.etf_daily import silver_etf_adj_factor_update_job
+from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
+from orchestrator.defs.paths import (
+    raw_etf_basic_snapshot_path,
+    silver_etf_adj_factor_path,
+)
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.etf_basic import (
     ETF_BASIC_SOURCE_COLUMNS,
     RAW_ETF_BASIC_CHECKS,
@@ -32,6 +46,7 @@ from orchestrator.defs.run_contracts.etf_basic import (
     compute_etf_basic_snapshot_hash,
 )
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
+from tests.etf_daily_test_support import write_raw_fixture
 
 
 class TestDuckDBResource:
@@ -170,12 +185,13 @@ def _ready_fixture(
     *,
     raw_observed_at: str = "2026-08-30T09:00:00+08:00",
     silver_observed_at: str = "2026-08-30T09:05:00+08:00",
+    rows: list[dict[str, object]] | None = None,
 ) -> tuple[FakeInstance, Path, str]:
     lake_root = tmp_path / "data_lake"
     staging_root = tmp_path / "data_lake_staging"
-    lake_root.mkdir()
-    staging_root.mkdir()
-    rows = [
+    lake_root.mkdir(exist_ok=True)
+    staging_root.mkdir(exist_ok=True)
+    rows = rows if rows is not None else [
         _row("510300.SH"),
         _row("159915.SZ", list_status="D"),
         _row("588000.SH", list_date="20260901"),
@@ -232,6 +248,141 @@ def _ready_fixture(
         lake_root,
         raw_hash,
     )
+
+
+def _report_basic_run(instance, key, metadata, names, run_id, *, check_target=None):
+    instance.report_dagster_event(
+        dg.DagsterEvent(
+            event_type_value=dg.DagsterEventType.ASSET_MATERIALIZATION.value,
+            job_name="isolated_basic",
+            event_specific_data=StepMaterializationData(
+                materialization=dg.AssetMaterialization(key, metadata=metadata)
+            ),
+        ),
+        run_id=run_id,
+    )
+    record = instance.fetch_materializations(dg.AssetRecordsFilter(key), limit=1).records[0]
+    for name in names:
+        instance.report_dagster_event(
+            dg.DagsterEvent(
+                event_type_value=dg.DagsterEventType.ASSET_CHECK_EVALUATION.value,
+                job_name="isolated_basic",
+                event_specific_data=AssetCheckEvaluation(
+                    asset_key=key,
+                    check_name=name,
+                    passed=True,
+                    blocking=True,
+                    target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                        storage_id=record.storage_id if check_target is None else check_target,
+                        run_id=run_id,
+                        timestamp=record.timestamp,
+                    ),
+                ),
+            ),
+            run_id=run_id,
+        )
+    return record.storage_id
+
+
+def test_manual_factor_recovery_keeps_valid_rows_using_checked_trade_date_basic(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The 11/18 and 11/21 snapshots observed 159528.SZ as L and D respectively.
+    code = "159528.SZ"
+    snapshots = {}
+    for day, status in (("2026-11-18", "L"), ("2026-11-21", "D")):
+        snapshots[day], lake, _ = _ready_fixture(
+            tmp_path,
+            raw_observed_at=f"{day}T09:00:00+08:00",
+            silver_observed_at=f"{day}T09:05:00+08:00",
+            rows=[_row(code, list_status=status), _row("510300.SH")],
+        )
+    monkeypatch.setattr(etf_daily, "DEFAULT_LAKE_STAGING_ROOT", tmp_path / "data_lake_staging")
+    monkeypatch.setattr(etf_daily, "_shanghai_today", lambda: date(2026, 11, 21))
+    monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda _: None)
+    days = ["2026-11-18", "2026-11-19", "2026-11-21"]
+    for day in days:
+        write_raw_fixture(
+            lake_root=lake,
+            spec=FUND_ADJ_RAW_SPEC,
+            partition_key=day,
+            rows=[
+                {"ts_code": code, "trade_date": day.replace("-", ""), "adj_factor": 1.0, "discount_rate": 0.5634},
+                {"ts_code": "510300.SH", "trade_date": day.replace("-", ""), "adj_factor": 1.0, "discount_rate": None},
+            ],
+        )
+
+    with dg.DagsterInstance.ephemeral(tempdir=str(tmp_path)) as instance:
+        instance.add_dynamic_partitions(cn_a_etf_mins_trade_days.name, days)
+        raw_key = dg.AssetKey("raw_tushare_etf_basic")
+        silver_key = dg.AssetKey("silver_etf_basic")
+        old = snapshots[days[0]].records_by_asset
+        unchecked = _report_basic_run(
+            instance, raw_key, old[raw_key][0].asset_materialization.metadata,
+            RAW_ETF_BASIC_CHECKS[:-1], "unchecked",
+        )
+        wrong_target = _report_basic_run(
+            instance, raw_key, old[raw_key][0].asset_materialization.metadata,
+            RAW_ETF_BASIC_CHECKS, "wrong-target", check_target=unchecked,
+        )
+        pairs = {}
+        for day, fixture in snapshots.items():
+            keys = {}
+            for field, key, checks in (
+                ("raw_storage_id", raw_key, RAW_ETF_BASIC_CHECKS),
+                ("silver_storage_id", silver_key, SILVER_ETF_BASIC_CHECKS),
+            ):
+                keys[field] = _report_basic_run(
+                    instance, key,
+                    fixture.records_by_asset[key][0].asset_materialization.metadata,
+                    checks, f"{field}-{day}",
+                )
+            pairs[day] = keys
+        definitions = dg.Definitions(
+            assets=[etf_daily.silver_etf_adj_factor],
+            asset_checks=[silver_etf_adj_factor_checks],
+            jobs=[silver_etf_adj_factor_update_job],
+            resources={
+                "lake_root": LakeRootResource(root_path=str(lake)),
+                "duckdb": DuckDBResource(),
+                "confirmed_business_facts": dg.ResourceDefinition.hardcoded_resource(
+                    SimpleNamespace(read_facts=lambda **_: ())
+                ),
+            },
+        )
+        job = definitions.resolve_job_def("silver_etf_adj_factor_update_job")
+
+        def execute(day, pair=None):
+            config = {} if pair is None else {
+                "ops": {"silver_etf_adj_factor": {"config": {"historical_basic": pair}}}
+            }
+            return job.execute_in_process(
+                instance=instance, partition_key=day, run_config=config, raise_on_error=False
+            )
+
+        historical = pairs[days[0]]
+        for day, pair, marker in (
+            (days[0], dict(historical, raw_storage_id=unchecked), "historical_checks_not_passed"),
+            (days[0], dict(historical, raw_storage_id=wrong_target), "historical_checks_not_passed"),
+            (days[1], historical, "raw_observed_at_stale"),
+            (days[2], historical, "仅早于执行日"),
+        ):
+            failed = execute(day, pair)
+            assert not failed.success
+            assert marker in failed.failure_data_for_node("silver_etf_adj_factor").error.to_string()
+            assert not silver_etf_adj_factor_path(lake, day).exists()
+
+        recovered = execute(days[0], historical)
+        assert recovered.success
+        assert len(recovered.get_asset_check_evaluations()) == 6
+        assert all(ev.passed for ev in recovered.get_asset_check_evaluations())
+        assert execute(days[2]).success
+        with DuckDBResource().connect() as db:
+            readback = "SELECT ts_code, adj_factor, discount_rate FROM read_parquet(?) WHERE ts_code = ?"
+            assert db.execute(readback, [str(silver_etf_adj_factor_path(lake, days[0])), code]).fetchall() == [
+                (code, 1.0, 0.5634)
+            ]
+            assert db.execute(readback, [str(silver_etf_adj_factor_path(lake, days[2])), code]).fetchall() == []
 
 
 def test_latest_only_selector_builds_small_same_day_reference(tmp_path: Path) -> None:
