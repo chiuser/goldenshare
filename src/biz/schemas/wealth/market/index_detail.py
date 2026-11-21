@@ -3,12 +3,12 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 IndexDetailDataStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY"]
 IndexDetailDirection = Literal["UP", "DOWN", "FLAT", "UNKNOWN"]
-IndexDetailPeriod = Literal["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"]
+IndexDetailPeriod = Literal["day", "week", "month", "m1", "m5", "m15", "m30", "m60", "m90", "m120"]
 IndexDetailMinuteFrequency = Literal[1, 5, 15, 30, 60, 90, 120]
 IndexDetailNineTurnPeriod = Literal["day", "5", "15", "30", "60", "90", "120"]
 
@@ -108,7 +108,7 @@ class IndexDetailCapabilitiesDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     supportsTimeShare: Literal[False]
-    supportsWeeklyMonthly: Literal[False]
+    supportsWeeklyMonthly: bool
     supportsMinute: bool
     minuteFrequencies: list[IndexDetailMinuteFrequency]
     supportsTrendChannel: bool
@@ -217,10 +217,16 @@ class IndexDetailKlineDataDto(BaseModel):
 
     pageContext: IndexDetailPageContextDto
     indexRef: IndexDetailIndexRefDto
-    period: Literal["day"]
+    period: Literal["day", "week", "month"]
     bars: list[IndexKlineBarDto]
     meta: IndexDetailSseKlineMetaDto | IndexDetailKlineMetaDto
     dataStatus: IndexDetailDataStatusDto
+
+    @model_validator(mode="after")
+    def require_period_cursor(self):
+        if self.period != "day" and not isinstance(self.meta, IndexDetailSseKlineMetaDto):
+            raise ValueError("周月线 meta 必须包含 nextEndDate")
+        return self
 
 
 class IndexDetailKlineResponseDto(IndexDetailKlineDataDto):

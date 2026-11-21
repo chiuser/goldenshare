@@ -85,25 +85,6 @@ def _raise_http_error(exc: Exception) -> None:
     raise WebAppError(status_code=500, code="ID_QUERY_FAILED", message="指数详情查询失败") from exc
 
 
-def get_index_detail_page_init(
-    request: Request,
-    ts_code: str | None = Query(default=None, alias="tsCode"),
-    trade_date: str | None = Query(default=None, alias="tradeDate"),
-    _user: AuthenticatedUser | None = Depends(require_quote_access),
-    session: Session = Depends(get_db_session),
-) -> IndexDetailPageInitResponseDto:
-    try:
-        _validate_query_shape(request, allowed={"tsCode", "tradeDate"})
-        return IndexDetailPageQueryService().build_page_init(
-            session,
-            ts_code=_normalize_ts_code(ts_code),
-            trade_date=_parse_date(trade_date, field_name="tradeDate"),
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_http_error(exc)
-        raise AssertionError("unreachable")
-
-
 def get_index_detail_weights(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
@@ -126,12 +107,30 @@ def get_index_detail_weights(
 def build_router(
     *, daily_lake: IndexDailyLakeReader | None = None,
     run_sse_kline: Callable[..., Awaitable[bytes]] | None = None,
+    run_period_kline: Callable[..., Awaitable[bytes]] | None = None,
+    period_enabled: Callable[[Request], bool] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
-    router.add_api_route(
-        "/page-init", get_index_detail_page_init, methods=["GET"],
-        response_model=IndexDetailPageInitResponseDto,
-    )
+
+    @router.get("/page-init", response_model=IndexDetailPageInitResponseDto)
+    def get_index_detail_page_init(
+        request: Request,
+        ts_code: str | None = Query(default=None, alias="tsCode"),
+        trade_date: str | None = Query(default=None, alias="tradeDate"),
+        _user: AuthenticatedUser | None = Depends(require_quote_access),
+        session: Session = Depends(get_db_session),
+    ) -> IndexDetailPageInitResponseDto:
+        try:
+            _validate_query_shape(request, allowed={"tsCode", "tradeDate"})
+            service = IndexDetailPageQueryService(
+                weekly_monthly_enabled=bool(run_period_kline and period_enabled and period_enabled(request)),
+            )
+            return service.build_page_init(
+                session, ts_code=_normalize_ts_code(ts_code), trade_date=_parse_date(trade_date, field_name="tradeDate"),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_http_error(exc)
+            raise AssertionError("unreachable")
 
     @router.get("/kline", response_model=IndexDetailKlineResponseDto)
     async def get_index_detail_kline(
@@ -147,6 +146,7 @@ def build_router(
         return await query_kline_response(
             request, session, ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,
             limit=limit, daily_lake=daily_lake, run_sse_kline=run_sse_kline,
+            run_period_kline=run_period_kline, period_enabled=period_enabled,
         )
 
     router.add_api_route(
@@ -160,7 +160,7 @@ async def query_kline_response(
     request: Request, session: Session, *, ts_code: str | None, period: str | None,
     start_date: str | None, end_date: str | None, limit: str | None,
     daily_lake: IndexDailyLakeReader | None, run_sse_kline: Callable[..., Awaitable[bytes]] | None,
-    project=None,
+    run_period_kline=None, period_enabled=None, project=None,
 ):
     arrived_at = monotonic()
     try:
@@ -170,6 +170,16 @@ async def query_kline_response(
             start_date=_parse_date(start_date, field_name="startDate"),
             end_date=_parse_date(end_date, field_name="endDate"), limit=_parse_limit(limit),
         )
+        if params["period"] in ("week", "month"):
+            if params["limit"] > 500:
+                raise IndexDetailRequestError("周月线 limit 必须在 1 到 500 之间")
+            start, end = params["start_date"], params["end_date"]
+            if start is not None and end is not None and start > end:
+                raise IndexDetailRequestError("startDate 不能晚于 endDate")
+            if run_period_kline is None or period_enabled is None or not period_enabled(request):
+                raise IndexDetailRequestError("当前环境未启用指数周月线")
+            body = await run_period_kline(request, arrived_at=arrived_at, project=project, **params)
+            return Response(content=body, media_type="application/json")
         if params["ts_code"] == "000001.SH" and params["period"] == "day" and params["limit"] <= 500:
             start, end = params["start_date"], params["end_date"]
             if start is not None and end is not None and start > end:

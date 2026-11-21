@@ -22,7 +22,7 @@ def _date_params(request, ts_code, trade_date):
     return {"ts_code": _normalize_ts_code(ts_code), "trade_date": _parse_date(trade_date, field_name="tradeDate")}
 
 
-def build_router(*, daily_lake=None, run_sse_kline=None) -> APIRouter:
+def build_router(*, daily_lake=None, run_sse_kline=None, run_period_kline=None, period_enabled=None) -> APIRouter:
     router = APIRouter(prefix="/wealth/market/index-detail/debug", tags=["wealth-market"])
 
     @router.get("/page-init")
@@ -33,7 +33,10 @@ def build_router(*, daily_lake=None, run_sse_kline=None) -> APIRouter:
             params = _date_params(request, ts_code, trade_date)
             from src.biz.queries.wealth.market.index_detail.debug_response import page_init_response
 
-            return _json(page_init_response(*IndexDetailPageQueryService().query_page_init(session, **params)))
+            service = IndexDetailPageQueryService(
+                weekly_monthly_enabled=bool(run_period_kline and period_enabled and period_enabled(request)),
+            )
+            return _json(page_init_response(*service.query_page_init(session, **params)))
         except Exception as exc:
             _raise_http_error(exc)
 
@@ -49,7 +52,8 @@ def build_router(*, daily_lake=None, run_sse_kline=None) -> APIRouter:
 
         response = await query_kline_response(
             request, session, ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,
-            limit=limit, daily_lake=daily_lake, run_sse_kline=run_sse_kline, project=project,
+            limit=limit, daily_lake=daily_lake, run_sse_kline=run_sse_kline,
+            run_period_kline=run_period_kline, period_enabled=period_enabled, project=project,
         )
         return response if isinstance(response, Response) else _json(response)
 

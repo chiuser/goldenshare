@@ -11,6 +11,7 @@ from src.app.auth.api import admin, admin_users, auth, users
 from src.app.auth.dependencies import require_quote_access
 from src.app.dependencies import get_db_session
 from src.app.dependencies.index_daily_technical_indicators import run_index_daily_kline
+from src.app.dependencies.index_period_technical_indicators import run_index_period_kline, supports_index_period_kline
 from src.app.exceptions import WebAppError
 from src.biz.api import market as biz_market
 from src.biz.api import quote as biz_quote
@@ -89,10 +90,12 @@ router.include_router(wealth_market_context.router)
 router.include_router(wealth_market_index_detail.build_router(
     daily_lake=_index_daily_lake,
     run_sse_kline=partial(run_index_daily_kline, daily_lake=_index_daily_lake),
+    run_period_kline=run_index_period_kline, period_enabled=supports_index_period_kline,
 ))
 router.include_router(index_detail_debug.build_router(
     daily_lake=_index_daily_lake,
     run_sse_kline=partial(run_index_daily_kline, daily_lake=_index_daily_lake),
+    run_period_kline=run_index_period_kline, period_enabled=supports_index_period_kline,
 ))
 router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)

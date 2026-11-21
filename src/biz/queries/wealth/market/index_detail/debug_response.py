@@ -61,14 +61,18 @@ def kline_response(response, missing_count):
     builder = IndexDetailExceptionBuilder()
     status = response.dataStatus
     exceptions = []
+    period_name = {"week": "周线", "month": "月线"}.get(response.period)
     if not response.bars:
-        exceptions.append(builder.source_empty(module="indexDetailKline", message="指数因子日线无可用数据"))
+        message = f"指数{period_name}无可用数据" if period_name else "指数因子日线无可用数据"
+        exceptions.append(builder.source_empty(module="indexDetailKline", message=message))
     else:
         if missing_count:
-            exceptions.append(builder.factor_partial(module="indexDetailKline", message="指数日线因子存在缺失或落后"))
-        if (not hasattr(response.meta, "nextEndDate")
+            message = f"指数{period_name}行情或指标存在缺项" if period_name else "指数日线因子存在缺失或落后"
+            exceptions.append(builder.factor_partial(module="indexDetailKline", message=message))
+        if ((period_name or not hasattr(response.meta, "nextEndDate"))
                 and status.observedTradeDate < status.expectedTradeDate):
-            exceptions.append(builder.source_delayed(module="indexDetailKline", message="指数因子观测日期落后于查询上界"))
+            message = f"指数{period_name}行情尚未更新到预期交易日" if period_name else "指数因子观测日期落后于查询上界"
+            exceptions.append(builder.source_delayed(module="indexDetailKline", message=message))
     return IndexDetailKlineDebugResponseDto(
         **response.model_dump(exclude={"debugInfo"}),
         debugInfo=IndexDetailDebugInfoDto(

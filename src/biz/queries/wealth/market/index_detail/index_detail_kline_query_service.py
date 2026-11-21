@@ -75,6 +75,32 @@ PriceRows = list[dict[str, Any]]
 CalculateDailyFactors = Callable[[tuple[date, ...]], tuple[CalculationResult, int, tuple]]
 
 
+def apply_calculated_kline_factors(ts_code, rows, calculations):
+    instances = {(item.calculation_id, tuple(sorted(dict(item.parameters).items()))): dict(item.fields)
+                 for item in calculations}
+    if len(calculations) != len(_SSE_FACTOR_FIELDS) or len(instances) != len(_SSE_FACTOR_FIELDS):
+        raise IndexDetailQueryError(f"{ts_code} 本页指标实例不完整")
+    for request, fields in zip(SSE_DAILY_CALCULATIONS, _SSE_FACTOR_FIELDS, strict=True):
+        key = request["calculation_id"], tuple(sorted(request["parameters"].items()))
+        values_by_field = instances.get(key, {})
+        for result_field, row_field in fields:
+            values = values_by_field.get(result_field)
+            if values is None or len(values) != len(rows):
+                raise IndexDetailQueryError(f"{ts_code} 指标结果字段不完整：{key[0]}.{result_field}")
+            for row, value in zip(rows, values, strict=True):
+                row[row_field] = value
+
+
+def count_calculated_kline_missing(rows, preceding_rows):
+    required = _BASE_REQUIRED_FIELDS + _TECHNICAL_REQUIRED_FIELDS[3:]
+    windowed = _MA_FIELDS + tuple((name, 20) for name in _BOLL_FIELDS)
+    return sum(
+        sum(row[name] is None for name in required)
+        + sum(row[name] is None and effective_count >= period for name, period in windowed)
+        for effective_count, row in enumerate(rows, start=preceding_rows + 1)
+    )
+
+
 class IndexDetailKlineQueryService:
     """Assemble factor-only index daily K-line responses."""
 
@@ -248,8 +274,10 @@ class IndexDetailKlineQueryService:
                     "pre_close": row["pre_close"], "change": row["change_amount"], "pct_change": row["pct_chg"],
                     "vol": row["vol"], "amount": row["amount"],
                 })
-            self._apply_sse_factors(ts_code, rows, dates, result)
-            missing_count = self._count_sse_missing(rows, preceding_rows)
+            if result.range.count != len(rows):
+                raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
+            apply_calculated_kline_factors(ts_code, rows, result.calculations)
+            missing_count = count_calculated_kline_missing(rows, preceding_rows)
         next_end = window[0][2] if len(window) == limit else None
         if next_end is not None and start_date is not None and next_end < start_date:
             next_end = None
@@ -274,34 +302,6 @@ class IndexDetailKlineQueryService:
             IndexDailyServing.ts_code == ts_code, IndexDailyServing.trade_date.in_(dates),
         ).order_by(IndexDailyServing.trade_date)
         return {row["trade_date"]: dict(row) for row in session.execute(statement).mappings()}
-
-    @staticmethod
-    def _apply_sse_factors(ts_code: str, rows: PriceRows, dates: tuple[date, ...], result: CalculationResult) -> None:
-        if result.times != dates or result.range.count != len(rows):
-            raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
-        instances = {(item.calculation_id, tuple(sorted(dict(item.parameters).items()))): dict(item.fields)
-                     for item in result.calculations}
-        if len(result.calculations) != len(_SSE_FACTOR_FIELDS) or len(instances) != len(_SSE_FACTOR_FIELDS):
-            raise IndexDetailQueryError(f"{ts_code} 本页指标实例不完整")
-        for request, fields in zip(SSE_DAILY_CALCULATIONS, _SSE_FACTOR_FIELDS, strict=True):
-            key = request["calculation_id"], tuple(sorted(request["parameters"].items()))
-            values_by_field = instances.get(key, {})
-            for result_field, row_field in fields:
-                values = values_by_field.get(result_field)
-                if values is None or len(values) != len(rows):
-                    raise IndexDetailQueryError(f"{ts_code} 指标结果字段不完整：{key[0]}.{result_field}")
-                for row, value in zip(rows, values, strict=True):
-                    row[row_field] = value
-
-    @staticmethod
-    def _count_sse_missing(rows: PriceRows, preceding_rows: int) -> int:
-        required = _BASE_REQUIRED_FIELDS + _TECHNICAL_REQUIRED_FIELDS[3:]
-        windowed = _MA_FIELDS + tuple((name, 20) for name in _BOLL_FIELDS)
-        return sum(
-            sum(row[name] is None for name in required)
-            + sum(row[name] is None and effective_count >= period for name, period in windowed)
-            for effective_count, row in enumerate(rows, start=preceding_rows + 1)
-        )
 
     @staticmethod
     def _count_non_ma_missing(rows: list[Mapping[str, Any]]) -> int:

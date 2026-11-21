@@ -39,11 +39,12 @@ _DAILY_BASIC_FIELDS = ("pe", "pe_ttm", "pb", "turnover_rate", "float_mv", "total
 class IndexDetailPageQueryService:
     """Assemble the index-detail page initialization contract."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, weekly_monthly_enabled: bool = False) -> None:
         self._universe_service = IndexDetailUniverseService()
         self._context_query = MarketPageContextQuery()
         self._query = IndexDetailQuery()
         self._status_resolver = IndexDetailStatusResolver()
+        self._weekly_monthly_enabled = weekly_monthly_enabled
 
     def build_page_init(self, session: Session, *, ts_code: str,
                         trade_date: date | None) -> IndexDetailPageInitResponseDto:
@@ -83,7 +84,7 @@ class IndexDetailPageQueryService:
                 dailyBasic=None,
                 constituentBreadth=None,
                 chartDefaults=self._build_chart_defaults(ts_code=ts_code),
-                capabilities=self._build_capabilities(ts_code=ts_code),
+                capabilities=self._build_capabilities(ts_code=ts_code, weekly_monthly_enabled=self._weekly_monthly_enabled),
                 dataStatus=data_status,
             ), 0, 0
 
@@ -165,14 +166,15 @@ class IndexDetailPageQueryService:
             dailyBasic=build_daily_basic(daily_basic_row) if daily_basic_row is not None else None,
             constituentBreadth=breadth,
             chartDefaults=self._build_chart_defaults(ts_code=ts_code),
-            capabilities=self._build_capabilities(ts_code=ts_code),
+            capabilities=self._build_capabilities(ts_code=ts_code, weekly_monthly_enabled=self._weekly_monthly_enabled),
             dataStatus=data_status,
         ), factor_missing_count, daily_basic_missing_count
 
-    @staticmethod
-    def _build_chart_defaults(*, ts_code: str) -> IndexDetailChartDefaultsDto:
+    def _build_chart_defaults(self, *, ts_code: str) -> IndexDetailChartDefaultsDto:
         capability = resolve_index_minute_capability(get_settings())
         available_periods = ["day"]
+        if self._weekly_monthly_enabled:
+            available_periods.extend(["week", "month"])
         if capability.enabled:
             available_periods.extend(["m1", "m5", "m15", "m30", "m60", "m90", "m120"])
         overlays = ["MA", "BOLL"]
@@ -186,7 +188,7 @@ class IndexDetailPageQueryService:
         )
 
     @staticmethod
-    def _build_capabilities(*, ts_code: str) -> IndexDetailCapabilitiesDto:
+    def _build_capabilities(*, ts_code: str, weekly_monthly_enabled: bool = False) -> IndexDetailCapabilitiesDto:
         capability = resolve_index_minute_capability(get_settings())
         nine_turn_capability = resolve_index_nine_turn_minute_capability(get_settings())
         nine_turn_periods: list[IndexDetailNineTurnPeriod] = ["day"]
@@ -194,7 +196,7 @@ class IndexDetailPageQueryService:
             nine_turn_periods.extend(["5", "15", "30", "60", "90", "120"])
         return IndexDetailCapabilitiesDto(
             supportsTimeShare=False,
-            supportsWeeklyMonthly=False,
+            supportsWeeklyMonthly=weekly_monthly_enabled,
             supportsMinute=capability.enabled,
             minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if capability.enabled else [],
             supportsTrendChannel=ts_code == "000001.SH",

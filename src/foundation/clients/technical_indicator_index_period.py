@@ -11,6 +11,7 @@ from .technical_indicator_stock_daily import DAILY_PRICE_FIELDS, scheduled_open_
 
 
 INDEX_PERIOD_KEYS = ("ts_code", "period_start_date", "trade_date")
+INDEX_PERIOD_PAGE_FIELDS = (*INDEX_PERIOD_KEYS, "pre_close", "change_amount", "pct_chg")
 INDEX_PERIOD_DATASETS = {"week": "index_weekly", "month": "index_monthly"}
 
 

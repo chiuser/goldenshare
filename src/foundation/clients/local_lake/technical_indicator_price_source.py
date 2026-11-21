@@ -7,6 +7,8 @@ connections and row-quality checks do not implement the kernel input contract.
 from __future__ import annotations
 
 from bisect import bisect_left, bisect_right
+from collections import deque
+from contextlib import closing
 from dataclasses import replace
 from datetime import date
 import os
@@ -21,8 +23,12 @@ from goldenshare_technical_indicators.errors import (
     TechnicalIndicatorError,
 )
 from goldenshare_technical_indicators.sources.contracts import SourceBatch, SourceDescription
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
-from ..technical_indicator_index_period import INDEX_PERIOD_DATASETS, index_period_positions
+from ..technical_indicator_index_period import (
+    INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, INDEX_PERIOD_PAGE_FIELDS,
+    check_period_key, index_period_positions, period_bounds,
+)
 from ..technical_indicator_stock_daily import INDEX_DAILY_ORIGINS, full_day_suspension, scheduled_open_days, scheduled_stock_days
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
@@ -33,6 +39,10 @@ _DATE_PART = re.compile(r"^trade_date=(\d{4}-\d{2}-\d{2})$")
 _TABLE = re.compile(r"^ti_[a-z0-9_]+$")
 _FORBIDDEN_ROOTS = (Path("/Volumes/datasource/data_lake_staging"),
                     Path("/Volumes/datasource/goldenshare-tushare-lake"))
+_INDEX_PERIOD_PAGE_SCHEMA = (
+    ("ts_code", "VARCHAR"), ("period_start_date", "DATE"), ("trade_date", "DATE"),
+    ("pre_close", "DECIMAL(18,4)"), ("change_amount", "DECIMAL(18,4)"), ("pct_chg", "DECIMAL(12,4)"),
+)
 
 
 def _arrow():
@@ -54,7 +64,7 @@ def _table_name(name):
 
 def _matches_type(pa, actual, expected):
     types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"), "INTEGER": pa.int32(),
-             "DOUBLE": pa.float64(), "DECIMAL(18,4)": pa.decimal128(18, 4),
+             "DOUBLE": pa.float64(), "DECIMAL(12,4)": pa.decimal128(12, 4), "DECIMAL(18,4)": pa.decimal128(18, 4),
              "DECIMAL(20,4)": pa.decimal128(20, 4), "DECIMAL(20,6)": pa.decimal128(20, 6),
              "DECIMAL(20,7)": pa.decimal128(20, 7)}
     return actual == types[expected]
@@ -155,6 +165,57 @@ class LakeTechnicalIndicatorPriceSource:
             if rows:
                 result[day] = dict(zip(columns, rows[0]))
         return result
+
+    def index_period_page(self, session, period, ts_code, *, start, end, limit, control):
+        _, ds, _, _ = _arrow()
+        within_bounds = (ds.field("period_start_date") <= end) & (ds.field("trade_date") <= end)
+        if start is not None:
+            within_bounds &= ((ds.field("period_start_date") >= period_bounds(start, period)[0])
+                              & (ds.field("trade_date") >= start))
+        with closing(self._index_period_rows(period, ts_code, INDEX_PERIOD_PAGE_FIELDS, control,
+                                             bounds=within_bounds)) as rows:
+            return list(reversed(deque(rows, maxlen=limit)))
+
+    def index_period_boundary(self, session, period, ts_code, *, latest, control):
+        with closing(self._index_period_rows(period, ts_code, INDEX_PERIOD_KEYS, control)) as rows:
+            if latest:
+                return next(iter(deque(rows, maxlen=1)), None)
+            return next(rows, None)
+
+    def _index_period_rows(self, period, ts_code, columns, control, *, bounds=None):
+        _, ds, fs, _ = _arrow()
+        root = self._root()
+        target = self._config.resolve_dataset_location(INDEX_PERIOD_DATASETS[period])
+        path = self._safe_path(root, Path(target.location["path_template"]))
+        read_context = SourceReadContext(self._config)
+        self._inspect(path, columns, _INDEX_PERIOD_PAGE_SCHEMA, control, read_context)
+        filters = ds.field("ts_code") == ts_code
+        if bounds is not None:
+            filters &= bounds
+        last_period = None
+        try:
+            fragment = ds.ParquetFileFormat().make_fragment(str(path), filesystem=fs.LocalFileSystem())
+            scanner = ds.Scanner.from_fragment(
+                fragment, columns=list(columns), filter=filters, batch_size=self._config.batch_rows,
+                batch_readahead=0, fragment_readahead=0, use_threads=False, cache_metadata=False,
+                fragment_scan_options=ds.ParquetFragmentScanOptions(pre_buffer=False, use_buffered_stream=False),
+            )
+            with scanner.to_reader() as reader:
+                for batch in reader:
+                    control.check_active()
+                    values = tuple(batch.column(name) for name in columns)
+                    for index in range(batch.num_rows):
+                        row = dict(zip(columns, (column[index].as_py() for column in values), strict=True))
+                        label = check_period_key((row["period_start_date"], row["trade_date"]), period)
+                        if last_period is not None and label <= last_period:
+                            raise SourceContractError("DG index period rows are duplicated or out of order")
+                        last_period = label
+                        yield row
+            control.check_active()
+        except TechnicalIndicatorError:
+            raise
+        except (OSError, ValueError) as exc:
+            raise SourceReadError(f"Cannot read {target.dataset_id} for {ts_code}") from exc
 
     def _inspect(self, path, projection, schema, control, read_context, *, row_groups=None):
         """Footer-only protection; never reads or audits individual values."""

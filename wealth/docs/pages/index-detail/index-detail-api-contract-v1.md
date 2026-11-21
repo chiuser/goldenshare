@@ -1,5 +1,7 @@
 # 指数详情页正式 API / DTO 合同 v1
 
+> 2026-11-22。合同 `1.5.0` 为阶段二指数周月线接口，适用范围见 §4.3 和 §5.6。阶段三页面接入另行实施。
+
 > 2026-11-10。普通与核验接口拆分及主要指数量化结构读取见 [§11](#11-普通与核验接口拆分)。§10 保留拆分前的 r4.1 历史合同。
 
 > 2026-11-05：上证日K接入合同 `1.4.0` 已定稿，待实现和验收。仅变更 §5.5 指定的上证日K请求。当前已实现合同仍为 `1.3.2`。趋势历史范围由[趋势接口合同 §5.1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)定义。
@@ -181,7 +183,7 @@ interface IndexDetailConstituentBreadthDto {
   dataStatus: IndexDetailDataStatusDto;
 }
 
-type IndexDetailPeriod = "day" | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
+type IndexDetailPeriod = "day" | "week" | "month" | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
 type IndexDetailMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
 type IndexDetailNineTurnPeriod = "day" | "5" | "15" | "30" | "60" | "90" | "120";
 
@@ -200,7 +202,7 @@ interface IndexDetailPageInitResponseDto {
   };
   capabilities: {
     supportsTimeShare: false;
-    supportsWeeklyMonthly: false;
+    supportsWeeklyMonthly: boolean;
     supportsMinute: boolean;
     minuteFrequencies: IndexDetailMinuteFrequency[];
     supportsTrendChannel: boolean;
@@ -228,7 +230,7 @@ interface IndexDetailPageInitResponseDto {
 10. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 时 page-init 仍为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL` 或 `ID_WEIGHT_EMPTY`。有效批次中的 A 股 `missingCount>0` 只记录覆盖事实，不单独令 breadth 或 page-init 为 PARTIAL，不再产生 `ID_BASIC_BREADTH_PARTIAL`；其它数据正常时 breadth 为 READY，page-init 按观测日决定 READY/DELAYED。缺失成分不计入 flat，数量恒等式不变。
 11. 无 partial 原因且 observed 早于 expected 时为 DELAYED。
 12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
-13. 生产和 local flag=false：periods 只有 `day`，minuteFrequencies 为空。
+13. 分钟能力关闭时，`availablePeriods` 不含分钟周期，`minuteFrequencies` 为空。两种指数周月线算子位置和对应接口同时就绪、运行配置支持每页 500 根时，`availablePeriods` 在 `day` 后列出 `week`、`month`，`supportsWeeklyMonthly=true`。否则两项均不开放。普通、核验接口使用同一能力判断，默认仍为 `day`。
 14. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
 15. `supportsNineTurn=true` 只表示指数日线九转接口已经部署，不表示当前窗口一定有 1～9 marker。
 16. 生产、local/dev 分钟九转能力未就绪时，`nineTurnPeriods=["day"]`；local/dev 且指数分钟九转 capability 与分钟 router 同时就绪时，返回 `day,5,15,30,60,90,120`。指数 1 分钟永不进入列表。
@@ -241,10 +243,10 @@ interface IndexDetailPageInitResponseDto {
 | 参数 | 类型 | required | 默认/规则 |
 |---|---|---:|---|
 | `tsCode` | string | 是 | 同 page-init |
-| `period` | `day` | 否 | 默认 day；其它值拒绝 |
+| `period` | `day` / `week` / `month` | 否 | 默认 `day`，周月线仅在 §4.3 所述能力就绪时开放。其它值拒绝。 |
 | `startDate` | ISO date | 否 | 不得晚于 endDate |
-| `endDate` | ISO date | 否 | 首屏传 `page-init.asOfTradeDate`；上证普通日线续页传上一成功页的 `meta.nextEndDate`。包含此日，省略时沿用行情上下文。 |
-| `limit` | integer | 否 | 默认 300，范围 1..2000 |
+| `endDate` | ISO date | 否 | 首批传 `page-init.asOfTradeDate`。上证日线及周月线续页传上一成功页的 `meta.nextEndDate`。包含此日，省略时日线沿用行情上下文，周月线取该指数最近实际日行情日期。 |
+| `limit` | integer | 否 | 默认 300。日线范围 1–2,000，周月线范围 1–500。 |
 
 请求不声明也不接受 `adjustment`。FastAPI 参数进入业务前必须统一映射非法输入为 `ID_REQUEST_INVALID`，不能让同一语义随机落为全局 `validation_error`。
 
@@ -298,7 +300,7 @@ interface IndexDetailKlineResponseDto {
     tsCode: string;
     name: string | null;
   };
-  period: "day";
+  period: "day" | "week" | "month";
   bars: IndexKlineBarDto[];
   meta: IndexDetailKlineMetaDto | IndexDetailSseKlineMetaDto;
   dataStatus: IndexDetailDataStatusDto;
@@ -317,11 +319,11 @@ interface IndexDetailSseKlineMetaDto extends IndexDetailKlineMetaDto {
 }
 ```
 
-部署 `1.4.0` 后，§5.5 所列请求使用 `IndexDetailSseKlineMetaDto`，其余请求使用原四字段的 `IndexDetailKlineMetaDto`。
+§5.5 所列日线请求和 §5.6 的周月线请求使用带 `nextEndDate` 的 `IndexDetailSseKlineMetaDto`。其余日线请求使用原四字段的 `IndexDetailKlineMetaDto`。
 
 ### 5.3 唯一字段来源
 
-生产审计发现 factor 与 daily 的深市量额从 2026-07-06 起分叉；产品方完成外部数据源核对后确认 factor 准确，故冻结为：
+以下是既有日线来源。周月线使用 §5.6 所列口径。生产审计发现两种日线来源的深市量额从 2026-07-06 起分叉，产品方完成外部数据源核对后确认指数日线技术因子的量额准确。
 
 | DTO | 来源 |
 |---|---|
@@ -341,7 +343,7 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 1. 查询按 `trade_date DESC LIMIT`，返回前反转为 ASC。
 2. `meta.count=bars.length`，`meta.limit` 是归一化后的请求上限。
 3. `meta.startDate` 是归一化请求下界；`meta.endDate` 是实际查询上界（显式 endDate，否则 pageContext.tradeDate），不是最后一根 bar 日期。
-4. 不返回 MA15/MA120。第5～9条为旧分支的来源和状态规则；上证新分支按 §5.5。
+4. 不返回 MA15/MA120。第 5–9 条为原日线分支的来源和状态规则。上证日线算子分支按 §5.5，周月线按 §5.6。
 5. `maN` 的源值非 null 时原样返回；为 null 时保持 null，图表断点，不补 0、不向前填充。
 6. 只有同一 code 截至该 bar 的实际有效历史 K 线根数小于 N 时，`maN=null` 才属于合理的历史不足；判断不得使用当前请求 `limit`、前端可见窗口、固定 code、固定日期或当前表起点代替真实历史。
 7. 实际有效历史已达到 N 根但 `maN` 仍为 null，或其它预期技术因子缺失时，返回 PARTIAL 并登记 `ID_FACTOR_PARTIAL`。接口仍返回 null，不制造推算值。
@@ -366,6 +368,16 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 - **行情缺失。** 请求范围内应有交易日缺整根、日期与应有序列不符、或当页开高低收缺失或无效，返回 HTTP 500、`ID_QUERY_FAILED`。当页有数据或达到 `limit` 都不能掩盖缺口。预热数据缺失、读取或计算失败、内核结果日期或字段不完整，同样整页失败。
 - **已有部分缺项规则。** 日期和四价校验通过后，量额等原行情缺项、以及 MA 或 BOLL 窗口已满但指标值仍为空，沿用 `PARTIAL` 和原有调试信息。缺少指标字段或对应日期属于整页错误。分页继续与否由本页K线根数和 `meta.nextEndDate` 决定。
 - **图层衔接。** 首屏按原时机调用独立图层。历史页有K线时，以实际首末交易日分别请求日线九转和[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)，每路传500。历史空页不发图层请求。
+
+### 5.6 指数周线和月线（1.5.0）
+
+普通和核验路由均支持现有主要指数名单。复用原行情及指标字段，`period` 回显 `week` 或 `month`。每周期一根，按实际截止交易日正序返回。选页按实际截止日包含上下界。`meta.endDate` 是本次有效查询上界，`nextEndDate` 是本页之前最近一根的实际截止日。没有更早且符合范围的行情时，该字段为 `null`，满页、短页、空页均返回该字段。
+
+周月行情来自 DG 的正式指数周线、月线 Silver，或 Prod 的 `core_serving.index_weekly_serving`、`core_serving.index_monthly_serving`。同次调用算子得到四价、量额及 MA、BOLL、MACD、KDJ，逐根核对实际截止日期后组包。量为手，额为千元，涨跌幅为百分数，`volDisplay` 与振幅算法沿用日线。指标历史不足时按已有有效行情计算，未满窗口的 MA、BOLL 留空。
+
+按 `EMPTY > PARTIAL > DELAYED > READY` 归类。真实无历史时返回空页，有已有行情而更新未到预期交易日时保留实际数据，读源失败、应有历史缺根或结果日期对不上时返回 `ID_QUERY_FAILED`。普通 `debugInfo=null`，核验接口附加对应周期的诊断。
+
+例如调用 `/kline?tsCode=000001.SH&period=week&endDate=2026-11-20&limit=500`，返回的 `meta` 为 `{"count":500,"limit":500,"startDate":null,"endDate":"2026-11-20","nextEndDate":"2017-02-10"}`。下一页把 `2017-02-10` 原样作为 `endDate`。详细日期及验收规则见[指数周月线 LLD](index-detail-weekly-monthly-low-level-design-v1.md)。
 
 ## 6. `GET /weights`
 
@@ -469,6 +481,7 @@ interface IndexDetailErrorResponseDto {
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.5.0` | 2026-11-22 | 指数详情周月线接口及能力声明，复用原行情和指标字段 |
 | `1.4.0` | 2026-11-05 | 定稿上证日K新分支、`meta.nextEndDate`、完整性错误与16个指标回填，待实现和验收 |
 | `1.3.2` | 2026-10-20 | 仅成分缺行情不再触发 breadth/page-init/weights PARTIAL 或两处提示；保留完整名单、null 与缺失计数，指数昨收缺失等原错误继续提示。工作区开发与本地技术验收完成，未部署 |
 | `1.3.1` | 2026-08-17 | 权重股贡献列表改为按四位小数 `contributionPoint` 数值降序，缺失值置底；同贡献点按 `weight DESC, conCode ASC` 保持确定性；DTO 字段结构不变 |
@@ -535,7 +548,7 @@ query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通
 | 普通地址 | 核验地址 | 主要响应差异 |
 | --- | --- | --- |
 | `/page-init` | `/debug/page-init` | 普通 `debugInfo: null`，核验有原页面诊断 |
-| `/kline` | `/debug/kline` | 普通 `debugInfo: null`，核验有原日线诊断，首批和翻页均使用该地址 |
+| `/kline` | `/debug/kline` | 普通 `debugInfo: null`，核验附对应周期诊断，首批和翻页均使用该地址 |
 | `/weights` | `/debug/weights` | 普通 `debugInfo: null`，核验有原权重诊断 |
 | `/xxm-signals`、`/minute-xxm-signals` | `/debug/xxm-signals`、`/debug/minute-xxm-signals` | 普通从主要指数量化结构数据集读事件，另读识别所用的 MACD（12、26、9）。回包字段见接入 LLD §8.3。核验沿用 §10 的完整计算回包 |
 | `/xxm-key-point-forecast` | `/debug/xxm-key-point-forecast` | 同一输入的公开结论相同，核验额外返回原计算依据 |

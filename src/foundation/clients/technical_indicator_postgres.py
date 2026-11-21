@@ -19,7 +19,8 @@ from goldenshare_technical_indicators.sources.contracts import PriceReadSelectio
 
 from .technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
 from .technical_indicator_index_period import (
-    INDEX_PERIOD_DATASETS, check_index_period_cutoff, check_period_key, describe_index_period,
+    INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, INDEX_PERIOD_PAGE_FIELDS,
+    check_index_period_cutoff, check_period_key, describe_index_period,
     index_period_positions, period_bounds, period_request_start, preceding_limit, require_index_period,
 )
 from .technical_indicator_stock_daily import (
@@ -116,6 +117,32 @@ class PostgresTechnicalIndicatorPriceSource:
     def __init__(self, config, session_factory):
         self._config = config
         self._session_factory = session_factory
+
+    def index_period_page(self, session, period, ts_code, *, start, end, limit, control):
+        relation = _relation(self._config.resolve_dataset_location(INDEX_PERIOD_DATASETS[period]))
+        columns = ", ".join(map(_identifier, INDEX_PERIOD_PAGE_FIELDS))
+        filters = "ts_code = %s AND period_start_date <= %s AND trade_date <= %s"
+        params = (ts_code, end, end)
+        if start is not None:
+            filters += " AND period_start_date >= %s AND trade_date >= %s"
+            params += (period_bounds(start, period)[0], start)
+        control.check_active()
+        with session.connection().exec_driver_sql(
+            f"SELECT {columns} FROM {relation} WHERE {filters} ORDER BY period_start_date DESC LIMIT %s",
+            (*params, limit),
+        ) as result:
+            return result.mappings().all()
+
+    def index_period_boundary(self, session, period, ts_code, *, latest, control):
+        relation = _relation(self._config.resolve_dataset_location(INDEX_PERIOD_DATASETS[period]))
+        columns = ", ".join(map(_identifier, INDEX_PERIOD_KEYS))
+        order = "DESC" if latest else "ASC"
+        control.check_active()
+        with session.connection().exec_driver_sql(
+            f"SELECT {columns} FROM {relation} WHERE ts_code = %s ORDER BY period_start_date {order} LIMIT 1",
+            (ts_code,),
+        ) as result:
+            return result.mappings().first()
 
     def _connection(self, read_context, control):
         control.check_active()
