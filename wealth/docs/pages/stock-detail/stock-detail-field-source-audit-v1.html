@@ -76,7 +76,7 @@
 <body>
 <main>
   <header>
-    <p class="meta">财势乾坤 · 股票详情 · 2026-11-20</p>
+    <p class="meta">财势乾坤 · 股票详情 · 2026-11-22</p>
     <h1>股票详情页数据字段来源表</h1>
     <p>本地表对应 <code>127.0.0.1:8000</code> 的实际运行版本。Prod 表对应 2026-11-20 核对的线上 Web 和部署源码 <code>c945fc269</code>。开发分支里尚未部署的 Prod 取数逻辑另列差异。</p>
   </header>
@@ -88,7 +88,7 @@
     <a href="#local">本地后端 · DG 与 PostgreSQL</a>
     <a href="#prod">Prod 线上 · PostgreSQL</a>
     <a href="#prod-code-differences">Prod 待部署差异</a>
-    <a href="#local-nine-turn-candidate">本地日线九转候选差异</a>
+    <a href="#local-daily-nine-turn">本地日线九转</a>
     <a href="#verification">样本与验收</a>
   </nav>
 
@@ -133,9 +133,9 @@
             <text x="291" y="80">GET /page-init（股票代码、可选交易日）</text>
             <text x="291" y="176">返回页面日期 D、证券身份及能力</text>
             <text x="452" y="253">GET /kline（tradeDate = endDate = D，最多 500 根）</text>
-            <text x="902" y="336">按目标区间计算前复权四价与指标</text>
-            <text x="902" y="385">返回同批四价与指标结果</text>
-            <text x="452" y="439">返回 bars、盘口 quote、dataStatus、nextEndDate</text>
+            <text x="902" y="336">按目标区间计算前复权四价、指标和九转</text>
+            <text x="902" y="385">返回同批四价、指标和九转</text>
+            <text x="452" y="439">返回日 K、指标、九转标记、盘口、状态和下一批截止日</text>
           </g>
 
           <g>
@@ -147,7 +147,7 @@
             <rect class="sequence-box" x="642" y="281" width="256" height="32" rx="6"/>
             <text class="sequence-label" x="770" y="302">定位目标日 K 日期、读取辅助字段</text>
             <rect class="sequence-box" x="25" y="469" width="325" height="30" rx="6"/>
-            <text class="sequence-label" x="187" y="489">用首批日 K 回包展示盘口、图表和指标</text>
+            <text class="sequence-label" x="187" y="489">用首批日 K 回包展示盘口和图表</text>
           </g>
         </svg>
       </div>
@@ -172,12 +172,12 @@
         <li>
           <strong class="step-title">3. 计算日 K 和指标</strong>
           <p>日 K 接口按 DG 不复权日线选取实际行情日，并从 DG 股票每日指标匹配换手率和量比。</p>
-          <p>算子库读取不复权日线和股票复权因子，计算前复权四价及 MA、BOLL、MACD、KDJ。后端用末根日 K 组装盘口。</p>
-          <p class="step-result"><strong>回包</strong> 日 K、指标、盘口 <code>quote</code>、行情状态和 <code>meta.nextEndDate</code>。</p>
+          <p>算子库读取不复权日线和股票复权因子，计算前复权四价、MA、BOLL、MACD、KDJ 和九转。指标共用同一次复权后的行情，后端用末根日 K 组装盘口。</p>
+          <p class="step-result"><strong>回包</strong> 日 K、指标、九转标记 <code>nineTurnMarkers</code>、盘口 <code>quote</code>、行情状态和 <code>meta.nextEndDate</code>。</p>
         </li>
         <li>
           <strong class="step-title">4. 前端组装首屏</strong>
-          <p>第一次回包提供页头身份和整页日期。第二次回包提供盘口、图表和指标。</p>
+          <p>第一次回包提供页头身份和整页日期。第二次回包提供盘口、图表、指标和九转标记。</p>
           <p class="step-result">日 K 为空时显示空态。有日 K 但盘口为空，或接口报错时，显示加载错误。</p>
         </li>
       </ol>
@@ -192,8 +192,8 @@
       <ol role="list">
         <li><strong class="step-title">接近图表左端</strong><p>向左拖到离已加载历史边界剩 100 根时，用上一批的 <code>meta.nextEndDate</code> 请求同一个 <code>/kline</code>。<code>tradeDate</code> 保持首屏日期，<code>endDate</code> 使用该截止日。</p></li>
         <li><strong class="step-title">返回更早日 K</strong><p>每批最多 500 根。后端取该股票更早的一根实际行情日期作为下一批截止日，取完时返回 <code>null</code>。续页省略盘口。</p></li>
-        <li><strong class="step-title">补齐图层</strong><p>九转按这批最早和最晚的实际行情日期取数。选择趋势通道后，用这批最晚日期和实际根数请求趋势通道，按日 K 日期绘制已有结果。</p></li>
-        <li><strong class="step-title">保留当前视野</strong><p>把新数据接到图表左侧，保持视野、页面日期和右侧盘口。单个图层失败时可独立重试。</p></li>
+        <li><strong class="step-title">补齐图层</strong><p>九转标记随续页日 K 回包返回。选择趋势通道后，用这批最晚日期和实际根数请求趋势通道，按日 K 日期绘制已有结果。</p></li>
+        <li><strong class="step-title">保留当前视野</strong><p>把新数据接到图表左侧，保持视野、页面日期和右侧盘口。日 K 失败可重试同一截止日。趋势通道失败可单独重试。</p></li>
       </ol>
       <figcaption>由后端提供下一批真实行情日期。股票停牌时，趋势通道向前查到目标股票的有效记录才计数，到上市日或查够后结束。</figcaption>
     </figure>
@@ -202,7 +202,7 @@
 
   <section id="local" aria-labelledby="local-title">
     <h2 id="local-title">本地后端 · DG 与 PostgreSQL</h2>
-    <p>本地 DG 根目录为 <code>/Volumes/datasource/data_lake</code>。证券身份和 SSE 交易日历从 DG 读取。日 K 和 MA、BOLL、MACD、KDJ 共用 DG 股票不复权日线和股票复权因子，读数失败时即报错。盘口复用首批末根日 K，换手率和量比来自同日 DG 股票每日指标。新闻、自选分组、账户和通知机器人继续用各自的 PostgreSQL 查询。<a href="../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py">DG 正式文件路径</a> · <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">股票日线读取入口</a></p>
+    <p>本地 DG 根目录为 <code>/Volumes/datasource/data_lake</code>。证券身份和 SSE 交易日历从 DG 读取。日 K 和 MA、BOLL、MACD、KDJ、九转共用 DG 股票不复权日线和股票复权因子，读数失败时即报错。盘口复用首批末根日 K，换手率和量比来自同日 DG 股票每日指标。新闻、自选分组、账户和通知机器人继续用各自的 PostgreSQL 查询。<a href="../../../../lake_console/orchestrator/src/orchestrator/defs/paths.py">DG 正式文件路径</a> · <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">股票日线读取入口</a></p>
     <p>已核对本机默认 Web 配置选择 DG 作为算子库数据源，业务数据库会话连接 Prod PostgreSQL。自选、账户和通知机器人按登录用户取数。<a href="../../../../scripts/local-build-and-run.sh">本地 Web 启动入口</a> · <a href="../../../../src/db.py">后端数据库会话</a> · <a href="../../../../src/app/runtime/trading_assistant_lifespan.py">交易助手数据库会话</a></p>
     <nav aria-label="本地后端 · DG 与 PostgreSQL · 字段索引">
       <a href="#local-identity">证券与日期</a>
@@ -476,7 +476,7 @@
             <td><div class="source-part">DG SSE 交易日历<br><code>silver/calendar/trade_calendar/full/part-000.parquet</code></div><div class="source-part">DG 股票存续日期<br><code>silver/basic/stock_lifecycle/full/part-000.parquet</code></div><div class="source-part">DG 股票停复牌<br><code>silver/quote/stock_suspend_daily/trade_date={trade_date}/part-000.parquet</code></div></td>
             <td><div class="source-part"><small>日历</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div><div class="source-part"><small>股票存续</small><code>ts_code</code>、<code>list_date</code>、<code>delist_date</code></div><div class="source-part"><small>停复牌</small><code>ts_code</code>、<code>trade_date</code>、<code>suspend_type</code>、<code>suspend_timing</code></div></td>
             <td>内核按 SSE 开市日期、个股上市退市范围及全日停牌事实，校验所读目标和预热行情的日期覆盖。</td>
-            <td>本行是日 K 内核的辅助读取。页面上下文与日线九转的缺失统计分别见对应行。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py">内核日期校验事实来源</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py">物理数据位置</a></span></td>
+            <td>本行是日 K 内核的辅助读取。页面上下文和<a href="#local-daily-nine-turn">日线九转</a>分别见对应行。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py">内核日期校验事实来源</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py">物理数据位置</a></span></td>
             <td class="adjustment">否</td>
           </tr>
         </tbody>
@@ -626,7 +626,7 @@
             <td><div class="source-part">DG 股票不复权日线<br><code>silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet</code></div><div class="source-part">DG SSE 交易日历<br><code>silver/calendar/trade_calendar/full/part-000.parquet</code></div><div class="source-part">DG 股票基础信息（全上市状态）<br><code>raw/tushare/stock_basic/full/part-000.parquet</code></div></td>
             <td><div class="source-part"><small>行情位置</small><code>ts_code</code>、<code>trade_date</code></div><div class="source-part"><small>交易日历</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div><div class="source-part"><small>股票上市日</small><code>list_date</code></div></td>
             <td>本地分页最多返回 500 根，额外找一个实际有行情的日期作为 <code>nextEndDate</code>，早于本批第一根的日期。到历史起点时返回 <code>null</code>。<code>meta.count</code> 是实际根数，<code>startDate</code> 和 <code>endDate</code> 是查询边界。</td>
-            <td>首批带盘口，续页省略盘口。前端向左拖至图表已加载数据左端剩 100 根以内时，用下一截止日补历史。普通区间查询沿用普通日 K 回包。算子预热另行读取。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/controller/useStockDailyHistory.ts">日 K 续页请求和触发</a> · <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">页日期及回包分工</a></span></td>
+            <td>首批和续页都带九转标记，首批另带盘口。前端向左拖至图表已加载数据左端剩 100 根以内时，用下一截止日补历史。普通区间查询沿用普通日 K 回包。算子预热另行读取。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/controller/useStockDailyHistory.ts">日 K 续页请求和触发</a> · <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">页日期及回包分工</a></span></td>
             <td class="adjustment">否</td>
           </tr>
           <tr data-field="49">
@@ -647,7 +647,7 @@
           </tr>
         </tbody>
         <tbody id="local-layers">
-          <tr class="section"><th colspan="6" scope="rowgroup">分钟线、九转与趋势通道（现行独立链路）</th></tr>
+          <tr class="section"><th colspan="6" scope="rowgroup">分钟线、日线九转与趋势通道</th></tr>
           <tr data-field="51">
             <th scope="row">分钟前复权行情的日期、时间及定位键<br><code>bars[].tsCode / freq / tradeDate / tradeTime / exchange</code></th>
             <td><div class="source-part">DG 股票分钟前复权行情<br><code>gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part-000.parquet</code></div></td>
@@ -736,28 +736,28 @@
             <td>按同股、同频率和同时间键与分钟行情逐条匹配。响应中的参数标识和指标版本直接来自文件。<span class="refs"><a href="../../../../src/foundation/clients/local_lake/stock_mins_reader.py">分钟行情和指标文件字段</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query_service.py">股票分钟字段映射</a> · <a href="../../../../wealth/src/features/stock-detail/api/stockMinuteViewModelAdapter.ts">股票分钟图表字段映射</a></span></td>
             <td class="adjustment">否</td>
           </tr>
-          <tr data-field="62">
-            <th scope="row">日线九转标记日期<br><code>markers[].tradeDate</code></th>
-            <td><div class="source-part">DG 股票不复权日线<br><code>silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet</code></div><div class="source-part">股票日线前复权九转结果<br><code>core_serving.equity_qfq_nineturn_daily</code></div></td>
-            <td><code>ts_code</code>、<code>trade_date</code>、<code>formula_version</code></td>
-            <td>业务以实际日 K 日期选页，匹配同一股票及日期的九转结果。命中且满足计数标记条件时返回该交易日。</td>
-            <td>接口按实际日 K 日期选页，按同股同日匹配 PostgreSQL 九转结果。前端续页按该批日 K 首末日期请求，依实际 K 线日期画标记。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">日 K 日期与九转结果匹配</a> · <a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">标记日期和计数转换</a></span></td>
+          <tr id="local-daily-nine-turn" data-field="62">
+            <th scope="row">日线九转标记日期<br><code>nineTurnMarkers[].tradeDate / tradeTime</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet</code></div></td>
+            <td><code>ts_code</code>、<code>trade_date</code></td>
+            <td>标记与同一批日 K 的实际行情日期逐日对应。日线的 <code>tradeTime</code> 为 <code>null</code>。</td>
+            <td>前端从 <code>/kline</code> 读取九转标记，按实际日 K 日期绘制。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py">本地日 K 与九转回包组装</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">首屏接入</a></span></td>
             <td class="adjustment">否</td>
           </tr>
           <tr data-field="63">
-            <th scope="row">日线九转方向、序号、完成标记<br><code>markers[].direction / sequenceNumber / completed</code></th>
-            <td><div class="source-part">股票日线前复权九转结果<br><code>core_serving.equity_qfq_nineturn_daily</code></div></td>
-            <td><code>up_count</code>、<code>down_count</code>、<code>formula_version</code></td>
-            <td>读取已发布计数。单一方向计数在 1–9 时生成标记，9 表示完成。</td>
-            <td>前端按同日图上 K 线的高低点定位标记。计数来自九转结果表，日期匹配见上一行。<span class="refs"><a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">计数转换</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">前端标记位置</a></span></td>
+            <th scope="row">日线九转方向、序号、完成标记<br><code>nineTurnMarkers[].direction / sequenceNumber / completed</code></th>
+            <td><div class="source-part">DG 股票不复权日线<br><code>silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet</code></div><div class="source-part">DG 股票复权因子<br><code>silver/quote/adj_factor/trade_date={trade_date}/part-000.parquet</code></div></td>
+            <td><div class="source-part"><small>股票不复权日线</small><code>close</code></div><div class="source-part"><small>股票复权因子</small><code>adj_factor</code></div></td>
+            <td>九转算子使用同批前复权收盘价，比较当前与前第 4 根的收盘价，输出上下行计数 <code>up_count</code>、<code>down_count</code>。同向计数最多为 13。业务回包生成 1–9 的标记，9 表示完成。</td>
+            <td>前端按同日图上 K 线的高低点定位标记。<span class="refs"><a href="../../../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py">算子结果转为标记</a> · <a href="../../../../wealth/src/features/nine-turn/model/nineTurnChartAdapter.ts">前端标记位置</a></span></td>
             <td class="adjustment">否</td>
           </tr>
           <tr data-field="96">
-            <th scope="row">日线九转日期覆盖与缺失状态<br><code>dataStatus / meta.sourceRowCount / matchedRowCount / missingRowCount</code></th>
-            <td><div class="source-part">DG 股票不复权日线<br><code>silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet</code></div><div class="source-part">股票日线前复权九转结果<br><code>core_serving.equity_qfq_nineturn_daily</code></div><div class="source-part">DG SSE 交易日历<br><code>silver/calendar/trade_calendar/full/part-000.parquet</code></div></td>
-            <td><div class="source-part"><small>实际日线日期</small><code>ts_code</code>、<code>trade_date</code></div><div class="source-part"><small>九转结果</small><code>ts_code</code>、<code>trade_date</code>、<code>formula_version</code></div><div class="source-part"><small>页面日期</small><code>exchange</code>、<code>trade_date</code>、<code>is_open</code></div></td>
-            <td>从不复权日线按请求范围和游标选择该页实际 K 线日期，最多额外读一个日期来判断下一页。按股票、日期匹配九转；计数为 0 的已发布记录也算匹配。</td>
-            <td>本地用 DG 日历解析请求上下文，以 DG 实际日 K 日期匹配 PostgreSQL 的九转结果。部分缺失时保留已有标记。续页用该批日 K 的实际首末日期查询。九转自身的 <code>nextCursor</code> 与股票日 K 的 <code>nextEndDate</code> 各自用于对应接口。<span class="refs"><a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query_service.py">分页和缺失计数</a> · <a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">两个环境的匹配</a> · <a href="../../../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py">缺失状态</a></span></td>
+            <th scope="row">日线九转回包与翻页<br><code>nineTurnMarkers / dataStatus / meta.nextEndDate</code></th>
+            <td>随本地日 K 回包，行情和分页来源见日 K 对应行。</td>
+            <td><code>nineTurnMarkers</code> 为标记数组。<code>dataStatus</code> 为本批日 K 状态，<code>meta.nextEndDate</code> 为下一批实际行情日。</td>
+            <td>本地首批和续页均返回九转数组。这批日 K 没有符合条件的标记时返回 <code>[]</code>。</td>
+            <td>前端沿用本地日 K 下一批截止日，加载该批 K 线和九转标记。趋势通道仍单独请求。<span class="refs"><a href="../../../../wealth/src/features/stock-detail/controller/useStockDailyHistory.ts">续页字段和拼接</a> · <a href="../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md">九转算子与调用说明</a></span></td>
             <td class="adjustment">否</td>
           </tr>
           <tr data-field="64">
@@ -1870,27 +1870,10 @@
     </ul>
   </section>
 
-  <section id="local-nine-turn-candidate" aria-labelledby="local-nine-turn-candidate-title">
-    <h2 id="local-nine-turn-candidate-title">本地日线九转候选差异</h2>
-    <p>2026-11-22 在隔离本机服务以正式 DG 数据完成验收。常用本机服务待切换，上文的运行版来源表以原核验为准。</p>
-    <div class="scroll" role="region" aria-label="本地日线九转候选字段来源" tabindex="0">
-      <table>
-        <thead><tr><th scope="col">页面字段</th><th scope="col">实际来源</th><th scope="col">接口和页面用法</th></tr></thead>
-        <tbody>
-          <tr>
-            <th scope="row"><code>nineTurnMarkers[].tradeDate / tradeTime / direction / sequenceNumber / completed</code></th>
-            <td>DG 股票不复权日线 <code>silver/quote/stock_daily</code> 和股票复权因子 <code>silver/quote/adj_factor</code>。算子库将已有前复权收盘价交给九转，计算同一批日 K 日期的上下行计数。</td>
-            <td>本地首屏和续页的 <code>/kline</code> 回包均提供标记数组。方向和序号来自算子结果，1–9 画标记，9 为完成，日线的 <code>tradeTime</code> 为 <code>null</code>。浏览器沿用实际日 K 日期定位，续页沿用 <code>nextEndDate</code>。</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <p>贵州茅台首屏、续页各 500 根，分别返回 452、453 个标记。浏览器首屏、向左翻页和开关九转期间共发出两次 <code>/kline</code>、零次独立日线九转请求。<a href="../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#9-阶段-2-实施与独立审计">接口和浏览器验收记录</a></p>
-  </section>
-
   <section id="verification" aria-labelledby="verification-title">
     <h2 id="verification-title">样本与验收</h2>
     <ul class="checks">
+      <li><strong>2026-11-22 日线九转本机复验。</strong> 贵州茅台 <code>600519.SH</code> 首批和续页各 500 根，分别带 452 和 453 个算子库九转标记。实际前端向左翻页及开关九转共发出两次 <code>/kline</code>，独立日线九转请求为零，页面盘口保持 1460.21 元。<a href="../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验">接口与浏览器复验记录</a></li>
       <li><strong>2026-11-20 字段来源复核。</strong> 用本地实际接口取贵州茅台 <code>600519.SH</code> 的 2 根首批和 2 根续页。首批结束于 2026-11-19，带盘口和下一批截止日 2026-11-17。续页回包的日期为 2026-11-17，省略盘口。日线九转 2 个日期均匹配，趋势通道返回 2 条。另查 2026-11-18 的 30 分钟行情、MACD／KDJ 和九转，各返回 2 条，行情和指标的时间均带北京时间偏移。对应 DG 正式文件路径已核对。</li>
       <li><strong>2026-11-20 Prod 复核。</strong> 在生产主机读取 Web 服务状态、部署提交和运行中的接口定义。字段来源按该部署提交的查询与组装代码核对，本轮未另查生产行情明细。</li>
       <li><strong>2026-11-20 本机切换后复验。</strong> 在常用本地页面打开贵州茅台 <code>600519.SH</code>，页面日期为 2026-11-19，首批 500 根，覆盖 2024-10-30 至 2026-11-19。向左拖动续批 500 根，覆盖 2022-09-30 至 2024-10-29。两批无重叠，续页九转和趋势通道均按 500 个日 K 日期对齐，页面日期、盘口与图表视野保持稳定。同一页面点击上证指数卡，日线正常显示 500 根。<a href="stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md#本机切换后复验">本机复验记录</a></li>

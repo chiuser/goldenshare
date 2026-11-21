@@ -334,7 +334,7 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 ### 5.4 本地股票日 K 向前翻页
 
-本节记录 2026-11-20 已验收的翻页实现。待开发的本地日 K 九转数据来自同一次算子库计算，首批及续页的回包、前端接入和验收见[九转专项 LLD](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md)。
+本节记录 2026-11-20 的翻页实现。2026-11-22，本地股票日线九转已切换到 `/kline`。下文的独立九转请求用于记录当时的实现和验收。当前接口与验收见[九转专项 LLD](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)。
 
 本节是本地首屏切换后的独立开发设计。§5.1–5.3 记录首屏切换时的合同。先修复本地股票趋势通道取数并独立验收，再沿用[上证综指的拖动及加载方式](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L161)接入股票日 K 翻页和两个续页图层。
 

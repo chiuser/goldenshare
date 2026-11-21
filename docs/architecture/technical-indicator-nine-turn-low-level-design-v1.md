@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-2026-11-22｜两个阶段已实现并完成独立审计。阶段 2 在隔离本机服务通过接口和浏览器验收，常用本机服务待切换。[专项方案](technical-indicator-nine-turn-plan-v1.md)
+2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
 ## 1. 现状和改动边界
 
@@ -160,7 +160,7 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 ## 9. 阶段 2 实施与独立审计
 
-**2026-11-22 隔离本机验收通过。** 浏览器运行同一轮构建的 Wealth 前端。实际股票日 K、趋势通道、股票分钟和上证综指日线接口读取正式 DG，登录、自选和顶部指数条使用隔离数据。常用本机服务待切换。用 CodeGraph `codegraph_explore` 核对本地日 K 调用、合同、首屏和续页的消费端。复查实际组装确认只有本地分页分支请求九转，Prod 与普通本地日 K 使用原合同。无标记时回包为 `nineTurnMarkers: []`。[本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [结果校验与组装](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py#L56)
+**2026-11-22 隔离本机验收通过。** 浏览器运行同一轮构建的 Wealth 前端。实际股票日 K、趋势通道、股票分钟和上证综指日线接口读取正式 DG，登录、自选和顶部指数条使用隔离数据。当时常用本机服务尚未切换。用 CodeGraph `codegraph_explore` 核对本地日 K 调用、合同、首屏和续页的消费端。复查实际组装确认只有本地分页分支请求九转，Prod 与普通本地日 K 使用原合同。无标记时回包为 `nineTurnMarkers: []`。[本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [结果校验与组装](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py#L56)
 
 | 场景 | 贵州茅台 `600519.SH` 实测 |
 | --- | --- |
@@ -170,4 +170,18 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 | 断开与重试 | 客户端断开已取得名额的续页请求，约 52 毫秒后观察到占用、等待均归零。补测同一中断点时，取消前交付给算子的行情为 0 根。同一截止日重试约 5.43 秒返回 500 根，九转标记和分页信息与前次成功回包一致。 |
 | 其他入口 | 趋势通道两批独立请求均通过。切 30 分钟后，分钟行情、指标和独立九转三个原接口均返回 200。实际本地上证综指日线仍返回 500 根。核对本地与 Prod 配置生成的 OpenAPI，新增必填数组仅在本地首批和续页模型，两个环境的日 K 请求参数一致。 |
 
-后端 59 项、前端专项 50 项及共享图表 44 项回归通过，Wealth 类型检查和隔离构建通过。覆盖旧独立九转、普通本地日 K、空标记、非法算子结果、迟到请求以及续页缺字段后重试原截止日。字段来源表单列本地候选版本。 [字段来源差异](../../wealth/docs/pages/stock-detail/stock-detail-field-source-audit-v1.html#local-nine-turn-candidate)
+后端 59 项、前端专项 50 项及共享图表 44 项回归通过，Wealth 类型检查和隔离构建通过。覆盖旧独立九转、普通本地日 K、空标记、非法算子结果、迟到请求以及续页缺字段后重试原截止日。隔离验收之后的实际运行情况见[本机切换后复验](#10-本机切换后复验)。
+
+## 10. 本机切换后复验
+
+2026-11-22｜常用本机服务的股票日 K 已返回九转标记。浏览器仍加载 2026-11-20 生成的 Wealth 静态前端，实测会继续请求独立日线九转。常用的 `scripts/local-build-and-run.sh` 构建的是 `frontend`，股票详情页由本机 Web 的 `/wealth` 提供，读取 `wealth/dist`。Wealth 的构建命令为 `npm --prefix wealth run build`。本次在临时目录用已提交的代码构建 Wealth，避免带入工作区的其他修改。构建通过后先复制带内容指纹的静态资源，再切换 `index.html`，保留浏览器已加载页面引用的旧资源。随后在同一服务复验股票日线首屏、九转开关和向左翻页。[Wealth 静态资源入口](../../src/app/web/app.py) · [本机启动脚本](../../scripts/local-build-and-run.sh)
+
+构建和类型检查通过。浏览器实际加载 `/wealth/assets/index-YQ2DMgaX.js`。以贵州茅台 `600519.SH` 复验，`/page-init` 返回的页面日期为 2026-11-19，两次 `/kline` 请求都保留该日期，股票接口读取正式本地 DG。登录、自选和顶部指数条使用隔离数据。
+
+| 场景 | 常用本机服务实测 |
+| --- | --- |
+| 首屏 | `endDate=2026-11-19`，返回 2024-10-30 至 2026-11-19 的 500 根日 K 和 452 个九转标记。首批盘口收盘价为 1460.21 元，与末根日 K 相同。 |
+| 向左翻页 | `endDate=2024-10-29`，取自首批的 `meta.nextEndDate`。返回 2022-09-30 至 2024-10-29 的 500 根日 K 和 453 个九转标记，省略盘口，下一批截止日为 2022-09-29。浏览器拖到 2024-10-22 所在区间，核到历史九转标记仍可绘制，右侧盘口保持 1460.21 元。 |
+| 九转显示与请求 | 两批的标记逐日对应各自的 K 线。九转开关隐藏和恢复绘制，打开首屏、向左翻页和切换九转共触发两次 `/kline`，独立 `/nine-turn` 请求为零。切换后浏览器验收无脚本和控制台错误。 |
+
+首次浏览器探测在切换 Wealth 前收到过一次日 K HTTP 500，响应无具体原因。随后直接请求首批和续页均返回 200，使用新前端复验两批也均返回 200。股票详情来源主表已按切换后的实际行为更新。[本地股票日线九转字段](../../wealth/docs/pages/stock-detail/stock-detail-field-source-audit-v1.html#local-daily-nine-turn)

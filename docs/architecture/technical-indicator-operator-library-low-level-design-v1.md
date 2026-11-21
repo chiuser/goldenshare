@@ -551,7 +551,7 @@ internal_calculations = {
 
 首根目标行情最多需要 **16 根前置 K 线**。判定是否连续同向 13 次时，最早一次比较发生在当前根往前第 12 根，它要和再往前第 4 根比较，合计回看 16 根。预热和分批传递方式见[实施 LLD §9](technical-indicator-operator-library-implementation-lld-v1.md#9-九转算子接入约定)。
 
-阶段 2 将接入本地股票详情，首批和续页由同一次日 K 计算提供九转标记。接口、前端接入和验收见[九转专项方案](technical-indicator-nine-turn-plan-v1.md)与[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)。
+本地股票详情已切换，首批和续页由同一次日 K 计算提供九转标记。接口、前端接入和验收见[九转专项方案](technical-indicator-nine-turn-plan-v1.md)与[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)。
 
 ## 5. 输出合法性检查
 

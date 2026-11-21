@@ -118,7 +118,7 @@ Prod 证券主数据有 5,926 条 `EQUITY / tushare`，DG 股票基础信息 Raw
 
 ## 6. 本地股票日 K 向前翻页
 
-本节记录 2026-11-20 已验收的翻页实现。后续本地股票首批和续页将用日 K 回包中的九转标记，具体按[九转专项方案](../../../../docs/architecture/technical-indicator-nine-turn-plan-v1.md)实施。下文的独立九转请求是当前已上线到本机的行为。
+本节记录 2026-11-20 的翻页实现。2026-11-22，本地股票日线九转已切换到 `/kline`。下文的独立九转请求用于记录当时的实现和验收。当前接口与验收见[九转专项 LLD](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)。
 
 本地股票首屏完成后，分两步交付股票日 K 向前翻页，范围包括本地股票详情日 K 和同区间的九转、趋势通道。2026-11-20 已在本机 `127.0.0.1:8000` 切换并通过浏览器复验。[本机验收记录](stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md#本机切换后复验)
 
