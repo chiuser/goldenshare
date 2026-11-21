@@ -55,11 +55,11 @@ body:has(.index-detail-app) {
 .index-detail-chart-toolbar .seg-btn.active { background: var(--cs-color-brand-weak); border-color: rgba(247, 199, 107, 0.36); color: var(--cs-color-brand); }
 .index-detail-chart-toolbar button:disabled { cursor: not-allowed; opacity: 0.45; }
 
-.index-minute-status-message { color: var(--cs-color-warning); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.index-minute-module-state > div:first-child { align-items: center; display: flex; flex-direction: column; gap: 10px; justify-content: center; text-align: center; }
-.index-minute-module-state > div:first-child strong { color: var(--cs-color-text-primary); font-size: 16px; }
+.index-minute-status-message, .index-period-status-message { color: var(--cs-color-warning); font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.index-minute-module-state > div:first-child, .index-period-chart-state > div:first-child { align-items: center; display: flex; flex-direction: column; gap: 10px; justify-content: center; text-align: center; }
+.index-minute-module-state > div:first-child strong, .index-period-chart-state > div:first-child strong { color: var(--cs-color-text-primary); font-size: 16px; }
 .index-minute-module-state > div:first-child span { color: var(--cs-color-text-muted); font-size: 12px; }
-.index-minute-module-state > div:first-child button { background: var(--cs-color-brand-weak); border: 1px solid rgba(247,199,107,.3); border-radius: 8px; color: var(--cs-color-brand); height: 30px; padding: 0 14px; }
+.index-minute-module-state > div:first-child button, .index-period-chart-state > div:first-child button { background: var(--cs-color-brand-weak); border: 1px solid rgba(247,199,107,.3); border-radius: 8px; color: var(--cs-color-brand); height: 30px; padding: 0 14px; }
 
 .index-detail-main-content {
   display: grid;

@@ -26,4 +26,16 @@ describe("buildIndexDetailViewModel", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), kline);
     expect(viewModel.chart.candles[0].ma250).toBeNull();
   });
+
+  it("requires both page-init capability fields before enabling a long period", () => {
+    const pageInit = makePageInit();
+    const supported = () => buildIndexDetailViewModel(pageInit, makeKline())
+      .periods.filter(period => period.supported).map(period => period.key);
+    pageInit.chartDefaults.availablePeriods.push("week");
+    expect(supported()).toEqual(["day"]);
+    pageInit.capabilities.supportsWeeklyMonthly = true;
+    expect(supported()).toEqual(["day", "week"]);
+    pageInit.chartDefaults.availablePeriods.push("month");
+    expect(supported()).toEqual(["day", "week", "month"]);
+  });
 });

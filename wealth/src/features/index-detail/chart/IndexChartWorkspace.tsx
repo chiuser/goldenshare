@@ -1,6 +1,8 @@
 import { toDetailChartPoint } from "./indexChartPointAdapter";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import type { IndexDailyHistory } from "../controller/useIndexDailyHistory";
+import type { IndexPeriodSeries } from "../controller/useIndexPeriodSeries";
+import type { IndexLongPeriod } from "../api/indexDetailApiTypes";
 import { IndexXxmLayer, type XxmLayerProps } from "../xxm/IndexXxmLayer";
 import { QUANTITATIVE_STRUCTURE_TITLE, XxmLayerStatus } from "../xxm/XxmLayerUi";
 
@@ -189,6 +191,54 @@ export function IndexChartWorkspace({
   );
 }
 
+export function IndexPeriodChartWorkspace({ period, dataKey, series, indicatorControls }: {
+  period: IndexLongPeriod;
+  dataKey: string;
+  series: IndexPeriodSeries;
+  indicatorControls: DetailChartIndicatorControls;
+}) {
+  const [overlay, setOverlay] = useState<IndexMainOverlay | null>("MA");
+  const points = useMemo(() => series.candles.map(toDetailChartPoint), [series.candles]);
+  const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
+  const label = period === "week" ? "周线" : "月线";
+  const ariaLabel = `指数${label}图表区`;
+  const { phase } = series;
+  if (phase === "loading" || phase === "empty" || phase === "error") {
+    const status = phase === "loading" ? `正在加载指数${label}`
+      : phase === "empty" ? `暂无指数${label}数据` : `指数${label}加载失败`;
+    return <section className="detail-chart-workspace index-period-chart-state" aria-label={ariaLabel}>
+      <div role="status">
+        <strong>{status}</strong>
+        {phase === "error" ? <button type="button" onClick={series.retry}>重新加载</button> : null}
+      </div>
+      <div aria-hidden="true" className="detail-chart-indicator-bar" />
+    </section>;
+  }
+
+  return <DetailChartWorkspace
+    ariaLabel={ariaLabel}
+    bottomBar={<>
+      <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={false} />
+      {phase === "delayed" || phase === "partial" ? <span className="index-period-status-message" role="status">
+        {phase === "delayed" ? `指数${label}尚未更新到预期交易日` : `指数${label}部分数据暂缺`}
+      </span> : null}
+    </>}
+    bottomBarAriaLabel="指数指标栏"
+    dataKey={dataKey}
+    hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
+    historyPhase={series.historyPhase}
+    onHistoryViewport={series.onViewport}
+    mainLines={mainLines}
+    panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
+    points={points}
+    renderMainHeader={(point) => <IndexMainHeader overlay={overlay} point={point} />}
+    renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}
+    renderTooltip={(point, side) => <IndexTooltip point={point} side={side} />}
+    timeAxisAriaLabel={`指数${label}底部时间轴`}
+    timeMode="daily"
+  />;
+}
+
 
 function buildMaLines(): DetailChartLineDefinition[] {
   return [
@@ -252,7 +302,7 @@ function IndexPanelHeader({ panel, point }: (
 
 function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOverlay, supportsTrend }: {
   indicatorControls: DetailChartIndicatorControls;
-  nineTurnControl: NineTurnDisplayControl;
+  nineTurnControl?: NineTurnDisplayControl;
   overlay: IndexMainOverlay | null;
   setOverlay: (overlay: IndexMainOverlay | null) => void;
   supportsTrend: boolean;
@@ -262,16 +312,18 @@ function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOve
     <button className="detail-chart-indicator-tab" disabled type="button">成交额</button>
     <DetailChartIndicatorToggle panel="macd" indicatorControls={indicatorControls} />
     <DetailChartIndicatorToggle panel="kdj" indicatorControls={indicatorControls} />
-    <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls}
-      mode={indicatorControls.quantitativeStructureAvailable ? "available" : "disabled"} />
-    <NineTurnIndicatorToggle control={nineTurnControl} />
+    {nineTurnControl ? <>
+      <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls}
+        mode={indicatorControls.quantitativeStructureAvailable ? "available" : "disabled"} />
+      <NineTurnIndicatorToggle control={nineTurnControl} />
+    </> : null}
     <button aria-pressed={overlay === "MA"} className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay(overlay === "MA" ? null : "MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}
   </div>;
 }
 
-function IndexTooltip({ point, side, children }: { point: DetailChartPoint; side: DetailChartTooltipSide; children: ReactNode }) {
+function IndexTooltip({ point, side, children }: { point: DetailChartPoint; side: DetailChartTooltipSide; children?: ReactNode }) {
   const rows = [
     ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
     ["开盘", format(point.open), directionClass(compare(point.open, point.preClose))],

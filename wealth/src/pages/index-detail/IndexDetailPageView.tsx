@@ -7,10 +7,11 @@ import {
   resolveTopMarketNavPath,
   returnToWealthOverview,
 } from "../../app/routes/routerState";
-import { IndexChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
+import { IndexChartWorkspace, IndexPeriodChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
 import { IndexMinuteChartWorkspace } from "../../features/index-detail/chart/IndexMinuteChartWorkspace";
 import { useIndexDetailController } from "../../features/index-detail/controller/useIndexDetailController";
 import { useIndexMinuteSeries } from "../../features/index-detail/controller/useIndexMinuteSeries";
+import { useIndexPeriodSeries } from "../../features/index-detail/controller/useIndexPeriodSeries";
 import { useIndexWeights } from "../../features/index-detail/controller/useIndexWeights";
 import { IndexBreadcrumbActionBar } from "../../features/index-detail/layout/IndexBreadcrumbActionBar";
 import { IndexChartToolbar } from "../../features/index-detail/layout/IndexChartToolbar";
@@ -90,6 +91,9 @@ export function IndexDetailPageView({
   const viewModel = controller.viewModel;
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
+  const chartPeriod = periods.some(period => period.key === activePeriod && period.supported) ? activePeriod : "day";
+  const longPeriod = chartPeriod === "week" || chartPeriod === "month" ? chartPeriod : null;
+  const periodSeries = useIndexPeriodSeries(normalizedTsCode, longPeriod, viewModel?.asOfTradeDate ?? null, loadDailyKline);
   const nineTurnRegistry = useNineTurnSeriesRegistry({
     dailyLimit: DAILY_CHART_PAGE_SIZE,
     endDate: viewModel?.asOfTradeDate ?? null,
@@ -103,7 +107,7 @@ export function IndexDetailPageView({
     development: import.meta.env.DEV, tsCode: normalizedTsCode,
     validatedTsCode: hasData && viewModel?.identity.tsCode === normalizedTsCode ? normalizedTsCode : null,
   });
-  const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(activePeriod);
+  const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(chartPeriod);
   const nineTurnCapabilities = viewModel?.capabilities;
   const nineTurnControl = useNineTurnDisplayControl(normalizedTsCode,
     activeNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
@@ -112,7 +116,7 @@ export function IndexDetailPageView({
     ? unsupportedNineTurnLayer("1")
     : nineTurnRegistry.stateFor(activeNineTurnPeriod);
   const minute = useIndexMinuteSeries({
-    activePeriod,
+    activePeriod: chartPeriod,
     requests,
     enabled: viewModel?.capabilities.supportsMinute ?? false,
     endDate: viewModel?.asOfTradeDate ?? null,
@@ -165,9 +169,9 @@ export function IndexDetailPageView({
   }, []);
   useEffect(() => () => window.clearTimeout(toastTimer.current), []);
   const showIndicatorLimit = useCallback(() => showToast("最多展示3个技术指标，请取消一个后再打开"), [showToast]);
-  const quantitativeStructureAvailable = recognitionEnabled && isXxmPeriod(activePeriod)
-    && (activePeriod === "day" || (viewModel?.capabilities.supportsMinute === true
-      && minute.data?.tsCode === normalizedTsCode && `m${minute.data.freq}` === activePeriod));
+  const quantitativeStructureAvailable = recognitionEnabled && isXxmPeriod(chartPeriod)
+    && (chartPeriod === "day" || (viewModel?.capabilities.supportsMinute === true
+      && minute.data?.tsCode === normalizedTsCode && `m${minute.data.freq}` === chartPeriod));
   const indicatorControls = useDetailChartIndicatorControls(normalizedTsCode, quantitativeStructureAvailable, showIndicatorLimit);
 
   function handleTopNavigate(target: TopMarketNavKey) {
@@ -193,7 +197,7 @@ export function IndexDetailPageView({
     />
     <IndexBreadcrumbActionBar identity={identity} onReturnHome={returnToWealthOverview} />
     <IndexChartToolbar
-      activePeriod={periods.some((period) => period.key === activePeriod && period.supported) ? activePeriod : "day"}
+      activePeriod={chartPeriod}
       identity={identity}
       onAction={showToast}
       onPeriodChange={setActivePeriod}
@@ -252,7 +256,7 @@ export function IndexDetailPageView({
           />
         ) : (
           <div className="index-detail-chart-region">
-          {activePeriod === "day" ? (
+          {chartPeriod === "day" ? (
             <IndexChartWorkspace
               recognitionEnabled={recognitionEnabled}
               SignalLayer={SignalLayer}
@@ -268,6 +272,14 @@ export function IndexDetailPageView({
               trend={controller.trend}
               trendPhase={controller.trendPhase}
               viewModel={viewModel}
+            />
+          ) : longPeriod ? (
+            <IndexPeriodChartWorkspace
+              key={`${normalizedTsCode}|${longPeriod}|${viewModel.asOfTradeDate}`}
+              dataKey={`index:${normalizedTsCode}:${longPeriod}:${viewModel.asOfTradeDate}`}
+              indicatorControls={indicatorControls}
+              period={longPeriod}
+              series={periodSeries}
             />
           ) : (
             <IndexMinuteChartWorkspace

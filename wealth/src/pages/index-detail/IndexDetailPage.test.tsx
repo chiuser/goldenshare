@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
+import type { IndexPeriodSeries } from "../../features/index-detail/controller/useIndexPeriodSeries";
 import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
 import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import type { NineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
@@ -14,6 +15,9 @@ import { IndexDetailDebugPage } from "./IndexDetailDebugPage";
 const p4View = vi.hoisted(() => ({ recognitionEnabled: false }));
 
 vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
+  IndexPeriodChartWorkspace: ({ period, series }: { period: "week" | "month"; series: IndexPeriodSeries }) => (
+    <div aria-label={period === "week" ? "指数周线图表区" : "指数月线图表区"} data-phase={series.phase} />
+  ),
   IndexChartWorkspace: ({ nineTurnControl, nineTurnLayer, recognitionEnabled, indicatorControls }: {
     nineTurnControl: NineTurnDisplayControl;
     nineTurnLayer: { phase: string };
@@ -80,6 +84,43 @@ describe("IndexDetailPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(1);
     expect(screen.getByLabelText("权重股滚动列表")).toHaveProperty("scrollTop", 320);
+  });
+
+  it.each([false, true])("uses the current page's own K-line endpoint for week and month (debug=%s)", async (debug) => {
+    const tsCode = "399001.SZ";
+    const init = makePageInit(tsCode);
+    init.capabilities.supportsWeeklyMonthly = true;
+    init.chartDefaults.availablePeriods.push("week", "month");
+    const daily = makeOrdinaryKline(tsCode);
+    const fetchMock = mockFetch(tsCode, {
+      pageInit: () => response(init),
+      kline: (url) => {
+        const period = url.searchParams.get("period");
+        if (period === "day") return response(daily);
+        return response({ ...daily, period, bars: daily.bars.slice(-1),
+          meta: { ...daily.meta, count: 1, nextEndDate: null } });
+      },
+    });
+    const Page = debug ? IndexDetailDebugPage : IndexDetailPage;
+    render(<Page search="" tsCode={tsCode} />);
+    await screen.findByLabelText("指数日线图表区");
+    const quote = screen.getByLabelText("IndexHeader").textContent;
+    const initialCalls = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "周K" }));
+    await waitFor(() => expect(screen.getByLabelText("指数周线图表区")).toHaveAttribute("data-phase", "ready"));
+    fireEvent.click(screen.getByRole("button", { name: "月K" }));
+    await waitFor(() => expect(screen.getByLabelText("指数月线图表区")).toHaveAttribute("data-phase", "ready"));
+    expect(screen.getByLabelText("IndexHeader").textContent).toBe(quote);
+    expect(screen.queryByLabelText("指数分钟图表区")).not.toBeInTheDocument();
+    const newCalls = fetchMock.mock.calls.slice(initialCalls).map(([input]) => new URL(String(input)));
+    expect(newCalls).toHaveLength(2);
+    expect(newCalls.map(url => url.pathname)).toEqual(Array(2).fill(
+      `/api/v1/wealth/market/index-detail/${debug ? "debug/" : ""}kline`,
+    ));
+    expect(newCalls.map(url => [url.searchParams.get("period"), url.searchParams.get("endDate"),
+      url.searchParams.get("limit")])).toEqual([
+      ["week", init.asOfTradeDate, "500"], ["month", init.asOfTradeDate, "500"],
+    ]);
   });
 
   it("renders weight rows in the contribution order supplied by the API", async () => {
@@ -662,7 +703,7 @@ describe("IndexDetailPage", () => {
 interface MockFetchOptions {
   minuteNineTurn?: (url: URL) => Response | Promise<Response>;
   nineTurn?: (url: URL) => Response | Promise<Response>;
-  kline?: () => Response | Promise<Response>;
+  kline?: (url: URL) => Response | Promise<Response>;
   minuteIndicators?: (url: URL) => Response | Promise<Response>;
   minutes?: (url: URL) => Response | Promise<Response>;
   pageInit?: () => Response | Promise<Response>;
@@ -679,7 +720,7 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
     const url = String(input);
     if (url.includes("/major-indices")) return response(majorIndices);
     if (url.includes("/index-detail/page-init") || url.includes("/index-detail/debug/page-init")) return options.pageInit?.() ?? response(pageInit);
-    if (url.includes("/index-detail/kline") || url.includes("/index-detail/debug/kline")) return options.kline?.() ?? response(kline);
+    if (url.includes("/index-detail/kline") || url.includes("/index-detail/debug/kline")) return options.kline?.(new URL(url)) ?? response(kline);
     if (url.includes("/index-detail/minute-indicators")) return options.minuteIndicators?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/minutes")) return options.minutes?.(new URL(url)) ?? response({}, 404);
     if (url.includes("/index-detail/minute-nine-turn")) {

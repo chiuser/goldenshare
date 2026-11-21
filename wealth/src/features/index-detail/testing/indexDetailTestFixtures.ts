@@ -1,6 +1,8 @@
 import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto } from "../api/indexDetailApiTypes";
 import type { TrendChannelRawResponse } from "../api/trendChannelApiClient";
 
+type DailyKlineResponse = Extract<IndexDetailKlineResponseDto, { period: "day" }>;
+
 export function makePageInit(tsCode = "000001.SH"): IndexDetailPageInitResponseDto {
   return {
     pageContext: { market: "CN_A", tradeDate: "2026-07-31", prevTradeDate: "2026-07-30", isTradingDay: true, sessionStatus: "CLOSED", timezone: "Asia/Shanghai", generatedAt: "2026-07-31T16:00:00+08:00", source: "explicit" },
@@ -15,7 +17,7 @@ export function makePageInit(tsCode = "000001.SH"): IndexDetailPageInitResponseD
   };
 }
 
-export function makeKline(tsCode = "000001.SH"): IndexDetailKlineResponseDto {
+export function makeKline(tsCode = "000001.SH"): DailyKlineResponse {
   const pageInit = makePageInit(tsCode);
   return {
     pageContext: pageInit.pageContext, indexRef: { tsCode, name: pageInit.index.name }, period: "day",
@@ -28,7 +30,7 @@ export function makeKline(tsCode = "000001.SH"): IndexDetailKlineResponseDto {
 }
 
 // Ordinary day=500 requests use the SSE paging meta on the new branch.
-export function makeOrdinaryKline(tsCode = "000001.SH"): IndexDetailKlineResponseDto {
+export function makeOrdinaryKline(tsCode = "000001.SH"): DailyKlineResponse {
   const response = makeKline(tsCode);
   const meta = { ...response.meta, startDate: null, limit: 500 };
   return { ...response, meta: tsCode === "000001.SH" ? { ...meta, nextEndDate: null } : meta };

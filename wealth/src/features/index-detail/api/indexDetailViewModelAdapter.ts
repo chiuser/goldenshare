@@ -65,6 +65,9 @@ export function buildEmptyIndexDetailViewModel(pageInit: IndexDetailPageInitResp
 
 function supportsPeriod(pageInit: IndexDetailPageInitResponseDto, period: IndexPeriodKey): boolean {
   if (period === "day") return true;
+  if (period === "week" || period === "month") {
+    return pageInit.capabilities.supportsWeeklyMonthly && pageInit.chartDefaults.availablePeriods.includes(period);
+  }
   if (!import.meta.env.DEV || !pageInit.capabilities.supportsMinute) return false;
   const match = /^m(1|5|15|30|60|90|120)$/.exec(period);
   if (!match) return false;

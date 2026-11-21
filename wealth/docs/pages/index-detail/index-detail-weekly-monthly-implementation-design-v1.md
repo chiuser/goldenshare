@@ -1,6 +1,6 @@
 # 指数详情页周线、月线实施方案 v1
 
-2026-11-22｜阶段一算子库已验收并提交（`9f77940c5`）。阶段二接口已在本机通过 DG、Prod 正式数据只读验收，阶段三前端待开发。数据来源、日期和指标算法见[算子库专项方案](../../../../docs/architecture/technical-indicator-index-period-plan-v1.md)，阶段二结果见[验收记录](index-detail-weekly-monthly-low-level-design-v1.md#7-阶段二验收记录)。
+2026-11-22｜阶段一算子库已验收并提交（`9f77940c5`），阶段二接口已通过 DG、Prod 正式数据只读验收（`bd71f1591`）。阶段三前端已通过连接 DG 的本机真实页面验收。数据来源、日期和指标算法见[算子库专项方案](../../../../docs/architecture/technical-indicator-index-period-plan-v1.md)。[阶段二验收](index-detail-weekly-monthly-low-level-design-v1.md#7-阶段二验收记录) · [阶段三验收](index-detail-weekly-monthly-low-level-design-v1.md#8-阶段三验收记录)
 
 ## 1. 用户看到什么
 

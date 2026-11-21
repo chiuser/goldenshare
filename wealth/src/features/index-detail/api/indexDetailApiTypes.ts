@@ -1,7 +1,9 @@
 import type { MarketDirection } from "../../../shared/model/market";
 
 export type IndexDetailDataStatusValue = "READY" | "DELAYED" | "PARTIAL" | "EMPTY";
-export type IndexDetailPeriod = "day" | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
+export type IndexLongPeriod = "week" | "month";
+export type IndexKlinePeriod = "day" | IndexLongPeriod;
+export type IndexDetailPeriod = IndexKlinePeriod | "m1" | "m5" | "m15" | "m30" | "m60" | "m90" | "m120";
 export type IndexDetailMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
 export type IndexDetailNineTurnPeriod = "day" | "5" | "15" | "30" | "60" | "90" | "120";
 
@@ -92,7 +94,7 @@ export interface IndexDetailPageInitResponseDto {
   };
   capabilities: {
     supportsTimeShare: false;
-    supportsWeeklyMonthly: false;
+    supportsWeeklyMonthly: boolean;
     supportsMinute: boolean;
     minuteFrequencies: IndexDetailMinuteFrequency[];
     supportsTrendChannel: boolean;
@@ -141,15 +143,20 @@ interface IndexDailyKlineMeta {
   endDate: string | null;
 }
 
-export interface IndexDetailKlineResponseDto {
+interface IndexDetailKlineData {
   pageContext: IndexDetailPageContextDto;
   indexRef: { tsCode: string; name: string | null };
-  period: "day";
   bars: IndexKlineBarDto[];
-  meta: IndexDailyKlineMeta | (IndexDailyKlineMeta & { nextEndDate: string | null });
   dataStatus: IndexDetailDataStatusDto;
   debugInfo: IndexDetailDebugInfoDto | null;
 }
+
+type IndexPagedKlineMeta = IndexDailyKlineMeta & { nextEndDate: string | null };
+
+export type IndexDetailKlineResponseDto = IndexDetailKlineData & (
+  | { period: "day"; meta: IndexDailyKlineMeta | IndexPagedKlineMeta }
+  | { period: IndexLongPeriod; meta: IndexPagedKlineMeta }
+);
 
 export interface IndexMinuteDataStatusDto {
   status: "READY" | "DELAYED" | "EMPTY";
