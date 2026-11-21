@@ -22,6 +22,7 @@ from goldenshare_technical_indicators.errors import (
 )
 from goldenshare_technical_indicators.sources.contracts import SourceBatch, SourceDescription
 
+from ..technical_indicator_index_period import INDEX_PERIOD_DATASETS, index_period_positions
 from ..technical_indicator_stock_daily import INDEX_DAILY_ORIGINS, full_day_suspension, scheduled_open_days, scheduled_stock_days
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
@@ -54,7 +55,8 @@ def _table_name(name):
 def _matches_type(pa, actual, expected):
     types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"), "INTEGER": pa.int32(),
              "DOUBLE": pa.float64(), "DECIMAL(18,4)": pa.decimal128(18, 4),
-             "DECIMAL(20,4)": pa.decimal128(20, 4)}
+             "DECIMAL(20,4)": pa.decimal128(20, 4), "DECIMAL(20,6)": pa.decimal128(20, 6),
+             "DECIMAL(20,7)": pa.decimal128(20, 7)}
     return actual == types[expected]
 
 
@@ -231,6 +233,14 @@ class LakeTechnicalIndicatorPriceSource:
 
     def expected_positions(self, requirement, selection, *, read_context, control):
         root = self._root()
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            dates = read_context.source_state
+            calendar = self._fact_rows(root, "trade_calendar", ("exchange", "trade_date", "is_open"),
+                [("exchange", "=", "SSE"), ("trade_date", ">=", dates.calendar_start),
+                 ("trade_date", "<=", dates.calendar_end)], control, read_context)
+            yield from index_period_positions(sorted((day, flag) for _, day, flag in calendar), dates,
+                                              requirement.period)
+            return
         start, end = min(requirement.start, selection.read_start), requirement.end
         index = requirement.target.dataset_id == "index_daily"
         if index:
@@ -308,12 +318,18 @@ class LakeTechnicalIndicatorPriceSource:
         executor.execute(SqlStep("prepare_factors", sql, bindings, (), (name,), 0))
 
 
+def _file_version(path):
+    stat = path.stat()
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns
+
+
 class _LakePriceStream:
     """Fill each delivery across files; retain only one already-read remainder."""
 
     def __init__(self, description, requirement, control, read_context):
         self._description, self._requirement = description, requirement
         self._control, self._context = control, read_context
+        self._period_dates = read_context.source_state if requirement.period in INDEX_PERIOD_DATASETS else None
         self._files = iter(description.price_paths)
         self._row_groups = dict(zip(description.price_paths, description.selection.row_groups))
         self._fragment = self._scanner = self._reader = self._current_batch = None
@@ -321,12 +337,21 @@ class _LakePriceStream:
         self._exhausted = self._closed = self._failed = False
         self._delivered = 0
 
+    def _check_period_file(self):
+        if self._period_dates is not None and (
+                _file_version(self._description.price_paths[0]) != self._period_dates.file_version):
+            raise SourceReadError("The index period file changed during the request")
+
     def _open_file(self, path):
         pa, ds, fs, _ = _arrow()
+        self._check_period_file()
         self._current_path = path
         predicate = ds.field("ts_code") == self._requirement.ts_code
         selection = self._description.selection
-        if self._requirement.period.endswith("m"):
+        if self._period_dates is not None:
+            predicate &= ds.field("period_start_date") >= self._period_dates.keys[0][0]
+            predicate &= ds.field("period_start_date") <= self._period_dates.keys[-1][0]
+        elif self._requirement.period.endswith("m"):
             predicate &= ds.field("trade_time") >= selection.read_start.replace(tzinfo=None)
             predicate &= ds.field("trade_time") <= selection.read_end.replace(tzinfo=None)
         else:
@@ -420,6 +445,7 @@ class _LakePriceStream:
                 pieces.append(piece)
                 assembled_rows += take
                 batch = piece = None
+            self._check_period_file()
             if not assembled_rows:
                 return None
             self._control.check_active()
@@ -435,6 +461,10 @@ class _LakePriceStream:
                     raise SourceContractError("Source batch schemas could not be combined") from exc
             pieces.clear()
             self._control.check_active()
+            if self._period_dates is not None:
+                keys = list(zip(assembled.column("period_start_date").to_pylist(),
+                                assembled.column("trade_date").to_pylist(), strict=True))
+                self._period_dates.check_delivery(self._delivered, keys)
             result = SourceBatch(assembled, self._delivered+1,
                                  self._delivered+assembled_rows, None, assembled_rows,
                                  self._context.source_files, self._context.source_file_bytes)

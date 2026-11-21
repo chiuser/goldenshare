@@ -6,6 +6,8 @@
 
 开发改动、迁移顺序及验收见独立的 [实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md)；本设计保留目标与类的职责。
 
+指数周线、月线见[专项方案](technical-indicator-index-period-plan-v1.md)与[专项 LLD](technical-indicator-index-period-low-level-design-v1.md)。专项沿用本设计的请求和输出结构，已分别接通并只读验收 DG、Prod 的指数周月线读取。
+
 上游只告诉库“哪只证券、哪段行情、算哪些指标”。库按部署配置读取规定来源，核对行情后调用现有指标算子，并按标准结构返回结果。财势乾坤、研究程序等调用方使用同一份计算合同；如何分页、展示或使用结果不属于算子库。
 
 **已确认的取数与预热规则：** 本地内核只读 DG，生产内核只读 Prod PostgreSQL。未配置、无目标行情或读取失败时直接报错，不访问另一端；已有预热规则、算法与跨批状态保持不变。

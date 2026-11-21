@@ -20,6 +20,7 @@ class SourceReadContext:
         self._sql_texts: dict[tuple[str, str], str] = {}
         self._basis_row = None
         self._pg_session = None
+        self.source_state: object | None = None
 
     def sql_template(self, name: str, *, control) -> str:
         from ..calculation.sql_templates import load_sql_templates
@@ -42,6 +43,7 @@ class SourceReadContext:
     def clear_request_metadata(self) -> None:
         self._sql_texts.clear()
         self._basis_row = None
+        self.source_state = None
 
     def open_postgres(self, session_factory):
         if self._pg_session is None:

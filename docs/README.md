@@ -96,6 +96,8 @@ docs/
 - [技术指标计算内核代码级LLD v1（HTML；内核代码合同、有限预热、执行与阶段验收记录）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-low-level-design-v1.html)
 - [技术指标算子库整体详细设计 v1（待评审；计算指令、取数、算子、输出与类清单）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-operator-library-low-level-design-v1.md)
 - [技术指标算子库实施 LLD v1（待评审；现状审计、文件级改动、迁移与验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-operator-library-implementation-lld-v1.md)
+- [指数周线、月线接入技术指标算子库方案 v1（阶段一已实现并完成只读验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-index-period-plan-v1.md)
+- [指数周线、月线接入技术指标算子库 LLD v1（DG／Prod 读取、日期、单位与独立验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-index-period-low-level-design-v1.md)
 - [九转算子及本地股票详情接入方案 v1（待开发）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-nine-turn-plan-v1.md)
 - [九转算子及本地股票详情接入 LLD v1（计算、日 K 回包和前端验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md)
 - [计算算子共享包落地方案 v1（0.1.0 已完成迁移及本地验收）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-plan-v1.md)

@@ -40,6 +40,7 @@ def build_runtime_config(settings: Settings) -> KernelConfig:
     locations = deepcopy(DATASET_LOCATIONS)
     for dataset_id, adjustments in (
         ("stock_daily", ("none", "qfq")), ("index_daily", ("none",)), ("index_mins_5m", ("none",)),
+        ("index_weekly", ("none",)), ("index_monthly", ("none",)),
     ):
         locations[dataset_id][backend]["enabled_adjustments"] = adjustments
     return technical_indicator_config_from_settings(settings, data_location=backend, dataset_locations=locations)

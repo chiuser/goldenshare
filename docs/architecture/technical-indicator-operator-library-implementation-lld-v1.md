@@ -4,6 +4,8 @@
 
 ## 1. 审计结论与开工边界
 
+指数周线、月线在本轮阶段 D 之后单独实施。两端正式行情、周期日期、单位、读取预算与已完成的只读验收见[指数周月线专项方案](technical-indicator-index-period-plan-v1.md)和[专项 LLD](technical-indicator-index-period-low-level-design-v1.md)。
+
 内核复用已有参数校验、依赖、预热、同批共享、跨批状态和输出检查。阶段 C 完成独立入口，阶段 D 本分支完成应用装配和业务调用迁移。生产仍按原部署运行。新指令的 `start/end` 所有周期统一带时区，分钟沿用现有转换逻辑。
 
 **本次锁定的目标。** 本地内核只读 DG，Prod 内核只读生产 PostgreSQL；不授权跨环境回退。读取规定的不复权行情，需要复权时另读正式复权因子并计算，不直接读复权行情列或成品。分钟线按实际读到的有效 K 线计算，不检查缺少哪些分钟位置，不补 K 线；该检查留 TODO。无目标 K 线时返回错误「读取数据失败」，`detail` 为「数据缺失」。已有公式、默认参数、预热、真实起点和跨批规则不变。股票周月线复权、股票 90m/120m 合成和 ETF 不作为首版条件。
@@ -97,7 +99,7 @@ PG 定位分三步，关系名和列由可信合同选择，所有值参数化�
    对齐定位计数和交付计数，适配到 SourceBatch。只保留当前批与必要历史。
 ~~~
 
-**周、月线截止。** DG 与 PG 都在目标定位阶段、统计目标根数之前执行同一规则。保留截止日已有的可用部分周期记录。相交且未结束的周期只有晚于请求截止日的版本时，沿用 `SourceUnsupportedError`，例如请求截至周二而只有周五版本。已结束周期沿用原规则。PG 在查询中保留识别晚版本的证据，避免仅过滤后报成数据缺失。验收同步覆盖可用部分周期、仅有晚版本和已结束周期。 [现有截止检查](../../packages/technical_indicators/src/goldenshare_technical_indicators/time_range.py#L27) · [现有回归](../../tests/foundation/technical_indicators/test_price_adjustment.py#L213)
+**周、月线截止。** DG 与 PG 都在目标定位阶段、判定目标根数之前执行同一规则。保留截止日已有的可用部分周期记录。相交且未结束的周期只有晚于请求截止日的版本时，沿用 `SourceUnsupportedError`，例如请求截至周二而只有周五版本。已结束周期沿用原规则。PG 在查询中保留识别晚版本的证据，避免仅过滤后报成数据缺失。验收同步覆盖可用部分周期、仅有晚版本和已结束周期。 [指数周月线截止检查](../../src/foundation/clients/technical_indicator_index_period.py) · [两端专项回归](../../tests/foundation/technical_indicators/test_stage_b_index_period.py)
 
 分钟过滤保留 `trade_time` 原列范围。必要索引、分区裁剪和首尾定位通过有界样本及执行计划核验。分钟完整性检查留作 TODO。PG 仅允许访问配置有位置且已启用的周期。
 

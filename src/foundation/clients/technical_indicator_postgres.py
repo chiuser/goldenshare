@@ -18,6 +18,10 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceBatch, SourceDescription
 
 from .technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
+from .technical_indicator_index_period import (
+    INDEX_PERIOD_DATASETS, check_index_period_cutoff, check_period_key, describe_index_period,
+    index_period_positions, period_bounds, period_request_start, preceding_limit, require_index_period,
+)
 from .technical_indicator_stock_daily import (
     INDEX_DAILY_ORIGINS, daily_adjustment_paths, daily_price_projection, full_day_suspension,
     scheduled_open_days, scheduled_stock_days,
@@ -38,7 +42,7 @@ def _relation(target):
 
 def _price_scope(requirement, *, requested_columns=()):
     relation = _relation(requirement.target)
-    if requirement.period == "day":
+    if requirement.period == "day" or requirement.period in INDEX_PERIOD_DATASETS:
         return f"{relation} AS b", "b.ts_code = %s", (requirement.ts_code,)
     # One indexed lookup for a requested opening bar. The backing table has
     # one row per (ts_code, freq, trade_time). LIMIT keeps the lateral lookup
@@ -126,7 +130,9 @@ class PostgresTechnicalIndicatorPriceSource:
         return connection
 
     def create_locator(self, executor, requirement, *, read_context):
-        if requirement.period.endswith("m"):
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            require_index_period(requirement, "prod_pg")
+        elif requirement.period.endswith("m"):
             index_minute_volume_unit(requirement, "prod_pg")
         else:
             daily_adjustment_paths(requirement, "prod_pg")
@@ -141,7 +147,11 @@ class PostgresTechnicalIndicatorPriceSource:
         relation, filters, identity = _price_scope(requirement, requested_columns=description.source_projection)
         position = "b.trade_time" if minute else "b.trade_date"
         start, end = selection.read_start, selection.read_end
-        if minute:
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            keys = read_context.source_state.keys
+            position = "b.period_start_date"
+            start, end = keys[0][0], keys[-1][0]
+        elif minute:
             start, end = start.replace(tzinfo=None), end.replace(tzinfo=None)
         statement = (
             f"SELECT {columns} FROM {relation} "
@@ -154,7 +164,11 @@ class PostgresTechnicalIndicatorPriceSource:
 
     def expected_positions(self, requirement, selection, *, read_context, control):
         connection = self._connection(read_context, control)
-        start, end = min(requirement.start, selection.read_start), requirement.end
+        dates = read_context.source_state
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            start, end = dates.calendar_start, dates.calendar_end
+        else:
+            start, end = min(requirement.start, selection.read_start), requirement.end
         index = requirement.target.dataset_id == "index_daily"
         if index:
             start = max(start, INDEX_DAILY_ORIGINS["prod_pg"])
@@ -163,6 +177,9 @@ class PostgresTechnicalIndicatorPriceSource:
             SELECT trade_date, is_open FROM {_relation(calendar_target)}
             WHERE exchange = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date
         """, (calendar_target.location["filters"]["exchange"], start, end))
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            yield from index_period_positions(calendar, dates, requirement.period)
+            return
         if index:
             yield from scheduled_open_days(calendar, start, end)
             return
@@ -231,12 +248,51 @@ class _PostgresPriceLocator:
         self._control = control
         self._described = False
 
+    def _describe_index_period(self, connection):
+        requirement, context = self._requirement, self._read_context
+        relation, filters, identity = _price_scope(requirement)
+        scope = f"SELECT b.period_start_date, b.trade_date FROM {relation} WHERE {filters}"
+        first = _query(connection, self._control, f"{scope} ORDER BY b.period_start_date LIMIT 1", identity)
+        if not first:
+            return describe_index_period(requirement, context, (), (), None, None)
+        latest = _query(connection, self._control, f"{scope} ORDER BY b.period_start_date DESC LIMIT 1", identity)[0]
+        check_period_key(latest, requirement.period)
+        start = period_request_start(requirement)
+        last_start, last_end = period_bounds(requirement.end, requirement.period)
+        if start > last_start:
+            return describe_index_period(requirement, context, (), (), first[0], latest)
+        last_period = _query(connection, self._control, f"""
+            {scope} AND b.period_start_date BETWEEN %s AND %s ORDER BY b.period_start_date LIMIT 2
+        """, (*identity, last_start, last_end))
+        if len(last_period) > 1:
+            raise SourceContractError("Index period positions are duplicated or out of order")
+        if last_period:
+            check_period_key(last_period[0], requirement.period)
+            check_index_period_cutoff(last_period[0][1], requirement, last_end)
+        targets = _query(connection, self._control, f"""
+            {scope} AND b.period_start_date BETWEEN %s AND %s ORDER BY b.period_start_date LIMIT %s
+        """, (*identity, start, last_end, context.config.max_output_rows + 1))
+        context.record_locator_rows(len(first) + 1 + len(last_period) + len(targets))
+        if len(targets) > context.config.max_output_rows:
+            raise ResourceLimitError("Target positions exceed max_output_rows")
+        preceding = []
+        if targets:
+            wanted, _ = preceding_limit(context.config, requirement, len(targets))
+            preceding = _query(connection, self._control, f"""
+                {scope} AND b.period_start_date < %s ORDER BY b.period_start_date DESC LIMIT %s
+            """, (*identity, targets[0][0], wanted + 1))
+            context.record_locator_rows(len(preceding))
+            preceding.reverse()
+        return describe_index_period(requirement, context, targets, preceding, first[0], latest)
+
     def describe(self):
         if self._described:
             raise SourceContractError("A source locator can only describe one request")
         self._described = True
         requirement, config = self._requirement, self._read_context.config
         connection = self._source._connection(self._read_context, self._control)
+        if requirement.period in INDEX_PERIOD_DATASETS:
+            return self._describe_index_period(connection)
         minute = requirement.period.endswith("m")
         relation, filters, identity = _price_scope(requirement)
         position = "b.trade_time" if minute else "b.trade_date"
@@ -302,7 +358,9 @@ class _PostgresPriceStream:
         self._connection, self._sql, self._params = connection, sql, params
         self._context, self._control = read_context, control
         self._columns, self._batch_rows = description.source_projection, batch_rows
-        types = {"trade_date": pa.date32(), "ts_code": pa.string(), "vol": pa.decimal128(20, 4),
+        self._period_dates = read_context.source_state
+        types = {"trade_date": pa.date32(), "period_start_date": pa.date32(),
+                 "ts_code": pa.string(), "vol": pa.decimal128(20, 4),
                  "amount": pa.decimal128(20, 4)}
         fallback = pa.decimal128(18, 4)
         self._minute_time_index = None
@@ -336,6 +394,9 @@ class _PostgresPriceStream:
         auction_rows = 0
         if self._minute_time_index is not None:
             auction_rows = sum(row[self._minute_time_index].time() == time(9, 35) for row in rows)
+        if self._period_dates is not None:
+            start, cutoff = (self._columns.index(name) for name in ("period_start_date", "trade_date"))
+            self._period_dates.check_delivery(self._delivered, [(row[start], row[cutoff]) for row in rows])
         self._context.record_price_rows(len(rows), additional_source_rows=auction_rows)
         try:
             columns = [pa.array([row[i] for row in rows], type=field.type) for i, field in enumerate(self._schema)]

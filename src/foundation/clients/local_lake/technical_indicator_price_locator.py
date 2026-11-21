@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections import deque
 from dataclasses import dataclass
 from datetime import date, datetime, time
 from pathlib import Path
@@ -19,8 +20,20 @@ from goldenshare_technical_indicators.time_range import check_period_cutoff, ran
 
 from ..technical_indicator_stock_daily import daily_adjustment_paths, daily_price_projection
 from ..technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
+from ..technical_indicator_index_period import (
+    INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, check_index_period_cutoff, check_period_key,
+    describe_index_period, index_period_projection, period_bounds, period_request_start,
+    preceding_limit, require_index_period,
+)
 from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA
-from .technical_indicator_price_source import _arrow, _matches_type
+from .technical_indicator_price_source import _arrow, _file_version, _matches_type
+
+
+_INDEX_PERIOD_SCHEMA = (
+    ("ts_code", "VARCHAR"), ("period_start_date", "DATE"), ("trade_date", "DATE"),
+    *((column, "DECIMAL(18,4)") for column in ("open", "high", "low", "close")),
+    ("vol", "DECIMAL(20,6)"), ("amount", "DECIMAL(20,7)"),
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -401,6 +414,85 @@ class LakePriceLocator:
         )
         return selected_paths, selection, tuple(reversed(included))
 
+    def _index_period_keys(self, path, index):
+        _, ds, fs, _ = _arrow()
+        self._fragment = ds.ParquetFileFormat().make_fragment(
+            str(path), filesystem=fs.LocalFileSystem(), row_groups=[index])
+        self._scanner = ds.Scanner.from_fragment(
+            self._fragment, columns=list(INDEX_PERIOD_KEYS), filter=ds.field("ts_code") == self.requirement.ts_code,
+            batch_size=self.requirement.batch_rows, batch_readahead=0, fragment_readahead=0,
+            fragment_scan_options=ds.ParquetFragmentScanOptions(pre_buffer=False, use_buffered_stream=False),
+            use_threads=False, cache_metadata=False)
+        self._reader = self._scanner.to_reader()
+        try:
+            for batch in self._reader:
+                self.control.check_active()
+                self.context.record_locator_rows(batch.num_rows)
+                yield from zip(batch.column("period_start_date").to_pylist(),
+                               batch.column("trade_date").to_pylist(), strict=True)
+        finally:
+            self._close_key_reader()
+
+    def _describe_index_period(self):
+        request, config = self.requirement, self.context.config
+        require_index_period(request, "dg")
+        self._root = self.source._root()
+        path = self.source._safe_path(self._root, Path(request.target.location["path_template"]))
+        version = _file_version(path)
+        physical, _ = index_period_projection(request)
+        metadata, schema_error = self._open_metadata(path, _INDEX_PERIOD_SCHEMA, INDEX_PERIOD_KEYS,
+                                                     price_projection=physical)
+        first = latest = None
+        targets, group_ranges = [], []
+        history_capacity, _ = preceding_limit(config, request, 0)
+        preceding = deque(maxlen=history_capacity + 1)
+        target_start = period_request_start(request)
+        last_period, last_period_end = period_bounds(request.end, request.period)
+        for index in range(metadata.num_row_groups):
+            self.control.check_active()
+            group = metadata.row_group(index)
+            if not self._may_match(group, INDEX_PERIOD_KEYS):
+                continue
+            self._check_group_bytes(group, INDEX_PERIOD_KEYS)
+            group_first = group_last = None
+            keys = self._index_period_keys(path, index)
+            try:
+                for key in keys:
+                    label = check_period_key(key, request.period)
+                    if latest is not None and key[0] <= latest[0]:
+                        raise SourceContractError("DG index period source starts are duplicated or out of order")
+                    first = first or key
+                    latest = key
+                    group_first = group_first or key[0]
+                    group_last = key[0]
+                    if label == last_period and label >= target_start:
+                        check_index_period_cutoff(key[1], request, last_period_end)
+                    if label < target_start:
+                        preceding.append(key)
+                    elif label <= last_period and len(targets) <= config.max_output_rows:
+                        targets.append(key)
+            finally:
+                keys.close()
+            if group_first is not None:
+                group_ranges.append((index, group_first, group_last))
+        if _file_version(path) != version:
+            raise SourceReadError("The index period file changed during the request")
+        if len(targets) > config.max_output_rows:
+            raise ResourceLimitError("Target positions exceed max_output_rows")
+        selected_groups = ()
+        if targets:
+            wanted, _ = preceding_limit(config, request, len(targets))
+            first_key = preceding[max(0, len(preceding) - wanted)] if preceding and wanted else targets[0]
+            selected_groups = tuple(index for index, start, end in group_ranges
+                                    if end >= first_key[0] and start <= targets[-1][0])
+            if schema_error is not None:
+                raise SourceContractError(schema_error)
+            for index in selected_groups:
+                self._check_group_bytes(metadata.row_group(index), physical)
+        self._close_metadata()
+        return describe_index_period(request, self.context, targets, tuple(preceding), first, latest,
+                                     path=path, row_groups=selected_groups, file_version=version)
+
     def describe(self):
         if self._closed or self._started:
             raise SourceContractError("A source locator can only describe one request")
@@ -408,6 +500,8 @@ class LakePriceLocator:
         pa, _, _, _ = _arrow()
         try:
             request = self.requirement
+            if request.period in INDEX_PERIOD_DATASETS:
+                return self._describe_index_period()
             minute = request.period.endswith("m")
             if minute:
                 volume_unit = index_minute_volume_unit(request, "dg")
