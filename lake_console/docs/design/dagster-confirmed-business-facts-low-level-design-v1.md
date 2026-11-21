@@ -154,6 +154,32 @@ ORDER BY subject_key, fact_type, fact_id;
 
 手动重跑前，用失败作业的编号和交易日查找其确切候选路径，确认没有作业仍在用。保留错误原因，在获准的清理范围内删除已废弃的候选及对应的空目录，然后用新作业编号重跑。候选清理只针对 `data_lake_staging/etf_daily/operation_id=<作业编号>/silver_etf_adj_factor/trade_date=<交易日>/part-000.parquet`。检查通过的正式文件与 Dagster 作业记录作为已完成证据保留。若正式文件内容有冲突，按现行方式报告，不覆盖。 [数据湖文件清理边界](dagster-data-pipeline-performance-governance.md#63-批量写入必须有原子性和审计)
 
+<a id="formal-recovery-runbook"></a>
+
+### 4.2 剩余第一阶段的正式执行清单
+
+操作目录为 `lake_console/orchestrator`，使用现有 `.venv/bin/python3 -B`。正式实例为 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，GraphQL 地址为 `http://127.0.0.1:3000/graphql`，代码位置为 `orchestrator`，仓库名为 `__repository__`。先核对挂载、剩余空间、11 月 16、17 日的文件、18、19 日目标路径及相关在途作业。保存 `silver_etf_adj_factor_update_job_sensor` 的原状态，用正式 GraphQL 的 `stopSensor` 暂停，读回 `STOPPED` 并等在途作业结束。
+
+1. **建表及开通权限。** 用本机 PostgreSQL 的 Unix 套接字连接 `goldenshare_lake_meta`。管理员在短事务内用 `sql/create_confirmed_business_facts.sql` 创建表和索引，表归 `dg_confirmed_facts_owner` 所有。建立 `dg_confirmed_facts_reader` 和 `dg_confirmed_facts_maintenance`，本次具名维护账号为 `dg_confirmed_facts_maint_congming`。读角色授予 SELECT，维护组授予 SELECT 和指定业务列的 INSERT。操作者和登记时间由数据库填入。两个登录身份使用 SCRAM。正式库当前的本机默认认证为 `trust`，在现有规则前为这两个新增登录角色配置指定数据库的本机套接字 SCRAM 规则，并拒绝它们经其他本机入口落入 `trust` 规则。仅重载 PostgreSQL 认证配置。用两套独立连接核对实际登录身份、无凭证连接被拒绝以及读、追加权限边界。
+2. **让正式 DG 加载连接。** `lake_console/orchestrator/.env` 只配置 `LAKE_META_POSTGRES_URL`，指向读账号，连接串引用 `DAGSTER_HOME` 下权限为 `0600` 的读账号文件 `confirmed-facts-reader.pgpass`。维护命令单独设置 `LAKE_META_POSTGRES_WRITE_URL`，引用同目录独立的维护账号文件 `confirmed-facts-maintenance.pgpass`。凭证由本机保存。现有 `lake-dg-start` 调用的 `dg dev` 会把项目目录交给 Dagster 的环境变量加载器。确认没有会受影响的活动作业后，通过 `reloadRepositoryLocation(repositoryLocationName: "orchestrator")` 刷新代码位置，读回加载状态。17 日正式检查结果中的事实编号和版本是新代码实际连通登记库的验收证据。 [DG 启动入口](../../bin/lake-dg-start)
+3. **登记清算。** 使用具名维护连接运行下列命令，随后用只读连接运行同模块的 `history --subject-key 530080.SH`，核对清算编码、生效日期、公告、登记版本和操作人。
+
+   ```sh
+   .venv/bin/python3 -B -m orchestrator.defs.confirmed_business_facts_cli register \
+     --subject-key 530080.SH --fact-type fund_liquidation_started \
+     --effective-from 2026-11-16 --reason '份额持有人大会决议，基金自该日起进入清算' \
+     --evidence '天弘基金' 'https://qcloud.fund.eastmoney.com/gonggao/530080%2CAN202611141831712627.html' 'AN202611141831712627'
+   ```
+4. **先读回 16 日，再只检查 17 日。** 读回 16 日的 `530080.SH`，值应为 `1.0`。使用 GraphQL `executionPlanOrError` 预览 `silver_etf_adj_factor_update_job`，配置为空，`assetCheckSelection` 明确选择该资产的六项检查，`assetSelection` 为空。确认执行步骤只有 `silver_etf_adj_factor_checks` 后，用同一个选择提交 `launchRun`，标签 `dagster/partition=2026-11-17`。读回同一个运行的六项结果，确认它们指向 17 日已有文件、引用原 ETF 基础信息、覆盖检查记录本次事实版本，文件内容保持一致。 [六项检查名称](../../orchestrator/src/orchestrator/defs/run_contracts/etf_daily.py)
+5. **核验当天的 ETF 基础信息，依次补 18、19 日。** 单日生成任务要求执行当天的 Raw、Silver ETF Basic 都已通过检查。当天版本未就绪时，等原自动任务完成，或在明确获准拉取 ETF Basic 完整快照后，用现有 `raw_etf_basic_update_job` 和 `silver_etf_basic_update_job` 依次同步。后者用前者已通过检查的 Raw 引用，通过现有 `build_etf_basic_silver_run_config` 生成配置。用 `fund-status --subject-key 530080.SH --date <同步日期>` 核对正常同步后的基金状态。分别对 18、19 日比较审计快照和执行快照的应有及可入库代码，核对已有 Raw 和待写目标。确认 17 日正式通过及实际范围符合原审计后，用 `launchRun` 提交原单日完整作业，依次指定 `dagster/partition=2026-11-18`、`dagster/partition=2026-11-19`。每天等待终态、读回正式文件并核对六项检查和事实版本，再推进下一天。 [当日快照条件](../../orchestrator/src/orchestrator/defs/assets/etf_daily.py) · [ETF Basic 原任务](../../orchestrator/src/orchestrator/defs/jobs/etf_basic_update.py)
+6. **收尾和恢复原状态。** 核对 16 日原值、17 日文件指纹与六项检查、18 和 19 日正式文件和各自六项检查、清算登记及同步后查询结果。按第 4.1 节处理确认为本次失败留下的候选。原 sensor 为 `RUNNING` 时用 `startSensor` 恢复，原为 `STOPPED` 时维持原状态，完成后查询实际状态。中断时先读回登记、运行、文件和 sensor，按实际进度从尚未完成的一步继续。
+
+11 月 21 日开工前最新的 ETF Basic Raw 对应 11 月 20 日的 1,935 行，原任务每页 5,000 行，按该样本预计当天刷新只需一页。上一份 Raw 和 Silver 文件分别为 122,237 与 118,364 字节，用于估算一次同步的输入规模。18、19 日的复权因子使用已有 Raw 和第 5 节的有界读取范围。重试和最终验收继续沿用第 4.1 节及第 5 节的边界。
+
+### 4.3 剩余第二阶段的文档交付
+
+正式补数和工程验收全部完成后，更新原方案和本详细设计，记录实际登记编号和版本、运行及检查、文件读回结果与 sensor 原状态和恢复结果。随后单独交付《DG 已确认业务事实接入使用说明》，按实际验证通过的接口说明接入、登记、查询、更正、撤销、版本追溯、读取失败和验收，从原方案链接到独立说明。
+
 ## 5. 读取与写入范围
 
 以下为 2026-11-20 已有核验的文件和代码计数，供定位本案输入。正常自动任务沿用原 10 个交易日窗口，登记表每个接入批次一次查询。
@@ -202,7 +228,7 @@ ORDER BY subject_key, fact_type, fact_id;
 | 正式检查与文件核验 | 同一日期使用相同的 ETF Basic 和清算事实时，正式检查和 sensor 文件核验的覆盖结果一致。日常按原有顺序选日期。 |
 | 数据集按需接入 | 连接被禁用时已接入的检查报告读取失败。ETF 日线、Raw 及未接入数据集能够按自身依赖完成。 |
 | 失败清理和重做 | 模拟失败作业留下临时候选。确认能按作业及日期找到并清理指定候选，重跑该日后核对正式文件内容及检查。 |
-| 使用说明 | 开发和隔离验证完成后，独立交付《DG 已确认业务事实接入使用说明》。示例使用已验证接口，包含按需接入、维护、事实版本追溯、失败处理及验收。 |
+| 使用说明 | 正式补齐和工程验收完成后，按第 4.3 节记录实际结果，再独立交付《DG 已确认业务事实接入使用说明》。 |
 
 ### 6.3 阶段 2 开发与独立审计（2026-11-20）
 
