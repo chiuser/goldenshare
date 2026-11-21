@@ -2182,3 +2182,59 @@ G run `adf3a655-854a-4ad5-bc30-6d2e9a61672a` SUCCESS，320.097992秒、14条comp
 本轮业务计算与正式写入全部由原job执行，没有业务代码、公式、合同、默认配置、并发、内存、线程、spill、超时、依赖、索引或限流改动，没有runless补绿、自动业务重跑、提交或推送。有效结果统一回写本原方案/LLD，原生DG日志、正式Lake和staging/冻结输入/receipt保留；本轮临时控制文件在完成状态回查后按独立目录清理，不新增另一份恢复报告。
 
 **临时材料已清理。** 本轮独立目录`/private/tmp/dg-stk-mins-20261118-recovery`中46份临时控制调用、配置和有界核验JSON（563935B）及空目录已删除。原生DG运行和检查记录、正式数据及staging续跑记录保留；本节精确run和完成事件ID可直接用于复核，本次临时文件不再是业务执行依赖。文档差异空白检查通过；本轮未改业务代码，不新增测试或历史重读。
+
+## 24. 2026-11-19 股票 30 分钟前复权 MACD/KDJ 日更续跑
+
+目标只补齐 11 月 19 日的 `gold_stk_mins_qfq_macd_kdj_30m` 和 `gold_stk_mins_qfq_macd_kdj_state_30m`。原日更 `f4a00a72-0ea1-40af-9d91-ef792e142f03` 在北京时间 20:01:17 校验 `000709.SZ` 的 2026 年指标候选文件时，打开文件返回 `Interrupted system call`，30 分钟未进入提升。其余六频已有 12 项物化和 24 项通过的检查。故障前后一分钟的系统日志未发现所查内存告警，现有证据不能归因为内存不足。只读复查中，报错候选可读且本日有 8 行，同股正式文件本日 0 行，本日 30 分钟递推状态文件不存在。
+
+### 24.1 原任务、暂存进度与自动衔接
+
+按第 19.13 节的既有 Dagster `FROM_FAILURE` 原生重执行入口，从原失败 run 继续，不重新提交七频全任务。已用原生 `KnownExecutionState.build_resume_retry_reexecution` 只读确认恰好五个步骤：30 分钟指标/state 同一个写入步骤，以及该频度指标合同、输入覆盖、递推状态文件及结构、递推状态最新覆盖四项原检查。启动前复核该计划、同日未出现补跑和活动写入者、原 writer pool 限制为 1 且空闲。加载原运行的现行代码位置，无源码或配置变化，不刷新和重启服务。结果只利用原任务、原检查、正式文件和原暂存记录。
+
+`assets/stk_mins_qfq_macd_kdj.py` 继续传原 root run ID，`stk_mins_qfq_macd_kdj.py` 使用 18 日准确递推状态及本日 30 分钟前复权，重新准备本日输入。原 `StkMinsQfqPublication` 按冻结摘要和目标集合校验续跑身份，随后按每份文件的原记录验证候选身份及摘要。原操作为 5,574 个目标，223 份已校验候选、1 份在建、5,350 份尚无记录，已有记录为连续前缀、没有已提升记录。同一输入时复用 223 份通过校验的候选，在建及未开始目标按原规则构建，完整校验后才按文件原子提升。同一输入检查失败、候选或目标身份变化、再遇 I/O 错误均停止并保留现场。中断后读取原记录确定已完成文件并另核下一次开销，不自动二次执行。最终验收不重扫年度正文。
+
+本日上游因子修复批次 `qfq_factor_repair:2026-11-19:b6a1aec6c061` 实际改过 5 股（`002281.SZ`、`600141.SH`、`603043.SH`、`603709.SH`、`603866.SH`）从 2014-01-02 至 2026-11-19 的前复权历史，原指标历史修复完成门槛尚未通过。`gold_stk_mins_qfq_macd_kdj_repair_job_sensor` 目前 RUNNING，日更续跑成功会触发另一个七频历史任务。为限制在 19 日 30 分钟，申请在提交前只暂停该历史修复 sensor，保存并核对原身份、cursor 和 lastRunKey。保持暂停直至历史范围另行批准并按原门槛处理。其他自动化不操作。本轮不写 Prod、不请求上游、不执行五股历史修复。
+
+### 24.2 年度读取必要性、成本及执行命令
+
+旧年度指标文件必须合并才能保留原历史记录，同时添加目标日。现有原入口的计算和四项检查共同涉及全市场 30 分钟前复权 2026 年文件及按需读取 2025 年文件。预检只统计文件元数据。2026 年前复权 5,599 份、349,630,951 字节；2025 年前复权 5,463 份、381,800,754 字节；5,573 份目标旧指标年度文件共 526,795,970 字节；18 日状态 251,044 字节；原冻结日更输入两份共 2,444,047 字节。已有 223 份已校验候选合计 21,435,864 字节，对应旧文件 21,337,298 字节，按其新旧体积比外推新年度候选约 529,229,463 字节，另计约 251,041 字节本日状态。按第 19.7 节文件读写模型，以上一年文件全体计按需读取的保守值，预计数据文件读取约 6.7 GiB，新增候选及当次冻结写入约 0.5 GiB，复用候选约 20.4 MiB。该估算覆盖原四项检查和复用候选校验，不把文件体积当实际设备读取量。元数据与引擎临时读写未实测，沿用现有资源配置。正式盘与 staging 同设备，检查时盘剩余 2,752,211,324,928 字节。再中断的同范围文件量参考同一模型，按届时候选及提升记录扣除可复用部分；本次仅申请一次。
+
+工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，现有正式实例 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，地址为 `http://127.0.0.1:3000/graphql`。在年度读取及暂停历史修复获得明确批准并复核原范围后，先以原 sensor ID 调用 `stopSensor`，读回 `STOPPED` 且 cursor、lastRunKey 保留，再以 parent run `f4a00a72-0ea1-40af-9d91-ef792e142f03`、strategy `FROM_FAILURE` 提交一次。命令如下，前一项验证完成后才执行后一项。
+
+```bash
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-stk-30m-macd-kdj-cause-20261119/stop-history-repair-request.json --output /private/tmp/dg-stk-30m-macd-kdj-cause-20261119/stop-history-repair-response.json
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-stk-30m-macd-kdj-cause-20261119/retry-launch-request.json --output /private/tmp/dg-stk-30m-macd-kdj-cause-20261119/retry-launch-response.json
+```
+
+响应不明确时按原 parent/root 回查，避免重复发任务。返回后核对日期、parent/root ID 及五个执行步骤。验收看本次原 run 终态、两项 30 分钟物化、四条与物化匹配的检查、指标日期及行数、当日递推状态及每文件提升记录，不追加全量明细读回。若成功且尚无历史修复授权，明确交接该 sensor 暂停状态。
+
+管理员已确认一次 30 分钟续跑所需的年度读取，以及暂时暂停历史修复传感器。按上述范围复核后提交，五股历史修复另行确认。
+
+### 24.3 续跑及验收结果
+
+11 月 20 日重新核对原运行、五个续跑步骤、空闲 writer pool 和已有候选及正式目标的文件身份。历史修复传感器由 RUNNING 暂停，重新读取确认其身份、cursor 和 lastRunKey 保持。只提交一次 `FROM_FAILURE`，新 run `205788e0-19e9-4227-b915-e4b80b4c8bc1` 保留原 parent/root，实际执行仅有 30 分钟写入及四项原检查。北京时间 13:44:10 启动，13:46:16 成功。
+
+续跑使用原 18 日递推状态，冻结输入摘要匹配并复用已校验候选。5,573 份指标年度文件合入 19 日 **44,584 行**，当天状态 **5,599 行**。原操作的 5,574 份文件全部提升。两项物化都属于 19 日，四项检查均通过并绑定本次对应物化。报错股票 `000709.SZ` 的正式文件复查为当天 **8 行**。原写入日志记录候选总大小 529,510,608 字节、冻结输入 2,444,047 字节，均为对应文件与摘要记录的体积，未测设备总 I/O。原六频不重跑。
+
+收尾确认历史修复传感器仍为 STOPPED、cursor 和 lastRunKey 保留，本上游批次没有触发五股历史修复。日更与历史修复分别记账。验收证据保存在 `/private/tmp/dg-stk-30m-macd-kdj-cause-20261119/retry-verification-134630525419.json` 和 `/private/tmp/dg-stk-30m-macd-kdj-cause-20261119/retry-closure.json`。
+
+### 24.4 五股历史指标重算与恢复自动规则
+
+管理员已批准重算 `002281.SZ`、`600141.SH`、`603043.SH`、`603709.SH`、`603866.SH` 从 2014-01-02 到 2026-11-19 的七种分钟周期 MACD/KDJ 及递推状态，按原任务合并 21,917 份共享文件，验收通过后恢复暂停的自动规则。范围来自 19 日已完成的前复权因子修复 `qfq_factor_repair:2026-11-19:b6a1aec6c061`，名单 SHA-256 为 `50bb9732751cb575e5dbb0fa418aec0db78d61dfbf322ad5fe2fb7637d361689`。19 日七种周期日更已就绪。同批历史修复尚无完成记录，自动规则仍暂停。已确认 3,131 个交易日均已登记，七种周期的目标共享文件均存在，起点是现行历史首日，无前日递推文件。
+
+复用 §19.15、§23.5 的 `gold_stk_mins_qfq_macd_kdj_repair_job`，配置由现行判断与配置函数从原因子修复结果生成。原任务发现五股、七种周期的前复权年度文件，读取必要行情列，计算本范围的指标和递推值。以原指标文件和共享日终状态为底稿，按股票和时间键合并，保留其他股票与周期外记录。沿现行 staging、文件校验、摘要、逐文件提升和单 writer pool，不调整代码、配置、开关以外的自动化或 Prod 数据。只提交一次。如果失败，保留已完成正式文件和候选，自动规则仍暂停，先按各周期的文件进度确定剩余范围及再执行成本，原历史任务与日更的按原 run 续跑规则不同。
+
+预检只统计文件元数据。五股前复权 399 份、101,318,364 字节，旧指标 399 份、232,346,660 字节，七种周期共享状态 21,917 份、3,874,092,838 字节。以 18 日同类任务实际新旧文件体积比 `4,086,313,329 / 4,086,312,518` 估算本次候选总量 4,106,440,313 字节，冻结输入参考该次实测 217,035,099 字节。采用 §19.15 的文件模型，读量为一次前复权、两次旧指标、一次旧状态、两次候选和一次冻结输入，合计约 12.9 GB。写量为候选及冻结输入，合计约 4.3 GB。元数据与引擎临时读写未实测，沿用现有资源。正式盘和候选目录同设备，可用 2,752,215,691,264 字节。中断后的文件开销依据同一模型从未完成频度重新核定，原任务再次启动不保证继承本次独立候选。收尾复用原任务、14 条完成检查和提升记录，不再做一次历史行情扫描。预检和配置在 `/private/tmp/dg-macd-kdj-history-20261119/history-preflight.json`。
+
+工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`，目标为 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 的现有 `http://127.0.0.1:3000/graphql`。复核同批尚未发起、无冲突、自动规则暂停后，通过 `orchestrator / __repository__` 的 `launchRun` 提交。待运行成功后逐项验收 14 条原完成检查与本次运行、结束日期、名单、七种周期及原批次一致。再用 `startSensor` 恢复本次暂停的一条规则，验证 RUNNING、原位置保留及同批无重复提交。
+
+```bash
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-macd-kdj-history-20261119/launch-request.json --output /private/tmp/dg-macd-kdj-history-20261119/launch-response.json
+curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-macd-kdj-history-20261119/start-sensor-request.json --output /private/tmp/dg-macd-kdj-history-20261119/start-sensor-response.json
+```
+
+历史重算 `aff80de8-b0e2-4fe6-a3b2-f6c5ffd32735` 只提交一次，11 月 20 日 16:24:31 启动、16:30:07 成功，耗时 336.162 秒。五股七种周期共重算 4,268,754 行指标并写入 399 份年度文件，合并 21,917 份共享文件保留其他股票。七个周期各通过并提升 3,188 份文件，共 22,316 份，候选目录没有剩余 Parquet。候选总大小 4,106,440,138 字节，冻结输入 235,459,631 字节，均来自原任务文件统计，未测实际设备读写。14 条完成检查由本次原任务生成，逐项核对范围、日期、名单摘要与批次，现行完成门槛读回通过。
+
+验收后已恢复原自动规则，原生响应与 16:31 回查均为 RUNNING。启用时保存的运行位置和最后一次任务标识均保留；本批次只存在这一次成功重算。验收与恢复读回保存在 `/private/tmp/dg-macd-kdj-history-20261119/history-verified.json` 和 `/private/tmp/dg-macd-kdj-history-20261119/sensor-restored.json`。
+
+16:33 复核时，规则仍为 RUNNING。恢复后的前两次检查（tick 3856045、3856060）分别在约 60 秒后超时，均未提交任务。第三次仍在检查。现场数据库活动观察到通过事件类型和时间查找检查事件的查询，等待磁盘读取或并行扫描；现行自动规则确实按此方式逐项查找完成记录。这是目前定位到的慢查询，尚未测出每段耗时占比。五股重算的 14 条正式检查已按精确事件 ID 独立读回通过。自动规则保持开启，恢复后的自动检查尚未验收通过。两次超时证据保存在 `/private/tmp/dg-macd-kdj-history-20261119/sensor-restore-outcomes-163316.json`。
