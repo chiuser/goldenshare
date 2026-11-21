@@ -328,9 +328,9 @@ DG 分区日期为 `YYYY-MM-DD`，股票每日指标文件内的 `trade_date` �
 
 ## 9. 九转算子接入约定
 
-**2026-11-22 确认计数与展示口径，待实现。** 首轮以股票前复权日线验收。现有 DG 九转产物继续保存完整连续计数。本节定义新增算子库结果。[整体设计 §4.1](technical-indicator-operator-library-low-level-design-v1.md#41-九转算子计数口径)
+**2026-11-22 阶段 1 算子已验收。** 首轮以股票前复权日线验收。现有 DG 九转产物继续保存完整连续计数。[阶段 1 验收记录](technical-indicator-nine-turn-low-level-design-v1.md#8-阶段-1-实施与独立审计) · [整体设计 §4.1](technical-indicator-operator-library-low-level-design-v1.md#41-九转算子计数口径)
 
-本地股票详情首批和续页从 `/kline` 直接取得九转标记。算子文件、HTTP 字段、前端切换及分阶段验收按[九转专项方案](technical-indicator-nine-turn-plan-v1.md)和[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)执行。
+阶段 2 将接入本地股票详情，首批和续页从 `/kline` 直接取得九转标记。算子文件、HTTP 字段、前端切换及分阶段验收按[九转专项方案](technical-indicator-nine-turn-plan-v1.md)和[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)执行。
 
 - **计数和输出。** 以当前收盘价和前第 4 根收盘价的大小关系判断方向。方向相同且非零时加 1，上限为 13。换向时新方向从 1 开始，相等或没有比较对象时两个方向均为 0。沿用 `up_count`、`down_count` 命名，各根返回两个 0–13 的整数值，复用现有 `DOUBLE` 数值输出。13 表示至少连续 13 次。前端只展示 1–9，恰好到 9 时标记完成。[价格比较](../../lake_console/orchestrator/src/orchestrator/defs/nineturn_formula.py#L70) · [现有数值输出](../../packages/technical_indicators/src/goldenshare_technical_indicators/output/collector.py#L117) · [页面标记规则](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L82)
 - **声明历史需求。** `HistoryRequirement` 只需要 `close`，请求起点最多向前取 16 根实际 K 线。以首根目标行情位置 `i` 为例，判定是否达到 13 要检查 `i` 到 `i−12` 的 13 次比较，最早比较用 `i−16`。到达真实行情起点时用已有 K 线，前 4 根输出零计数。同一次请求中批次之间保留前 4 根收盘价、上一根方向及封顶后的计数。按新行递推进度，保留的旧行只供比较。[历史需求合并](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/history.py#L12) · [共享批次与状态](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/engine.py#L122)

@@ -19,7 +19,7 @@ _PACKAGE_FILES = MappingProxyType({
     "goldenshare_technical_indicators.calculation": frozenset({
         "smoothing_parameters.sql", "rolling_mean.sql", "bollinger_bands.sql",
         "macd_first.sql", "macd_segment.sql", "kdj_window.sql", "kdj_segment.sql",
-        "macd_warmup.sql", "kdj_warmup.sql",
+        "macd_warmup.sql", "kdj_warmup.sql", "nineturn_batch.sql",
     }),
     "goldenshare_technical_indicators.output": frozenset({
         "merge_batch.sql", "select_result.sql",

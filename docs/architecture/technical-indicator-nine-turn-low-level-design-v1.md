@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-2026-11-22｜计数与前端接入范围已确认，待开发。[专项方案](technical-indicator-nine-turn-plan-v1.md)
+2026-11-22｜阶段 1 九转算子已完成并通过独立审计。阶段 2 本地股票详情待接入。[专项方案](technical-indicator-nine-turn-plan-v1.md)
 
 ## 1. 现状和改动边界
 
@@ -76,7 +76,7 @@ class NineTurnCalculation:
         ...
 ```
 
-`input_requirement()` 返回 `HistoryRequirement(frozenset({"close"}), 4, 16, False, ("direction", "count"), DEFINITION.initialization)`。全局只有之前已读、已复权的收盘价被保留，九转的方向及计数放在本请求节点的单行临时表 `state(direction INTEGER, count INTEGER)`。同一请求不同节点的表名由引擎追加节点编号。释放批次只删输出表，整次结束后释放状态。处理中断或发生错误沿用引擎清理。[已有状态与清理做法](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py#L78) · [现有行情批次管理](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/session.py#L280)
+`input_requirement()` 返回 `HistoryRequirement(frozenset({"close"}), 4, 16, False, ("direction", "count"), DEFINITION.initialization)`。九转跨批只依赖前 4 根已处理的收盘价。多个指标同算时，输入会话仍按各算子的最大窗口保留行情。九转的方向及计数放在本请求节点的单行临时表 `state(direction INTEGER, count INTEGER)`。同一请求不同节点的表名由引擎追加节点编号。释放批次只删输出表，整次结束后释放状态。处理中断或发生错误沿用引擎清理。[已有状态与清理做法](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/kdj.py#L78) · [现有行情批次管理](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/session.py#L280)
 
 新增 `calculation/sql/nineturn_batch.sql` 并加入 [SQL 资源白名单](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/sql_templates.py#L18)。资源已由 [包配置](../../packages/technical_indicators/pyproject.toml) 的 SQL 模式包含。SQL 仅操作本次请求的共享行情和自有临时表。
 
@@ -144,3 +144,16 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 - **算子库。** 用 CodeGraph `codegraph_explore` 核对注册、预热合并、共享行情、SQL 会话和结果收集，再逐项核对源码。确认九转只需新增算子及 SQL 注册，沿用现有程序准备的收盘价。按 §2 的步骤在内存 DuckDB 验证分段 SQL，以独立的逐根向前计数作参照，116 组整段、切片及分批组合一致。另验证 13 与 12 的样本最近 15 根历史完全相同，最早的第 16 根会改变结果。这次验证使用小样本 SQL，正式算子及 DG 接入在第 1 阶段验收。
 - **后端与前端。** 核实 `paginated` 覆盖本地首批和续页。浏览器首批与续页目前分别调用独立的日线九转接口，接入时两个调用点都要切换。复核后明确续页先验标记字段再推进游标，避免失败后错过本批，并补上首批无标记、续页出现标记的显示用例。普通日 K 和 Prod 继续适用原回包，相关既有分支保留。
 - **现有回归。** 算子注册与输出、股票日 K 组装及隔离路由共 68 项通过。股票详情页、历史续页和日 K 图表共 33 项通过。后端回归通过 `PYTHONPATH` 使用仓库里的算子库源码，与现有本地启动脚本一致。两组回归均针对当前代码，现有行为符合本专项的接入前提。[本地启动脚本使用的源码路径](../../scripts/local-build-and-run.sh#L219)
+
+## 8. 阶段 1 实施与独立审计
+
+**2026-11-22 审计通过。** 阶段 1 的变更限于算子及其注册、SQL 资源清单和测试。用 CodeGraph `codegraph_explore` 核对注册至输出的共享调用链，再检查实际实现和测试。新算子只读取共享收盘价，两列计数随 `times` 对齐，状态随当前请求清理。股票详情的业务接入和浏览器验收在阶段 2 执行。[九转算子](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/nine_turn.py) · [批次计算 SQL](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/sql/nineturn_batch.sql)
+
+| 方案要求 | 实施审计结果 |
+| --- | --- |
+| 日线算子合同与封顶 | `nineturn` v1.0.0 无可调参数，公开股票原价、股票前复权及指数原价日线。验证分钟、周、月都被拒绝。按字面预期核对前 4 根、相等清零、换向、连续计数越过 9 和在 13 封顶。 |
+| 预热与分批 | 独立请求额外读取最多 16 根实际日 K，预热行不会出现在输出。保持最近 15 根历史相同，只改第 16 根，首根结果由 13 变为 12。按 1、12、16、64 根分批验证结果，同段日期计数逐根一致。取消用例在生成一批输出后中断，确认状态表和输出表都释放，重试从头计算。 |
+| 正式 DG 有界只读 | 贵州茅台 `600519.SH` 前复权日线从 2026-10-26 至 11-19 返回 19 根，交付 35 根含 16 根预热。用同一份前复权收盘价和 DG 原始公式对照，两列计数封顶后 19 个日期逐根一致。整批、每批 12 根和单算最后 2 根的重叠输出也一致。贵州茅台与上证综指 `000001.SH` 的不复权九转各核对 3 根。 |
+| 与原日 K 指令共用行情和复权 | 同一贵州茅台前复权请求，返回 11-18 和 11-19 两根日 K。加入九转前后均交付 502 根行情，库统计文件数均为 1,509，复权各 1 次，原 11 项计算结果一致。逻辑 SQL 处理量从 21,649 行增至 23,662 行，两次样本耗时分别约 3.35 秒和 2.06 秒。此处只记录单次观测，阶段 2 验现有 500 根页面请求。 |
+
+算子库和股票日 K 相关回归共 337 项通过，含 13 项新增九转用例及 SQL 资源核对。相邻的 DG 指数周月线回归 12 项通过，DG 原九转公式隔离测试 5 项通过。更大范围试跑中，12 个旧测试文件仍引用已移除的 `CalculationInstance`，已用变更前的 `c59bd35d6` 复现。另有 11 个指数周月线数据库用例在隔离 PostgreSQL 监听端口时被执行环境拦下，未进入断言。阶段 1 结论依据本节专项回归和 DG 只读核验。[九转专项测试](../../tests/foundation/technical_indicators/test_nine_turn_calculation.py) · [SQL 资源核对](../../tests/architecture/test_technical_indicator_dependencies.py#L62)

@@ -3,7 +3,7 @@
 
 def create_builtin_registry():
     from ..registry import CalculationRegistry
-    from . import bollinger_bands, kdj, macd, moving_average, price
+    from . import bollinger_bands, kdj, macd, moving_average, nine_turn, price
 
     registry = CalculationRegistry()
     for definition, factory in (
@@ -14,6 +14,7 @@ def create_builtin_registry():
         (macd.DEFINITION, macd.MACDCalculation),
         (kdj.WINDOW_RANGE_DEFINITION, kdj.WindowRangeCalculation),
         (kdj.DEFINITION, kdj.KDJCalculation),
+        (nine_turn.DEFINITION, nine_turn.NineTurnCalculation),
     ):
         registry.register(definition, factory)
     registry.freeze()
