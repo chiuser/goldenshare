@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { fetchStockNineTurnSeries } from "../../nine-turn/api/nineTurnApiClient";
-import type { NineTurnMarkerDto, NineTurnSeriesDto } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
 import type { StockDetailKlineResponseDto, StockKlineBarDto } from "../api/stockDetailApiTypes";
 import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
@@ -20,6 +20,8 @@ const anchor = "2026-11-19";
 const end = "2024-10-29";
 const start = "2024-10-28";
 const first = "2024-10-30";
+const marker: NineTurnMarkerDto =
+  { tradeDate: start, tradeTime: null, direction: "UP", sequenceNumber: 1, completed: false };
 
 function bar(tradeDate: string): StockKlineBarDto {
   return {
@@ -29,7 +31,7 @@ function bar(tradeDate: string): StockKlineBarDto {
 }
 
 const seed = {
-  tsCode: code, tradeDate: anchor, nextEndDate: end, supportsNineTurn: true,
+  tsCode: code, tradeDate: anchor, nextEndDate: end,
   candles: [bar(first), bar(anchor)].map(toCandlePoint),
 };
 
@@ -42,20 +44,7 @@ function kline(): StockDetailKlineResponseDto {
     stockRef: { tsCode: code }, period: "day", adjustment: "forward", sourceAdjustment: "qfq",
     bars: [bar(start), bar(end)], meta: { count: 2, limit: 500, endDate: end, nextEndDate: null },
     dataStatus: { status: "READY", expectedTradeDate: end, observedTradeDate: end },
-  };
-}
-
-function nineTurn(): NineTurnSeriesDto {
-  const marker: NineTurnMarkerDto =
-    { tradeDate: start, tradeTime: null, direction: "UP", sequenceNumber: 1, completed: false };
-  return {
-    dataStatus: { code: null, expectedEndDate: end, message: null, observedEndDate: end, status: "READY" },
-    debugInfo: null, latestMarker: marker, markers: [marker], tsCode: code, period: "day", subjectType: "stock",
-    meta: {
-      startDate: start, endDate: end, limit: 500, comparisonLag: 4, signalThreshold: 9, formulaVersion: 1,
-      sourceRowCount: 2, markerCount: 1, matchedRowCount: 2, missingRowCount: 0, hasMore: false,
-      nextCursor: null, observedStartDate: start, observedEndDate: end,
-    },
+    nineTurnMarkers: [marker],
   };
 }
 
@@ -82,11 +71,10 @@ function viewport(overrides: Partial<DetailChartHistoryViewport> = {}): DetailCh
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(fetchStockDetailKline).mockResolvedValue(kline());
-  vi.mocked(fetchStockNineTurnSeries).mockResolvedValue(nineTurn());
   vi.mocked(fetchStockTrendChannel).mockResolvedValue(trend());
 });
 
-it("prepends one older page, loads layers for its dates and retries only the failed layer", async () => {
+it("prepends candles and nine-turn together, and retries trend separately", async () => {
   vi.mocked(fetchStockTrendChannel).mockRejectedValueOnce(new Error("trend failed"));
   const { result } = renderHook(() => useStockDailyHistory(seed, true));
   act(() => {
@@ -98,18 +86,16 @@ it("prepends one older page, loads layers for its dates and retries only the fai
     result.current.onViewport(viewport({ remaining: 100 }));
     result.current.onViewport(viewport());
   });
-  await waitFor(() => expect(result.current.visible?.pages[0]?.nineTurn?.phase).toBe("ready"));
+  await waitFor(() => expect(result.current.visible?.pages[0]?.nineTurnMarkers).toEqual([marker]));
   expect(fetchStockDetailKline).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ tsCode: code, tradeDate: anchor, endDate: end, limit: 500 }), expect.anything(),
   );
-  expect(fetchStockNineTurnSeries).toHaveBeenCalledExactlyOnceWith(
-    { tsCode: code, startDate: start, endDate: end, limit: 500, period: "day" }, expect.anything(),
-  );
+  expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
   expect(result.current.visible?.candles.map(candle => candle.fullDate)).toEqual([start, end, first, anchor]);
   expect(fetchStockTrendChannel).not.toHaveBeenCalled();
   act(() => result.current.ensureTrend());
   await waitFor(() => expect(result.current.visible?.pages[0]?.trend?.phase).toBe("error"));
-  act(() => result.current.retryLayer(result.current.visible!.pages[0]!, "trend"));
+  act(() => result.current.retryTrend(result.current.visible!.pages[0]!));
   await waitFor(() => expect(result.current.visible?.pages[0]?.trend).toEqual(
     { phase: "ready", points: [expect.objectContaining({ time: end })] },
   ));
@@ -117,21 +103,27 @@ it("prepends one older page, loads layers for its dates and retries only the fai
   expect(fetchStockTrendChannel).toHaveBeenLastCalledWith({ tsCode: code, endDate: end, limit: 2 }, expect.anything());
   act(() => result.current.onViewport(viewport({ firstDate: start })));
   expect(fetchStockDetailKline).toHaveBeenCalledTimes(1);
-  expect(fetchStockNineTurnSeries).toHaveBeenCalledTimes(1);
+  expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
 });
 
-it("retries the same end date only from a new drag after a failed page", async () => {
-  vi.mocked(fetchStockDetailKline).mockRejectedValueOnce(new Error("kline failed"));
+it.each(["failed request", "missing nine-turn field"])("retries the same end date after a %s", async (failure) => {
+  if (failure === "failed request") {
+    vi.mocked(fetchStockDetailKline).mockRejectedValueOnce(new Error("kline failed"));
+  } else {
+    vi.mocked(fetchStockDetailKline).mockResolvedValueOnce({ ...kline(), nineTurnMarkers: undefined });
+  }
   const { result } = renderHook(() => useStockDailyHistory(seed, true));
   const gesture = viewport();
   act(() => result.current.onViewport(gesture));
   await waitFor(() => expect(result.current.visible?.phase).toBe("error"));
   expect(result.current.visible?.candles).toEqual(seed.candles);
+  expect(result.current.visible?.pages).toEqual([]);
   act(() => result.current.onViewport(gesture));
   expect(fetchStockDetailKline).toHaveBeenCalledTimes(1);
   act(() => result.current.onViewport(viewport()));
   await waitFor(() => expect(result.current.visible?.candles.length).toBe(4));
   expect(fetchStockDetailKline).toHaveBeenLastCalledWith(expect.objectContaining({ endDate: end }), expect.anything());
+  expect(result.current.visible?.pages[0]?.nineTurnMarkers).toEqual([marker]);
 });
 
 it.each([

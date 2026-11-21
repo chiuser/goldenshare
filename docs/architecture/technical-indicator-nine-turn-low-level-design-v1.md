@@ -1,10 +1,10 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-2026-11-22｜阶段 1 九转算子已完成并通过独立审计。阶段 2 本地股票详情待接入。[专项方案](technical-indicator-nine-turn-plan-v1.md)
+2026-11-22｜两个阶段已实现并完成独立审计。阶段 2 在隔离本机服务通过接口和浏览器验收，常用本机服务待切换。[专项方案](technical-indicator-nine-turn-plan-v1.md)
 
 ## 1. 现状和改动边界
 
-目前本地股票详情先取 `/kline`，再在首批和每次续页请求 `/nine-turn`。后者用股票日 K 日期匹配 PostgreSQL `core_serving.equity_qfq_nineturn_daily` 的预计算结果。DG 原始九转算法保留连续计数，页面组装只生成 1–9 标记。现有 `/kline` 已一次计算日 K 和各个日线指标，输入会话统一准备复权收盘价。[日线九转取数](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L57) · [本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [首批及续页调用方](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L94)
+本专项开始前，本地股票详情先取 `/kline`，再在首批和每次续页请求 `/nine-turn`。后者用股票日 K 日期匹配 PostgreSQL `core_serving.equity_qfq_nineturn_daily` 的预计算结果。DG 原始九转算法保留连续计数，页面组装只生成 1–9 标记。原有 `/kline` 已一次计算日 K 和各个日线指标，输入会话统一准备复权收盘价。[日线九转取数](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L57) · [本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [首批及续页调用方](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L94)
 
 本期新增日线 `nineturn` 算子，并把它接入本地股票详情的首批和续页。技术指标算子库的请求格式、数据源配置和数值输出格式沿用原合同。股票分钟、指数详情、Prod 股票详情及未切换的独立九转请求保持原行为。共同依赖只复用现有行情与执行接口，算子库无需依赖 DG 工程。DG 的生成与同步代码、数据文件、数据库表及部署配置均保持现行版本。
 
@@ -157,3 +157,17 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 | 与原日 K 指令共用行情和复权 | 同一贵州茅台前复权请求，返回 11-18 和 11-19 两根日 K。加入九转前后均交付 502 根行情，库统计文件数均为 1,509，复权各 1 次，原 11 项计算结果一致。逻辑 SQL 处理量从 21,649 行增至 23,662 行，两次样本耗时分别约 3.35 秒和 2.06 秒。此处只记录单次观测，阶段 2 验现有 500 根页面请求。 |
 
 算子库和股票日 K 相关回归共 337 项通过，含 13 项新增九转用例及 SQL 资源核对。相邻的 DG 指数周月线回归 12 项通过，DG 原九转公式隔离测试 5 项通过。更大范围试跑中，12 个旧测试文件仍引用已移除的 `CalculationInstance`，已用变更前的 `c59bd35d6` 复现。另有 11 个指数周月线数据库用例在隔离 PostgreSQL 监听端口时被执行环境拦下，未进入断言。阶段 1 结论依据本节专项回归和 DG 只读核验。[九转专项测试](../../tests/foundation/technical_indicators/test_nine_turn_calculation.py) · [SQL 资源核对](../../tests/architecture/test_technical_indicator_dependencies.py#L62)
+
+## 9. 阶段 2 实施与独立审计
+
+**2026-11-22 隔离本机验收通过。** 浏览器运行同一轮构建的 Wealth 前端。实际股票日 K、趋势通道、股票分钟和上证综指日线接口读取正式 DG，登录、自选和顶部指数条使用隔离数据。常用本机服务待切换。用 CodeGraph `codegraph_explore` 核对本地日 K 调用、合同、首屏和续页的消费端。复查实际组装确认只有本地分页分支请求九转，Prod 与普通本地日 K 使用原合同。无标记时回包为 `nineTurnMarkers: []`。[本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [结果校验与组装](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py#L56)
+
+| 场景 | 贵州茅台 `600519.SH` 实测 |
+| --- | --- |
+| 首屏 | `/page-init` 确定页面日期 2026-11-19。日 K 回包 500 根，覆盖 2024-10-30 至 2026-11-19，含 452 个九转标记和盘口。盘口收盘价 1460.21 元，与末根日 K 一致。HTTP 约 4.95 秒，回包 383,664 字节。 |
+| 向左翻页 | 拖动触发一次续页，带原页面日期 2026-11-19，并以 `nextEndDate=2024-10-29` 为截止日。返回 2022-09-30 至 2024-10-29 的 500 根和 453 个九转标记，省略盘口，下一批截止日为 2022-09-29。浏览器在 2024-07-18 的行情区核到九转标记仍可绘制，右侧盘口保持 1460.21 元。HTTP 约 4.90 秒，回包 389,568 字节。 |
+| 请求与资源 | 打开、拖动和开关九转共触发两次日 K 请求、零次独立日线九转请求。每次日 K 调用只计算一次，含 12 项，交付 1,000 根含预热行情，复权 1 次。每次库统计文件数为 3,003，逻辑 SQL 处理 48,571 行。两页九转日期各与该页日 K 逐日匹配，浏览器无脚本和控制台错误。 |
+| 断开与重试 | 客户端断开已取得名额的续页请求，约 52 毫秒后观察到占用、等待均归零。补测同一中断点时，取消前交付给算子的行情为 0 根。同一截止日重试约 5.43 秒返回 500 根，九转标记和分页信息与前次成功回包一致。 |
+| 其他入口 | 趋势通道两批独立请求均通过。切 30 分钟后，分钟行情、指标和独立九转三个原接口均返回 200。实际本地上证综指日线仍返回 500 根。核对本地与 Prod 配置生成的 OpenAPI，新增必填数组仅在本地首批和续页模型，两个环境的日 K 请求参数一致。 |
+
+后端 59 项、前端专项 50 项及共享图表 44 项回归通过，Wealth 类型检查和隔离构建通过。覆盖旧独立九转、普通本地日 K、空标记、非法算子结果、迟到请求以及续页缺字段后重试原截止日。字段来源表单列本地候选版本。 [字段来源差异](../../wealth/docs/pages/stock-detail/stock-detail-field-source-audit-v1.html#local-nine-turn-candidate)

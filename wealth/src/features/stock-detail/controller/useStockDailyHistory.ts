@@ -3,9 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { DAILY_CHART_PAGE_SIZE, SSE_DAILY_PREFETCH_REMAINING } from "../../../shared/charts/dailyChartRequestLimits";
 import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type { TrendChannelPoint } from "../../../shared/charts/trend-channel/trendChannelGeometry";
-import { fetchStockNineTurnSeries } from "../../nine-turn/api/nineTurnApiClient";
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
-import { adaptNineTurnSeries } from "../../nine-turn/model/nineTurnAdapter";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
 import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
 import type { StockCandlePoint } from "../model/stockDetailTypes";
@@ -17,18 +15,15 @@ export interface StockDailyHistorySeed {
   tradeDate: string;
   candles: StockCandlePoint[];
   nextEndDate: string;
-  supportsNineTurn: boolean;
   debug?: 1;
 }
 
-type LayerName = "nineTurn" | "trend";
-type Layer<T> = { phase: "loading" | "error" } | { phase: "ready"; points: readonly T[] };
+type TrendLayer = { phase: "loading" | "error" } | { phase: "ready"; points: readonly TrendChannelPoint[] };
 interface HistoryPage {
-  startDate: string;
   endDate: string;
   dates: ReadonlySet<string>;
-  nineTurn?: Layer<NineTurnMarkerDto>;
-  trend?: Layer<TrendChannelPoint>;
+  nineTurnMarkers: readonly NineTurnMarkerDto[];
+  trend?: TrendLayer;
 }
 interface HistorySession {
   seed: StockDailyHistorySeed;
@@ -64,30 +59,21 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
     setState({ owner, candles: owner.candles, pages: [...owner.pages], phase: owner.phase });
   }, []);
 
-  const loadLayer = useCallback(async (owner: HistorySession, page: HistoryPage, name: LayerName) => {
+  const loadTrend = useCallback(async (owner: HistorySession, page: HistoryPage) => {
     const signal = owner.signal;
     const { tsCode } = owner.seed;
-    const state = page[name];
+    const state = page.trend;
     if (!signal || signal.aborted || state?.phase === "loading" || state?.phase === "ready") return;
-    page[name] = { phase: "loading" };
+    page.trend = { phase: "loading" };
     publish(owner);
     try {
-      if (name === "nineTurn") {
-        const response = await fetchStockNineTurnSeries({
-          tsCode, period: "day", startDate: page.startDate, endDate: page.endDate, limit: DAILY_CHART_PAGE_SIZE,
-        }, { signal });
-        if (signal.aborted) return;
-        const layer = adaptNineTurnSeries(response, { tsCode, period: "day", subjectType: "stock" });
-        page.nineTurn = { phase: "ready", points: layer.markers.filter(marker => page.dates.has(marker.tradeDate)) };
-      } else {
-        const response = await fetchStockTrendChannel({ tsCode, endDate: page.endDate, limit: page.dates.size }, { signal });
-        if (signal.aborted) return;
-        const trend = buildStockTrendChannelViewModel(response);
-        page.trend = { phase: "ready", points: trend.points.filter(point => page.dates.has(point.time)) };
-      }
+      const response = await fetchStockTrendChannel({ tsCode, endDate: page.endDate, limit: page.dates.size }, { signal });
+      if (signal.aborted) return;
+      const trend = buildStockTrendChannelViewModel(response);
+      page.trend = { phase: "ready", points: trend.points.filter(point => page.dates.has(point.time)) };
     } catch {
       if (signal.aborted) return;
-      page[name] = { phase: "error" };
+      page.trend = { phase: "error" };
     }
     publish(owner);
   }, [publish]);
@@ -103,11 +89,11 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
         endDate, limit: DAILY_CHART_PAGE_SIZE, debug: seed.debug,
       }, { signal });
       if (signal.aborted) return;
-      const { bars, meta } = payload;
+      const { bars, meta, nineTurnMarkers } = payload;
       const first = bars[0];
       const last = bars.at(-1);
       const next = meta.nextEndDate;
-      if (payload.stockRef.tsCode !== seed.tsCode || meta.endDate !== endDate ||
+      if (!Array.isArray(nineTurnMarkers) || payload.stockRef.tsCode !== seed.tsCode || meta.endDate !== endDate ||
           (last && (last.tradeDate > endDate || last.tradeDate >= owner.candles[0]!.fullDate)) ||
           bars.some((bar, index) => index > 0 && bar.tradeDate <= bars[index - 1]!.tradeDate) ||
           (next !== null && (typeof next !== "string" || !first || next >= first.tradeDate))) {
@@ -117,13 +103,13 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
       owner.phase = "idle";
       if (first && last) {
         const page: HistoryPage = {
-          startDate: first.tradeDate, endDate: last.tradeDate,
+          endDate: last.tradeDate,
           dates: new Set(bars.map(bar => bar.tradeDate)),
+          nineTurnMarkers,
         };
         owner.candles = [...bars.map(toCandlePoint), ...owner.candles];
         owner.pages.unshift(page);
-        if (seed.supportsNineTurn) void loadLayer(owner, page, "nineTurn");
-        if (owner.trendSelected) void loadLayer(owner, page, "trend");
+        if (owner.trendSelected) void loadTrend(owner, page);
       }
     } catch {
       if (signal.aborted) return;
@@ -131,7 +117,7 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
       owner.failedGesture = gesture;
     }
     publish(owner);
-  }, [loadLayer, publish]);
+  }, [loadTrend, publish]);
 
   const onViewport = useCallback((viewport: DetailChartHistoryViewport) => {
     if (!session || viewport.firstDate !== session.candles[0]?.fullDate ||
@@ -144,19 +130,19 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
   const ensureTrend = useCallback(() => {
     if (!session || session.trendSelected) return;
     session.trendSelected = true;
-    for (const page of session.pages) void loadLayer(session, page, "trend");
-  }, [loadLayer, session]);
+    for (const page of session.pages) void loadTrend(session, page);
+  }, [loadTrend, session]);
 
-  const retryLayer = useCallback((page: HistoryPage, name: LayerName) => {
-    if (session?.pages.includes(page)) void loadLayer(session, page, name);
-  }, [loadLayer, session]);
+  const retryTrend = useCallback((page: HistoryPage) => {
+    if (session?.pages.includes(page)) void loadTrend(session, page);
+  }, [loadTrend, session]);
   const current = state?.owner === session ? state : null;
   return {
     active: session !== null,
     visible: current,
     onViewport,
     ensureTrend,
-    retryLayer,
+    retryTrend,
   };
 }
 

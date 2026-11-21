@@ -5,6 +5,7 @@ import type { StockCandlePoint, StockIndicatorTab } from "../model/stockDetailTy
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { StockChartWorkspace } from "./StockChartWorkspace";
 import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
+import { buildStockDailyNineTurnLayer } from "../api/stockDetailViewModelAdapter";
 
 const chartMock = vi.hoisted(() => {
   const charts: Array<Record<string, any>> = [];
@@ -271,6 +272,29 @@ describe("StockChartWorkspace shared adapter", () => {
         expect(chart.timeScale().getVisibleLogicalRange()).toEqual(range);
       }
     }
+  });
+
+  it("draws the older page's markers when the first page has none", () => {
+    const candles = makeCandles(3);
+    const older = candles[0]!.fullDate;
+    const initialCandles = candles.slice(1);
+    const seed = { tsCode: "000001.SZ", tradeDate: candles[2]!.fullDate, candles: initialCandles, nextEndDate: older };
+    const history = { active: true, visible: null, onViewport: vi.fn(), ensureTrend: vi.fn(), retryTrend: vi.fn() };
+    const props = {
+      candles: initialCandles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
+      nineTurnLayer: buildStockDailyNineTurnLayer([]), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
+      onTrendSelect: vi.fn(), supportsTrendChannel: false, trend: null, tsCode: seed.tsCode,
+    };
+    const view = render(<StockChartWorkspace {...props} history={history} />);
+    expect(screen.getByText("当前窗口暂无九转标记")).toBeInTheDocument();
+
+    const pages = [{ endDate: older, dates: new Set([older]), nineTurnMarkers: readyNineTurnLayer(older).markers }];
+    const owner = { seed, candles, nextEndDate: null, pages, phase: "idle" as const, trendSelected: false };
+    view.rerender(<StockChartWorkspace {...props} history={{ ...history, visible: { owner, candles, pages, phase: "idle" } }} />);
+    expect(screen.queryByText("当前窗口暂无九转标记")).not.toBeInTheDocument();
+    expect(chartMock.charts[0].series[0].attachPrimitive.mock.calls.some(
+      ([primitive]: [{ constructor: { name: string } }]) => primitive.constructor.name === "NineTurnMarkerPrimitive",
+    )).toBe(true);
   });
 
   it("renders unavailable daily moving averages as whitespace and dash", () => {

@@ -88,6 +88,7 @@
     <a href="#local">本地后端 · DG 与 PostgreSQL</a>
     <a href="#prod">Prod 线上 · PostgreSQL</a>
     <a href="#prod-code-differences">Prod 待部署差异</a>
+    <a href="#local-nine-turn-candidate">本地日线九转候选差异</a>
     <a href="#verification">样本与验收</a>
   </nav>
 
@@ -1867,6 +1868,24 @@
       <li><strong>盘口、换手率和量比。</strong> Prod 配置仍由 <code>/page-init</code> 返回盘口，盘口四价、昨收和涨跌继续取 <code>core_serving.equity_factor_pro</code>。盘口和各根日 K 的换手率、量比改从 <code>core_serving.equity_daily_basic</code> 按各自的实际行情日匹配。 <a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">开发分支盘口组装</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">开发分支日 K 每日指标查询</a></li>
       <li><strong>九转及页面日期。</strong> 日线九转改用 <code>core_serving.equity_daily_bar</code> 选页，继续读 <code>core_serving.equity_qfq_nineturn_daily</code> 的结果。当前前端代码让顶部指数、股票新闻沿用首屏日期。股票日 K 向左翻页和首屏日 K 组装盘口仅在本地启用。 <a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">开发分支九转查询</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">开发分支页面请求</a></li>
     </ul>
+  </section>
+
+  <section id="local-nine-turn-candidate" aria-labelledby="local-nine-turn-candidate-title">
+    <h2 id="local-nine-turn-candidate-title">本地日线九转候选差异</h2>
+    <p>2026-11-22 在隔离本机服务以正式 DG 数据完成验收。常用本机服务待切换，上文的运行版来源表以原核验为准。</p>
+    <div class="scroll" role="region" aria-label="本地日线九转候选字段来源" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">页面字段</th><th scope="col">实际来源</th><th scope="col">接口和页面用法</th></tr></thead>
+        <tbody>
+          <tr>
+            <th scope="row"><code>nineTurnMarkers[].tradeDate / tradeTime / direction / sequenceNumber / completed</code></th>
+            <td>DG 股票不复权日线 <code>silver/quote/stock_daily</code> 和股票复权因子 <code>silver/quote/adj_factor</code>。算子库将已有前复权收盘价交给九转，计算同一批日 K 日期的上下行计数。</td>
+            <td>本地首屏和续页的 <code>/kline</code> 回包均提供标记数组。方向和序号来自算子结果，1–9 画标记，9 为完成，日线的 <code>tradeTime</code> 为 <code>null</code>。浏览器沿用实际日 K 日期定位，续页沿用 <code>nextEndDate</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>贵州茅台首屏、续页各 500 根，分别返回 452、453 个标记。浏览器首屏、向左翻页和开关九转期间共发出两次 <code>/kline</code>、零次独立日线九转请求。<a href="../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#9-阶段-2-实施与独立审计">接口和浏览器验收记录</a></p>
   </section>
 
   <section id="verification" aria-labelledby="verification-title">

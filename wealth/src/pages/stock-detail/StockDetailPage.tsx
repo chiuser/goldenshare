@@ -7,11 +7,12 @@ import { useDetailChartIndicatorControls } from "../../shared/charts/detail-work
 import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import type { NineTurnLayerViewModel } from "../../features/nine-turn/model/nineTurnTypes";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
 import { fetchStockMinuteBars, fetchStockMinuteIndicators } from "../../features/stock-detail/api/stockMinuteApiClient";
 import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
 import { useMajorIndexTickers } from "../../features/major-indices/model/useMajorIndexTickers";
-import { buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
+import { buildStockDailyNineTurnLayer, buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
 import { useStockDailyHistory, type StockDailyHistorySeed } from "../../features/stock-detail/controller/useStockDailyHistory";
@@ -47,6 +48,7 @@ interface StockDetailLoad {
   pageInit?: StockDetailPageInitResponseDto;
   viewModel?: StockDetailViewModel;
   historySeed?: StockDailyHistorySeed;
+  dailyNineTurnLayer?: NineTurnLayerViewModel;
   errorMessage?: string;
 }
 
@@ -107,14 +109,13 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
     activeNineTurnPeriod !== null && isStockNineTurnPeriod(activeNineTurnPeriod)
       && nineTurnCapabilities?.supportsNineTurn === true
       && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
-  const nineTurnLayer = activeNineTurnPeriod === null
-    ? nineTurnRegistry.stateFor("day")
-    : nineTurnRegistry.stateFor(activeNineTurnPeriod);
+  const dailyNineTurnLayer = activeNineTurnPeriod === "day" ? currentLoad?.dailyNineTurnLayer : undefined;
+  const nineTurnLayer = dailyNineTurnLayer ?? nineTurnRegistry.stateFor(activeNineTurnPeriod ?? "day");
 
   useEffect(() => {
-    if (loadState !== "ready" || activeNineTurnPeriod === null) return;
+    if (loadState !== "ready" || activeNineTurnPeriod === null || dailyNineTurnLayer) return;
     void nineTurnRegistry.ensure(activeNineTurnPeriod);
-  }, [activeNineTurnPeriod, loadState, nineTurnRegistry.ensure]);
+  }, [activeNineTurnPeriod, dailyNineTurnLayer, loadState, nineTurnRegistry.ensure]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -149,6 +150,11 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
           { signal: controller.signal },
         );
         if (!isCurrent()) return;
+        let dailyNineTurnLayer: NineTurnLayerViewModel | undefined;
+        if (local) {
+          if (!Array.isArray(kline.nineTurnMarkers)) throw new Error("股票日线回包缺少九转标记");
+          dailyNineTurnLayer = buildStockDailyNineTurnLayer(kline.nineTurnMarkers);
+        }
         if (kline.bars.length === 0 || (local && kline.dataStatus.status === "EMPTY")) {
           setLoad({ requestKey, state: "empty", pageInit });
           return;
@@ -157,10 +163,9 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
         const historySeed = local && kline.meta.nextEndDate ? {
           tsCode, tradeDate: anchor, nextEndDate: kline.meta.nextEndDate,
           candles: nextViewModel.chart.candles, debug,
-          supportsNineTurn: pageInit.capabilities.supportsNineTurn && pageInit.capabilities.nineTurnPeriods.includes("day"),
         } : undefined;
         setActivePeriod(nextViewModel.activePeriod);
-        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel, historySeed });
+        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel, historySeed, dailyNineTurnLayer });
       } catch (error) {
         if (!isCurrent()) return;
         setLoad({
@@ -292,7 +297,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
             nineTurnControl={nineTurnControl}
             nineTurnLayer={nineTurnLayer}
             onNineTurnRetry={() => {
-              if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+              if (activeNineTurnPeriod !== null && !dailyNineTurnLayer) void nineTurnRegistry.retry(activeNineTurnPeriod);
             }}
             onAction={showToast}
             onTrendSelect={() => {

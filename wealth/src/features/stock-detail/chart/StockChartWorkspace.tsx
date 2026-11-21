@@ -20,6 +20,7 @@ import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
 import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
 import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/trendChannelGeometry";
+import { buildStockDailyNineTurnLayer } from "../api/stockDetailViewModelAdapter";
 import type { StockTrendChannelViewModel } from "../trend-channel/api/stockTrendChannelViewModelAdapter";
 import type { StockDailyHistory } from "../controller/useStockDailyHistory";
 import type {
@@ -69,13 +70,13 @@ export function StockChartWorkspace({
   const points = useMemo(() => chartCandles.map(toDetailChartPoint), [chartCandles]);
   const pages = historical?.pages;
   const initialDates = useMemo(() => new Set(candles.map(candle => candle.fullDate)), [candles]);
-  const nineTurnLayer = useMemo(() => pages?.length ? {
-    ...initialNineTurn,
-    markers: [
-      ...pages.flatMap(page => page.nineTurn?.phase === "ready" ? page.nineTurn.points : []),
+  const nineTurnLayer = useMemo(() => {
+    if (!pages?.length) return initialNineTurn;
+    return buildStockDailyNineTurnLayer([
+      ...pages.flatMap(page => page.nineTurnMarkers.filter(marker => page.dates.has(marker.tradeDate))),
       ...initialNineTurn.markers.filter(marker => initialDates.has(marker.tradeDate)),
-    ],
-  } : initialNineTurn, [initialDates, initialNineTurn, pages]);
+    ]);
+  }, [initialDates, initialNineTurn, pages]);
   const trendPoints = useMemo(() => {
     const initial = trend?.points ?? [];
     if (!pages?.length) return initial;
@@ -84,9 +85,7 @@ export function StockChartWorkspace({
       ...initial.filter(point => initialDates.has(point.time)),
     ];
   }, [initialDates, pages, trend]);
-  const failedLayers = pages?.flatMap(page => (["nineTurn", "trend"] as const)
-    .filter(layer => page[layer]?.phase === "error")
-    .map(layer => ({ page, layer }))) ?? [];
+  const failedTrends = pages?.filter(page => page.trend?.phase === "error") ?? [];
   const mainLines = useMemo<DetailChartLineDefinition[]>(
     () => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [],
     [overlay],
@@ -144,12 +143,12 @@ export function StockChartWorkspace({
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
-        />{failedLayers.length > 0 ? (
+        />{failedTrends.length > 0 ? (
           <div className="stock-history-layer-errors">
-            {failedLayers.map(({ page, layer }) => (
-              <div key={`${page.endDate}|${layer}`} role="status">
-                <span>{layer === "nineTurn" ? "九转" : "趋势通道"}历史数据加载失败</span>
-                <button type="button" onClick={() => history?.retryLayer(page, layer)}>重试</button>
+            {failedTrends.map(page => (
+              <div key={page.endDate} role="status">
+                <span>趋势通道历史数据加载失败</span>
+                <button type="button" onClick={() => history?.retryTrend(page)}>重试</button>
               </div>
             ))}
           </div>

@@ -1,5 +1,5 @@
 import type { MarketDirection } from "../../../shared/model/market";
-import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnMarkerDto, NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 
 export type StockMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
 
@@ -132,6 +132,7 @@ export interface StockKlineBarDto {
 }
 
 export interface StockDetailKlineResponseDto {
+  nineTurnMarkers?: NineTurnMarkerDto[];
   pageContext: StockDetailPageContextDto;
   stockRef: {
     tsCode: string;

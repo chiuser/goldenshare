@@ -20,8 +20,8 @@ from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
     STOCK_DAILY_AUX_FIELDS, STOCK_DAILY_BASIC_FIELDS, StockDetailQuery,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
-    STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS,
-    build_calculation_request, is_stock_detail_first_page, validate_stock_daily_request,
+    STOCK_DAILY_ALGORITHM_VERSIONS, build_calculation_request, is_stock_detail_first_page,
+    stock_daily_calculations, validate_stock_daily_request,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlinePage
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
@@ -162,7 +162,7 @@ class StockDailyKlineAppBackend:
             ("core_serving.security_serving", "core_serving.equity_daily_bar",
              "core.equity_adj_factor", "core_serving.equity_daily_basic")
         )
-        for item in STOCK_DAILY_CALCULATIONS:
+        for item in stock_daily_calculations(include_nine_turn=self._use_dg):
             definition = self.runtime.registry.resolve(item["calculation_id"])
             if (definition.algorithm_version !=
                     STOCK_DAILY_ALGORITHM_VERSIONS[item["calculation_id"]]
@@ -212,7 +212,7 @@ class StockDailyKlineAppBackend:
                     ),
                 )
         control.check_active()
-        calculation = build_calculation_request(snapshot)
+        calculation = build_calculation_request(snapshot, include_nine_turn=paginated)
         result = None
         if calculation is not None:
             result = TechnicalIndicatorService(

@@ -58,11 +58,13 @@ def test_request_and_fixed_calculations():
                  ) == tuple((kind, params) for _, kind, params in expected)
     assert dict(STOCK_DAILY_ALGORITHM_VERSIONS) == {
         "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
+        "nineturn": "1.0.0",
     }
     assert dict(STOCK_DAILY_OUTPUT_FIELDS) == {
         "ma": ("value",), "boll": ("middle", "upper", "lower"),
         "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
         "price": ("open", "high", "low", "close", "volume", "amount"),
+        "nineturn": ("up_count", "down_count"),
     }
     registry = create_builtin_registry()
     for item in STOCK_DAILY_CALCULATIONS:
@@ -94,6 +96,8 @@ def test_request_and_fixed_calculations():
         datetime(2026, 1, 6, tzinfo=ZoneInfo("Asia/Shanghai")),
     )
     assert calculation.calculations == STOCK_DAILY_CALCULATIONS
+    local = build_calculation_request(source, include_nine_turn=True)
+    assert local.calculations == (*STOCK_DAILY_CALCULATIONS, {"calculation_id": "nineturn", "parameters": {}})
     assert source.request.limit == 300 and source.query_end_date == date(2026, 1, 9)
     assert build_calculation_request(_source(())) is None
 
@@ -209,3 +213,50 @@ def test_result_contract_errors():
             service.assemble(source, broken, source_tables=source_tables)
         assert caught.value.reason == reason and caught.value.stage == "stock_daily_assemble"
         assert not any(isinstance(value, type(result)) for value in caught.value.diagnostics.values())
+
+
+def test_local_nine_turn_marks_only_one_through_nine_in_date_order():
+    from datetime import timedelta
+    from goldenshare_technical_indicators.contracts import CalculationValues
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from tests.stock_daily_kline_helpers import result_for
+
+    days = tuple(date(2026, 1, 5) + timedelta(days=index) for index in range(6))
+    source = _source(tuple(map(_row, days)))
+    baseline = result_for(source.ts_code, days)
+    counts = CalculationValues("nineturn", "1.0.0", (), (
+        ("up_count", (0.0, 1.0, 0.0, 10.0, 13.0, 0.0)),
+        ("down_count", (0.0, 0.0, 9.0, 0.0, 0.0, 8.0)),
+    ))
+    result = replace(baseline, calculations=(*baseline.calculations, counts))
+    service = StockDailyKlineService()
+    payload = service.assemble(source, result, paginated=True, source_tables=()).model_dump(mode="json")
+    assert "nineTurnMarkers" not in service.assemble(source, baseline, source_tables=()).model_dump()
+    assert payload["nineTurnMarkers"] == [
+        {"tradeDate": days[1].isoformat(), "tradeTime": None, "direction": "UP", "sequenceNumber": 1, "completed": False},
+        {"tradeDate": days[2].isoformat(), "tradeTime": None, "direction": "DOWN", "sequenceNumber": 9, "completed": True},
+        {"tradeDate": days[5].isoformat(), "tradeTime": None, "direction": "DOWN", "sequenceNumber": 8, "completed": False},
+    ]
+
+
+@pytest.mark.parametrize(("fields", "reason"), [
+    ((("up_count", (None,)), ("down_count", (0,))), "invalid_value"),
+    ((("up_count", (1.5,)), ("down_count", (0,))), "invalid_value"),
+    ((("up_count", (14,)), ("down_count", (0,))), "invalid_value"),
+    ((("up_count", (1,)), ("down_count", (1,))), "invalid_value"),
+    ((("up_count", (1,)),), "fields_mismatch"),
+    ((("up_count", ()), ("down_count", (0,))), "value_count_mismatch"),
+])
+def test_local_nine_turn_rejects_invalid_results(fields, reason):
+    from goldenshare_technical_indicators.contracts import CalculationValues
+    from goldenshare_technical_indicators.errors import OutputContractError
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from tests.stock_daily_kline_helpers import result_for
+
+    day = date(2026, 1, 5)
+    source = _source((_row(day),))
+    result = result_for(source.ts_code, (day,))
+    broken = replace(result, calculations=(*result.calculations, CalculationValues("nineturn", "1.0.0", (), fields)))
+    with pytest.raises(OutputContractError) as error:
+        StockDailyKlineService().assemble(source, broken, paginated=True, source_tables=())
+    assert error.value.reason == reason

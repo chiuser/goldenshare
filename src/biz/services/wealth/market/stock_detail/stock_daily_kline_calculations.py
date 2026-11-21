@@ -20,14 +20,23 @@ STOCK_DAILY_CALCULATIONS = (
     _item("kdj", window=9, k_period=3, d_period=3),
     _item("price"),
 )
+_NINE_TURN_CALCULATION = _item("nineturn")
 STOCK_DAILY_ALGORITHM_VERSIONS = MappingProxyType({
     "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
+    "nineturn": "1.0.0",
 })
 STOCK_DAILY_OUTPUT_FIELDS = MappingProxyType({
     "ma": ("value",), "boll": ("middle", "upper", "lower"),
     "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
     "price": ("open", "high", "low", "close", "volume", "amount"),
+    "nineturn": ("up_count", "down_count"),
 })
+
+
+def stock_daily_calculations(*, include_nine_turn: bool):
+    if include_nine_turn:
+        return (*STOCK_DAILY_CALCULATIONS, _NINE_TURN_CALCULATION)
+    return STOCK_DAILY_CALCULATIONS
 
 
 def validate_stock_daily_request(request: StockDailyKlineRequest) -> None:
@@ -51,13 +60,15 @@ def is_stock_detail_first_page(request: StockDailyKlineRequest) -> bool:
     )
 
 
-def build_calculation_request(source: StockDailyKlineInput) -> CalculationRequest | None:
+def build_calculation_request(
+    source: StockDailyKlineInput, *, include_nine_turn: bool = False,
+) -> CalculationRequest | None:
     """Use actual returned dates; the kernel determines its own preceding history."""
     if not source.bars:
         return None
     return CalculationRequest(
         security_type="stock", ts_code=source.ts_code, period="day", adjustment="qfq",
-        calculations=STOCK_DAILY_CALCULATIONS,
+        calculations=stock_daily_calculations(include_nine_turn=include_nine_turn),
         start=datetime.combine(source.bars[0].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
         end=datetime.combine(source.bars[-1].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
     )

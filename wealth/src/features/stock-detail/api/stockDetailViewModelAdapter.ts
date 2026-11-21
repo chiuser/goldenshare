@@ -1,9 +1,23 @@
 import { directionFromNumber } from "../../../shared/lib/marketDirection";
+import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { STOCK_INDICATOR_TABS, STOCK_PERIOD_OPTIONS } from "../model/stockDetailConstants";
 import type { StockCandlePoint, StockDetailViewModel, StockPeriodKey } from "../model/stockDetailTypes";
 import { getStockDetailViewModel } from "./stockDetailMockAdapter";
 import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockQuoteSnapshotDto } from "./stockDetailApiTypes";
 import { minuteFrequencyFromPeriodKey } from "./stockMinuteViewModelAdapter";
+
+export function buildStockDailyNineTurnLayer(markers: readonly NineTurnMarkerDto[]): NineTurnLayerViewModel {
+  return {
+    markers,
+    phase: markers.length ? "READY" : "EMPTY",
+    message: markers.length ? null : "当前窗口暂无九转标记",
+    period: "day",
+    data: null,
+    errorCode: null,
+    canRetry: false,
+  };
+}
 
 function valueOrZero(value: number | null | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;

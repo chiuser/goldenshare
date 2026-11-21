@@ -86,6 +86,14 @@ def _marker_from_row(row: dict[str, Any]) -> NineTurnMarkerDto | None:
     down_count = _validated_count(row.get("down_count"), "down_count")
     if up_count > 0 and down_count > 0:
         raise NineTurnContractError("九转行不能同时处于上下两个方向。")
+    return build_nine_turn_marker(
+        trade_date=row["trade_date"], trade_time=row.get("trade_time"), up_count=up_count, down_count=down_count,
+    )
+
+
+def build_nine_turn_marker(
+    *, trade_date: date, trade_time: datetime | None, up_count: int, down_count: int,
+) -> NineTurnMarkerDto | None:
     if 1 <= up_count <= 9:
         direction = "UP"
         sequence_number = up_count
@@ -94,7 +102,6 @@ def _marker_from_row(row: dict[str, Any]) -> NineTurnMarkerDto | None:
         sequence_number = down_count
     else:
         return None
-    trade_time = row.get("trade_time")
     if trade_time is not None:
         if not isinstance(trade_time, datetime):
             raise NineTurnContractError("trade_time 必须是 datetime。")
@@ -104,7 +111,7 @@ def _marker_from_row(row: dict[str, Any]) -> NineTurnMarkerDto | None:
             else trade_time.replace(tzinfo=SHANGHAI)
         )
     return NineTurnMarkerDto(
-        tradeDate=row["trade_date"],
+        tradeDate=trade_date,
         tradeTime=trade_time,
         direction=direction,
         sequenceNumber=sequence_number,  # type: ignore[arg-type]

@@ -462,13 +462,19 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
     monkeypatch.setattr(CalculationDefinition, "validate_parameters", validate_once)
     backend = wiring.StockDailyKlineAppBackend(rt)
     expected = ["ma"] * 7 + ["boll", "macd", "kdj", "price"]
-    assert resolved == expected and validated == []
+    assert resolved == [*expected, "nineturn"] and validated == []
     request = StockDailyKlineRequest("600000.SH", "day", "forward", None, None, None, 500, False)
     assert backend.validate_before_wait(request) is request
     assert backend.validate_before_wait(replace(request, limit=250)).limit == 250
     with pytest.raises(WebAppError) as caught:
         backend.validate_before_wait(replace(request, limit=0))
     assert caught.value.code == "400001"
+    assert resolved == [*expected, "nineturn"] and validated == []
+
+    resolved.clear()
+    wiring.StockDailyKlineAppBackend(SimpleNamespace(
+        registry=registry, source=object(), config=make_config(data_location="prod_pg"),
+    ))
     assert resolved == expected and validated == []
 
     service = TechnicalIndicatorService(source=rt.source, registry=registry, config=rt.config)

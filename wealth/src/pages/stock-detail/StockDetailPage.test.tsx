@@ -53,6 +53,7 @@ describe("StockDetailPage", () => {
     emptyQuote = false,
     local = false,
     missingLocalQuote = false,
+    missingLocalNineTurn = false,
   }: {
     fail?: boolean;
     failTrend?: boolean;
@@ -64,6 +65,7 @@ describe("StockDetailPage", () => {
     emptyQuote?: boolean;
     local?: boolean;
     missingLocalQuote?: boolean;
+    missingLocalNineTurn?: boolean;
   } = {}) {
     const pageInit = {
       pageContext: {
@@ -376,7 +378,7 @@ describe("StockDetailPage", () => {
       }
       if (url.includes("/kline")) {
         if (empty) return Response.json({ ...kline, bars: [], meta: { ...kline.meta, count: 0 },
-          ...(local ? { quote: null } : {}),
+          ...(local ? { quote: null, nineTurnMarkers: [] } : {}),
           dataStatus: { ...kline.dataStatus, status: "EMPTY", observedTradeDate: null } });
         if (local && !missingLocalQuote) {
           const latest = { ...kline.bars.at(-1)!, close: 21.34 };
@@ -385,10 +387,17 @@ describe("StockDetailPage", () => {
             pageContext: { ...pageInit.pageContext, tradeDate: requestedDay },
             bars: [...kline.bars.slice(0, -1), latest],
             quote: { ...pageInit.quote, price: latest.close, close: latest.close },
+            ...(!missingLocalNineTurn ? { nineTurnMarkers: [{
+              tradeDate: latest.tradeDate, tradeTime: null, direction: "UP", sequenceNumber: 9, completed: true,
+            }] } : {}),
             dataStatus: { ...kline.dataStatus, status: "DELAYED", expectedTradeDate: requestedDay },
           });
         }
-        return Response.json(otherStock ? { ...kline, stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : kline);
+        return Response.json({
+          ...kline,
+          ...(local ? { nineTurnMarkers: [] } : {}),
+          ...(otherStock ? { stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : {}),
+        });
       }
       if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
       if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
@@ -466,6 +475,12 @@ describe("StockDetailPage", () => {
     expect(matching("/kline")[0].searchParams.get("tradeDate")).toBe("2026-05-31");
     expect(matching("/kline")[0].searchParams.get("endDate")).toBe("2026-05-31");
     expect(matching("/major-indices")[0].searchParams.get("tradeDate")).toBe("2026-05-31");
+    expect(matching("/nine-turn")).toHaveLength(0);
+    expect(screen.queryByText("当前窗口暂无九转标记")).not.toBeInTheDocument();
+    const nineTurn = screen.getByRole("button", { name: "九转序列", pressed: true });
+    fireEvent.click(nineTurn);
+    fireEvent.click(nineTurn);
+    expect(matching("/nine-turn")).toHaveLength(0);
     fireEvent.click(screen.getByRole("tab", { name: "新闻" }));
     await screen.findByText("第三条新闻");
     expect(matching("/news")[0].searchParams.get("endAt")).toBe("2026-06-01T00:00:00+08:00");
@@ -502,6 +517,13 @@ describe("StockDetailPage", () => {
     mockStockDetailFetch({ local: true, missingLocalQuote: true });
     render(<StockDetailPage tsCode="603806.SH" />);
     expect(await screen.findByText("股票日 K 首屏缺少盘口数据")).toBeInTheDocument();
+  });
+
+  it("rejects a local first page missing its nine-turn list", async () => {
+    const requests = mockStockDetailFetch({ local: true, missingLocalNineTurn: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByText("股票日线回包缺少九转标记")).toBeInTheDocument();
+    expect(requests.mock.calls.some(([input]) => String(input).includes("/stock-detail/nine-turn"))).toBe(false);
   });
 
   it("loads ticker data from the API independently after opening a stock from the default watchlist", async () => {

@@ -6,6 +6,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from src.biz.schemas.wealth.market.context import MarketPageContextDto
+from src.biz.schemas.wealth.market.nine_turn import NineTurnMarkerDto
 
 StockDetailStatusValue = Literal["READY", "DELAYED", "EMPTY", "ERROR"]
 StockDirectionValue = Literal["UP", "DOWN", "FLAT", "UNKNOWN"]
@@ -225,6 +226,7 @@ class StockDetailKlineResponseDto(BaseModel):
 
 class LocalStockDetailPagedKlineResponseDto(StockDetailKlineResponseDto):
     meta: LocalStockKlineMetaDto
+    nineTurnMarkers: list[NineTurnMarkerDto]
 
 
 class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDto):

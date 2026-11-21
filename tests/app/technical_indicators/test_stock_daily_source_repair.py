@@ -170,6 +170,7 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
                   "changePct", "vol", "volDisplay", "amount", "turnoverRate", "volumeRatio"):
         assert payload["quote"][field] == latest[field]
     assert payload["meta"]["nextEndDate"] == "2026-01-29"
+    assert payload["nineTurnMarkers"] == []
     assert len(source_client.calculations) == 1
 
 
@@ -181,6 +182,9 @@ def test_local_ordinary_daily_requests_keep_original_shape(source_client, params
     assert response.status_code == 200, response.text
     payload = response.json()
     assert "quote" not in payload and "nextEndDate" not in payload["meta"]
+    assert "nineTurnMarkers" not in payload
+    assert len(source_client.calculations) == 1
+    assert all(item.calculation_id != "nineturn" for item in source_client.calculations[0].calculations)
     check_values(payload, DAYS[-1:] if "startDate" in params else DAYS)
 
 
@@ -203,6 +207,36 @@ def test_stock_daily_pages_use_previous_actual_date_and_stop_at_oldest(source_cl
             assert payload["meta"]["nextEndDate"] == expected_next
             end = expected_next
     assert len(source_client.calculations) == 3
+
+
+def test_local_first_page_and_continuation_get_markers_from_the_same_calculation(source_client):
+    for index, day in enumerate(DAYS):
+        partition = f"silver/quote/stock_daily/trade_date={day}/part-000.parquet"
+        original = pq.ParquetFile(source_client.root / partition).read().to_pylist()[0]
+        write_table(source_client.root, partition, [original | dict.fromkeys(("open", "high", "low", "close"), 20.0 + index)])
+    anchor = DAYS[12].isoformat()
+    with source_client.client_for() as client:
+        first = request(client, tradeDate=anchor, endDate=anchor, limit=5)
+        assert first.status_code == 200, first.text
+        first = first.json()
+        older = request(client, tradeDate=anchor, endDate=first["meta"]["nextEndDate"], limit=5)
+        assert older.status_code == 200, older.text
+        older = older.json()
+    assert len(source_client.calculations) == 2
+    for payload, calculation, indices, counts in (
+        (first, source_client.calculations[0], range(8, 13), range(5, 10)),
+        (older, source_client.calculations[1], range(4, 8), range(1, 5)),
+    ):
+        assert len(calculation.calculations) == 12 and calculation.calculations[-1].calculation_id == "nineturn"
+        assert calculation.statistics.price_conversion_batches == 1
+        assert payload["nineTurnMarkers"] == [
+            {"tradeDate": DAYS[index].isoformat(), "tradeTime": None, "direction": "UP",
+             "sequenceNumber": count, "completed": count == 9}
+            for index, count in zip(indices, counts, strict=True)
+        ]
+    assert first["quote"]["tradeDate"] == anchor
+    assert "quote" not in older
+    assert older["pageContext"]["tradeDate"] == first["meta"]["nextEndDate"]
 
 
 def test_stock_daily_cursor_crosses_days_without_stock_data(source_client):
@@ -272,6 +306,7 @@ def test_empty_and_missing_source(source_client):
         assert response.json()["dataStatus"]["status"] == "EMPTY"
         assert "quote" in response.json() and response.json()["quote"] is None
         assert response.json()["meta"]["nextEndDate"] is None
+        assert response.json()["nineTurnMarkers"] == []
         for path in (INIT_PATH, PATH):
             assert client.get(path, params={"tsCode": "T00018.SH"}).json()["code"] == "404001"
     with source_client.client_for(source_root=source_client.root / "absent") as client:
