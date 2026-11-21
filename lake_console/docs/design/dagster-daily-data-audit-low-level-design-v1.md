@@ -1,6 +1,6 @@
 # 财势乾坤本地 DG 每日数据审计 LLD v1
 
-状态为设计待评审。业务依据为[每日数据审计方案](dagster-daily-data-audit-wealth-data-center-plan-v1.md)和[逐资产规则](dagster-daily-data-audit-rules-review-v1.md)。本文中的新增文件、字段与接口是实现约定。现有代码用链接标出。
+第一阶段详细设计及 DG 样本读回已完成，第二阶段待开发。业务依据为[每日数据审计方案](dagster-daily-data-audit-wealth-data-center-plan-v1.md)和[逐资产规则](dagster-daily-data-audit-rules-review-v1.md)。本文中的新增文件、字段与接口是实现约定。现有代码用链接标出。
 
 ## 1. 目标与交付顺序
 
@@ -11,7 +11,7 @@
 | 每日总结与读取 | DG 证据读取、规则和汇总 job。本地 Web 路由、数据中心卡片和列表。 | 现有当日检查可复用，两列状态和日期切换正确，下游按同一版本取结论。 |
 | 生产 Check | 第 5 节列明的现有生产者、检查和 readiness。 | 同日同版、晚到和真实缺口判定通过，已有生产门禁继续有效，代表性样本的增量有据可验。 |
 | 东方财富板块分类 | 第 6 节的分类比较、标准集与源端复核，并接入已设计的页面动线。 | 名单相同可留档，真实增减可确认，源端证实漏采时拒绝确认，补齐后可继续。 |
-| 通用指数分钟独立审计 | 第 7 节的本地独立 job 和操作接口。 | 单日预览、执行、复用、取消和换版验收通过后，按确认过的范围开放。自动提交需单独确认。 |
+| 通用指数分钟独立审计 | 第 7 节的本地 DG 独立 job，结果进入每日总结。 | 先在 DG 验一个代表资产的单日范围、同版证据、读取开销和结果读回。自动提交需单独确认。 |
 
 资产盘点从本机 DG 目录取值。当前基线共 187 个资产键，129 项优先复用、34 项在生产补证据、12 项走独立审计或待开放、12 项一期齐备不适用。实际实现与测试以目录键和两份方案的逐项映射为准。运行边界是本机正式 Lake `/Volumes/datasource/data_lake/{raw,silver,gold}`、本机 DG 事件和本机交付。Prod 发布目标与环境健康保留范围说明。国际指数日线两层分别列为一期不适用。审计记录写在 DG，业务文件及发布仍由原入口负责。
 
@@ -23,15 +23,15 @@
 | DG 调度 | 汇总 schedule 固定使用 `Asia/Shanghai`。生产补 Check 使用各生产链现有选择及依赖就绪机制。独立审计由正式队列启动单独 run，轮询和网页版接口不直接执行检查函数。正式实例当前为 `QueuedRunCoordinator`、`max_concurrent_runs=1`，本文复用该队列，验收时再次核对。 |
 | 本地 Web | 在 `src/app/runtime/data_audit.py` 组装本地审计服务与路由，由 [web/app.py](../../../src/app/web/app.py) 条件挂载。沿用 [DataCenterError 处理](../../../src/app/runtime/announcement_archive_lifespan.py)、[数据中心 modules](../../../src/biz/api/wealth/data_center/home.py) 和 [Web 鉴权](../../../src/app/auth/dependencies.py)。`src/biz/api/wealth/data_center/data_audit.py` 管请求与响应，`src/biz/services/wealth/data_center/data_audit.py` 管读取和操作。Web 与 DG 通过现有本地 GraphQL 连接，DG 业务模块仍在自己的运行环境。 |
 | 财势乾坤 | [DataCenterPage.tsx](../../../wealth/src/pages/data-center/DataCenterPage.tsx) 接受 modules 返回的卡片。[WealthRouter.tsx](../../../wealth/src/app/routes/WealthRouter.tsx) 注册 `/wealth/data-center/data-audit`，沿用现有 [请求封装](../../../wealth/src/features/data-center/api/dataCenterApi.ts)。新增 `wealth/src/pages/data-center/DataAuditPage.tsx` 及板块核查弹窗，按已评审的 Figma 动线复用现有数据中心组件和样式。 |
-| 下游程序 | 本机 DG 内由 `evidence.py` 提供 `get_completeness(scope)`。本机进程外可读同一个资产详情接口，并提供自己实际读取的范围和版本来比对返回值。依赖方仅在范围及全部版本相符、状态为已确认齐备时继承其范围。 |
+| 下游程序 | 本机 DG 内由 `evidence.py` 提供 `get_completeness(scope, version)`。本机进程外可读同一个资产详情接口，用自己实际使用的范围和版本比对返回值。依赖方仅在范围及全部版本相符、状态为已确认齐备时继承其范围。 |
 
-仿照现有 `announcements_enabled(settings)` 的部署判定，显式 `APP_ENV=dev/local` 与默认关闭的 `WEALTH_LOCAL_DATA_AUDIT_ENABLED` 同时成立才开放。由同一判定控制 modules、Web 的 SPA 直达地址与 API 挂载。DG GraphQL 连接使用已确认的本机回环地址和固定 `/graphql`，禁止从请求接收地址、任意查询、job 名或文件路径。Prod 不挂路由，直达页面返回 404，即使环境误传功能开关也不开放。已启用而 DG 连不上时入口仍可见。读接口使用 `get_current_user`，启动、取消、源端复核及人工确认使用现有 `require_admin`。DG 内重查目标、版本和范围。前端的可操作标志只决定显示与交互。
+仿照现有 `announcements_enabled(settings)` 的部署判定，显式 `APP_ENV=dev/local` 与默认关闭的 `WEALTH_LOCAL_DATA_AUDIT_ENABLED` 同时成立才开放。由同一判定控制 modules、Web 的 SPA 直达地址与 API 挂载。DG GraphQL 连接使用已确认的本机回环地址和固定 `/graphql`，禁止从请求接收地址、任意查询、job 名或文件路径。Prod 不挂路由，直达页面返回 404。已启用而 DG 连不上时入口仍可见。读接口使用 `get_current_user`，东方财富概念板块的源端复核及标准集确认使用现有 `require_admin`。DG 内重查对应日期和产出版本。
 
 ## 3. 资产规则、证据与状态
 
 ### 3.1 资产和日期
 
-`registry.py` 遍历 [list_lake_asset_catalog_entries](../../orchestrator/src/orchestrator/defs/catalog/lake_assets.py#L4166)，从目录取 `asset_key/dataset_id/dataset_name/layer/partition_model/blocking_check_names`，频度从已注册的频度和资产合同取。以资产键关联 `due_rule`、`delivery_resolver`、`evidence_resolver` 和 `audit_mode`。相同合同的一组频度共用规则实现。优先调用该资产已有的业务日期、交付和版本证据解析。按[方案表 §4.1–4.4](dagster-daily-data-audit-wealth-data-center-plan-v1.md#4-csv-复核及按当天数据量分流)分流，使用[逐资产 §3、§5](dagster-daily-data-audit-rules-review-v1.md#3-原方案-73-项逐资产待评审规则)落实具体资产键、附加检查、所用日期和有效范围。目录的阻断检查名单不能代替齐备规则，ETF 非阻断覆盖检查须显式读取。目录差集测试要求一键一行、只有一种归属、无遗留规则指向未登记键。未知规则或缺证据的资产仍显示，并保留待确认原因。
+`registry.py` 遍历 [list_lake_asset_catalog_entries](../../orchestrator/src/orchestrator/defs/catalog/lake_assets.py#L4166)，从目录取 `asset_key/dataset_id/dataset_name/layer/partition_model/blocking_check_names`，频度从已注册的频度和资产合同取。应更日复用各资产定义和生产调度已有的日期判断，不新增更新频率表。主要指数周月线复用[现有调度的日期判定](../../orchestrator/src/orchestrator/defs/sensors/index_period_update_job_sensors.py#L63)和[产出记录的实际截至日](../../orchestrator/src/orchestrator/defs/assets/index_period.py#L214)。按[方案表 §4.1–4.4](dagster-daily-data-audit-wealth-data-center-plan-v1.md#4-csv-复核及按当天数据量分流)分流，使用[逐资产 §3、§5](dagster-daily-data-audit-rules-review-v1.md#3-原方案-73-项逐资产待评审规则)落实具体资产键、附加检查、所用日期和有效范围。目录的阻断检查名单不能代替齐备规则，ETF 非阻断覆盖检查须显式读取。目录差集测试要求一键一行、只有一种归属、无遗留规则指向未登记键。未知规则或缺证据的资产仍显示，并保留待确认原因。
 
 | 日期形态 | 怎样解析所选日 `D` |
 |---|---|
@@ -74,34 +74,32 @@
 
 ### 3.4 运行、存储、失效
 
-- `daily_data_audit_summary_job` 输入 `business_date`，受影响行重算时另传 `changed_asset_keys`，运行开始记录 `observed_at`。由本地 DG schedule 在上海时间每日 00:00 对上一自然日提交一轮，日期取调度计划时点减一天。每个资产再按合同确定该日是否适用。停机时保留未生成。由获准的操作按单日补读已有记录，`generated_at` 是实际写记录时间。该次无法重建当时状态的项标未核实。
+- `daily_data_audit_summary_job` 输入 `business_date`，受影响行重算时另传 `changed_asset_keys`，运行开始记录 `observed_at`。由本地 DG schedule 在上海时间每日 00:00 对上一自然日提交一轮。首轮以实际观察时点看到的证据判定，若 00:07 已交付而汇总到 00:12 才开始，直接显示「已更新」和实际发布时间 00:07。每个资产按现有规则确定该日是否适用。停机时保留未生成。由获准的操作按单日补读已有记录，`generated_at` 是实际写记录时间。无法重建当时状态的项标未核实。
 - `evidence.py` 将 `(资产键, 分区或无分区, 规定检查名, 所选日/截至日)` 构造为请求集合。DG 使用现有 SQL event storage，参考 [股票周月批量证据](../../orchestrator/src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py#L46) 和 [完成 Check 查询](../../orchestrator/src/orchestrator/defs/asset_guards/stock_period_check_evidence.py#L25)。按实需选择有索引约束的分区组和无分区快照组。只纳入观察时点已存在的证据。先找到适用交付范围内的候选物化，再取已结束 Check 并核关联。快照/同物理分区的日交付必须匹配已有交付记录中的实际日期。依赖范围另由规则解析。每批出错只影响涉及行。只有证据足以确认没有交付才判未更新，事件读取失败时留无法确认。页面读接口不遍历各资产事件。
 - 结果使用现有 Dagster run/event 承载。各 job 在最终步骤用 `add_output_metadata` 保存 `MetadataValue.json`，步骤输出 `Nothing`。汇总标签 `data_audit_summary` 含 `schema_version=1`、`business_date`、`observed_at`、`generated_at`、`rows[]`，带出每行的证据及观察时间。独立核验、标准集、源端复核分别用 `data_audit_result`、`dc_index_standard`、`dc_index_recheck`，包含范围、版本及该任务结果。查询按固定 job、`audit/business_date` 标签和必要范围标签筛 run，再按 run ID 读取命名元数据。仅 SUCCESS 且完整解码、与标签和输入版本吻合的记录可消费。独立核验任务失败、取消或中断只显示运行结果，没有成功输出时无可复用结论。标签表示定位范围，原生运行和事件 ID 用于定位与顺序。发布契约为原生记录，验收须证实可通过此路径读回及保留。若实际清理策略或元数据承载不能保存所需记录，先报告具体缺失与影响，另行评审存储。
 - 迟到交付、Check 完成、版本更换和补审结果由本机 DG 的汇总刷新传感器读取有界的相关记录变动。该传感器只提交总结更新。先等该日已有总结，按变更影响的资产及依赖关系重算相应行，其余行沿用各自原观察时间，并追加同日新总结。旧总结保留。相同观察时点的结果按已完成 run 顺序选最近者，始终展示 `generated_at`。旧版记录按其观察时点展示。新输入未核验时不可读取旧记录为新版绿灯。
-- 使用现有本机 Dagster GraphQL 形态。读使用 `runsOrError(filter: RunsFilter, limit: ...)`，过滤字段 `pipelineName/tags/statuses`，再用 `logsForRun(runId, afterCursor, limit)` 的 `EventConnection` 取指定 `ExecutionStepOutputEvent` 下的 `JsonMetadataEntry`。使用 `launchRun`、`terminateRun` 处理允许的明确操作，均以当前安装 schema 为准。只针对指定日、固定 job 和选中 run 做有界读取。专用 job 保证只输出固定数量的步骤及结果。schema 不匹配或分页未读到完整结果时显示不可读，不搜索其他日期。队列与调度语义见 [Dagster schedules](https://docs.dagster.io/guides/automate/schedules) 和 [Dagster sensors](https://docs.dagster.io/guides/automate/sensors)，本机连接依据[本地运行手册](../architecture/dagster-local-operations-cheatsheet.md)。
+- 使用现有本机 Dagster GraphQL 形态。读使用 `runsOrError(filter: RunsFilter, limit: ...)`，过滤字段 `pipelineName/tags/statuses`，再用 `logsForRun(runId, afterCursor, limit)` 的 `EventConnection` 取指定 `ExecutionStepOutputEvent` 下的 `JsonMetadataEntry`。财势乾坤只为东方财富概念名单核查和标准集确认调用 `launchRun`。只针对指定日、固定 job 和选中 run 做有界读取。专用 job 保证只输出固定数量的步骤及结果。未读到完整结果时显示不可读。队列与调度语义见 [Dagster schedules](https://docs.dagster.io/guides/automate/schedules) 和 [Dagster sensors](https://docs.dagster.io/guides/automate/sensors)，本机连接依据[本地运行手册](../architecture/dagster-local-operations-cheatsheet.md)。
 
 ## 4. 本地 API 和页面
 
-路径统一在 `/api/v1/wealth/data-center/data-audit` 下。请求固定业务日期、已有目录中的资产键或明确选择的审计 run ID。源端和独立任务的参数由 DG 从请求范围解析。
+路径统一在 `/api/v1/wealth/data-center/data-audit` 下。页面读取汇总和详情。人工操作只用于东方财富概念板块名单的源端复核及 Raw 标准集确认。通用指数分钟独立任务由本机 DG 执行，页面读其结论。
 
 | 方法与路径 | 请求、结果与错误 |
 |---|---|
 | `GET /days/{date}` | 返回 `state`（`ready`、`not_generated`、`unavailable`）、`business_date`、`observed_at`、`generated_at`、`summary`（四项数量）、`rows`（主行及可显示子项的状态和简要原因）、`can_operate`。仅请求所选日最近有效总结。有已经读到的同日结果且连接中断时保留其时间并标不可用。 |
 | `GET /days/{date}/assets/{asset_key}` | 读取同一个总结或所选日指定 `summary_run_id` 的该资产详情。返回第 3.2 节结果及来源链接。明确提供所用输入版本，客户端可以验证本次读取和既有结论是否一致。 |
-| `GET /days/{date}/assets/{asset_key}/board-standard` | 仅分类资产。返回适用参照版本及代码、当日有效代码与增减、当日标准集（若已生成）、逐项 Tushare 结果、`review_version` 和可确认状态。 |
-| `POST /days/{date}/assets/{asset_key}/board-recheck` | 输入 `review_version`。失败项重试时加 `retry_run_id`。提交对当前差异的源端复核，返回 `run_id/status`。服务端从版本记录推导代码差集。 |
-| `POST /days/{date}/assets/{asset_key}/board-confirm` | 输入 `review_version`。按该版人工确认差异并保存标准。当日有效源名单证实本地缺码或参照变更时拒绝。返回 `run_id/status`。 |
-| `GET /days/{date}/assets/{asset_key}/audit-preview` | 只对已开放独立规则的键返回 `scope`、`version`、预计文件/键列/行数/字节、可否提交及当前原因，频度由资产键确定。Web 读取 DG 已保存的身份、行数或页脚估算。读取量未知时返回 `null`，不给执行许可。 |
-| `POST /days/{date}/assets/{asset_key}/audit-runs` | 输入预览的 `scope/version`。同范围重试带原 `retry_run_id`。在途或已有有效同身份任务返回原 run，允许执行时返回新 `run_id/status`。 |
-| `GET /runs/{run_id}`、`POST /runs/{run_id}/cancel` | 仅识别本模块已定义的 job 及其所属范围。GET 返回任务状态、选中范围、开始/结束时间、结果或失败原因。仅独立审计的允许状态可取消，概念复核按约定等终态或超时。 |
+| `GET /days/{date}/assets/{asset_key}/board-standard` | 仅分类资产。返回适用参照版本及代码、当日有效代码与增减、当日标准集（若已生成）和逐项 Tushare 结果。Raw 返回用于复核和确认的 `review_version` 及可确认状态，Silver 展示结果。 |
+| `POST /days/{date}/assets/{asset_key}/board-recheck` | 仅东方财富板块分类 Raw 的概念名单。输入 `review_version`，失败项重试时加 `retry_run_id`。提交对当前差异的源端复核，返回 `run_id/status`。服务端从版本记录推导代码差集。 |
+| `POST /days/{date}/assets/{asset_key}/board-confirm` | 仅东方财富板块分类 Raw 的概念名单。输入 `review_version`，按该版人工确认差异并保存标准。存在已证实的本地缺码或参照变更时拒绝。返回 `run_id/status`。 |
+| `GET /runs/{run_id}` | 只读取东方财富概念板块复核、标准集确认这两类任务，返回进度和结果。 |
 
-`POST` 成功受理返回 202，已有有效结果或重复请求返回已有身份。版本变更、规则未开通、预算不明、该日依赖缺失或标准集不可保存用 409 与具体 `code/message`，非法范围/日期用 422，未知资产/任务或被禁用的模块用 404，操作权限不足走已有 403。DG 连接失败返回不可用状态（查询）或明确 503（提交）。错误和 UI 内容不透传内部连接信息。日期与列表读取沿用已有数据中心请求层。运行状态分别映射为排队（未启动或已排队）、运行中（启动中、已开始或取消中）、完成（成功）、失败、取消。源端复核还展示每个请求项的结果。
+`POST` 成功受理返回 202。版本变更、存在已证实缺码或标准集不可保存用 409 与具体 `code/message`，非法范围或日期用 422，未知资产或任务用 404，操作权限不足走已有 403。DG 连接失败时查询显示不可用，提交返回 503。日期与列表读取沿用已有数据中心请求层。源端复核展示每个请求项的结果。
 
 页面保留 `selectedDate`、`updateFilter`、`completenessFilter`、`page`。日期选择重新读取所选日，切换时舍弃晚回的旧请求。明细在该日结果内按两列筛选，组合后显示匹配数。点击任一齐备数字时保留日期、设对应齐备筛选、重置更新筛选为「全部」、页码为 1、定位明细标题。汇总一直显示当日主行数。东方财富概念板块行使用完整名称，与其它行左对齐，继承对应分类资产的层与频度。附属行只在相符筛选且其父资产已进入结果时展示，详情仍可见所属各类别。明细的状态原因和详情的范围、例外、样例均读接口，空字段显示「未记录」。详情链接使用固定本地 DG 地址。缺本日记录显示「未生成」，本地 DG 不可用时可继续注明已读到的同日总结时间。
 
 ## 5. 生产 Check 的实现清单
 
-覆盖结果保存为现有 Check 的有结构元数据。每个结果带 `scope/version`、实际运行的规则、覆盖计数及身份引用。上游未就绪、参照未确认或身份无法对应时，登记新增规则待确认。原 Check 继续判定其原有门禁。依赖就绪后使用对应生产调度提交只选中 Check 的当日工作，不重跑已经完成的生产。用于补查的 run 必须确认当前正式版本仍与请求一致，否则使用该日新版本重新判定。已批准阻断的对账在现有门禁内失败，其他 Check 沿用原级别和失败行为。
+覆盖结果附在现有 Check 的元数据中，供数据审计汇总和页面读取。每个结果带 `scope/version`、实际运行的规则、覆盖计数及身份引用。上游未就绪、参照未确认或身份无法对应时，该项审计记待确认。原 Check 的通过条件及下游生产就绪条件照旧。新增覆盖发现差异时只记录审计结论，已明确批准的阻断只有本节列出的股票日线前复权 Gold 和本机 ClickHouse 板块日线技术指标的真实键差异，以及主要指数周月 Silver 写入前的截至日和覆盖校验。依赖就绪后使用对应生产调度只补查该日、该版产出。
 
 先用生产调度已有的依赖检查。如果目标尚未产出，依赖成功后走原生产 job，检查随该次产出执行。如果目标已产出、相应覆盖字段为待确认，则由该资产生产传感器在既有业务日期窗口比较当天目标版本、最新依赖证据和已有覆盖结论。依赖可用时提交当天、该资产的检查选择，沿用 [gold_stock_daily_qfq_check_refresh_job](../../orchestrator/src/orchestrator/defs/jobs/stock_daily_qfq_update.py#L17) 的仅选 Check 模式，运行参数显式给分区和目标版本。资金流依赖的接线使用 [moneyflow_update_selection.py](../../orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py)，分类及参照依赖使用 [dc_board_silver_sensor.py](../../orchestrator/src/orchestrator/defs/sensors/dc_board_silver_sensor.py) 的生产就绪检查与分类 Check 完成记录。相同目标、输入、规则已有完成覆盖结果或已排队就跳过。指标和年文件的检查只接受已有生产统计或原有单日读取。页面不会提交补查。
 
@@ -143,25 +141,25 @@
 
 ### 6.1 当日对账与标准集
 
-初始记录使用 2026-11-19 已确认的本地分类名单，行业 496、地域 31、概念 554。以该日有效名单作为内容，记录两层正式产出版本及确认依据，从下一交易日开始对照。行业、地域各用生效的人工确认名单，核同类别有效代码差集。确属正常变动时经确认形成新版本。分类占位与 Silver 拒绝规则以 [Raw 分类合同](../../orchestrator/src/orchestrator/defs/run_contracts/dc_board.py#L234) 和 [Silver 生产转换](../../orchestrator/src/orchestrator/defs/assets/dc_board_silver.py#L143) 为准。
+初始记录使用 2026-11-19 已确认的 Raw 分类名单，行业 496、地域 31、概念 554。记录该日 Raw 正式产出版本及确认依据，逐交易日接续到启用日。行业、地域各用生效的人工确认名单，核同类别有效代码差集。确属正常变动时经确认形成新版本。Silver 复用 Raw 确认的标准集，并核对自身与实际使用的 Raw 转换是否一致。分类占位与 Silver 拒绝规则以 [Raw 分类合同](../../orchestrator/src/orchestrator/defs/run_contracts/dc_board.py#L234) 和 [Silver 生产转换](../../orchestrator/src/orchestrator/defs/assets/dc_board_silver.py#L143) 为准。
 
-概念按所选交易日的上一交易日查找确认版本。不存在时记「参照标准集缺失」，当前日齐备待确认，不能从更早的版本跳日生成。存在时，对比当日有效代码与参照。无增减时保存当日副本，有增减时记录代码、名称及存在性，待人工确认。分类父状态按第 3.3 节折叠。Raw、Silver 各核证据，同一交易日共同的概念标准集仅保存一个有效版本，记录两层正式交付关系，Silver 仍须证明同版转换。缺上一日时从缺失日恢复。已保存记录保留版本及生成时点。
+概念按所选交易日的上一交易日查找确认版本。不存在时记「参照标准集缺失」，当前日齐备待确认，从缺失日恢复。存在时，对比当日 Raw 有效代码与参照。无增减时保存当日副本，有增减时记录代码、名称及存在性，待人工确认。分类父状态按第 3.3 节折叠。同一交易日只保存一份当前有效的概念标准集。已保存记录保留版本及生成时点。本阶段联验依赖当天标准集的东方财富板块资金流向。
 
-在 `dc_index_review.py` 解析 `review_version` 为业务日、所选分类资产、当日正式产出的发布身份、原参照版本与差集。它只定位具体核查对象。候选名单只来自同版 Check 的代码投影，已有 Check 不具备保存字段时随生产检查写入相应版本的代码清单。使用 `daily_data_audit_board_confirm_job` 保存标准集。生产调度在同版分类检查确认完全匹配时提交保存副本，出现增减时由运营提交确认。同一函数校验当前目标和参照，并输出第 3.4 节标准集元数据。Silver 使用标准集时还核其自身和实际 Raw 的关联。公开读取以当前同版有效记录为准，上一日的原版本仍可追溯。
+在 `dc_index_review.py` 解析 `review_version` 为业务日、当日 Raw 正式产出的发布身份、原参照版本与差集。候选名单只来自同版 Raw Check 的代码投影，已有 Check 不具备保存字段时随生产检查写入相应版本的代码清单。使用 `daily_data_audit_board_confirm_job` 保存标准集。生产调度在同版分类检查确认完全匹配时提交保存副本，出现增减时由运营提交确认。同一函数校验当前 Raw 目标和参照，并输出第 3.4 节标准集元数据。Silver 使用标准集时还核其自身和实际 Raw 的关联。读取以当前同版有效记录为准，上一日的原版本仍可追溯。
 
 ### 6.2 Tushare 复核与保存
 
 1. 「核查 Tushare」提交 `daily_data_audit_board_recheck_job`。固定业务日、差异版本，服务端重算新增与减少的代码差集。请求仅限该集合。`dc_index(trade_date=YYYYMMDD, ts_code=code)` 复查分类，必要字段为业务日、板块代码、名称和类别。`dc_member(trade_date=YYYYMMDD, ts_code=code)` 独立核同日成分，结果按板块列出。参考当前 [分类参数](../../../src/foundation/ingestion/request_builders.py#L696)、[成分参数](../../../src/foundation/ingestion/request_builders.py#L962) 和 [DG 板块合同](../../orchestrator/src/orchestrator/defs/run_contracts/dc_board.py)。在 DG 的 [TushareDownloader](../../orchestrator/src/orchestrator/tushare_download/download_api.py) 挂接这两个已有接口的 `BY_OBJECT_POINT` 只读请求规则，沿用当前页大小、合法空响应和返回键校验。参照[指数单对象单日下载](../../orchestrator/src/orchestrator/tushare_download/contracts/index_weekly.py#L46)的调用形态。复核只读取会话响应，无 Prod 对账及文件提升步骤。
 2. 点击后显示加载圈、核查范围及「正在核查 Tushare」。以任务终态或本次复核超时解除锁定。期间禁重复请求、查看参照、确认、取消、关闭、Esc 和遮罩关闭。页面只查询结果状态。超时后可重试失败项。提交时拒绝在途重复，防止重新打开时重复打源。
 3. 按代码分别保存分类与成分的成功、未返回、失败结果及核查时间。保留原本地差异。合法成分空不等于板块消失。分类有效返回且本地当前版本缺少，记「源端有，本地缺少」和确认缺口。源端成功未返回记「源端本次未返回」，留待人工判断。只重试上次失败的代码和接口，保留同版已成功的结果。
-4. 生成标准集前，前端与 DG 都检查：版本及参照仍适用、当前无源端证实的本地缺码。供独立操作的确认、自动保存、副本重试都使用相同的检查。通过则保存完整有效分类代码列表、所用目标与上一期版本、确认人和时间。首次和固定名单变更走已批准的人工确认流程。复核失败不抹掉已证实的缺口。用现有同步入口补齐后，应以新产出形成新的核查状态和版本关系。
-5. 对同一业务日、同一版本重复提交时复用在途或已完成的同次操作。确认、复核与生产 Check 使用同一个正式队列。若并发提交生成两个 run，在排到执行时按操作、版本及重试来源查询更早的有效 run。存在同轮已执行的 run 就结束并引用结果，不能再次请求源或保存副本。保存前再验证当天和参照版本。资产更新与确认顺序变化时，旧候选不能写入为当前标准集。
+4. 保存前由 DG 核对 Raw 版本和参照，并检查该版是否存在源端证实的缺口。前端按同一结果控制确认按钮。通过后保存完整有效分类代码、所用 Raw 及上一期版本、确认人和时间。首次和固定名单变更走已批准的人工确认流程。已证实漏采时，用现有同步入口补齐，再核对新产出。
+5. 确认、复核与生产 Check 使用同一个正式队列。提交时复用同一业务日、同一版本的在途操作，开跑时核对当前 Raw 及参照版本。
 
 交互顺序为「列表 → 东方财富概念板块 → 名单核查 → 查看参照或核查 Tushare → 确认并生成标准集」。发现确实漏采时，详情保留源证据和缺码，等待原同步流程补齐后重新核查。
 
 ## 7. 通用指数分钟线独立审计
 
-执行入口为 `daily_data_audit_index_minute_job`，参数固定为一个资产键、一个业务日、该频度、范围和稳定版本。仅批准的 Raw 五频及 Silver 七频可以开放。先复用等价证明。不足再由运营选择单项预览。提交、开跑、完成前按目标及依赖版本各核一次。需要继承上游齐备结论且未取得时，不提交或不开始文件查询，详情说明等待上游或缺口。已存上游缺口可说明对 Silver 的影响，不能凭它声称已经执行 Silver 键对账。
+执行入口为 `daily_data_audit_index_minute_job`，由本机 DG 的独立进程执行。参数固定为一个资产键、一个业务日、该频度、范围和稳定版本，范围限 Raw 五频及 Silver 七频。先复用已有的同版证据，确需补核时才读该日文件。需要继承上游齐备结论且未取得时，等待上游或记录其缺口，受影响的下游文件不读。财势乾坤页面只通过每日总结和详情查看结果。
 
 | 目标 | 数据访问和键判定 |
 |---|---|
@@ -169,9 +167,9 @@
 | `silver_index_mins_{1,5,15,30,60}m` | 应有对象继承本次实际同频 Raw 的批准范围。在需要补核时只读同日目标及实际来源，以正式标准化后业务键做双向差异及重复检测。已获准的历史源全空替代使用同日实际绑定的 5m Raw 和正式转换。只有键对账可证明时显示「仅与上游一致」。 |
 | `silver_index_mins_90m`、`silver_index_mins_120m` | 分别使用同版 30m、60m Silver 的应有范围。复用[合成窗口合同](dagster-derived-minute-bars-90-120-contract-rebuild-low-level-design.md#22-90m-窗口)检查输入窗口和竞价锚点。按每指数输出 90m 的 11:00、14:00、15:00，120m 的 11:30、15:00 核键。最多读取对应上游及目标两个文件。 |
 
-预览返回预算内可用的已记录文件身份、行数或页脚估算、字节和键列。正式运行前重新按当前作用域检查。队列运行必须满足批准的资源及时间窗口，已有日更重任务在占用或将无法在剩余窗口完成时跳过。中间阶段可以从固定批次边界停止。在取消、失败或版本变化时无可消费结论。手动重试仅复核同一范围和版本，沿用原资格，次数由该资产批准的预算约束。窗口外、版本不明或次数未批准不重试。结果保存实际读量、版本和差异。重新开始最多重读该次单日文件范围。替换目标或所用输入应以新身份再做预览和核验。
+DG 运行前用已知文件数、读取列及已有行数估算开销，字节数仅供性能验证参考。复用已有队列，开跑前核对目标及必要输入版本。缺少同版范围证据时保留「待确认」。任务完成后保存实际读量、版本和差异。取消、失败及获准的同范围重试沿用 DG 运行管理，失败或取消的运行没有可消费的结论。
 
-自动提交仍待评审。审核通过后才在已有本机 daemon 注册启用独立审计传感器，默认停止。传感器按已批准资产、日期、窗口有界读记录并调用与人工操作相同的资格判断。候选未就绪可在后来评估再次考虑。用稳定的 `scope/version` 检查在途和成功结果，`run_key` 只作该传感器防重复，日期与版本明确放 run config。避免人工与自动同时进入读取，在单 run 队列的 job 起点再次查询同身份已有结论，若已有则直接引用。窗口结束仍未有结果就保留待确认。
+先在 DG 验一个代表资产的单日读取和结果读回。自动提交和运行窗口另行评审。获准后，由本机 daemon 评估专用审计传感器，从同版产出及必要上游就绪记录判断是否提交。日期与版本明确放 run config，`run_key` 只用于传感器去重。未取得核验结果时页面显示待确认。
 
 ## 8. 性能预算与执行验收
 
@@ -179,7 +177,7 @@
 |---|---|---|
 | DG 一次总结 | 设 `A` 为当前目录资产数，`P` 为所选业务日解析出、去重后的目标与必要参照范围数，`C` 为这些范围需要的 Check 键数。生产记录读取按范围分组批量执行，每组两类查询，分别取发布和已完成 Check。股票周月已有两次集合查询的例子。优先把匹配范围作为值表关联，禁止用资产集合与分区集合的笛卡尔乘积。输出至多 `A` 主行，另有固定、已列明的详情组件。一次完成结果只需查一个指定业务日的成功汇总 run 和该 run 的有界日志。无可用记录时不跨日查询。 | 在现有 SQL 存储对代表性的日分区、周期实际日及快照观察时点验证计划、查询次数和返回事件字节，区分 SQL 扫描量与结果条数。对无分区和复用分区先查可定位 `D` 的交付身份或已有发布记录，再按候选身份匹配 Check。没有可靠索引范围或绑定的项返回待确认，禁止降级为读明细或翻全历史。记录首跑、进程中断后的单日重读、只更新受影响行的读取和 Web 最终读回。单次记录的实际压缩前字节和 DG 存储保留条件需跟样本验收。 |
 | 日更增量 | 周、月 Silver 各核最多 11 个应有指数，直接使用现有增量关系，新增文件或源请求为零。股票日线前复权 Gold 最多处理两个 `D` 文件的键，`S+G` 键记录。ClickHouse 使用已读的 `C_gold+C_ch` 条键，不追加 ClickHouse 请求。资金流、九转、板块分类取当日已有键列及适用参照。股票分钟 Raw/Silver 用原生产日内计数和代码，需计算时在已知当日文件投影中完成。状态用当次生产的前序和当日统计，快照 Check 复用当次转换工作集。 | 逐组记录新增文件数、投影、键记录数、峰值内存、正常 Check 时间、上游晚到后选中日期补查、发布后读回。分钟线参考逐资产规则的 2026-11-19 单列聚合样本约 9 毫秒。该值只测过 `ts_code` 分组，不能作为完整 Check 耗时。未证实开销可控的补项暂不进入日更，按方案复核执行方式。 |
-| 通用指数分钟独立任务 | Raw 至多一个文件，Silver 至多当日目标加实际输入两个文件。键为三个字段。`N` 为当次有效指数数，Raw 每频预计键数 `N × 每指数预期时点数`，Silver 派生预期键数由同版输入窗口决定。样本 `N=530` 的 Raw 1m 是 `530 × 241 = 127730` 个预期键。若中断后批准重试，每次至多重读同样一个或两个文件，最终核版本及读回结果只查有界身份、记录和必要文件属性。 | 检查文件字节及行组、实际扫描键数、差集峰值内存、用时、终止时点、单日期重试和结果读回。确认生产队列仍串行，评审实际可用窗口、单轮名额、重试次数及余量后才配自动运行。 |
+| 通用指数分钟独立任务 | Raw 至多一个文件，Silver 至多当日目标加实际输入两个文件。键为三个字段。`N` 为当次有效指数数，Raw 每频预计键数 `N × 每指数预期时点数`，Silver 派生预期键数由同版输入窗口决定。样本 `N=530` 的 Raw 1m 是 `530 × 241 = 127730` 个预期键。若中断后批准重试，每次至多重读同样一个或两个文件。 | 在 DG 验代表资产的文件数、实际扫描键数、峰值内存、耗时、单日重试和结果读回。用实测确定可用窗口，再评审自动运行。 |
 | 东方财富概念分类 Tushare 复核 | 设 `K` 为本轮差异代码数，在每个代码两个接口各一页时基础请求数为 `2K`。有分页时为 `sum(index_pages + member_pages)`，重试另计每页实际附加次数。复用 [现行东方财富请求策略](../../orchestrator/src/orchestrator/defs/asset_guards/dc_board_source_probe.py#L149) 的间隔、最多 3 次页内重试、1,200 次请求和 600 秒每轮硬上限作为外层限制，并按本次差集提前完成。页大小沿用[现行合同](../../orchestrator/src/orchestrator/defs/run_contracts/dc_board.py#L69)。只重试上一轮失败的代码与接口。某项分页未完整时重读这一项，其他已成功项沿用结果。 | 复用 DG [带限时 HTTP transport](../../orchestrator/src/orchestrator/tushare_download/http_transport.py#L202) 和[现有请求时限](../../orchestrator/src/orchestrator/tushare_download/configuration.py#L48)，每次调用的上限是 45 秒。排队及运行共用提交时生成的截止时点。达到请求数上限，或剩余时间不足当前一次调用的上限时，经下载会话已有的取消检查阻止下一页或重试。正常提前完成即解锁。验证无响应时 Web 可解锁、DG 到期无新请求、已完成项可按同版读回。记录分页、失败重试、返回的证据大小与实际用时。 |
 
 汇总与独立读取复用现有治理的[事件、身份和读取边界](dagster-data-pipeline-performance-governance.md)。产品、生产 Check、独立审计分阶段获得本机正式执行授权。先用隔离实例和真实 schema 契约验证，再有界读回已有正式产出和 Check。可用已有验收样本包括[主要指数周月交付](dagster-daily-data-audit-rules-review-v1.md#主要指数周线和月线的检查结果复用)、[ETF 复权因子缺码和交付证据](dagster-daily-data-audit-rules-review-v1.md#复用与单日补核)及[股票分钟线保留和过滤的实例](dagster-daily-data-audit-rules-review-v1.md#31-股票原始分钟线与-silver10-项)。这些记录证明各自的历史业务口径，小范围实现验收还需证明新读取路径和目标版本绑定。
@@ -191,15 +189,29 @@
 | 方案约束 | LLD 和测试位置 | 需要通过的正反例 |
 |---|---|---|
 | 方案 §1–2 本地入口、日期和两列状态 | §2、§4。沿用 `DataCenterPage.test.tsx`，新增 `DataAuditPage.test.tsx`、`tests/web/test_wealth_data_audit_api.py` | 本地显式开启才有卡和读写接口。Prod 强传开关、伪造 localhost、直达路径也拿不到。登录只读、管理员操作、只读绕过按钮 POST 返回 403。DG 断开提示并标旧结果的原时间。当天未生成不借上一日。四个数字分别筛该日、更新条件回全部、明细定位回第一页，组合后按实际匹配数展示且汇总数字不变。 |
-| 方案 §3.1、§5 更新 | §3.1/3.3/3.4。DG `tests/test_daily_data_audit_summary.py` | 正常交付、晚到交付、合法空公告、固定快照和非发布日。对同一「当日应更但确无交付」在 23:59:59 与次日 00:00 比较。休市或合同延期无超期，缺日历规则是无法确认。仅绿灯没交付、只登记分区、周期实际截至日落后均不可为已更新。 |
+| 方案 §3.1、§5 更新 | §3.1/3.3/3.4。DG `tests/test_daily_data_audit_summary.py` | 正常交付、合法空公告、固定快照和非发布日。到次日 00:00 确无应有交付时为超期。首轮运行前若已迟到交付，直接显示「已更新」和实际发布时间。休市或合同延期无超期，缺日历规则是无法确认。仅绿灯没交付、只登记分区、周期实际截至日落后均不可为已更新。 |
 | 方案 §3.2–3.3、规则 §1.1 证据复用 | §3.2–3.4、§5。DG `tests/test_daily_data_audit_evidence.py` | 同资产、分区、频度、范围、上游、规则及目标均匹配才复用。Check 对旧物化、覆盖只跑了合同、证据读取失败、新版本没有 Check、较新失败且较旧绿灯、仅同版一致，分别验状态及原因。等待或已知上游缺口时测下游行情读取为零。换版只重算受影响的行，保留原总结时点和到达时刻，历史无法重建就写未核实。 |
 | 方案 §4.1、§4.4 目录分流 | §3.1、§5.1。目录覆盖测试和 `tests/test_daily_data_audit_summary.py` | 对现有目录全部键核归类与原规则表的对应关系。国际指数日线两层各计一次不适用，六个 Prod 目标和 Lake 健康不参与本地核验，三项仅核更新。ETF 日线非阻断有缺码时允许已更新且齐备缺口。基金复权因子清算事实仅适用其对象及日期，未证实的事实不能认定为例外。 |
 | 方案 §4.2、规则 §3.1、§3.3、§3.4、§5.2 生产 Check | §5.2。各现有 Check 测试及 `test_index_period_writer.py`、`test_index_period_sensors.py` | 同日 Gold/ClickHouse 同量一缺一多须阻断，缺证据只待确认。周月 Silver 只核目标交易日，原始允许空规则不延伸到 Silver，错日期、重复和未上市正反例。全天停牌 Raw 占位不能抵常规缺根，Silver 为零，盘后独立。临停完整根数。上游晚到只查当天。MACD/KDJ 验同码总数、指标 45 行和递推 10 行，缺前序、同数错代码或上游待确认时不能判绿。 |
 | 规则 §3.5–3.7 资金流向、快照和日线神奇九转 | §5。扩展相应 Check 的现有测试 | 同花顺概念增减待人工、行业目录范围按 881 生效名单。东财板块资金流向代码相同改名通过、少板块报具体缺码、概念标准晚到后单日补 Check。普通资金流纳入全天停牌，东方财富个股只核有成交的上市 A 股。股票基础信息 20 条和 21 条分别判齐备、待确认。五个 Silver 快照按实际输入，变换漏写和版本错配可检出。日线神奇九转信号空合法，全天停牌无记录合法，盘中停牌有日线但缺九转报缺码。 |
 | 方案 §2、§4.2、规则 §3.4 东方财富 | §6。扩展 `test_dc_board_checks.py`，新增 `tests/test_daily_data_audit_dc_index.py` 与核查弹窗测试 | 行业、地域及概念分开比较，父行优先级与统计正确。概念同名单留副本，源端正常变更可确认，上交易日缺标准时报参照缺失。Tushare 只请求差异限定，正常空、失败及超时分开，锁定含 Esc 与遮罩。源端证明本地漏采时前后端拒绝生成。补齐后核新版本才允许确认。Raw/Silver 成分均仅复用现有对应 Check。 |
-| 方案 §4.3、§5 与规则 §1、§3.2 独立任务 | §7–8。DG `tests/test_daily_data_audit_index_minute.py` 与本地接口、页面测试 | 同版 Raw 时间键、Silver 输入窗口和输出键正常。代码齐全但缺 14:00、行数相同而时点错位、重复键或池换版被发现。只认已批准的历史全空例外。预览超预算无执行、排队后换版、生产冲突、取消与同身份重试。自动提交未批准时关闭，获准启用后验证无新事件但窗口打开也能提交、上游不到不读、浏览器关闭不影响执行、同一身份至多一次有效核验。 |
+| 方案 §4.3、§5 与规则 §1、§3.2 独立任务 | §7–8。DG `tests/test_daily_data_audit_index_minute.py` 与页面结果读取测试 | 同版 Raw 时间键、Silver 输入窗口和输出键正常。代码齐全但缺 14:00、行数相同而时点错位、重复键或池换版被发现。只认已批准的历史全空例外。通过 DG 验单日范围、换版和上游未就绪时的读取边界。页面从总结和详情展示结果。 |
 | 方案 §5–6 原生记录与恢复 | §3.4、§8。DG 汇总及读取集成测试 | 成功 run 可按日读回完整元数据，取消或失败留下运行记录而无可复用结论。部分证据失败只影响该范围。汇总发布失败不回滚业务数据。停机漏总结继续显示未生成，有界补记显示真实生成时间。测试原结果、迟到结果、同版消费和重试的读取预算。 |
 
 **本次文档审计结论。** 对照两份方案，以上各阶段采用相同资产范围、业务日期、状态、阻断规则和开放条件。34 项按 1+1+2+5+5+1+10+7+2 对账。既有 Check 足够的路径直接读结果，独立核验仅覆盖 12 项通用指数分钟线。Tushare 人工复核只用于东方财富概念分类。新增内容为实现方案要求所需的接口、结果记录、调用顺序与验收用例。
 
-使用 CodeGraph 核对了数据中心入口与请求链、DG 资产目录、检查和下游 readiness。将逐资产表的键与只读代码目录逐项比较，两侧均为 187 个唯一键，差集为空。当前安装的 Dagster 1.13.26 在隔离实例读回了成功 run 的 JSON 步骤输出元数据。汇总定位、结果读取、提交和取消的 GraphQL 文档通过同版 schema 校验。这里验证的是记录承载方式和接口形态。正式存储保留、同版生产证据读回、耗时与读取预算以及独立审计自动启用继续按本节分阶段验收。
+使用 CodeGraph 核对了数据中心入口与请求链、DG 资产目录、检查和下游 readiness。将逐资产表的键与只读代码目录逐项比较，两侧均为 187 个唯一键，差集为空。此前在 Dagster 1.13.26 隔离实例读回了成功 run 的 JSON 步骤输出元数据，汇总定位、结果读取和提交的 GraphQL 文档通过同版 schema 校验。这里验证的是记录承载方式和接口形态。正式存储保留、同版生产证据读回、耗时与读取预算以及独立审计自动启用继续按本节分阶段验收。
+
+## 10. 第一阶段收尾
+
+对照修改后的方案及逐资产规则，DG 目录和规则清单均为 187 个唯一资产键，差集为空。已通过本机 DG GraphQL 只读核对 2026-11-20 的三次现有运行及对应分区最新物化。三次运行均成功，六条 Check 均通过，分别指向各自资产、分区、运行和物化时间对应的记录。每个分区只取一条最新物化，运行日志只查这三个运行。以下是北京时间。
+
+| 样本 | 分区 / 实际业务日期 | 发布时间 | 关联证据 |
+|---|---|---|---|
+| 指数日线 Silver | `2026-11-20` / `2026-11-20` | 11 月 21 日 01:05:09 | 4 条 Check 指向物化 `8295431`。覆盖 Check 记录 Raw 实有 820 个代码、Silver 820 行，缺失、多出均为 0。该覆盖以实际 Raw 为依据。 |
+| 主要指数周线 Silver | `2026-11-20` / `2026-11-20` | 11 月 21 日 01:07:42 | 1 条文件合同 Check 指向物化 `8295659`，产出元数据记录截至 20 日、当期 11 行。 |
+| 主要指数月线 Silver | `2026-11` / `2026-11-20` | 11 月 21 日 01:08:18 | 1 条文件合同 Check 指向物化 `8295681`，产出元数据记录截至 20 日、当期 11 行。 |
+
+本次样本验证现有 DG 记录可提供日期、发布时点和目标 Check 关联。物化编号用于关联记录。周月线当期逐代码、逐行截至日的新增检查继续在第三阶段验收。第一阶段读回未执行生产或检查任务。
+
+第二阶段实现 DG 每日总结、财势乾坤本地数据审计入口和日期/资产详情读取，以及下游按实际范围和版本复用结果。阶段内验证一日批量取证、原生汇总写入与读回、本地与 Prod 路由边界、两列状态和筛选。证据不足的资产依照现有状态口径展示。生产 Check、东方财富概念人工复核和通用指数分钟线独立任务分别在第三、四、五阶段处理。
