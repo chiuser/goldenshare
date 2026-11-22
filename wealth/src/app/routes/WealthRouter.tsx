@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 
 import { DataCenterPage } from "../../pages/data-center/DataCenterPage";
 import { AnnouncementsPage } from "../../pages/data-center/AnnouncementsPage";
+import { DataAuditPage } from "../../pages/data-center/DataAuditPage";
+import { DATA_AUDIT_PATH } from "../../features/data-center/api/dataAuditApi";
 import { useAuth } from "../../features/auth/model/AuthProvider";
 import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
@@ -49,6 +51,7 @@ export function WealthRouter() {
 
   if (location.pathname === "/wealth/data-center") return <DataCenterPage />;
   if (location.pathname === "/wealth/data-center/announcements") return <AnnouncementsPage search={location.search} />;
+  if (location.pathname === DATA_AUDIT_PATH) return <DataAuditPage />;
 
   if (isWatchlistPath(location.pathname)) return <WatchlistPage search={location.search} />;
   if (location.pathname === "/wealth/market/trading-assistant") return <TradingAssistantPage />;

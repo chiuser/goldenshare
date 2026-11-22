@@ -10,9 +10,11 @@ from starlette.middleware.cors import CORSMiddleware
 from src.app.api.router import router as api_router
 from src.app.exceptions import install_exception_handlers
 from src.app.runtime.announcement_archive_lifespan import install_data_center
+from src.app.runtime.data_audit import install_data_audit
 from src.app.dependencies.stock_daily_technical_indicators import install_stock_daily_technical_indicators
 from src.foundation.config.settings import get_settings
 from src.foundation.config.announcement_archive import announcements_enabled
+from src.foundation.config.data_audit import data_audit_enabled
 from src.app.web.lifespan import web_lifespan
 from src.app.web.middleware import AccessLogMiddleware, RequestIdMiddleware
 from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, WEALTH_DIST_DIR, get_web_settings
@@ -52,6 +54,7 @@ install_exception_handlers(app)
 install_data_center(app)
 install_stock_daily_technical_indicators(app)
 app.include_router(api_router)
+install_data_audit(app, get_settings())
 
 _default_openapi = app.openapi
 
@@ -118,6 +121,8 @@ def wealth_app_subpath(subpath: str):  # type: ignore[no-untyped-def]
         return RedirectResponse(url="/wealth/login")
     if (subpath == 'data-center/announcements' or subpath.startswith('data-center/announcements/')) and not announcements_enabled(get_settings()):
         return PlainTextResponse('当前部署不提供上市公司公告模块',status_code=404)
+    if subpath.rstrip("/") == "data-center/data-audit" and not data_audit_enabled(get_settings()):
+        return PlainTextResponse("当前部署不提供数据审计模块", status_code=404)
     return _wealth_app_response()
 
 

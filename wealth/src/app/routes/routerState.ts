@@ -190,7 +190,8 @@ function isWealthRoute(pathname: string): boolean {
     || pathname === DEFAULT_WEALTH_PATH
     || pathname.startsWith("/wealth/market/")
     || pathname === "/wealth/data-center"
-    || pathname === "/wealth/data-center/announcements";
+    || pathname === "/wealth/data-center/announcements"
+    || pathname === "/wealth/data-center/data-audit";
 }
 
 function appendSearch(path: string, search: RouteSearch): string {

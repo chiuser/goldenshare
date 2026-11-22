@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     wealth_local_announcements_enabled: bool = Field(
         default=False, alias="WEALTH_LOCAL_ANNOUNCEMENTS_ENABLED",
     )
+    wealth_local_data_audit_enabled: bool = Field(
+        default=False, alias="WEALTH_LOCAL_DATA_AUDIT_ENABLED",
+    )
     announcement_archive_database_url: str = Field(
         default="", alias="ANNOUNCEMENT_ARCHIVE_DATABASE_URL", repr=False,
     )
