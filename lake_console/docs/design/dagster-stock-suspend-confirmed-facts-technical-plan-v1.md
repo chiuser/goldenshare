@@ -16,6 +16,8 @@
 
 实际证据：[S0 审计清单](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-suspend-confirmed-facts-s0-audit-checklist-v1.md)。S0 已刷新来源、逻辑指纹、文件集合与部署边界；不是新链路实现或发布验收。
 
+后续专项需求暂缓（2026 年 11 月 23 日）。[平安银行 2009 年 2 月 23 日停牌订正及 DG 补数方案](dagster-stock-suspension-20090223-recovery-plan-v1.md)保留盘中停牌订正设计和同日日线、分钟行情及下游的只读证据。本文继续记录已结案的全日停牌专项。
+
 ## 1. 结论与已确认边界
 
 保留 Tushare Raw 原样镜像。将当前 CSV 承载的历史全日停牌修正，转为一份独立、固定、正式登记的 Silver 输入资产；由现有 `silver_stock_suspend_daily` 合成唯一供本地 DG 业务消费的停复牌事实。
