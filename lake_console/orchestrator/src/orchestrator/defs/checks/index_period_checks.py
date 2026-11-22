@@ -1,6 +1,7 @@
 """指数周期 Raw 的文件保存契约；候选校验与原生 check 共用结果。"""
 
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import dagster as dg
@@ -21,6 +22,7 @@ class IndexPeriodFileCheck:
     source_row_count: int
     failure_counts: dict[str, int]
     failure_samples: tuple[str, ...] = ()
+    coverage: dict | None = None
 
     @property
     def passed(self) -> bool:
@@ -28,9 +30,10 @@ class IndexPeriodFileCheck:
 
 
 class IndexPeriodContractError(ValueError):
-    def __init__(self, result: IndexPeriodFileCheck, period_end):
+    def __init__(self, result: IndexPeriodFileCheck, period_end, *, as_of=None):
         self.result = result
         self.period_end = period_end
+        self.as_of = as_of
         super().__init__(f"指数周期文件保存契约失败：{result.failure_counts}")
 
 
@@ -142,8 +145,46 @@ def index_period_silver_check_spec(period):
     )
 
 
+def check_index_period_coverage(check, rows, *, as_of, expected_codes):
+    counts = Counter(code for code, _ in rows)
+    expected = set(expected_codes)
+    missing = sorted(expected - counts.keys())
+    extra = sorted(counts.keys() - expected, key=str)
+    duplicates = {code: count - 1 for code, count in counts.items() if count > 1}
+    wrong_dates = [(code, day) for code, day in rows if day != as_of]
+    failures = {
+        "missing_count": len(missing),
+        "extra_count": len(extra),
+        "duplicate_count": sum(duplicates.values()),
+        "wrong_date_count": len(wrong_dates),
+    }
+    samples = [
+        *({"ts_code": code, "reason": "missing"} for code in missing),
+        *({"ts_code": code, "reason": "extra"} for code in extra),
+        *({"ts_code": code, "reason": "duplicate"} for code in duplicates),
+        *(
+            {
+                "ts_code": code,
+                "reason": "wrong_date",
+                "trade_date": day.isoformat() if day else None,
+            }
+            for code, day in wrong_dates
+        ),
+    ]
+    coverage = {
+        "passed": not any(failures.values()),
+        "expected_count": len(expected),
+        "actual_count": len(rows),
+        **failures,
+        "samples": samples[: len(expected_codes)],
+    }
+    return replace(
+        check, failure_counts={**check.failure_counts, **failures}, coverage=coverage
+    )
+
+
 def index_period_silver_check_result(
-    period, result, *, path, partition_key, period_end
+    period, result, *, path, partition_key, period_end, coverage
 ):
     return index_period_check_result(
         period,
@@ -152,6 +193,7 @@ def index_period_silver_check_result(
         path=path,
         partition_key=partition_key,
         period_end=period_end,
+        coverage=coverage,
     )
 
 
@@ -180,7 +222,7 @@ def index_period_raw_check_result(period, result, *, path, partition_key, period
 
 
 def index_period_check_result(
-    period, result, *, layer, path, partition_key, period_end
+    period, result, *, layer, path, partition_key, period_end, coverage=None
 ):
     return dg.AssetCheckResult(
         asset_key=getattr(period, layer + "_asset"),
@@ -199,6 +241,11 @@ def index_period_check_result(
                 "file_row_count": result.file_row_count,
                 "failure_counts": result.failure_counts,
                 "failure_samples": list(result.failure_samples),
+                **(
+                    {"index_period_coverage": {**coverage, **result.coverage}}
+                    if coverage
+                    else {}
+                ),
             },
         ),
     )

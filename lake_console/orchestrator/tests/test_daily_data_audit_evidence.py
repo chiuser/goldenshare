@@ -85,6 +85,31 @@ def test_due_dates_keep_partition_and_business_date_separate():
     assert first_day["raw_index_monthly"].expected_date.isoformat() == "2026-10-30"
 
 
+def test_legacy_index_period_publication_has_update_but_no_coverage(tmp_path):
+    key = "silver_index_weekly"
+    check = "silver_index_weekly_file_contract_check"
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        result = _materialize(
+            instance,
+            digest=DIGEST,
+            key=key,
+            checks=[(check, True)],
+            published={"goldenshare/trade_date": PARTITION},
+        )
+        assert result.success
+        targets = (_targets()[key],)
+        observed = datetime.now(SHANGHAI)
+        evidence = load_evidence(instance, targets, DAY, observed)
+        assert evidence[key].checks[check].evaluation.passed
+        row = make_summary(DAY, observed, targets, evidence)["rows"][0]
+
+    assert row["update"]["status"] == "updated"
+    assert row["completeness"]["status"] == "pending"
+    assert row["completeness"]["reason"]["message"] == "缺少该版本的齐备证据"
+
+
 def test_native_summary_and_exact_version_consumption(tmp_path, monkeypatch):
     monkeypatch.setattr(jobs, "read_calendar", lambda root, day: CALENDAR)
     with dg.DagsterInstance.local_temp(
@@ -217,7 +242,7 @@ def test_historical_shared_partition_does_not_reuse_next_days_release(tmp_path):
             partition="2026-11",
             published={
                 "goldenshare/trade_date": "2026-11-23",
-                "goldenshare/period_start": PARTITION,
+                "goldenshare/period_end": PARTITION,
             },
         )
         now = datetime.now(SHANGHAI)
@@ -226,6 +251,23 @@ def test_historical_shared_partition_does_not_reuse_next_days_release(tmp_path):
         assert row["update"]["status"] == "updated"
         assert row["scope"]["as_of_date"] == PARTITION
         assert row["completeness"]["evidence"][0]["run_id"] == old.run_id
+
+
+def test_index_period_missing_daily_publication_uses_midnight_deadline(tmp_path):
+    target = (_targets()["silver_index_monthly"],)
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        for hour, minute, status in ((23, 59, "not_due"), (0, 0, "overdue")):
+            day = 20 if hour else 21
+            observed = datetime(2026, 11, day, hour, minute, tzinfo=SHANGHAI)
+            evidence = load_evidence(instance, target, DAY, observed)
+            row = make_summary(DAY, observed, target, evidence)["rows"][0]
+            assert row["update"]["status"] == status
+            assert row["completeness"]["status"] == "pending"
+
+        unavailable = make_summary(DAY, observed, target, {})["rows"][0]
+        assert unavailable["update"]["status"] == "unknown"
         assert row["completeness"]["status"] == "pending"
 
 

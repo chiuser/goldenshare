@@ -24,6 +24,7 @@ from orchestrator.defs.daily_data_audit.registry import (
     DELIVERY_DATE_FIELDS,
     FIXED_SNAPSHOTS,
     OUTSIDE_LOCAL,
+    SILVER_INDEX_PERIOD,
     AuditTarget,
 )
 
@@ -47,7 +48,7 @@ def metadata(record) -> dict:
     }
 
 
-def _delivery_date_matches(connection, expected):
+def _delivery_date_matches(connection, target):
     path = (
         "dagster_event",
         "event_specific_data",
@@ -73,9 +74,13 @@ def _delivery_date_matches(connection, expected):
         sa.select(1)
         .where(
             label.in_(names),
-            sa.func.replace(value, "-", "") == sa.func.replace(expected, "-", ""),
+            sa.or_(
+                target.c.trade_date_only.is_(False),
+                label.in_(("trade_date", "goldenshare/trade_date")),
+            ),
+            sa.func.replace(value, "-", "") == sa.func.replace(target.c.as_of, "-", ""),
         )
-        .correlate(Events)
+        .correlate(Events, target)
     )
 
 
@@ -116,6 +121,7 @@ def load_evidence(
             sa.column("cutoff", sa.DateTime),
             sa.column("as_of", sa.Text),
             sa.column("day_snapshot", sa.Boolean),
+            sa.column("trade_date_only", sa.Boolean),
         )
         .data(
             [
@@ -129,6 +135,7 @@ def load_evidence(
                     if target.exact_as_of and target.expected_date
                     else None,
                     target.asset_key in DAILY_SNAPSHOTS,
+                    target.asset_key in SILVER_INDEX_PERIOD,
                 )
                 for key, target in keys.items()
             ]
@@ -146,7 +153,7 @@ def load_evidence(
                 Events.c.timestamp <= scoped.c.cutoff,
                 sa.or_(
                     scoped.c.as_of.is_(None),
-                    _delivery_date_matches(connection, scoped.c.as_of),
+                    _delivery_date_matches(connection, scoped),
                     sa.and_(
                         scoped.c.day_snapshot,
                         Events.c.timestamp >= midnight,
@@ -178,6 +185,9 @@ def load_evidence(
                 target.partition,
                 name,
                 evidence[target.asset_key].materialization.storage_id,
+                evidence[target.asset_key].materialization.run_id
+                if target.asset_key in SILVER_INDEX_PERIOD
+                else None,
             )
             for key, target in keys.items()
             if evidence[target.asset_key].materialization is not None
@@ -191,6 +201,7 @@ def load_evidence(
                 sa.column("partition", sa.Text),
                 sa.column("check_name", sa.Text),
                 sa.column("materialization_id", sa.BigInteger),
+                sa.column("producer_run_id", sa.Text),
             )
             .data(check_scope)
             .cte("audit_checks")
@@ -201,6 +212,10 @@ def load_evidence(
                 Checks.c.asset_key == scope.c.asset_key,
                 Checks.c.check_name == scope.c.check_name,
                 Checks.c.materialization_event_storage_id == scope.c.materialization_id,
+                sa.or_(
+                    scope.c.producer_run_id.is_(None),
+                    Checks.c.run_id == scope.c.producer_run_id,
+                ),
                 # Legacy checks can omit their own partition. The native
                 # target still points to the exact partitioned publication.
                 sa.or_(

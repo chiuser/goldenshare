@@ -28,6 +28,7 @@ OUTSIDE_LOCAL = {
     "lake_root_health",
 }
 INTERNATIONAL_INDEX = {"raw_index_global", "silver_index_global"}
+SILVER_INDEX_PERIOD = {INDEX_WEEKLY.silver_asset, INDEX_MONTHLY.silver_asset}
 UPDATE_ONLY = {
     "raw_tushare_namechange",
     "raw_tushare_suspend_d",

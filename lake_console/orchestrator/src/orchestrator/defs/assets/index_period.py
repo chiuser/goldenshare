@@ -1,5 +1,6 @@
 """按周期管理、每频率保存完整历史的主要指数 Raw 资产。"""
 
+import json
 from pathlib import Path
 
 import dagster as dg
@@ -38,6 +39,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
 )
 from orchestrator.defs.run_contracts.index_period import (
     INDEX_MONTHLY,
+    INDEX_PERIOD_COVERAGE_RULE,
     INDEX_WEEKLY,
     IndexPeriodSilverConfig,
 )
@@ -170,6 +172,30 @@ def raw_index_monthly(context: dg.AssetExecutionContext):
     yield from _update_raw_index_period(context, INDEX_MONTHLY)
 
 
+def _index_period_coverage(period, partition_key, as_of, file_version, inputs):
+    day = as_of.isoformat()
+    coverage = {
+        "scope": {
+            "asset_key": period.silver_asset,
+            "business_date": day,
+            "partition_key": partition_key,
+            "as_of_date": day,
+            "frequency": "周线" if period == INDEX_WEEKLY else "月线",
+            "coverage_scope": "dataset",
+        },
+        "version": {
+            "target_version": json.dumps(file_version, separators=(",", ":"))
+            if file_version is not None
+            else None,
+            "inputs": inputs,
+            "rule_version": INDEX_PERIOD_COVERAGE_RULE,
+        },
+    }
+    if file_version is None or any(not item["target_version"] for item in inputs):
+        coverage["version_reason"] = "无法关联本次正式文件或实际输入的版本"
+    return coverage
+
+
 def _update_silver_index_period(context, config, period):
     context.resources.lake_root.ensure_available_for_run()
     if config.mode == "period":
@@ -209,8 +235,20 @@ def _update_silver_index_period(context, config, period):
             ),
             partition_key=context.partition_key,
             period_end=error.period_end,
+            coverage=_index_period_coverage(
+                period, context.partition_key, error.as_of, None, []
+            )
+            if error.result.coverage is not None
+            else None,
         )
         raise dg.Failure(str(error)) from error
+    coverage = _index_period_coverage(
+        period,
+        context.partition_key,
+        result.period_end,
+        result.file_version,
+        result.inputs,
+    )
     yield dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=result.path,
@@ -225,6 +263,8 @@ def _update_silver_index_period(context, config, period):
                 "source_row_count": result.input_row_count,
                 "changed_row_count": result.check.source_row_count,
                 "file_row_count": result.check.file_row_count,
+                "period_file_version": result.file_version,
+                "index_period_coverage": coverage,
                 **(
                     {
                         "daily_input": {
@@ -248,6 +288,7 @@ def _update_silver_index_period(context, config, period):
                 path=result.path,
                 partition_key=context.partition_key,
                 period_end=result.period_end,
+                coverage=coverage,
             )
         ],
     )

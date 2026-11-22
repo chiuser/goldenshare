@@ -17,6 +17,7 @@ INDEX_PERIOD_TICK_SECONDS = 600
 INDEX_PERIOD_EMPTY_SOURCE_CODE = "899050.BJ"
 INDEX_PERIOD_PROBE_CODE = "000001.SH"
 INDEX_PERIOD_BOOTSTRAP_JOB_NAME = "index_period_history_bootstrap_job"
+INDEX_PERIOD_COVERAGE_RULE = "index_period_silver_current_coverage_v1"
 
 
 @dataclass(frozen=True)

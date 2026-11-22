@@ -11,8 +11,10 @@ from orchestrator.defs.daily_data_audit.registry import (
     DAILY_SNAPSHOTS,
     DELIVERY_DATE_FIELDS,
     ETF_COVERAGE_CHECK,
+    SILVER_INDEX_PERIOD,
     AuditTarget,
 )
+from orchestrator.defs.run_contracts.index_period import INDEX_PERIOD_COVERAGE_RULE
 
 STATUSES = ("complete", "gap", "pending", "not_applicable")
 CALENDAR_RAW = "raw_tushare_trade_calendar"
@@ -68,6 +70,8 @@ def materialization_fields(evidence: DeliveryEvidence) -> dict:
 
 
 def _actual_date(target: AuditTarget, materialization: dict) -> str | None:
+    if target.asset_key in SILVER_INDEX_PERIOD:
+        return _iso_date(materialization.get("trade_date"))
     if not target.exact_as_of:
         return _iso_date(target.partition)
     for field in DELIVERY_DATE_FIELDS:
@@ -172,6 +176,30 @@ def _index_basic_proof(bundle, name, coverage):
         "materialization_id": published.storage_id,
         "materialization_run_id": published.run_id,
     }
+
+
+def _index_period_proof(scope, details, check, target_version):
+    publication = details.get("index_period_coverage") or {}
+    version = publication.get("version") or {}
+    inputs = version.get("inputs") or []
+    if (
+        check is None
+        or not check.evaluation.passed
+        or publication.get("scope") != scope
+        or version.get("target_version") != target_version
+        or version.get("rule_version") != INDEX_PERIOD_COVERAGE_RULE
+        or not inputs
+        or any(not item.get("target_version") for item in inputs)
+    ):
+        return None
+    coverage = metadata(check.evaluation).get("index_period_coverage") or {}
+    if (
+        coverage.get("scope") == scope
+        and coverage.get("version") == version
+        and coverage.get("passed") is True
+    ):
+        return coverage
+    return None
 
 
 def _moneyflow_source(key, details, bundle, rows):
@@ -645,6 +673,7 @@ def _row(target, day, observed_at, evidence, built):
             not record
             and target.exact_as_of
             and key not in DAILY_SNAPSHOTS
+            and key not in SILVER_INDEX_PERIOD
         )
     ) and target.requires_update:
         update["status"] = "unknown"
@@ -658,6 +687,7 @@ def _row(target, day, observed_at, evidence, built):
         _reason("not_verified", "暂无符合该数据集口径的核验结果"),
     )
     components = []
+    index_period_coverage = None
     if target.excluded_reason:
         status, reason = (
             "not_applicable",
@@ -668,11 +698,22 @@ def _row(target, day, observed_at, evidence, built):
         and record
         and (not target.exact_as_of or actual == update["expected_date"])
     ):
-        result = _reuse(target, day, actual, details, evidence, built)
-        if result:
-            status, (reason, version["inputs"]) = "complete", result
+        if key in SILVER_INDEX_PERIOD:
+            index_period_coverage = _index_period_proof(
+                scope, details, checks.get(f"{key}_file_contract_check"), target_version
+            )
+            if index_period_coverage:
+                status = "complete"
+                reason = _reason("check_passed", "已核对每个应有指数的目标交易日")
+                version = index_period_coverage["version"]
+        else:
+            result = _reuse(target, day, actual, details, evidence, built)
+            if result:
+                status, (reason, version["inputs"]) = "complete", result
     elif record:
         reason = _reason("version_mismatch", "已有产出，暂不能把齐备结论绑定到这版产出")
+    if status == "pending" and record and key in SILVER_INDEX_PERIOD:
+        reason = _reason("not_verified", "缺少该版本的齐备证据")
     if status == "pending" and key in DC_CLASSIFICATION:
         reason = _reason("reference_missing", "暂无所选日适用的板块分类标准集")
         components = [
@@ -695,6 +736,8 @@ def _row(target, day, observed_at, evidence, built):
             )
     check_time = max((check.event.timestamp for check in checks.values()), default=None)
     counts = _counts(status, key, details)
+    if index_period_coverage:
+        counts = {field: index_period_coverage[field] for field in counts}
     return {
         "dataset_name": target.entry.dataset_name,
         "layer": target.entry.layer.value,
@@ -707,7 +750,9 @@ def _row(target, day, observed_at, evidence, built):
             "reason": reason,
             "checked_at": _timestamp(check_time) if check_time is not None else None,
             **counts,
-            "samples": [],
+            "samples": index_period_coverage["samples"]
+            if index_period_coverage
+            else [],
             "exceptions": [],
             "evidence": proof,
             "components": components,

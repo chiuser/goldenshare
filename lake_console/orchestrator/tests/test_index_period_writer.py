@@ -318,6 +318,110 @@ def test_silver_literal_daily_and_same_day_replay(tmp_path, no_source, period, k
 
 
 @pytest.mark.parametrize(
+    ("statement", "failure", "sample"),
+    [
+        (
+            "UPDATE index_period_synthesized SET trade_date=DATE '2026-06-30' WHERE ts_code='000300.SH'",
+            "wrong_date_count",
+            {
+                "ts_code": "000300.SH",
+                "reason": "wrong_date",
+                "trade_date": "2026-06-30",
+            },
+        ),
+        (
+            "UPDATE index_period_synthesized SET trade_date=DATE '2026-07-02' WHERE ts_code='000300.SH'",
+            "wrong_date_count",
+            {
+                "ts_code": "000300.SH",
+                "reason": "wrong_date",
+                "trade_date": "2026-07-02",
+            },
+        ),
+        (
+            "UPDATE index_period_synthesized SET ts_code='009999.SH' WHERE ts_code='000300.SH'",
+            "extra_count",
+            {"ts_code": "000300.SH", "reason": "missing"},
+        ),
+        (
+            "INSERT INTO index_period_synthesized SELECT * FROM index_period_synthesized WHERE ts_code='000300.SH'",
+            "duplicate_count",
+            {"ts_code": "000300.SH", "reason": "duplicate"},
+        ),
+        (
+            "DELETE FROM index_period_synthesized WHERE ts_code='899050.BJ'",
+            "missing_count",
+            {"ts_code": "899050.BJ", "reason": "missing"},
+        ),
+    ],
+)
+def test_silver_coverage_blocks_bad_current_period_before_promotion(
+    tmp_path, no_source, monkeypatch, statement, failure, sample
+):
+    root = tmp_path / "lake"
+    silver_inputs(root)
+    if failure in {"missing_count", "extra_count"}:
+        period, key = INDEX_MONTHLY, "2026-07"
+        path = seed_silver(root, period, start="2026-06-01")
+    else:
+        period, key = INDEX_WEEKLY, "2026-07-03"
+        path = seed_silver(root, period)
+    previous_bytes = path.read_bytes()
+    synthesize = writer.synthesize_index_period
+
+    def bad_output(connection, **kwargs):
+        inputs = synthesize(connection, **kwargs)
+        connection.execute(statement)
+        return inputs
+
+    monkeypatch.setattr(writer, "synthesize_index_period", bad_output)
+    config = {"mode": "daily", "trade_date": "2026-07-01"}
+    with pytest.raises(writer.IndexPeriodContractError) as failure_record:
+        silver_update(root, period, key, config)
+    coverage = failure_record.value.result.coverage
+    assert failure_record.value.as_of.isoformat() == "2026-07-01"
+    assert coverage["passed"] is False and coverage[failure] == 1
+    assert sample in coverage["samples"]
+    assert path.read_bytes() == previous_bytes
+
+    monkeypatch.setattr(writer, "synthesize_index_period", synthesize)
+    retry = silver_update(root, period, key, config, "retry")
+    assert retry.check.passed and retry.check.coverage["actual_count"] == 11
+
+
+def test_silver_coverage_switches_expected_codes_on_listing_day(tmp_path, no_source):
+    root = tmp_path / "lake"
+    silver_inputs(root)
+    path = writer.silver_index_basic_path(root)
+    with duckdb.connect() as connection:
+        connection.execute(
+            "CREATE TABLE listings AS SELECT * FROM read_parquet(?)", [str(path)]
+        )
+        connection.execute(
+            "UPDATE listings SET list_date=DATE '2026-07-02' WHERE ts_code='000680.SH'"
+        )
+        connection.execute("COPY listings TO ? (FORMAT PARQUET)", [str(path)])
+    first = silver_update(
+        root, INDEX_MONTHLY, "2026-07", {"mode": "daily", "trade_date": "2026-07-01"}
+    )
+    assert (
+        first.check.coverage["expected_count"]
+        == first.check.coverage["actual_count"]
+        == 10
+    )
+    assert not any(row[0] == "000680.SH" for row in read(first.path))
+    second = silver_update(
+        root, INDEX_MONTHLY, "2026-07", {"mode": "daily", "trade_date": "2026-07-02"}
+    )
+    assert (
+        second.check.coverage["expected_count"]
+        == second.check.coverage["actual_count"]
+        == 11
+    )
+    assert any(row[0] == "000680.SH" for row in read(second.path))
+
+
+@pytest.mark.parametrize(
     "close,expected",
     [
         ("2000.1000", "0.0100"),

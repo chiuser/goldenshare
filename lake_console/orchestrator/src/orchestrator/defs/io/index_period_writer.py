@@ -1,14 +1,18 @@
 """指数周月线 Raw：完整 unit 下载、列式合并及单文件原子提升。"""
 
+import json
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import date, datetime
+from hashlib import sha256
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.checks.index_period_checks import (
     IndexPeriodContractError,
     IndexPeriodFileCheck,
+    check_index_period_coverage,
     check_index_period_file,
     check_index_period_raw_file,
     index_period_schema_matches,
@@ -18,6 +22,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.stock_period_raw import file_version
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_STAGING_ROOT,
     index_period_candidate_path,
@@ -48,6 +53,33 @@ from orchestrator.tushare_download import (
 )
 
 RAW_COLUMNS = tuple(column.name for column in RAW_INDEX_WEEKLY_SCHEMA)
+
+
+def _file_version(path):
+    try:
+        return file_version(path)
+    except OSError:
+        return None
+
+
+@contextmanager
+def _observe_inputs(inputs, asset_key, files):
+    if inputs is None:
+        yield
+        return
+    versions = [_file_version(path) for path, _ in files]
+    yield
+    for (path, scope), before in zip(files, versions, strict=True):
+        after = _file_version(path)
+        inputs.append(
+            {
+                "asset_key": asset_key,
+                "scope": scope,
+                "target_version": json.dumps(after, separators=(",", ":"))
+                if after is not None and before == after
+                else None,
+            }
+        )
 
 
 def index_period_end(connection, calendar_path, period, partition_key):
@@ -209,6 +241,8 @@ def prepare_index_period_file(
     period_start=None,
     period_end=None,
     history_relation=None,
+    as_of=None,
+    expected_codes=None,
 ):
     """共享的列式写入；bootstrap传完整来源，日常仅按本次主键替换。"""
     target = index_period_path(lake_root, period, layer)
@@ -271,10 +305,18 @@ def prepare_index_period_file(
             period_start=period_start,
             period_end=period_end,
         )
-    if not check.passed:
-        raise IndexPeriodContractError(check, period_end)
     partition_count = source_count
-    if partition_key is not None:
+    if expected_codes is not None:
+        rows = connection.execute(
+            "SELECT ts_code, trade_date FROM index_period_merged "
+            "WHERE period_start_date = ? ORDER BY ts_code, trade_date",
+            [period_start],
+        ).fetchall()
+        check = check_index_period_coverage(
+            check, rows, as_of=as_of, expected_codes=expected_codes
+        )
+        partition_count = len(rows)
+    elif partition_key is not None and check.passed:
         predicate = (
             "trade_date = ?"
             if period == INDEX_WEEKLY
@@ -286,6 +328,8 @@ def prepare_index_period_file(
         partition_count = connection.execute(
             f"SELECT count(*) FROM index_period_merged WHERE {predicate}", [key]
         ).fetchone()[0]
+    if not check.passed:
+        raise IndexPeriodContractError(check, period_end, as_of=as_of)
     return IndexPeriodPreparedFile(target, candidate, check, partition_count)
 
 
@@ -342,7 +386,15 @@ def index_period_silver_from_source_sql(relation, *, raw, period):
 
 
 def synthesize_index_period(
-    connection, *, root, period, period_start, as_of, codes, output_relation
+    connection,
+    *,
+    root,
+    period,
+    period_start,
+    as_of,
+    codes,
+    output_relation,
+    inputs=None,
 ):
     allowed = ",".join(duckdb_string(code) for code in codes)
     connection.execute(f"""CREATE OR REPLACE TEMP TABLE index_period_expected AS
@@ -368,10 +420,19 @@ def synthesize_index_period(
         f'CAST(d."{name}" AS DECIMAL(18,4)) AS "{name}"'
         for name in ("open", "high", "low", "close", "pre_close")
     )
-    connection.execute(f"""CREATE OR REPLACE TEMP TABLE index_period_daily AS
-        SELECT d.ts_code,d.trade_date,{prices},CAST(d.vol AS DECIMAL(20,4)) vol,CAST(d.amount AS DECIMAL(20,4)) amount
-        FROM read_parquet([{files}],hive_partitioning=false) d
-        JOIN index_period_expected e USING(ts_code,trade_date)""")
+    day_files = (
+        [
+            (path, {"partition_key": day.isoformat()})
+            for day, path in zip(days, paths, strict=True)
+        ]
+        if inputs is not None
+        else ()
+    )
+    with _observe_inputs(inputs, "silver_index_daily", day_files):
+        connection.execute(f"""CREATE OR REPLACE TEMP TABLE index_period_daily AS
+            SELECT d.ts_code,d.trade_date,{prices},CAST(d.vol AS DECIMAL(20,4)) vol,CAST(d.amount AS DECIMAL(20,4)) amount
+            FROM read_parquet([{files}],hive_partitioning=false) d
+            JOIN index_period_expected e USING(ts_code,trade_date)""")
     missing_keys = connection.execute("""SELECT e.ts_code,e.trade_date FROM index_period_expected e
         ANTI JOIN index_period_daily d USING(ts_code,trade_date) LIMIT 11""").fetchall()
     invalid = connection.execute("""SELECT count(*) FROM index_period_daily
@@ -423,6 +484,8 @@ class IndexPeriodSilverWrite:
     input_row_count: int
     source_assets: tuple[str, ...]
     daily_input: dict | None
+    file_version: list[int] | None
+    inputs: list[dict]
 
 
 def write_index_period_silver(
@@ -436,7 +499,18 @@ def write_index_period_silver(
     staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
 ):
     start, end = index_period_bounds(period, partition_key)
-    load_index_period_calendar(connection, lake_root, start, end)
+    inputs = []
+    with _observe_inputs(
+        inputs,
+        "silver_trade_calendar",
+        [
+            (
+                silver_trade_calendar_path(lake_root),
+                {"start_date": start.isoformat(), "end_date": end.isoformat()},
+            ),
+        ],
+    ):
+        load_index_period_calendar(connection, lake_root, start, end)
     opens = [
         r[0]
         for r in connection.execute(
@@ -461,18 +535,41 @@ def write_index_period_silver(
     as_of = date.fromisoformat(config.trade_date) if config.mode == "daily" else last
     if as_of not in opens:
         raise ValueError("实际截至日不属于所选周期的交易日")
-    listings = load_index_period_listings(connection, lake_root)
+    with _observe_inputs(
+        inputs,
+        "silver_index_basic",
+        [
+            (silver_index_basic_path(lake_root), {"business_date": as_of.isoformat()}),
+        ],
+    ):
+        listings = load_index_period_listings(connection, lake_root)
+    inputs.append(
+        {
+            "asset_key": "major_indices.cn_a.csv",
+            "scope": {},
+            "target_version": sha256(
+                json.dumps(sorted(listings), separators=(",", ":")).encode("utf-8")
+            ).hexdigest(),
+        }
+    )
     active = tuple(code for code, listed in listings.items() if listed <= as_of)
     schema = SILVER_INDEX_WEEKLY_SCHEMA
     empty = ",".join(f'CAST(NULL AS {c.type}) AS "{c.name}"' for c in schema)
     current_path = index_period_path(lake_root, period, "silver")
-    if current_path.exists():
-        connection.execute(
-            f"CREATE OR REPLACE TEMP TABLE index_period_existing_silver AS SELECT * FROM {read_parquet(current_path)}"
-        )
+    current_exists = current_path.exists()
+    previous_inputs = []
+    if current_exists:
+        with _observe_inputs(
+            previous_inputs,
+            period.silver_asset,
+            [(current_path, {"partition_key": partition_key})],
+        ):
+            connection.execute(
+                f"CREATE OR REPLACE TEMP TABLE index_period_existing_silver AS SELECT * FROM {read_parquet(current_path)}"
+            )
     current_sql = (
         f"SELECT * FROM index_period_existing_silver WHERE period_start_date=DATE {duckdb_string(first)}"
-        if current_path.exists()
+        if current_exists
         else f"SELECT {empty} WHERE false"
     )
     connection.execute(
@@ -487,14 +584,22 @@ def write_index_period_silver(
     raw_empty = ",".join(
         f'CAST(NULL AS {c.type}) AS "{c.name}"' for c in RAW_INDEX_WEEKLY_SCHEMA
     )
+    raw_exists = raw_path.exists()
     raw_sql = (
         f"SELECT * FROM {read_parquet(raw_path)} WHERE trade_date={duckdb_string(last.strftime('%Y%m%d'))}"
-        if raw_path.exists()
+        if raw_exists
         else f"SELECT {raw_empty} WHERE false"
     )
-    connection.execute(
-        f"CREATE OR REPLACE TEMP TABLE index_period_raw_current AS {raw_sql}"
+    raw_inputs = []
+    raw_files = (
+        [(raw_path, {"partition_key": partition_key, "as_of_date": last.isoformat()})]
+        if raw_exists
+        else []
     )
+    with _observe_inputs(raw_inputs, period.raw_asset, raw_files):
+        connection.execute(
+            f"CREATE OR REPLACE TEMP TABLE index_period_raw_current AS {raw_sql}"
+        )
     raw_codes = {
         r[0]
         for r in connection.execute(
@@ -512,6 +617,10 @@ def write_index_period_silver(
     )
     formal = tuple(code for code in active if code in raw_codes and code not in keep)
     synth = tuple(code for code in active if code not in keep and code not in formal)
+    if keep or (config.mode == "daily" and synth):
+        inputs.extend(previous_inputs)
+    if formal:
+        inputs.extend(raw_inputs)
     if config.mode == "period" and synth:
         raise ValueError(f"期末Raw缺失且无完整Silver：{synth}")
     if config.mode == "daily":
@@ -547,6 +656,7 @@ def write_index_period_silver(
             as_of=as_of,
             codes=synth,
             output_relation="index_period_synthesized",
+            inputs=inputs,
         )
         selections.append("SELECT * FROM index_period_synthesized")
     if not selections:
@@ -562,12 +672,12 @@ def write_index_period_silver(
         period=period,
         layer="silver",
         source_relation="index_period_silver_delta",
-        history_relation="index_period_existing_silver"
-        if current_path.exists()
-        else None,
+        history_relation="index_period_existing_silver" if current_exists else None,
         partition_key=partition_key,
         period_start=first,
         period_end=last,
+        as_of=as_of,
+        expected_codes=active,
     )
     if prepared.check.source_row_count != len(active):
         raise ValueError("本次周期标准行情目标代码不完整")
@@ -585,4 +695,12 @@ def write_index_period_silver(
         len(formal) + len(keep) + (daily_input["row_count"] if daily_input else 0),
         sources,
         daily_input,
+        _file_version(prepared.path),
+        sorted(
+            inputs,
+            key=lambda item: (
+                item["asset_key"],
+                item["scope"].get("partition_key", ""),
+            ),
+        ),
     )
