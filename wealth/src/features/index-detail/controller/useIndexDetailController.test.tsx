@@ -103,14 +103,14 @@ describe("current index identity is checked before empty data", () => {
   });
 });
 
-describe("SSE ordinary daily history", () => {
+describe("ordinary index daily history", () => {
   const code = "000001.SH";
   const firstEnd = "2026-07-31";
 
-  // Input shape follows the implemented SSE page contract. Weekday dates are
+  // Input shape follows the implemented local page contract. Weekday dates are
   // sufficient to verify the cursor supplied by the server and the drag threshold.
-  function page(endDate: string, count: number, nextEndDate: string | null): IndexDetailKlineResponseDto {
-    const initial = makeOrdinaryKline();
+  function page(endDate: string, count: number, nextEndDate: string | null, tsCode = code): IndexDetailKlineResponseDto {
+    const initial = makeOrdinaryKline(tsCode);
     const rows = [];
     const date = new Date(endDate);
     while (rows.length < count) {
@@ -128,18 +128,18 @@ describe("SSE ordinary daily history", () => {
     };
   }
 
-  function mountFirstPage() {
+  function mountFirstPage(tsCode = code) {
     const sample = page(firstEnd, 500, null);
     const firstDate = sample.bars[0]!.tradeDate;
     const friday = new Date(firstDate);
     friday.setUTCDate(friday.getUTCDate() - 3);
     expect(new Date(firstDate).getUTCDay()).toBe(1);
     const olderEnd = friday.toISOString().slice(0, 10);
-    const initial = page(firstEnd, 500, olderEnd);
-    vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit(code));
+    const initial = page(firstEnd, 500, olderEnd, tsCode);
+    vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit(tsCode));
     vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(initial);
     vi.mocked(fetchTrendChannel).mockResolvedValueOnce(makeTrendPayload());
-    const hook = renderHook(({ tsCode }) => useIndexDetailController(tsCode, undefined), { initialProps: { tsCode: code } });
+    const hook = renderHook(({ tsCode }) => useIndexDetailController(tsCode, undefined), { initialProps: { tsCode } });
     const move = (remaining: number, direction: "history" | "recent", gesture = Symbol(), beyondLeft = false) =>
       act(() => hook.result.current.history.onViewport({
         firstDate, leftDate: initial.bars[remaining - 1]!.tradeDate,
@@ -148,9 +148,13 @@ describe("SSE ordinary daily history", () => {
     return { ...hook, move, olderEnd };
   }
 
-  it("keeps a late short page in cache, then reveals it with both layers and retries only the failed range", async () => {
-    const { result, move, olderEnd } = mountFirstPage();
-    const older = page(olderEnd, 2, null);
+  it.each([
+    "000001.SH", "399001.SZ", "399006.SZ", "000688.SH", "000300.SH",
+    "000905.SH", "000852.SH", "899050.BJ", "000510.SH", "000016.SH",
+  ])("%s caches a short page, retains its layers and retries only the failed range", async (tsCode) => {
+    const { result, move, olderEnd } = mountFirstPage(tsCode);
+    const older = page(olderEnd, 2, null, tsCode);
+    const trendCalls = tsCode === code ? 2 : 0;
     const startDate = older.bars[0]!.tradeDate;
     let complete!: (value: IndexDetailKlineResponseDto) => void;
     vi.mocked(fetchIndexDetailKline).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
@@ -164,7 +168,7 @@ describe("SSE ordinary daily history", () => {
     vi.mocked(loadIndexNineTurnSeries).mockRejectedValueOnce(new Error("九转读取失败"));
     const marker = { tradeDate: olderEnd, tradeTime: null, sequenceNumber: 7, direction: "UP", completed: false } as const;
     const nineTurn: NineTurnSeriesDto = {
-      tsCode: code, subjectType: "index", period: "day", debugInfo: null,
+      tsCode, subjectType: "index", period: "day", debugInfo: null,
       dataStatus: { status: "READY", code: null, message: null, expectedEndDate: olderEnd, observedEndDate: olderEnd },
       latestMarker: marker, markers: [marker],
       meta: { startDate, endDate: olderEnd, comparisonLag: 4, formulaVersion: 1, signalThreshold: 9,
@@ -179,34 +183,36 @@ describe("SSE ordinary daily history", () => {
     move(99, "history");
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
     expect(fetchIndexDetailKline).toHaveBeenLastCalledWith(
-      { tsCode: code, period: "day", limit: 500, endDate: olderEnd }, { signal: expect.any(AbortSignal) },
+      { tsCode, period: "day", limit: 500, endDate: olderEnd }, { signal: expect.any(AbortSignal) },
     );
     move(140, "recent");
     await act(async () => complete(older));
     expect(result.current.history.visible).toBeNull();
     expect(loadIndexNineTurnSeries).toHaveBeenCalledTimes(1);
     expect(loadIndexNineTurnSeries).toHaveBeenLastCalledWith(
-      { tsCode: code, subjectType: "index", period: "day", startDate, endDate: olderEnd, limit: 500 },
+      { tsCode, subjectType: "index", period: "day", startDate, endDate: olderEnd, limit: 500 },
       { signal: expect.any(AbortSignal) },
     );
-    expect(fetchTrendChannel).toHaveBeenCalledTimes(2);
-    expect(fetchTrendChannel).toHaveBeenLastCalledWith(
-      { startDate, endDate: olderEnd, limit: 500 }, { signal: expect.any(AbortSignal) },
-    );
+    expect(fetchTrendChannel).toHaveBeenCalledTimes(trendCalls);
+    if (tsCode === code) {
+      expect(fetchTrendChannel).toHaveBeenLastCalledWith(
+        { startDate, endDate: olderEnd, limit: 500 }, { signal: expect.any(AbortSignal) },
+      );
+    }
     move(100, "history");
     const visible = result.current.history.visible;
     expect(visible?.candles).toHaveLength(502);
     expect(visible?.candles.slice(0, 2).map(bar => bar.time)).toEqual([startDate, olderEnd]);
-    expect(visible?.trendPoints.map(point => point.time)).toEqual([olderEnd]);
+    expect(visible?.trendPoints.map(point => point.time)).toEqual(tsCode === code ? [olderEnd] : []);
     const failure = visible?.failedLayers[0]!;
     expect(failure.layer).toBe("nineTurn");
     await act(async () => result.current.history.retryLayer(failure.page, failure.layer));
     expect(loadIndexNineTurnSeries).toHaveBeenCalledTimes(2);
     expect(loadIndexNineTurnSeries).toHaveBeenLastCalledWith(
-      { tsCode: code, subjectType: "index", period: "day", startDate, endDate: olderEnd, limit: 500 },
+      { tsCode, subjectType: "index", period: "day", startDate, endDate: olderEnd, limit: 500 },
       { signal: expect.any(AbortSignal) },
     );
-    expect(fetchTrendChannel).toHaveBeenCalledTimes(2);
+    expect(fetchTrendChannel).toHaveBeenCalledTimes(trendCalls);
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
     expect(result.current.history.visible?.nineTurnMarkers).toEqual([marker]);
     expect(result.current.history.visible?.failedLayers).toEqual([]);
@@ -214,6 +220,36 @@ describe("SSE ordinary daily history", () => {
       firstDate: startDate, leftDate: startDate, remaining: 1, direction: "history", beyondLeft: true, gesture: Symbol(),
     }));
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
+  });
+
+  it("renders an old Prod response without history and stops immediately on a local first-page short response", async () => {
+    vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit("000510.SH"));
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(dailyKline("000510.SH", false))
+      .mockResolvedValueOnce(page(firstEnd, 2, null, "000510.SH"));
+    const { result } = renderHook(() => useIndexDetailController("000510.SH", undefined));
+    await waitFor(() => expect(result.current.viewModel?.chart.candles).toHaveLength(2));
+    expect(result.current.history.active).toBe(false);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.history.active).toBe(true));
+    const firstDate = result.current.viewModel!.chart.candles[0]!.time;
+    act(() => result.current.history.onViewport({
+      firstDate, leftDate: firstDate, remaining: 1, direction: "history", beyondLeft: true, gesture: Symbol(),
+    }));
+    expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
+    expect(loadIndexNineTurnSeries).not.toHaveBeenCalled();
+    expect(fetchTrendChannel).not.toHaveBeenCalled();
+  });
+
+  it("rejects a continuation returned for a different index", async () => {
+    const { result, move, olderEnd } = mountFirstPage("899050.BJ");
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(page(olderEnd, 2, null, "000510.SH"));
+    await waitFor(() => expect(result.current.history.active).toBe(true));
+    move(100, "history");
+    await waitFor(() => expect(result.current.history.phase).toBe("error"));
+    expect(result.current.history.visible).toBeNull();
+    expect(result.current.viewModel?.identity.tsCode).toBe("899050.BJ");
+    expect(result.current.viewModel?.chart.candles).toHaveLength(500);
+    expect(loadIndexNineTurnSeries).not.toHaveBeenCalled();
   });
 
   it("retries the same date only on a new left-edge gesture and stops on a successful empty page", async () => {
@@ -240,10 +276,10 @@ describe("SSE ordinary daily history", () => {
   });
 
   it("cancels old history and ignores its response after switching the index", async () => {
-    const { result, rerender, move, olderEnd } = mountFirstPage();
+    const { result, rerender, move, olderEnd } = mountFirstPage("899050.BJ");
     let complete!: (value: IndexDetailKlineResponseDto) => void;
     vi.mocked(fetchIndexDetailKline).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
-    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(makeOrdinaryKline("399001.SZ"));
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(page(firstEnd, 2, null, "399001.SZ"));
     await waitFor(() => expect(result.current.history.active).toBe(true));
     move(100, "history");
     const signal = vi.mocked(fetchIndexDetailKline).mock.calls[1]?.[1]?.signal;
@@ -251,7 +287,7 @@ describe("SSE ordinary daily history", () => {
     rerender({ tsCode: "399001.SZ" });
     await waitFor(() => expect(result.current.viewModel?.identity.tsCode).toBe("399001.SZ"));
     expect(signal?.aborted).toBe(true);
-    await act(async () => complete(page(olderEnd, 2, null)));
+    await act(async () => complete(page(olderEnd, 2, null, "899050.BJ")));
     expect(result.current.history.visible).toBeNull();
     expect(loadIndexNineTurnSeries).not.toHaveBeenCalled();
   });

@@ -52,17 +52,17 @@ interface VisibleHistory {
   failedLayers: { page: HistoryPage; layer: LayerName }[];
 }
 
-export function readSseDailyCursor(response: IndexDetailKlineResponseDto, endDate: string): string | null {
+export function readIndexDailyCursor(response: IndexDetailKlineResponseDto, tsCode: string, endDate: string): string | null {
   const { meta, bars } = response;
   const first = bars[0]?.tradeDate;
   const last = bars.at(-1)?.tradeDate;
-  if (response.indexRef.tsCode !== SSE_CODE || response.period !== "day" ||
+  if (response.indexRef.tsCode !== tsCode || response.period !== "day" ||
       meta.endDate !== endDate || meta.limit !== DAILY_CHART_PAGE_SIZE ||
       meta.count !== bars.length || bars.length > DAILY_CHART_PAGE_SIZE ||
       (last !== undefined && last > endDate) || !("nextEndDate" in meta) ||
       (meta.nextEndDate !== null && (typeof meta.nextEndDate !== "string" ||
         first === undefined || meta.nextEndDate >= first))) {
-    throw new Error("上证日线分页信息与请求不一致");
+    throw new Error("指数日线分页信息与请求不一致");
   }
   return bars.length < DAILY_CHART_PAGE_SIZE ? null : meta.nextEndDate;
 }
@@ -127,17 +127,18 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     layer.result = { phase: "loading" };
     publish(owner);
     const { startDate, endDate } = page;
+    const tsCode = owner.seed.viewModel.identity.tsCode;
     try {
       if (name === "nineTurn") {
         const response = await loadNineTurn(
-          { subjectType: "index", tsCode: SSE_CODE, period: "day", startDate, endDate, limit: DAILY_CHART_PAGE_SIZE },
+          { subjectType: "index", tsCode, period: "day", startDate, endDate, limit: DAILY_CHART_PAGE_SIZE },
           { signal },
         );
         if (signal.aborted) return;
         if (response.meta.startDate !== startDate || response.meta.endDate !== endDate) {
           throw new Error("九转日期与当前历史页不一致");
         }
-        const result = adaptNineTurnSeries(response, { period: "day", subjectType: "index", tsCode: SSE_CODE });
+        const result = adaptNineTurnSeries(response, { period: "day", subjectType: "index", tsCode });
         page.nineTurn.result = { phase: "ready", data: result.markers.filter(marker =>
           marker.tradeDate >= startDate && marker.tradeDate <= endDate) };
       } else {
@@ -164,16 +165,17 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     owner.phase = "loading";
     owner.error = undefined;
     publish(owner);
+    const { identity: { tsCode }, capabilities } = owner.seed.viewModel;
     try {
       const response = await loadDailyKline(
-        { tsCode: SSE_CODE, period: "day", endDate, limit: DAILY_CHART_PAGE_SIZE },
+        { tsCode, period: "day", endDate, limit: DAILY_CHART_PAGE_SIZE },
         { signal },
       );
       if (signal.aborted) return;
-      const nextEndDate = readSseDailyCursor(response, endDate);
+      const nextEndDate = readIndexDailyCursor(response, tsCode, endDate);
       const last = response.bars.at(-1);
       if (last && last.tradeDate >= owner.candles[0]!.time) {
-        throw new Error("上证续页与已加载的K线日期重叠");
+        throw new Error("指数日线续页与已加载的K线日期重叠");
       }
       const page: HistoryPage | null = last ? {
         startDate: response.bars[0]!.tradeDate,
@@ -188,11 +190,10 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       if (page) owner.pages.push(page);
       publish(owner);
       if (page) {
-        const { capabilities } = owner.seed.viewModel;
         if (capabilities.supportsNineTurn && capabilities.nineTurnPeriods.includes("day")) {
           void loadLayer(owner, page, "nineTurn");
         }
-        if (capabilities.supportsTrendChannel) void loadLayer(owner, page, "trend");
+        if (tsCode === SSE_CODE && capabilities.supportsTrendChannel) void loadLayer(owner, page, "trend");
       }
     } catch (error) {
       if (signal.aborted) return;

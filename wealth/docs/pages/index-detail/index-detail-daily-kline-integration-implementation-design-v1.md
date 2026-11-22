@@ -1,6 +1,6 @@
 # 上证指数详情页日线接入方案 v1
 
-> 2026-11-22 后续需求：本地指数详情日线算子计算和向左翻页扩大到当前支持的全部指数。范围、取数与验收见 [§9](#local-index-daily-library-expansion)。以下 §1–8 保留原上证阶段的设计和验收记录。
+> 2026-11-22 本地需求已验收并收尾。当前支持的全部指数已接入日线算子计算和向左翻页，见 [§9](#local-index-daily-library-expansion)。以下 §1–8 保留原上证阶段的设计和验收记录。
 
 > 第4步已于 2026-11-08 收尾。管理员确认上证普通日线本地页面 5 项验收通过。Prod 接口首屏通过，续页复验未通过，起点检查待执行。
 >
@@ -179,7 +179,7 @@
 <a id="local-index-daily-library-expansion"></a>
 ## 9. 本地指数详情全部日线接入算子库
 
-**2026-11-22 阶段 1、2 后端已验收。** 本地指数详情把日 K 的 MA、BOLL、MACD、KDJ 统一交给算子库，全部支持指数复用上证综指的日 K 向左翻页。适用对象是 [`majorIndices` 当前配置的 10 只指数](../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json)，包括北证 50。算子库和业务按各自职责从 DG 正式普通指数日线取数，普通日线链路用到的两处技术因子读取也一并替换。前端续页由阶段 3 实施。[逐文件实施与验证](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)
+**2026-11-22 本地阶段 1–3 已验收。** 本地指数详情把日 K 的 MA、BOLL、MACD、KDJ 统一交给算子库，全部支持指数复用上证综指的日 K 向左翻页。适用对象是 [`majorIndices` 当前配置的 10 只指数](../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json)，包括北证 50。算子库和业务按各自职责从 DG 正式普通指数日线取数，普通日线链路用到的两处技术因子读取也一并替换。[逐文件实施与验证](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld) · [浏览器验收](index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)
 
 ### 9.1 本期涉及的入口
 

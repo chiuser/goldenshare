@@ -1,6 +1,6 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 2026-11-22。本地全部支持指数的日 K 首屏、向左翻页及每批 500 根已确认，待实施，见 [§5.7](#local-index-daily-kline-api)。
+> 2026-11-22。本地全部支持指数的日 K 首屏与向左翻页已验收，每批最多 500 根。见[日 K 合同 §5.7](#local-index-daily-kline-api)和[浏览器验收记录](index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)。
 
 > 2026-11-22。合同 `1.5.0` 为阶段二指数周月线接口，适用范围见 §4.3 和 §5.6。阶段三页面接入另行实施。
 
@@ -385,7 +385,7 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 <a id="local-index-daily-kline-api"></a>
 ### 5.7 本地全部支持指数日 K
 
-沿用 `GET /api/v1/wealth/market/index-detail/kline`、对应的 `/debug/kline` 及现有鉴权。阶段 1 已验收本地 `local/dev` 的 `period=day`（含省略周期）后端合同。页面接入安排见 LLD §28.4。§5.1 和 §5.5 保留原日线范围，Prod 继续按原条款处理。
+沿用 `GET /api/v1/wealth/market/index-detail/kline`、对应的 `/debug/kline` 及现有鉴权。本地 `local/dev` 的 `period=day`（含省略周期）适用本节。后端及页面接入已验收，见 [LLD §28.9](index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)。§5.1 和 §5.5 保留原日线范围，Prod 继续按原条款处理。
 
 - `limit` 缺省为 300，算子库单次上限为 500，沿用现有部署限制。超过生效上限时，取数前返回 HTTP 400 / `ID_REQUEST_INVALID`。
 - 全部支持指数页面的首屏以 `page-init.asOfTradeDate` 为 `endDate`，显式传 `limit=500`。向左翻页时，续页沿用同一 `tsCode` 和日线周期，将上一成功页的 `meta.nextEndDate` 原样作为 `endDate`，同样显式传 `limit=500`。续页失败按原指数和原截止日重试。

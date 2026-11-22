@@ -13,7 +13,7 @@ import {
 } from "../api/indexDetailViewModelAdapter";
 import { buildTrendChannelViewModel } from "../api/trendChannelAdapter";
 import { DAILY_CHART_PAGE_SIZE } from "../../../shared/charts/dailyChartRequestLimits";
-import { readSseDailyCursor, useIndexDailyHistory, type IndexDailyHistory, type IndexDailyHistorySeed } from "./useIndexDailyHistory";
+import { readIndexDailyCursor, useIndexDailyHistory, type IndexDailyHistory, type IndexDailyHistorySeed } from "./useIndexDailyHistory";
 import {
   collectIndexPartialReasons,
   normalizeIndexTsCode,
@@ -102,8 +102,9 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
         if (kline.indexRef.tsCode !== normalizedTsCode) throw new Error("指数K线返回的代码与请求不一致");
-        const nextEndDate = normalizedTsCode === "000001.SH"
-          ? readSseDailyCursor(kline, pageInit.asOfTradeDate)
+        const supportsDailyHistory = normalizedTsCode === "000001.SH" || "nextEndDate" in kline.meta;
+        const nextEndDate = supportsDailyHistory
+          ? readIndexDailyCursor(kline, normalizedTsCode, pageInit.asOfTradeDate)
           : null;
         if (kline.dataStatus.status === "EMPTY" || kline.bars.length === 0) {
           trendControllerRef.current?.abort();
@@ -128,7 +129,7 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
             pagePartialReasons,
             partialReasons: trendFailed ? mergeReasons(pagePartialReasons, ["趋势通道"]) : pagePartialReasons,
             phase: trendFailed ? "partial" : basePhase,
-            historySeed: normalizedTsCode === "000001.SH" ? { viewModel, nextEndDate } : null,
+            historySeed: supportsDailyHistory ? { viewModel, nextEndDate } : null,
             viewModel,
           };
         });
