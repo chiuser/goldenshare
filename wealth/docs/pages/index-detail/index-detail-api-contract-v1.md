@@ -221,15 +221,15 @@ interface IndexDetailPageInitResponseDto {
 ### 4.3 状态与字段规则
 
 1. `pageContext.tradeDate` 是期望完成交易日。
-2. `asOfTradeDate` 是 `index_daily_serving.trade_date <= expectedTradeDate` 的最新观测日。
-3. quote 的日期与价格取 `index_daily_serving`：`close -> point`、`change_amount -> change`、`pct_chg -> changePct`，其余价格字段同名；`vol/amount` 唯一取同 code、`tradeDate=asOfTradeDate` 的 `index_factor_pro`。direction 按 changePct 正/负/零判定，null 为 UNKNOWN。
+2. `asOfTradeDate` 是该指数不晚于 `pageContext.tradeDate` 的最新行情日期，与 `quote.tradeDate` 一致，用作首批日 K 的 `endDate`。
+3. 本地 `local/dev` 的普通及调试盘口从同一根 DG 普通指数日线读取日期、价格、成交量和成交额。身份和交易日历读 DG。Prod 的日期与价格继续取 `core_serving.index_daily_serving`，成交量和成交额继续取 `core_serving.index_factor_pro` 的同指数同日记录。两端均映射 `close -> point`、`change_amount -> change`、`pct_chg -> changePct`，成交量单位为手，成交额为千元。direction 按 changePct 正、负、零及空值分别映射为 UP、DOWN、FLAT、UNKNOWN。
 4. 无 quote：`asOfTradeDate=null`、quote/dailyBasic/breadth 为 null、页面 `EMPTY`。
 5. `dailyBasic` 只查 `tradeDate=asOfTradeDate` 的 `pe/pe_ttm/pb/turnover_rate/float_mv/total_mv`；无同日行时为 null，不向前取旧值。
 6. breadth 先取 `max(weight.trade_date) <= asOfTradeDate` 的源权重批次，再只保留能在 `security_serving` 识别为 A 股的成分：`security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY`。源批次中的 B 股不属于页面成分范围，不进入 `totalConstituentCount/missingCount`，也不触发 PARTIAL。
 7. A 股成分的涨跌分类按以下优先级解析：同日 `equity_daily_bar.pct_chg` 非空时按 `> 0 / = 0 / < 0` 分类；同日行情为空但 `equity_suspend_d` 存在 `suspend_type=S` 时按 `pct_chg=0` 计入 FLAT；两者都不存在时才计入 missing。日线有值时不得被停牌记录覆盖。
 8. `matchedCount` 表示已完成涨跌分类的 A 股成分数，包括有同日涨跌幅的成员和已确认停牌并按 FLAT 处理的成员。`upCount + flatCount + downCount = matchedCount`；`matchedCount + missingCount = totalConstituentCount`。
 9. 无权重批次时 breadth 为 null；不是三项 0。
-10. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 时 page-init 仍为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL` 或 `ID_WEIGHT_EMPTY`。有效批次中的 A 股 `missingCount>0` 只记录覆盖事实，不单独令 breadth 或 page-init 为 PARTIAL，不再产生 `ID_BASIC_BREADTH_PARTIAL`；其它数据正常时 breadth 为 READY，page-init 按观测日决定 READY/DELAYED。缺失成分不计入 flat，数量恒等式不变。
+10. 本地同根 DG 普通指数日线的 `vol/amount` 缺失时，对应字段为 null，调试信息沿用 `ID_FACTOR_PARTIAL` 并注明缺失的行情字段。Prod 沿用同日指数日线技术因子行或量额缺失的判断。量额有缺项、dailyBasic 缺行或缺字段、breadth 为 null 均使 page-init 为 PARTIAL，对应调试码为 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL` 或 `ID_WEIGHT_EMPTY`。有效批次中的 A 股 `missingCount>0` 只记录覆盖事实，不单独令 breadth 或 page-init 为 PARTIAL。缺失成分不计入 flat，数量恒等式不变。
 11. 无 partial 原因且 observed 早于 expected 时为 DELAYED。
 12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
 13. 分钟能力关闭时，`availablePeriods` 不含分钟周期，`minuteFrequencies` 为空。两种指数周月线算子位置和对应接口同时就绪、运行配置支持每页 500 根时，`availablePeriods` 在 `day` 后列出 `week`、`month`，`supportsWeeklyMonthly=true`。否则两项均不开放。普通、核验接口使用同一能力判断，默认仍为 `day`。
@@ -237,6 +237,7 @@ interface IndexDetailPageInitResponseDto {
 15. `supportsNineTurn=true` 只表示指数日线九转接口已经部署，不表示当前窗口一定有 1～9 marker。
 16. 生产、local/dev 分钟九转能力未就绪时，`nineTurnPeriods=["day"]`；local/dev 且指数分钟九转 capability 与分钟 router 同时就绪时，返回 `day,5,15,30,60,90,120`。指数 1 分钟永不进入列表。
 17. page-init 与 App router 必须消费同一个指数分钟九转 capability resolver；页面只能请求 `nineTurnPeriods` 中的周期，禁止以 K 线周期列表推导九转能力。
+18. 本地请求早于该指数首根完整日 K，或该日期及之前无已发布行情，返回空盘。DG 读取失败仍返回 HTTP 500 / `ID_QUERY_FAILED`。已发布行情落后于期望日期时，保留其实际日期及现有状态优先级。
 
 ## 5. `GET /kline`
 
@@ -392,6 +393,14 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 - 日 K 从 DG 普通指数日线取得四价和辅助行情，同批算子计算 MA、BOLL、MACD、KDJ。字段、正常空值和读取失败的对外行为沿用 §5.5，历史起点按指数核定。`meta.nextEndDate` 是全部支持指数本地日 K 的响应字段；字段为 `null` 时表示历史结束。Prod 仍按 §5.5 的适用范围返回此字段。
 
 非空续页有日线九转能力时，页面用同一 `tsCode` 和续页实际首末日作为 `startDate`、`endDate`，调用现有 `/index-detail/nine-turn`，每批显式传 `limit=500`。上证综指沿用同一日期范围请求趋势通道。空续页结束翻页。页面交互见[原方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)，实现和验收见[LLD §28](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
+
+<a id="local-index-daily-nine-turn-api"></a>
+### 5.8 本地指数日线九转
+
+`GET /api/v1/wealth/market/index-detail/nine-turn` 保留现有鉴权、参数、回包及 `cursor` 编码。独立接口的 `limit` 默认 300，上限 2,000。两端都按指数代码及交易日从 `core_serving.index_nineturn_daily` 读取已有九转结果。
+
+- 本地 `local/dev` 用 DG 交易日历选出日期，按同一普通指数日线起点、`startDate`、`endDate` 与 `cursor` 限定范围，逐日核对 DG 普通指数日线。最多读取 `limit+1` 个应有日期，用额外一根判断是否还有下一页。Prod 继续由 `core_serving.index_factor_pro` 提供选页日期。
+- DG 应有的日线缺失，返回 HTTP 500 / `NT_QUERY_FAILED`。目标行情存在时，九转零计数算命中，部分九转结果缺失返回 200 / `PARTIAL` 并保留已有标记，全部缺失沿用 `EMPTY`。早于历史起点的空页照常成功。
 
 ## 6. `GET /weights`
 

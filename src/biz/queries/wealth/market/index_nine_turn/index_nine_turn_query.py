@@ -63,6 +63,32 @@ class IndexNineTurnQuery:
         has_more = len(raw_rows) > limit
         rows = raw_rows[:limit]
         rows.reverse()
+        return self._build_page(rows, has_more)
+
+    def load_daily_page_for_dates(
+        self, session: Session, *, ts_code: str, dates: tuple[date, ...], limit: int,
+    ) -> IndexDailyNineTurnPage:
+        page_dates = dates[-limit:]
+        if not page_dates:
+            return self._build_page([], False)
+        statement = select(
+            IndexNineTurnDaily.trade_date,
+            IndexNineTurnDaily.close,
+            IndexNineTurnDaily.up_count,
+            IndexNineTurnDaily.down_count,
+            IndexNineTurnDaily.nine_up_turn,
+            IndexNineTurnDaily.nine_down_turn,
+            IndexNineTurnDaily.formula_version,
+        ).where(
+            IndexNineTurnDaily.ts_code == ts_code,
+            IndexNineTurnDaily.trade_date.in_(page_dates),
+        )
+        by_date = {row["trade_date"]: dict(row) for row in session.execute(statement).mappings()}
+        rows = [by_date.get(day, {"trade_date": day, "formula_version": None}) for day in page_dates]
+        return self._build_page(rows, len(dates) > limit)
+
+    @staticmethod
+    def _build_page(rows: list[dict[str, Any]], has_more: bool) -> IndexDailyNineTurnPage:
         for row in rows:
             row["nine_turn_matched"] = row["formula_version"] is not None
         observed_dates = [row["trade_date"] for row in rows if row["nine_turn_matched"]]

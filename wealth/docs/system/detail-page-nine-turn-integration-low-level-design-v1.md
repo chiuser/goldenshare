@@ -707,7 +707,7 @@ serving check 使用只读事务对比 Gold 与 PostgreSQL 行数、键和业务
 
 ### 7.3 Web 查询
 
-所有环境的日线 endpoint 都只读 PostgreSQL serving。不存在以下回退：
+指数详情的本地日线选页采用 [指数详情 API §5.8](../pages/index-detail/index-detail-api-contract-v1.md#local-index-daily-nine-turn-api) 及 [指数详情 LLD §28.3](../pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-quote-and-nine-turn)，日期来自 DG 普通指数日线，九转结果继续读 `core_serving.index_nineturn_daily`。下列为初始接入的 PostgreSQL serving 路径，其中 Prod 指数日线仍按此执行。不存在以下回退：
 
 1. 不在 local/dev 自动改读 Lake。
 2. 不在 serving 缺失时改读 `core_serving.equity_nineturn`。

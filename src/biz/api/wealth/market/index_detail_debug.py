@@ -35,8 +35,9 @@ def build_router(*, daily_lake=None, run_sse_kline=None, run_period_kline=None, 
 
             service = IndexDetailPageQueryService(
                 weekly_monthly_enabled=bool(run_period_kline and period_enabled and period_enabled(request)),
+                daily_lake=daily_lake,
             )
-            return _json(page_init_response(*service.query_page_init(session, **params)))
+            return _json(page_init_response(*service.query_page_init(session, **params), dg_daily=daily_lake is not None))
         except Exception as exc:
             _raise_http_error(exc)
 

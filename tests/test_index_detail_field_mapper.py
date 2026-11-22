@@ -62,15 +62,15 @@ def test_index_kline_mapper_uses_frozen_factor_field_names() -> None:
     assert "ma120" not in bar.factors.ma.model_dump()
 
 
-def test_index_quote_mapper_uses_factor_volume_for_raw_and_display_contract() -> None:
+def test_index_quote_mapper_uses_supplied_volume_for_raw_and_display_contract() -> None:
     quote = build_quote(
         {
             "trade_date": date(2026, 8, 10),
             "close": 105.0,
             "pct_chg": 1.0,
-            "factor_vol": 586_339.0,
-            "factor_amount": 123.0,
-        }
+        },
+        vol=586_339.0,
+        amount=123.0,
     )
 
     assert quote.vol == 586_339.0

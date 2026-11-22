@@ -21,6 +21,7 @@ _BASIC_FILE = Path("silver/index_basic/full/part-000.parquet")
 _PARTITION_PREFIX = "trade_date="
 _PART_FILE = "part-000.parquet"
 _IDENTITY_COLUMNS = ("ts_code", "name", "market", "publisher", "category")
+_QUOTE_FIELDS = ("open", "high", "low", "close", "pre_close", "change_amount", "pct_chg", "vol", "amount")
 
 
 class IndexDailyLakeSourceError(RuntimeError):
@@ -93,6 +94,56 @@ class IndexDailyLakeReader:
             tuple((column, "VARCHAR") for column in _IDENTITY_COLUMNS),
         )
         return dict(zip(_IDENTITY_COLUMNS, rows[0], strict=True)) if rows else None
+
+    def latest_daily_quote(self, ts_code: str, *, start: date, end: date) -> dict[str, Any] | None:
+        directory = self._path(_DAILY_DIR)
+        projection = ", ".join(_QUOTE_FIELDS)
+        schema = (("trade_date", "DATE"), *((field, "DOUBLE") for field in _QUOTE_FIELDS))
+        for day in reversed(_partition_dates(directory, start=start, end=end)):
+            path, = _part_paths(directory, (day,))
+            rows = _read(
+                f"""
+                SELECT trade_date, {projection}
+                FROM read_parquet(?, hive_partitioning=false)
+                WHERE ts_code = ? LIMIT 2
+                """,
+                [path, ts_code], schema,
+            )
+            if not rows:
+                continue
+            if len(rows) != 1 or rows[0][0] != day:
+                raise IndexDailyLakeSourceError(f"{ts_code} 普通日线与分区日期不一致或存在重复行情：{day}")
+            return dict(zip(("trade_date", *_QUOTE_FIELDS), rows[0], strict=True))
+        return None
+
+    def ordinary_daily_page_dates(
+        self, ts_code: str, *, start: date, end: date, before: date | None, limit: int,
+    ) -> tuple[date, ...]:
+        """Return the requested exchange dates after checking each published daily row."""
+        bound, include_bound = (before, False) if before is not None and before <= end else (end, True)
+        try:
+            open_days = LakeTradeCalendarReader(self.root).recent_open_rows(
+                exchange="SSE", bound=bound,
+                include_bound=include_bound, start=start, limit=limit,
+            )
+        except ReferenceDataReadError as exc:
+            raise IndexDailyLakeSourceError(str(exc)) from exc
+        dates = tuple(row.trade_date for row in open_days)
+        if not dates:
+            return ()
+        paths = _part_paths(self._path(_DAILY_DIR), dates)
+        observed = _read(
+            """
+            SELECT filename, trade_date
+            FROM read_parquet(?, hive_partitioning=false, filename=true)
+            WHERE ts_code = ?
+            ORDER BY filename
+            """,
+            [paths, ts_code], (("filename", "VARCHAR"), ("trade_date", "DATE")),
+        )
+        if observed != list(zip(paths, dates, strict=True)):
+            raise IndexDailyLakeSourceError(f"{ts_code} 的 DG 普通日线缺失、重复或与分区日期不一致。")
+        return dates
 
     def has_daily_after(self, *, ts_code: str, after: date, end: date) -> bool:
         directory = self._path(_DAILY_DIR)

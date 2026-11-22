@@ -79,9 +79,9 @@ def build_identity(row: Mapping[str, Any]) -> IndexDetailIdentityDto:
     )
 
 
-def build_quote(row: Mapping[str, Any]) -> IndexDetailQuoteDto:
+def build_quote(row: Mapping[str, Any], *, vol: Any, amount: Any) -> IndexDetailQuoteDto:
     change_pct = to_float(row.get("pct_chg"))
-    vol = to_float(row.get("factor_vol"))
+    vol = to_float(vol)
     return IndexDetailQuoteDto(
         tradeDate=row["trade_date"],
         point=to_float(row.get("close")),
@@ -94,7 +94,7 @@ def build_quote(row: Mapping[str, Any]) -> IndexDetailQuoteDto:
         preClose=to_float(row.get("pre_close")),
         vol=vol,
         volDisplay=format_daily_volume_display(vol),
-        amount=to_float(row.get("factor_amount")),
+        amount=to_float(amount),
     )
 
 

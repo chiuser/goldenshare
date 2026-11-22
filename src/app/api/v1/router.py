@@ -97,7 +97,7 @@ router.include_router(index_detail_debug.build_router(
     run_sse_kline=partial(run_index_daily_kline, daily_lake=_index_daily_lake),
     run_period_kline=run_index_period_kline, period_enabled=supports_index_period_kline,
 ))
-router.include_router(wealth_market_index_detail_nine_turn.router)
+router.include_router(wealth_market_index_detail_nine_turn.build_router(daily_lake=_index_daily_lake))
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
 router.include_router(wealth_market_breadth.router)

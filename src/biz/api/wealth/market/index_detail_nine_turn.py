@@ -28,9 +28,9 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailQueryError,
     IndexDetailRequestError,
 )
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
-router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 _ALLOWED_QUERY_PARAMS = {
     "tsCode",
     "startDate",
@@ -41,32 +41,37 @@ _ALLOWED_QUERY_PARAMS = {
 }
 
 
-@router.get("/nine-turn", response_model=NineTurnSeriesDto)
-def get_index_daily_nine_turn(
-    request: Request,
-    ts_code: str | None = Query(default=None, alias="tsCode"),
-    start_date: str | None = Query(default=None, alias="startDate"),
-    end_date: str | None = Query(default=None, alias="endDate"),
-    limit: str | None = Query(default=None),
-    cursor: str | None = Query(default=None),
-    debug: str | None = Query(default=None),
-    _user: AuthenticatedUser | None = Depends(require_quote_access),
-    session: Session = Depends(get_db_session),
-) -> NineTurnSeriesDto:
-    try:
-        validate_query_shape(request, allowed=_ALLOWED_QUERY_PARAMS)
-        return IndexNineTurnQueryService().read_daily(
-            session,
-            ts_code=parse_nine_turn_ts_code(ts_code),
-            start_date=parse_date(start_date, field_name="startDate"),
-            end_date=parse_date(end_date, field_name="endDate"),
-            limit=parse_limit(limit, default=300, maximum=2_000),
-            cursor=parse_cursor(cursor),
-            debug=parse_debug(debug),
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_http_error(exc)
-        raise AssertionError("unreachable")
+def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter:
+    router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
+
+    @router.get("/nine-turn", response_model=NineTurnSeriesDto)
+    def get_index_daily_nine_turn(
+        request: Request,
+        ts_code: str | None = Query(default=None, alias="tsCode"),
+        start_date: str | None = Query(default=None, alias="startDate"),
+        end_date: str | None = Query(default=None, alias="endDate"),
+        limit: str | None = Query(default=None),
+        cursor: str | None = Query(default=None),
+        debug: str | None = Query(default=None),
+        _user: AuthenticatedUser | None = Depends(require_quote_access),
+        session: Session = Depends(get_db_session),
+    ) -> NineTurnSeriesDto:
+        try:
+            validate_query_shape(request, allowed=_ALLOWED_QUERY_PARAMS)
+            return IndexNineTurnQueryService(daily_lake=daily_lake).read_daily(
+                session,
+                ts_code=parse_nine_turn_ts_code(ts_code),
+                start_date=parse_date(start_date, field_name="startDate"),
+                end_date=parse_date(end_date, field_name="endDate"),
+                limit=parse_limit(limit, default=300, maximum=2_000),
+                cursor=parse_cursor(cursor),
+                debug=parse_debug(debug),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_http_error(exc)
+            raise AssertionError("unreachable")
+
+    return router
 
 
 def _raise_http_error(exc: Exception) -> None:
@@ -101,4 +106,4 @@ def _raise_http_error(exc: Exception) -> None:
     ) from exc
 
 
-__all__ = ["router"]
+__all__ = ["build_router"]

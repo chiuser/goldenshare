@@ -179,7 +179,7 @@
 <a id="local-index-daily-library-expansion"></a>
 ## 9. 本地指数详情全部日线接入算子库
 
-**2026-11-22 阶段 1 已验收。** 本地指数详情把日 K 的 MA、BOLL、MACD、KDJ 统一交给算子库，全部支持指数复用上证综指的日 K 向左翻页。适用对象是 [`majorIndices` 当前配置的 10 只指数](../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json)，包括北证 50。算子库和业务按各自职责从 DG 正式普通指数日线取数，普通日线链路用到的两处技术因子读取也一并替换。[逐文件实施与验证](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)
+**2026-11-22 阶段 1、2 后端已验收。** 本地指数详情把日 K 的 MA、BOLL、MACD、KDJ 统一交给算子库，全部支持指数复用上证综指的日 K 向左翻页。适用对象是 [`majorIndices` 当前配置的 10 只指数](../../../../src/biz/services/wealth/config/definitions/major_indices.cn_a.v1.json)，包括北证 50。算子库和业务按各自职责从 DG 正式普通指数日线取数，普通日线链路用到的两处技术因子读取也一并替换。前端续页由阶段 3 实施。[逐文件实施与验证](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)
 
 ### 9.1 本期涉及的入口
 

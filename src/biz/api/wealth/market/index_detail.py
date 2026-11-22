@@ -124,6 +124,7 @@ def build_router(
             _validate_query_shape(request, allowed={"tsCode", "tradeDate"})
             service = IndexDetailPageQueryService(
                 weekly_monthly_enabled=bool(run_period_kline and period_enabled and period_enabled(request)),
+                daily_lake=daily_lake,
             )
             return service.build_page_init(
                 session, ts_code=_normalize_ts_code(ts_code), trade_date=_parse_date(trade_date, field_name="tradeDate"),

@@ -16,7 +16,7 @@ def _module(module, status, row_count, missing_count):
     )
 
 
-def page_init_response(response, factor_missing_count, daily_basic_missing_count):
+def page_init_response(response, quote_missing_count, daily_basic_missing_count, *, dg_daily=False):
     builder = IndexDetailExceptionBuilder()
     status = response.dataStatus
     day = response.asOfTradeDate
@@ -26,8 +26,13 @@ def page_init_response(response, factor_missing_count, daily_basic_missing_count
         exceptions.append(builder.source_empty(module="indexDetailPageInit", message="指数日线无可用数据"))
         modules = [_module(name, status, 0, None) for name in ("pageInit", "quote", "dailyBasic", "breadth")]
     else:
-        if factor_missing_count:
-            exceptions.append(builder.factor_partial(module="indexDetailPageInit", message="指数同日因子量额缺失"))
+        if quote_missing_count:
+            message = "指数同日因子量额缺失"
+            if dg_daily:
+                quote = response.quote
+                missing = [name for name, value in (("成交量", quote.vol), ("成交额", quote.amount)) if value is None]
+                message = f"DG 普通指数日线缺失{'、'.join(missing)}"
+            exceptions.append(builder.factor_partial(module="indexDetailPageInit", message=message))
         if daily_basic_missing_count:
             exceptions.append(builder.daily_basic_partial(message="指数同日基本指标缺失"))
         if breadth is None:
@@ -37,7 +42,7 @@ def page_init_response(response, factor_missing_count, daily_basic_missing_count
 
         resolve = IndexDetailStatusResolver.resolve
         quote_status = resolve(expected_trade_date=status.expectedTradeDate, observed_trade_date=day,
-                               empty=False, partial=factor_missing_count > 0)
+                               empty=False, partial=quote_missing_count > 0)
         has_basic = response.dailyBasic is not None
         basic_status = resolve(expected_trade_date=day, observed_trade_date=day if has_basic else None,
                                empty=not has_basic, partial=has_basic and daily_basic_missing_count > 0)
@@ -46,7 +51,7 @@ def page_init_response(response, factor_missing_count, daily_basic_missing_count
         )
         modules = [
             _module("pageInit", status, 1, None),
-            _module("quote", quote_status, 1, factor_missing_count),
+            _module("quote", quote_status, 1, quote_missing_count),
             _module("dailyBasic", basic_status, int(has_basic), daily_basic_missing_count),
             _module("breadth", breadth_status, breadth.totalConstituentCount if breadth else 0,
                     breadth.missingCount if breadth else None),

@@ -2014,7 +2014,7 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 <a id="local-index-daily-library-expansion-lld"></a>
 ## 28. 本地指数详情全部日线接入算子库
 
-**2026-11-22 阶段 1 已验收。** 目标见[原上证日线方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)。本地普通和调试日 K、首屏盘口、指数日线九转的日期查询使用 DG 正式普通指数日线。保留原上证阶段记录及 Prod Web 行为。本节涉及日线读取、算子计算、响应组装和所有支持指数的页面续页。
+**2026-11-22 阶段 1、2 后端已验收。** 目标见[原上证日线方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)。本地普通和调试日 K、首屏盘口、指数日线九转的日期查询使用 DG 正式普通指数日线。保留原上证阶段记录及 Prod Web 行为。所有支持指数的页面续页由阶段 3 实施。
 
 ### 28.1 现有代码和样本
 
@@ -2046,6 +2046,7 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 | [`index_daily_technical_indicators.py`](../../../../src/app/dependencies/index_daily_technical_indicators.py#L30) 与 [`index_detail_kline_query_service.py`](../../../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L228) | 复用上证计算和组装，把本地历史下限、日期窗口、日期校验和错误文案按传入指数处理。全部支持指数的本地日 K 成功回包提供既有可空 `meta.nextEndDate`。首屏用页面的 `asOfTradeDate`，续页用上一批的 `meta.nextEndDate`，两类页面请求都显式传 `limit=500`。全部支持指数的本地页面沿用上证综指的拖动触发和图层规则，见 §28.4。 |
 | [`technical_indicator_stock_daily.py`](../../../../src/foundation/clients/technical_indicator_stock_daily.py#L11) 与 [DG 行情读取](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L100) | 保存已核实的本地源覆盖下限，在 DG 放开普通不复权指数日线。选页、行情文件筛选和预热缺口检查共用该指数的起点，预热到起点即结束。共享帮助函数的 Prod、股票分支维持现有行为。 |
 
+<a id="local-index-daily-quote-and-nine-turn"></a>
 ### 28.3 首屏和九转的本地取数
 
 - **盘口。** 在 [`IndexDetailPageQueryService.query_page_init`](../../../../src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py#L53) 注入本地 `IndexDailyLakeReader`，由 [App 路由装配](../../../../src/app/api/v1/router.py#L76)给普通和调试入口同一来源。服务先验证指数身份及市场日期，再取不晚于页面日期的最新一根普通指数日线。这个操作在本地读取层复用 [`daily_page_dates` 和 `daily_rows`](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L128)，或等价复用相同的目录和日分区合同，只投影盘口字段。按现有 `quote.tradeDate / asOfTradeDate` 传回前端，首次日 K 从这个日期开始请求。普通日线缺量额时相应字段保留 `null` 并维持部分缺失状态；请求早于历史起点保持空盘。已发布的最新行情早于页面期望日期时，继续显示延迟状态，对已存在的最新一根保持原有日期锚定。查询错误沿用 `ID_QUERY_FAILED`。Prod 继续调用原 `load_latest_quote`。本地调试保留既有结构化异常码和字段，提示文字说明普通日线实际缺失的字段。
@@ -2085,3 +2086,10 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 - **范围。** 本地普通和调试日 K 共用计算入口，使用普通指数日线，每个非空请求计算一次。选页、行情文件和预热日期使用 §28.1 的起点。Prod 保留原来的上证特例和旧日线分流。盘口及九转日期来源、浏览器向左翻页分别由阶段 2、3 验收。
 - **实际 DG 接口。** 隔离装配正式路由，使用正式 DG 文件并禁止旧指数日线技术因子查询。10 只指数各请求一次近期 3 根和一次起点 3 根。上证综指、深证成指、北证 50、中证 A500 的首批各 500 根，续页分别为 500、500、450、23 根。两只短页的 `nextEndDate` 均为 `null`。科创 50 基日、中证 A500 起点前均为空页。深证成指请求休市日 2026-11-22 时取得 11 月 20 日的日 K。31 次成功请求累计返回 3,534 根，抽查了 50 个代码和日期上的四价、昨收、涨跌和量额，并独立复算样本末根的 MA、BOLL、MACD、KDJ。单请求最长实测 2.381 秒。普通和调试请求 501 根均为 HTTP 400，名单外代码返回 404。
 - **隔离回归。** 150 项通过。覆盖超限在读身份和交易日历前返回、覆盖期缺目标或预热 K 线报错、原有 Prod 日线限制与分流、股票日线、指数周月线、指数分钟线、日线九转及子系统依赖检查。周月线 PostgreSQL 回归使用本机临时测试实例，实际 DG 验收未连接 Prod。
+
+### 28.8 阶段 2 实施验收（2026-11-22）
+
+- **实现。** 普通和调试 `page-init` 从同一条 DG 普通指数日线取盘口，并按该行日期查询原有的每日指标和成分数据。日线九转先用 DG SSE 交易日历确定至多 `limit+1` 个日期，按实际分区和行内日期核对普通指数日线，再按代码与本批日期查询 `core_serving.index_nineturn_daily`。两处共用 §28.1 的指数起点。Prod 原查询分流及前端调用照旧。[盘口 API §4.3](index-detail-api-contract-v1.md#43-状态与字段规则) · [九转 API §5.8](index-detail-api-contract-v1.md#local-index-daily-nine-turn-api)
+- **真实接口。** 隔离装配正式路由，使用正式 DG 文件和本地配置所连的 PostgreSQL 只读事务。共 29 次成功请求，两套指数日线技术因子访问均为 0。六只样本指数 2026-11-20 的普通及调试盘口与 DG 同日价格、涨跌和量额一致。深证成指在休市日 2026-11-22 锚定 2026-11-20，科创 50 基日返回空盘。北证 50、中证 A500 的盘口量额完整，页面 `PARTIAL` 来自每日指标缺项（`ID_BASIC_DAILY_PARTIAL`）。
+- **九转对照。** 上证综指、深证成指、北证 50 各验 2026-11-18 至 2026-11-20 的 3 根，中证 A500 验 2024-09-23 至 2024-10-30 的 23 根短页，均与日 K 根数及既有九转结果一致。深证成指另验 2024-10-31 至 2026-11-20 的 500 根，匹配 500 条结果并返回 452 个标记，只发起一条结果查询，接口耗时实测 0.329 秒。用 3 根窗口按 `2+1` 验证九转游标无重叠。实际验收范围为已知指数及指定日期，浏览器续页归阶段 3。
+- **回归。** 124 项通过，覆盖普通与调试盘口、九转、既有 Prod 合同、日 K 与指数分钟接口。隔离样本模拟 DG 行情缺失、分区内日期错误、已有行情缺九转结果和九转零计数。前两种返回读取错误，后两种分别计为部分缺失和正常命中。[本地接口回归](../../../../tests/web/test_wealth_index_detail_local_daily_sources.py)
