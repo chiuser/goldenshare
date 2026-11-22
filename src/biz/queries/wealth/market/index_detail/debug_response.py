@@ -57,17 +57,18 @@ def page_init_response(response, factor_missing_count, daily_basic_missing_count
     )
 
 
-def kline_response(response, missing_count):
+def kline_response(response, missing_count, *, dg_daily=False):
     builder = IndexDetailExceptionBuilder()
     status = response.dataStatus
     exceptions = []
     period_name = {"week": "周线", "month": "月线"}.get(response.period)
+    market_period_name = "日线" if dg_daily else period_name
     if not response.bars:
-        message = f"指数{period_name}无可用数据" if period_name else "指数因子日线无可用数据"
+        message = f"指数{market_period_name}无可用数据" if market_period_name else "指数因子日线无可用数据"
         exceptions.append(builder.source_empty(module="indexDetailKline", message=message))
     else:
         if missing_count:
-            message = f"指数{period_name}行情或指标存在缺项" if period_name else "指数日线因子存在缺失或落后"
+            message = f"指数{market_period_name}行情或指标存在缺项" if market_period_name else "指数日线因子存在缺失或落后"
             exceptions.append(builder.factor_partial(module="indexDetailKline", message=message))
         if ((period_name or not hasattr(response.meta, "nextEndDate"))
                 and status.observedTradeDate < status.expectedTradeDate):

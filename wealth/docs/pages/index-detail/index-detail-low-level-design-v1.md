@@ -1,5 +1,7 @@
 # 指数详情页低层设计（LLD）v1
 
+> 2026-11-22 后续需求：[本地全部支持指数的日线计算和向左翻页见 §28](#local-index-daily-library-expansion-lld)。§27 保留上证日线先行接入和当时的验收事实。
+
 > 2026-11-05 后续设计：[上证日线接入与普通日线500根请求见 §27](#sse-daily-kline-integration)。前文的旧请求量及验收记录保留为当时事实，普通日线后续实现以 §27 为准。
 
 > 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
@@ -2008,3 +2010,78 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 请求在 6.114 秒后返回 HTTP 500，错误码为 `ID_QUERY_FAILED`。当页查询范围为 `2022-08-30` 至 `2024-09-20`，上限 500 根，执行 5.395 秒后被 PostgreSQL 取消（`SQLSTATE 57014`），应用收到 0 根。预热查询与指标对照尚未开始。本次查询被取消的直接位置是当页查询，2026-11-06 的失败发生在预热查询，数据库内耗时原因待查。
 
 本次续页复验未通过。起点短页和空页留待续页通过后检查。此次请求与读数记录见 `/private/tmp/sse-prod-retry.lmRPtG/prod_acceptance_closeout.json`。
+
+<a id="local-index-daily-library-expansion-lld"></a>
+## 28. 本地指数详情全部日线接入算子库
+
+**2026-11-22 阶段 1 已验收。** 目标见[原上证日线方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)。本地普通和调试日 K、首屏盘口、指数日线九转的日期查询使用 DG 正式普通指数日线。保留原上证阶段记录及 Prod Web 行为。本节涉及日线读取、算子计算、响应组装和所有支持指数的页面续页。
+
+### 28.1 现有代码和样本
+
+- 日 K 目前有两处上证专属条件。API 在 `query_kline_response` 只把上证综指且 `limit≤500` 的日线交给算子库。读取层 `daily_adjustment_paths` 也只接受上证综指的不复权日线。北证 50 的旧查询固定走 Prod。计算流程还将 DG 历史下限写死为 2000-01-04，最近成立指数不能套用该下限。[API 分流](../../../../src/biz/api/wealth/market/index_detail.py#L159) · [底层许可和日期常量](../../../../src/foundation/clients/technical_indicator_stock_daily.py#L11) · [DG 预热日期校验](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L295)
+- `page-init` 目前的 `load_latest_quote` 关联 Prod 指数日线技术因子读取成交量和成交额。日线九转的 `load_daily_page` 用 Prod 指数日线技术因子的代码及日期选页。两者都由正常的日线详情页面调用。[盘口查询](../../../../src/biz/queries/wealth/market/index_detail/index_detail_query.py#L95) · [九转选页](../../../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query.py#L22)
+- 2026-11-17 至 2026-11-20 的 DG 普通指数日线读到 40 条目标记录（10 只 × 4 日），交易日字段为 `DATE`，四价、`pre_close/change_amount/pct_chg/vol/amount` 为 `DOUBLE`。代码与日分区一致，每只每天一条，四价无空值。与 DG 指数日线技术因子同股同日对照，40 条成交量完全相等，成交额最大绝对差约 0.005 千元。这个对照覆盖近期 DG 样本。【历史证据】[原设计对深证成指、创业板指量额差异的记载](#14-总体结论)基于当时的 Prod 源，验收时仍须记录新旧来源造成的实际差异。
+- DG 指数基础信息命中全部 10 只。依据 [DG 主要指数 seed](../../../../lake_console/orchestrator/src/orchestrator/seeds/market/major_indices.cn_a.csv) 给出的候选日期，核对每只指数起点附近的普通日线。北证 50 另外从基础信息的上市日 2022-11-21 查到 2022-12-19，21 个已有日分区只命中 2022-12-19 一条。阶段 1 复核各指数的首根四价后，采用下表起点。科创 50 在 2019-12-31 只有收盘 1,000 点，开、高、低为空，符合[上交所公布的基日与基点](https://www.sse.com.cn/market/sseindex/indexlist/indexdetails/indexmethods/c1/000688_000688hbook_CN.pdf)及[现有 DG 审计记录](../../../../lake_console/docs/design/index-wave-g2-readonly-real-data-validation-v1.md#32-日线)。首根完整日 K 为 2020-01-02。此前请求返回空页，覆盖期内的缺失仍按原规则报错。
+
+| 指数 | DG 普通日 K 起点 |
+| --- | --- |
+| 上证综指 `000001.SH`、深证成指 `399001.SZ` | 2000-01-04 |
+| 上证 50 `000016.SH` | 2004-01-02 |
+| 沪深 300 `000300.SH`、中证 500 `000905.SH`、中证 1000 `000852.SH` | 2005-01-04 |
+| 创业板指 `399006.SZ` | 2010-06-01 |
+| 科创 50 `000688.SH` | 2020-01-02 |
+| 北证 50 `899050.BJ` | 2022-12-19 |
+| 中证 A500 `000510.SH` | 2024-09-23 |
+
+### 28.2 把已发布的行情日期传给选页和预热
+
+1. **部署与对象。** 继续由 App 的 `build_runtime_config` 选择数据位置。本地 `local/dev` 使用既有 `index_daily` 的 DG 位置 `silver/index_daily/trade_date={trade_date}/part-000.parquet`，带限定的指数代码和交易日。Prod 保留现有 SQL 和上证特例。App 的页面支持范围继续由 `IndexDetailUniverseService.require_supported` 从策略配置确定。底层放开本地指数普通日线和 `none` 的限制，页面可见范围仍由业务入口验证。保持股票、指数分钟线及周月线既有的取数选择。
+2. **一份本地起点。** 在现有 Foundation 日线数据源合同定义处，将指数普通日线已有的 DG 起点扩为按指数代码查找。以 §28.1 核实的首根完整日 K 设置发布下限。它是源的日期覆盖事实，由同一方法供日 K 选页、历史日期校验、盘口日期查找和九转选页使用。保留 Prod 当前起点。新增指数时先核对 DG 普通日线起点及窗口再加入，缺覆盖信息报读取失败；运行时无需读取 DG 工程的 seed 文件。沿用已有 `APP_ENV`、`GOLDENSHARE_LAKE_ROOT`、内核根数及执行限制，无新增环境变量。
+3. **选页。** 复用现有本地上证按 DG SSE 交易日历取近端窗口的方法，增加该指数的下限。目标下限是 `max(本地指数起点, startDate)`；上限取请求截止日及之前最近开市日。按开市日倒序取最多 `limit` 根，再升序回包。保留原请求截止日及休市日处理。本批合法不足一页，或上一开市日早于下限时，`nextEndDate=null`；其他情况返回本批最早一根之前的上一开市日。请求早于已核实起点为成功空页。已进入覆盖期间而目标日期或所选预热日期缺整根，仍是读取失败。
+4. **按页计算。** 非空页由 `run_index_daily_kline` 复用现有 `CalculationRequest` 装配，传 `security_type="index"`、`period="day"`、`adjustment="none"`、指数代码及页面首末日期的上海时区零点。MA(5/10/20/30/60/90/250)、BOLL(20,2)、MACD(12,26,9)、KDJ(9,3,3) 一次送入现有算子库。页面四价来自同一次内核结果。`vol/amount/pre_close/change_amount/pct_chg` 用同日 DG 普通日线批量读取，按交易日顺序逐根匹配。页面单位为手、千元和百分数，尚未达到窗口的 MA、BOLL 保留合法空值。内核合同及预热方式沿用既有实现。
+
+| 位置 | 开发改动 |
+| --- | --- |
+| [`index_detail.py`](../../../../src/biz/api/wealth/market/index_detail.py#L107) 与 [`index_detail_debug.py`](../../../../src/biz/api/wealth/market/index_detail_debug.py#L25) | 复用现有普通／调试共享日 K 路由。本地对任何支持的指数进入日线计算。取数前按算子库上限校验请求，最大 500，缺省值 300。超限返回 HTTP 400 / `ID_REQUEST_INVALID`。Prod 分流与周月路由照旧。 |
+| [`index_daily_technical_indicators.py`](../../../../src/app/dependencies/index_daily_technical_indicators.py#L30) 与 [`index_detail_kline_query_service.py`](../../../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L228) | 复用上证计算和组装，把本地历史下限、日期窗口、日期校验和错误文案按传入指数处理。全部支持指数的本地日 K 成功回包提供既有可空 `meta.nextEndDate`。首屏用页面的 `asOfTradeDate`，续页用上一批的 `meta.nextEndDate`，两类页面请求都显式传 `limit=500`。全部支持指数的本地页面沿用上证综指的拖动触发和图层规则，见 §28.4。 |
+| [`technical_indicator_stock_daily.py`](../../../../src/foundation/clients/technical_indicator_stock_daily.py#L11) 与 [DG 行情读取](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L100) | 保存已核实的本地源覆盖下限，在 DG 放开普通不复权指数日线。选页、行情文件筛选和预热缺口检查共用该指数的起点，预热到起点即结束。共享帮助函数的 Prod、股票分支维持现有行为。 |
+
+### 28.3 首屏和九转的本地取数
+
+- **盘口。** 在 [`IndexDetailPageQueryService.query_page_init`](../../../../src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py#L53) 注入本地 `IndexDailyLakeReader`，由 [App 路由装配](../../../../src/app/api/v1/router.py#L76)给普通和调试入口同一来源。服务先验证指数身份及市场日期，再取不晚于页面日期的最新一根普通指数日线。这个操作在本地读取层复用 [`daily_page_dates` 和 `daily_rows`](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L128)，或等价复用相同的目录和日分区合同，只投影盘口字段。按现有 `quote.tradeDate / asOfTradeDate` 传回前端，首次日 K 从这个日期开始请求。普通日线缺量额时相应字段保留 `null` 并维持部分缺失状态；请求早于历史起点保持空盘。已发布的最新行情早于页面期望日期时，继续显示延迟状态，对已存在的最新一根保持原有日期锚定。查询错误沿用 `ID_QUERY_FAILED`。Prod 继续调用原 `load_latest_quote`。本地调试保留既有结构化异常码和字段，提示文字说明普通日线实际缺失的字段。
+- **日线九转。** [`index_detail_nine_turn.py`](../../../../src/biz/api/wealth/market/index_detail_nine_turn.py#L44) 只在本地注入 DG 日历和普通日线日期读取。[`IndexNineTurnQueryService.read_daily`](../../../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query_service.py#L43) 保留现有入参、日期上下界、`cursor`、`limit`、回包和缺失状态。按同一普通日线起点和开市日规则选候选日期，用 DG 普通日线复核代码及实际日期，最多额外取一根判断是否还有下一页。对候选页用同代码和所选日期批量查询 `core_serving.index_nineturn_daily`，将已有结果对回日 K 日期。保留零计数算命中、九转缺一日只标九转部分缺失、有效标记继续返回的现有规则。正式日线选页缺应有行情时，沿用九转接口现有来源错误处理。Prod 继续使用现有九转查询。
+- **数据库访问边界。** 本地普通日 K 和盘口无需访问指数日线技术因子。九转只向 PostgreSQL 查询九转结果；盘口中的估值与换手率、成分数据仍按原业务查询获取。三个本地入口及其共享调试入口的调用验证中，DG `silver/index/index_factor_pro` 和 PostgreSQL `core_serving.index_factor_pro` 都应为零次访问。指数周月线默认日期查询和顶底识别、波段研究属于本期普通日线范围之外的消费者，仍保留现有读取。
+
+### 28.4 日 K 前端续页与图层
+
+这是对 §27 已验收过的日 K 交互扩大适用范围。复用同一日 K 图表、视野保持、加载和重试控件。继续由 [`DAILY_CHART_PAGE_SIZE`](../../../src/shared/charts/dailyChartRequestLimits.ts#L1) 统一提供 500 根，沿用现有剩 100 根的预取阈值。
+
+| 位置 | 扩展方式与验收 |
+| --- | --- |
+| [`useIndexDetailController.ts`](../../../src/features/index-detail/controller/useIndexDetailController.ts#L99) | 先按当前指数及页面日期取 `page-init`，首屏继续传 `asOfTradeDate` 和 500 根。现有上证综指按原方式校验 `meta.nextEndDate`；其他指数收到带有该字段的本地日 K 正式回包时，进入同一校验和续页流程。空页仍沿用页面空态，非空短页进入已到历史末端状态。Prod 其他指数当前响应只有基础 `meta` 字段，维持原页面行为。用缺字段的 Prod 响应、字段为空的本地短页及带日期的本地满页区分这三种情形。无需改环境开关或引入新的 HTTP 参数。 |
+| [`useIndexDailyHistory.ts`](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L55) | 把仅认上证综指的日 K 回包校验和请求参数改为从本次页面的 `tsCode` 取值。首屏和续页走同一校验，比较指数代码、周期、截止日、根数和下一批日期。续页还校验该批末根严格早于已加载的最早日 K。收到合法空页或短页后停止继续请求，错误回包保留现有缓存及原截止日。取消沿用当前会话的 `AbortSignal`。切换指数、页面日期或离开日 K 时，旧历史及图层回包不能修改新页面。 |
+| 同一续页控制层的 [`loadLayer`](../../../src/features/index-detail/controller/useIndexDailyHistory.ts#L123) | 日 K 非空成功页才加载图层。支持日线九转时，用该页实际 `tsCode`、`startDate`、`endDate`、`limit=500` 请求并核对九转结果归属。这一范围只包含刚加载的历史日 K，既有日期匹配和错误重试逻辑复用。趋势通道的首屏和续页都继续要求当前指数为 `000001.SH` 且具备趋势能力；核对其他指数的整个续页过程无趋势通道请求。 |
+| [`IndexDetailPageView.tsx`](../../../src/pages/index-detail/IndexDetailPageView.tsx#L242)、[`IndexChartWorkspace.tsx`](../../../src/features/index-detail/chart/IndexChartWorkspace.tsx#L82) | 复用现有历史视野回调和图层合并。旧页回包按日期左接，保留当前看到的日期、缩放和图层选择。最新行情日期、右栏摘要和技术页签继续基于首屏。历史九转或趋势失败只在对应图层反馈并可独立重试。离开日 K 不改变周月图或分钟图各自的请求。 |
+
+### 28.5 预算、中断和验证
+
+- **单页请求。** 当前本机配置为每页最多 500 根，以现行参数在隔离内存实例解析出 10 个计算项、500 根预热，历史不足时只用已发布行情。因此单页最多向算子交付 1,000 根（500 目标 + 500 预热），再为目标页投影最多 500 根辅助字段。这两个读数环节会读到同一批目标日期。使用同批 DG 日历和正式分区；定位阶段的行数、文件数、字节数另外记录。首屏盘口另做一次最新行情查询，九转每批最多另取一根日期判断续页，均沿用各自的读取上限。
+- **运行限制及中断。** 本机现行配置含清理的总时限为 8,000 毫秒，清理预留 2,000 毫秒，排队上限 2,000 毫秒，文件上限 10,000。复用现有排队、取消及释放逻辑。用户切换指数、离页或请求终止时清理本次计算，不交付半批；重试原代码、原日期和原区间，不推进页面游标。失败或中断按实际读取量记录，验收中已通过的样本可复用。[现行执行参数](../../../../src/foundation/config/settings.py#L76) · [请求执行](../../../../src/app/runtime/technical_indicators/execution.py#L34)
+- **实现验证。** 使用真实字段合同构造的独立夹具，覆盖十指数分流、次新指数近起点的短页和合法空页、休市、缺整根和缺四价、九转命中及部分缺失、首屏量额、调试错误、首屏与续页每批 500 根，以及普通和调试日 K 请求 501 根时均在开始取数前返回 400。前端正向参数化覆盖配置内 10 只指数，反向覆盖非上证旧 Prod 回包按现行方式渲染、错指数回包、短页到头、九转失败后只重试同一图层、切换指数时的迟到回包。沿用 [日 K 控制层](../../../src/features/index-detail/controller/useIndexDetailController.test.tsx) 和 [指数页面](../../../src/pages/index-detail/IndexDetailPage.test.tsx) 的回归入口。测试把两份指数日线技术因子的读取替换为立即失败，三个本地入口仍须得到正确业务响应。反向验证 Prod SQL 路径、股票、指数周月线及分钟接口保留现有行为。量额按源单位及现有 HTTP 格式单独核对。[上证应用集成测试](../../../../tests/app/technical_indicators/test_index_daily_kline_integration.py) · [指数详情 API 现有测试](../../../../tests/web/test_wealth_index_detail_api.py) · [指数九转现有测试](../../../../tests/web/test_wealth_index_nine_turn_api.py)
+- **正式 DG 只读验收。** 每只指数各验证一个 3 根的近期窗口和一个截至首根的小窗口，累计最多 60 根目标（10 × 2 × 3）。另验上证、深证成指、中证 A500、北证 50 各两批最多 500 根，累计最多 4,000 根目标。这四只指数的两批请求均通过实际浏览器发起，记录页面截止日、游标、日 K 和九转请求、未触发的趋势请求，以及拖动、历史短页、左右视野和当前盘口。浏览器的网络响应即为这批接口验收证据，同一批数据不再重复请求。上述正常请求总计最多 4,060 根目标，最多 14,000 根预热（28 次日 K × 500）。中断的代表页及重试各按一次 500 根目标加 500 根预热、另读最多 500 根目标辅助字段预留，合计最多 3,000 次业务行情行投影，其中同一目标日期会由不同步骤读取。读到的日期、耗时、时限和文件统计按阶段记录，耗时以届时实测为准。日 K 的量额、四价和交易日从同一份只读 DG 普通日线样本核对。同一页的盘口和九转按页面实际请求记录另行核对，原始行情的验证样本在验收内复用。
+
+**2026-11-22 接口上限已实施。** 本地普通和调试日 K 的首批、续批统一适用 500 根上限。500 根请求进入计算，501 根及以上按现有参数错误合同返回 400。详见[本地日线 API 合同](index-detail-api-contract-v1.md#local-index-daily-kline-api)。现有 §27 和前次验收记录继续描述各自的实施时点。
+
+### 28.6 开工审计（2026-11-22）
+
+**具备开发条件。** 原方案 §9、合同 §5.7、LLD §28 对首屏锚定、全部指数共用续页、日线九转日期范围及 Prod 边界一致。交互和图表沿用 §27 已验收的页面，复用 §27.4.1 已确认的图表与状态门禁。扩大指数范围后的数据来源、首屏和续页合同、错指数和旧回包、图层重试及正常结束的验证按 §28.4–28.5 执行。
+
+- **现行代码可复用。** 通过 CodeGraph `codegraph_explore` 追查页面、日线控制层、现有历史缓存和图表，并核对普通与调试入口。只绑定上证的代码分布在首屏的游标校验与历史初始化、历史日 K 的请求与回包校验、历史九转的请求与结果校验。复用现有缓存、撤销、视野和图层逻辑即可覆盖其他指数。实测当前响应模型，旧 `meta` 序列化时缺少 `nextEndDate`，分页 `meta` 在末页明确返回 `null`。两种结构可以区分，Prod 非上证页面继续读现行响应。
+- **最近两页有真实 DG 数据。** 固定截至 2026-11-20，按 DG SSE 交易日历核对最近 1,000 个开市日。首批范围为 2024-10-31 至 2026-11-20，全部 10 只各有 500 根，下一批截止日为 2024-10-30。续页最早可到 2022-10-10，较早成立的 8 只各有 500 根，北证 50 有 450 根，中证 A500 有 23 根，分别从已核对的 DG 起点 2022-12-19、2024-09-23 开始。另核对续页前 500 个开市日（2020-09-10 至 2022-09-30），仍处于覆盖范围的 8 只均各有 500 根。只读 1,500 个明确日期的正式日线文件，合计核对 13,473 个应有代码／日期键，均恰有一条且四价为有效数值。这些样本支持本期首批、满页续页、两类短页及所需预热验收，历史起点附近的实际接口仍按 §28.5 验收。
+- **既有实现基线。** 现有指数控制层、详情页、图表和周月线前端相关 108 项通过。现行上证日 K 应用集成、其他指数 DG 日线读取、指数详情 API 和指数日线九转隔离回归共 44 项通过。验收阶段再用正式 DG 和真实浏览器核对扩展后链路。
+
+### 28.7 阶段 1 实施验收（2026-11-22）
+
+- **范围。** 本地普通和调试日 K 共用计算入口，使用普通指数日线，每个非空请求计算一次。选页、行情文件和预热日期使用 §28.1 的起点。Prod 保留原来的上证特例和旧日线分流。盘口及九转日期来源、浏览器向左翻页分别由阶段 2、3 验收。
+- **实际 DG 接口。** 隔离装配正式路由，使用正式 DG 文件并禁止旧指数日线技术因子查询。10 只指数各请求一次近期 3 根和一次起点 3 根。上证综指、深证成指、北证 50、中证 A500 的首批各 500 根，续页分别为 500、500、450、23 根。两只短页的 `nextEndDate` 均为 `null`。科创 50 基日、中证 A500 起点前均为空页。深证成指请求休市日 2026-11-22 时取得 11 月 20 日的日 K。31 次成功请求累计返回 3,534 根，抽查了 50 个代码和日期上的四价、昨收、涨跌和量额，并独立复算样本末根的 MA、BOLL、MACD、KDJ。单请求最长实测 2.381 秒。普通和调试请求 501 根均为 HTTP 400，名单外代码返回 404。
+- **隔离回归。** 150 项通过。覆盖超限在读身份和交易日历前返回、覆盖期缺目标或预热 K 线报错、原有 Prod 日线限制与分流、股票日线、指数周月线、指数分钟线、日线九转及子系统依赖检查。周月线 PostgreSQL 回归使用本机临时测试实例，实际 DG 验收未连接 Prod。

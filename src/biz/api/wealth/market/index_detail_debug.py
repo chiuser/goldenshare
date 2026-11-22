@@ -48,7 +48,7 @@ def build_router(*, daily_lake=None, run_sse_kline=None, run_period_kline=None, 
         def project(*facts):
             from src.biz.queries.wealth.market.index_detail.debug_response import kline_response
 
-            return kline_response(*facts)
+            return kline_response(*facts, dg_daily=daily_lake is not None and period in (None, "day"))
 
         response = await query_kline_response(
             request, session, ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,

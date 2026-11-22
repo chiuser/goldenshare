@@ -29,7 +29,9 @@ from ..technical_indicator_index_period import (
     INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, INDEX_PERIOD_PAGE_FIELDS,
     check_period_key, index_period_positions, period_bounds,
 )
-from ..technical_indicator_stock_daily import INDEX_DAILY_ORIGINS, full_day_suspension, scheduled_open_days, scheduled_stock_days
+from ..technical_indicator_stock_daily import (
+    dg_index_daily_origin, full_day_suspension, scheduled_open_days, scheduled_stock_days,
+)
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
 )
@@ -99,7 +101,8 @@ class LakeTechnicalIndicatorPriceSource:
 
     def _partition_paths(self, root, requirement, control):
         through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
-        return tuple(path for _, path in self._dated_partitions(root, requirement.target, through, control))
+        start = dg_index_daily_origin(requirement.ts_code) if requirement.target.dataset_id == "index_daily" else None
+        return tuple(path for _, path in self._dated_partitions(root, requirement.target, through, control, start=start))
 
     def _dated_partitions(self, root, target, through, control, *, start=None):
         template = Path(target.location["path_template"])
@@ -305,7 +308,8 @@ class LakeTechnicalIndicatorPriceSource:
         start, end = min(requirement.start, selection.read_start), requirement.end
         index = requirement.target.dataset_id == "index_daily"
         if index:
-            start = max(start, INDEX_DAILY_ORIGINS["dg"])
+            origin = dg_index_daily_origin(requirement.ts_code)
+            start = origin if selection.reached_source_origin else max(start, origin)
         calendar = self._fact_rows(root, "trade_calendar", ("trade_date", "is_open"),
                                    [("exchange", "=", "SSE"), ("trade_date", ">=", start),
                                     ("trade_date", "<=", end)], control, read_context)

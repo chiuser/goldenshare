@@ -32,6 +32,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailUniverseService,
 )
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
+from src.foundation.clients.technical_indicator_stock_daily import dg_index_daily_origin
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from goldenshare_technical_indicators.contracts import CalculationResult
 
@@ -137,8 +138,10 @@ class IndexDetailKlineQueryService:
 
         self._universe_service.require_supported(ts_code)
         if calculate is not None:
+            if self._daily_lake is not None:
+                source_origin = dg_index_daily_origin(ts_code)
             assert source_origin is not None and check_active is not None
-            return self._build_sse_kline(
+            return self._build_calculated_daily_kline(
                 session, ts_code=ts_code, start_date=start_date, end_date=end_date,
                 limit=limit, source_origin=source_origin,
                 calculate=calculate, check_active=check_active, load_daily_fields=load_daily_fields,
@@ -225,7 +228,7 @@ class IndexDetailKlineQueryService:
             dataStatus=data_status,
         ), missing_count
 
-    def _build_sse_kline(
+    def _build_calculated_daily_kline(
         self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
         limit: int, source_origin: date, calculate: CalculateDailyFactors,
         check_active: Callable[[], None], load_daily_fields,
@@ -279,7 +282,8 @@ class IndexDetailKlineQueryService:
             apply_calculated_kline_factors(ts_code, rows, result.calculations)
             missing_count = count_calculated_kline_missing(rows, preceding_rows)
         next_end = window[0][2] if len(window) == limit else None
-        if next_end is not None and start_date is not None and next_end < start_date:
+        cursor_lower = lower if self._daily_lake is not None else start_date
+        if next_end is not None and cursor_lower is not None and next_end < cursor_lower:
             next_end = None
         data_status = self._status_resolver.resolve(
             expected_trade_date=expected_end or query_end, observed_trade_date=dates[-1] if dates else None,

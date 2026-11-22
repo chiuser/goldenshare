@@ -24,7 +24,7 @@ from .technical_indicator_index_period import (
     index_period_positions, period_bounds, period_request_start, preceding_limit, require_index_period,
 )
 from .technical_indicator_stock_daily import (
-    INDEX_DAILY_ORIGINS, daily_adjustment_paths, daily_price_projection, full_day_suspension,
+    PROD_INDEX_DAILY_ORIGIN, daily_adjustment_paths, daily_price_projection, full_day_suspension,
     scheduled_open_days, scheduled_stock_days,
 )
 
@@ -198,7 +198,7 @@ class PostgresTechnicalIndicatorPriceSource:
             start, end = min(requirement.start, selection.read_start), requirement.end
         index = requirement.target.dataset_id == "index_daily"
         if index:
-            start = max(start, INDEX_DAILY_ORIGINS["prod_pg"])
+            start = max(start, PROD_INDEX_DAILY_ORIGIN)
         calendar_target = self._config.resolve_dataset_location("trade_calendar")
         calendar = _query(connection, control, f"""
             SELECT trade_date, is_open FROM {_relation(calendar_target)}

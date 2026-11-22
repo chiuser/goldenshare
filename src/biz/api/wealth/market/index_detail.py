@@ -180,12 +180,13 @@ async def query_kline_response(
                 raise IndexDetailRequestError("当前环境未启用指数周月线")
             body = await run_period_kline(request, arrived_at=arrived_at, project=project, **params)
             return Response(content=body, media_type="application/json")
-        if params["ts_code"] == "000001.SH" and params["period"] == "day" and params["limit"] <= 500:
+        legacy_sse = params["ts_code"] == "000001.SH" and params["limit"] <= 500
+        if params["period"] == "day" and (daily_lake is not None or legacy_sse):
             start, end = params["start_date"], params["end_date"]
             if start is not None and end is not None and start > end:
                 raise IndexDetailRequestError("startDate 不能晚于 endDate")
             if run_sse_kline is None:
-                raise IndexDetailQueryError("000001.SH 日线指标运行环境未装配")
+                raise IndexDetailQueryError(f"{params['ts_code']} 日线指标运行环境未装配")
             body = await run_sse_kline(request, arrived_at=arrived_at, project=project, **params)
             return Response(content=body, media_type="application/json")
         service = IndexDetailKlineQueryService(daily_lake=daily_lake)

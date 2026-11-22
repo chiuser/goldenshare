@@ -1,5 +1,7 @@
 # 指数详情页正式 API / DTO 合同 v1
 
+> 2026-11-22。本地全部支持指数的日 K 首屏、向左翻页及每批 500 根已确认，待实施，见 [§5.7](#local-index-daily-kline-api)。
+
 > 2026-11-22。合同 `1.5.0` 为阶段二指数周月线接口，适用范围见 §4.3 和 §5.6。阶段三页面接入另行实施。
 
 > 2026-11-10。普通与核验接口拆分及主要指数量化结构读取见 [§11](#11-普通与核验接口拆分)。§10 保留拆分前的 r4.1 历史合同。
@@ -378,6 +380,18 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 按 `EMPTY > PARTIAL > DELAYED > READY` 归类。真实无历史时返回空页，有已有行情而更新未到预期交易日时保留实际数据，读源失败、应有历史缺根或结果日期对不上时返回 `ID_QUERY_FAILED`。普通 `debugInfo=null`，核验接口附加对应周期的诊断。
 
 例如调用 `/kline?tsCode=000001.SH&period=week&endDate=2026-11-20&limit=500`，返回的 `meta` 为 `{"count":500,"limit":500,"startDate":null,"endDate":"2026-11-20","nextEndDate":"2017-02-10"}`。下一页把 `2017-02-10` 原样作为 `endDate`。详细日期及验收规则见[指数周月线 LLD](index-detail-weekly-monthly-low-level-design-v1.md)。
+
+<a id="local-index-daily-kline-api"></a>
+### 5.7 本地全部支持指数日 K
+
+沿用 `GET /api/v1/wealth/market/index-detail/kline`、对应的 `/debug/kline` 及现有鉴权。阶段 1 已验收本地 `local/dev` 的 `period=day`（含省略周期）后端合同。页面接入安排见 LLD §28.4。§5.1 和 §5.5 保留原日线范围，Prod 继续按原条款处理。
+
+- `limit` 缺省为 300，算子库单次上限为 500，沿用现有部署限制。超过生效上限时，取数前返回 HTTP 400 / `ID_REQUEST_INVALID`。
+- 全部支持指数页面的首屏以 `page-init.asOfTradeDate` 为 `endDate`，显式传 `limit=500`。向左翻页时，续页沿用同一 `tsCode` 和日线周期，将上一成功页的 `meta.nextEndDate` 原样作为 `endDate`，同样显式传 `limit=500`。续页失败按原指数和原截止日重试。
+- 结果日期正序。所有支持指数的本地成功页都提供 `meta.nextEndDate`。先于本批最早日 K 的上一开市日仍在有效范围内时，满页返回该日期。短页、空页或没有更早日 K 时返回 `null`，调用方结束翻页。前端收到其他指数的旧 Prod 回包时，沿用缺少该字段时的页面行为。
+- 日 K 从 DG 普通指数日线取得四价和辅助行情，同批算子计算 MA、BOLL、MACD、KDJ。字段、正常空值和读取失败的对外行为沿用 §5.5，历史起点按指数核定。`meta.nextEndDate` 是全部支持指数本地日 K 的响应字段；字段为 `null` 时表示历史结束。Prod 仍按 §5.5 的适用范围返回此字段。
+
+非空续页有日线九转能力时，页面用同一 `tsCode` 和续页实际首末日作为 `startDate`、`endDate`，调用现有 `/index-detail/nine-turn`，每批显式传 `limit=500`。上证综指沿用同一日期范围请求趋势通道。空续页结束翻页。页面交互见[原方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)，实现和验收见[LLD §28](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
 
 ## 6. `GET /weights`
 

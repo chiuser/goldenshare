@@ -1,24 +1,43 @@
-"""Shared price projection and schedule rules for unadjusted stock daily bars."""
+"""Shared contracts and schedule rules for ordinary stock and index daily bars."""
 
 from datetime import date, timedelta
 
-from goldenshare_technical_indicators.errors import SourceContractError, SourceUnsupportedError
+from goldenshare_technical_indicators.errors import SourceContractError, SourceReadError, SourceUnsupportedError
 
 
 DAILY_PRICE_FIELDS = ("open", "high", "low", "close", "volume", "amount")
 
 
-INDEX_DAILY_ORIGINS = {"dg": date(2000, 1, 4), "prod_pg": date(1991, 7, 15)}
+PROD_INDEX_DAILY_ORIGIN = date(1991, 7, 15)
+_DG_INDEX_DAILY_ORIGINS = {
+    "000001.SH": date(2000, 1, 4),
+    "399001.SZ": date(2000, 1, 4),
+    "000016.SH": date(2004, 1, 2),
+    "000300.SH": date(2005, 1, 4),
+    "000905.SH": date(2005, 1, 4),
+    "000852.SH": date(2005, 1, 4),
+    "399006.SZ": date(2010, 6, 1),
+    "000688.SH": date(2020, 1, 2),  # 2019-12-31 contains only the 1,000-point base value.
+    "899050.BJ": date(2022, 12, 19),
+    "000510.SH": date(2024, 9, 23),
+}
+
+
+def dg_index_daily_origin(ts_code: str) -> date:
+    origin = _DG_INDEX_DAILY_ORIGINS.get(ts_code)
+    if origin is None:
+        raise SourceReadError("读取数据失败", detail=f"{ts_code} 的 DG 普通指数日线未配置历史起点")
+    return origin
 
 
 def daily_adjustment_paths(requirement, backend):
     if requirement.target.backend == backend and requirement.period == "day":
         if requirement.target.dataset_id == "stock_daily" and requirement.target_adjustment in ("none", "qfq"):
             return (("none", "none"), ("none", "qfq"))
-        if (requirement.target.dataset_id == "index_daily" and requirement.ts_code == "000001.SH"
-                and requirement.target_adjustment == "none"):
+        if (requirement.target.dataset_id == "index_daily" and requirement.target_adjustment == "none"
+                and (backend == "dg" or requirement.ts_code == "000001.SH")):
             return (("none", "none"),)
-    raise SourceUnsupportedError("This reader supports stock daily and unadjusted SSE Composite daily bars")
+    raise SourceUnsupportedError("This reader supports stock daily and configured unadjusted index daily bars")
 
 
 def daily_price_projection(fields):

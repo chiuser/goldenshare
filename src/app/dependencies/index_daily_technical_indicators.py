@@ -11,7 +11,7 @@ from src.app.runtime.technical_indicators.execution import _execute
 from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
     SSE_DAILY_AUX_FIELDS, SSE_DAILY_CALCULATIONS, IndexDetailKlineQueryService,
 )
-from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError
+from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError, IndexDetailRequestError
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from goldenshare_technical_indicators.contracts import CalculationRequest
@@ -23,7 +23,6 @@ from goldenshare_technical_indicators.service import TechnicalIndicatorService
 from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
-_DG_SOURCE_ORIGIN = date(2000, 1, 4)
 _PROD_SOURCE_ORIGIN = date(2010, 1, 4)
 
 
@@ -36,11 +35,12 @@ async def run_index_daily_kline(
         raise IndexDetailQueryError(f"{ts_code} 日线指标运行环境未装配")
 
     use_dg = runtime.config.data_location == "dg"
+    if use_dg and limit > runtime.config.max_output_rows:
+        raise IndexDetailRequestError(f"日线 limit 必须在 1 到 {runtime.config.max_output_rows} 之间")
     if use_dg and daily_lake is None:
         daily_lake = IndexDailyLakeReader(Path(runtime.config.goldenshare_lake_root))
     if not use_dg:
         daily_lake = None
-    source_origin = _DG_SOURCE_ORIGIN if use_dg else _PROD_SOURCE_ORIGIN
     query_params = dict(ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,
                         limit=limit)
 
@@ -73,7 +73,8 @@ async def run_index_daily_kline(
 
         query = IndexDetailKlineQueryService(daily_lake=daily_lake)
         options = dict(
-            params, calculate=calculate, source_origin=source_origin, check_active=control.check_active,
+            params, calculate=calculate, source_origin=None if use_dg else _PROD_SOURCE_ORIGIN,
+            check_active=control.check_active,
             load_daily_fields=load_dg_fields if use_dg else None,
         )
 
