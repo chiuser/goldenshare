@@ -21,9 +21,9 @@
 
 依赖上游齐备结论的独立审计按实际输入顺序进行。按业务日、频度及发布版本检查必需的上游证据。已有合格结果时直接复用。上游还没审完或版本对不上时，下游显示「等待上游核验」；上游已经确认缺口时，下游显示「上游有缺口」及受影响的依赖。两种情况都不提交下游审计，也不读取下游文件。下游的更新状态仍按本身的发布记录展示。只有上游补齐并通过核验，且新的证据与下游实际输入版本相符，才继续核验受影响的下游。
 
-股票分钟线按这条顺序执行。**本地 Raw 五频在生产 Check 核当天应有交易股票的代码覆盖和常规时段总根数，停牌记录和盘后记录的交付另按第 3.1 节处理。** Silver、股票分钟线前复权 Gold、MACD/KDJ 指标和递推状态、股票分钟线前复权九转等下游按实际输入复用同版齐备结果，再按本层转换规则核股票覆盖、总行数及原有生产检查。优先复用已生成的同版统计，缺项在现有生产 Check 的读取中补齐。上游齐备证据未到时先等待，所需数据和证据就绪后由生产调度执行当天的覆盖 Check。页面读当次结果，更新状态照常按发布记录展示。
+股票分钟线按这条顺序执行。**本地 Raw 五频在生产 Check 核当天应有交易股票的代码覆盖和常规时段总根数，停牌记录和盘后记录的交付另按第 3.1 节处理。** 股票分钟线前复权 Gold 复用当天实际输入的 Silver 齐备结果，再确认 Gold 当日文件已交付、生产任务成功。Silver、MACD/KDJ 指标、递推状态和股票分钟前复权九转分别沿用各自已确认的规则。已有生产 Check 照常运行。新增下游审计只用已有结论、当次生产已有统计和已读数据，证据不足时待确认。上游结论到齐后，日报按当天已有记录更新。页面读当次结果，更新状态照常按发布记录展示。
 
-按本层实际输入判断影响。股票 5 分钟 Silver 同时依赖 5 分钟和 1 分钟 Raw。股票 15 分钟前复权 Gold 读取 5 分钟 Silver，120 分钟前复权 Gold 读取 60 分钟 Silver。停牌、身份映射、复权因子及前序状态等必要输入也按各资产实际版本确认。已明确获准的历史替代使用该次实际输入和范围。验收应覆盖上游未核验或有缺口时零下游文件读取、上游换版后下游证据尚未更新，以及其他输入已齐备的频度可继续。 [Silver 输入](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L3191) · [前复权 Gold 输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11)
+按本层实际输入判断影响。股票 5 分钟 Silver 同时依赖 5 分钟和 1 分钟 Raw。股票 15 分钟前复权 Gold 读取 5 分钟 Silver，120 分钟前复权 Gold 读取 60 分钟 Silver。需要逐键判定的资产继续按各自规则确认停牌、身份映射、复权因子及前序状态等必要输入。已明确获准的历史替代使用该次实际输入和范围。验收应覆盖上游未核验或有缺口时零下游文件读取、上游换版后下游证据尚未更新，以及其他输入已齐备的频度可继续。 [Silver 输入](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L3191) · [前复权 Gold 输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11)
 
 ## 2. 怎么评审每条规则
 
@@ -115,7 +115,7 @@ Silver 应有行数按正式转换规则确定，包含按有效期映射代码�
 
 **已确认采用股票覆盖和总行数核对。** 按第 1.1 节先取得同版上游的齐备证据。上游齐备后，复用原有计算及发布检查，核对本层应有股票覆盖与总行数。缺少本层统计证据时，记录相关范围待核验。
 
-**指标七项。** 先确认同日、同频、同版股票前复权分钟线 Gold 的齐备 Check 通过，再核 MACD/KDJ 与该次输入的股票代码一致、总行数相同。每根前复权 K 线应产出一行指标。复用已有的产物合同检查和来源行数、指标行数对账。代码证据不足时合并到现有 Check 的读取中，优先使用生产已读的数据和统计，避免再打开一遍股票年度文件。 [指标覆盖检查](../../orchestrator/src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py#L227) · [指标按股票、年份存储](../../orchestrator/src/orchestrator/defs/paths.py#L576)
+**指标七项。** 先确认同日、同频、同版股票前复权分钟线 Gold 的齐备 Check 通过，再核 MACD/KDJ 与该次输入的股票代码一致、总行数相同。每根前复权 K 线应产出一行指标。复用已有的产物合同检查和来源行数、指标行数对账。代码证据优先取生产已读的数据和统计，仍缺证据时待确认。新增审计不重新打开股票年度文件。 [指标覆盖检查](../../orchestrator/src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py#L227) · [指标按股票、年份存储](../../orchestrator/src/orchestrator/defs/paths.py#L576)
 
 **状态七项。** 同版上游齐备后，在生产 Check 核递推状态的股票代码及总行数。应有代码是前一交易日应承接状态的股票加上当天有指标的股票，去重后每只一行。已有状态的股票全天停牌时沿用上一交易日状态。比如上一交易日 10 只股票都有状态，今天 1 只全天停牌，其余 9 只各有 5 根分钟线，则指标应有 45 行，递推状态应有 10 行。首次初始化按当次规则确定前序范围，历史修复按获准范围核对。现有检查只要求状态行数至少达到当天有指标的股票数，须补完整的应有代码和精确总行数。复用当日生产已读入的前序状态和当日输入统计。缺少能绑定到该版的证据时显示「待确认」。 [状态生成规则](../../orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py#L676) · [前序交易日规则](../../orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L289) · [现有状态检查](../../orchestrator/src/orchestrator/defs/checks/stk_mins_qfq_macd_kdj_checks.py#L417)
 
@@ -311,13 +311,14 @@ Raw、Silver 分层核验。更新状态按业务交易日记录各层实际交�
 
 ### 5.1 原 105 项复用候选
 
-以下保留原 105 项的复用依据。另有第 3.2 节 5 个 ETF 分钟 Raw、第 3.3 节 7 个股票前复权分钟 MACD/KDJ 指标、第 3.4 节 2 个主要指数周线和月线 Raw 及东方财富板块成分 Raw、Silver，第 3.5 节股票复权因子 Raw、ETF 日线行情 Raw 和基金复权因子 Raw 各 1 项，以及第 3.6、3.7 节上交所交易日历两层、指数基础信息 Raw、股票基础信息 Raw、主要指数量化结构 Gold 优先使用现有检查或发布证据，共 129 项。每行所列范围是可接受结论的上限，使用时须核对同版证据和频度。
+以下保留原 105 项的复用依据。另有第 3.2 节 5 个 ETF 分钟 Raw、第 3.3 节 7 个股票前复权分钟 MACD/KDJ 指标、第 3.4 节 2 个主要指数周线和月线 Raw 及东方财富板块成分 Raw、Silver，第 3.5 节股票复权因子 Raw、ETF 日线行情 Raw 和基金复权因子 Raw 各 1 项，以及第 3.6、3.7 节上交所交易日历两层、指数基础信息 Raw、股票基础信息 Raw、主要指数量化结构 Gold 优先使用现有检查或发布证据，原清单共 129 项。股票日线前复权 Gold 按下表改为轻量复用后共 130 项。其余各项依表中的范围、版本和频度判断。
 
 | 资产键 | 可复用结论的范围 | 不能据此推断 | 代码 |
 |---|---|---|---|
 | `silver_adj_factor` | **合同范围**：按生命周期定义必需与允许代码范围，核对缺码、多码，并对照筛选后 Raw。 | 以合同启用日期、生命周期与 Raw 版本为限，不是停牌表或所有历史日期均齐备的证明。 | [依据](../../orchestrator/src/orchestrator/defs/checks/adj_factor_checks.py#L760) |
 | `raw_tushare_stock_daily` | **合同范围**：按验收时 Silver 股票基础信息的当前上市人民币股票、上市起日及同日全天停牌，核对缺码和多码。 | Raw 把退市日期置空且源名单只取当前上市，不代表历史日期当时应有的全部股票；不能代替 Silver 历史生命周期规则。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stock_daily_checks.py#L41) |
 | `silver_stock_daily` | **合同范围**：按正式股票生命周期、市场起点和同日全天停牌计算应有范围，实际代码名单双向比对。 | 以对应版本的生命周期和停牌事实为前提；不能替代其他周期或数据层检查。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stock_daily_checks.py#L1135) |
+| `gold_stock_daily_qfq` | 当日股票日线 Silver 的现有阻断 Check 全部通过，同日 Gold 文件存在且生产任务成功，日报判已确认齐备。 | 本项按交付简化口径通过。下游各自需要的逐键覆盖证据仍按其原规则判断。 | [日线 Check 名单](../../orchestrator/src/orchestrator/defs/catalog/lake_assets.py#L634) · [Gold 文件路径](../../orchestrator/src/orchestrator/defs/paths.py#L680) |
 | `silver_dc_industry_hierarchy` | **合同范围**：按固定三级行业基线与指定板块分类参考双向匹配，再与输出节点双向比对。 | 只证明这份基线及参考范围齐备；不证明每日板块行情或板块成分。 | [依据](../../orchestrator/src/orchestrator/defs/checks/dc_industry_hierarchy_checks.py#L132) |
 | `silver_etf_adj_factor` | **合同范围**：复用同次上市 ETF 覆盖 Check 及同版 Raw 标准化对账。 | 结论以绑定的 ETF 基础信息快照、Raw 版本和交易日为限。覆盖差异按现有阻断规则处理。 | [依据](../../orchestrator/src/orchestrator/defs/checks/etf_daily_checks.py#L1212) |
 | `raw_tushare_idx_factor_pro` | **合同范围**：使用按日期生效的独立指数技术因子代码范围，对目标选择结果验缺码。 | 仅指支持名单及该原生交易日，不指全市场指数。 | [依据](../../orchestrator/src/orchestrator/defs/checks/idx_factor_pro_checks.py#L214) |
@@ -394,13 +395,13 @@ Raw、Silver 分层核验。更新状态按业务交易日记录各层实际交�
 | `silver_moneyflow_mkt_dc` | **相对交付**：以当日 Raw 为输入按业务键和全部投影字段双向对账。 | 只能证明标准化没有丢失 Raw 的内容；要另有 Raw 同版覆盖证据。 | [依据](../../orchestrator/src/orchestrator/defs/checks/moneyflow_daily.py#L80) |
 | `silver_moneyflow_ths` | **相对交付**：以当日 Raw 为输入按业务键和全部投影字段双向对账。 | 只能证明标准化没有丢失 Raw 的内容；要另有 Raw 同版覆盖证据。 | [依据](../../orchestrator/src/orchestrator/defs/checks/moneyflow_daily.py#L80) |
 | `raw_tushare_stk_factor_pro` | **相对交付**：内嵌发布检查绑定已通过文件审计的产物和指纹；日更生产过程中另有独立覆盖门禁及交付记录。 | 原生 check 通过不能脱离对应发布方式和覆盖记录独立宣称全量；历史与日更口径需分开。 | [依据](../../orchestrator/src/orchestrator/defs/assets/stk_factor_pro.py#L715) |
-| `gold_stk_mins_qfq_120m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_15m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_1m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_30m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_5m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_60m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
-| `gold_stk_mins_qfq_90m` | **相对交付**：源覆盖检查对照 Silver 分钟／派生来源、复权因子与目标键。 | 证明相对当前输入的前复权交付，不独立证明 Silver 分钟没有漏股票或漏分钟。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L576) |
+| `gold_stk_mins_qfq_120m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_15m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_1m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_30m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_5m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_60m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
+| `gold_stk_mins_qfq_90m` | 当天实际来源频度的 Silver 已确认齐备，Gold 生产任务成功且该日文件已交付。 | 使用当日生产记录中的文件交付信息，避免重开股票年度文件。 | [输入频度](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [当日产出](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L411) |
 | `gold_stk_mins_qfq_nineturn_120m` | **相对交付**：九转输出相对前复权源行情的缺、多键及基本结果语义。 | 只能复用被核对的原生频度和对应源行情版本。 | [依据](../../orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py#L30) |
 | `gold_stk_mins_qfq_nineturn_30m` | **相对交付**：九转输出相对前复权源行情的缺、多键及基本结果语义。 | 只能复用被核对的原生频度和对应源行情版本。 | [依据](../../orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py#L30) |
 | `gold_stk_mins_qfq_nineturn_60m` | **相对交付**：九转输出相对前复权源行情的缺、多键及基本结果语义。 | 只能复用被核对的原生频度和对应源行情版本。 | [依据](../../orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py#L30) |
@@ -423,11 +424,10 @@ Raw、Silver 分层核验。更新状态按业务交易日记录各层实际交�
 
 ### 5.2 日更轻量检查
 
-主要指数周线 Silver 和月线 Silver 两项已确认增补到现有 Check，规则见[第 3.4 节](#主要指数周线和月线的检查结果复用)。下列两项复用生产 Check 的现有读取做同日对账。已确认缺码或多码时，本项 Check 失败并沿用现有规则阻断受影响的下游生产。仅缺少本次对账所需的同日同版证据时，新增对账记未核验，页面显示「待确认」。原有生产门禁按各自规则判断。验收覆盖代码或业务键一致、总数相同但一缺一多，以及只有审计证据缺失三种情况。
+主要指数周线 Silver 和月线 Silver 两项已确认增补到现有 Check，规则见[第 3.4 节](#主要指数周线和月线的检查结果复用)。下列 ClickHouse 检查复用生产 Check 的现有读取做同日对账。已确认缺码或多码时，本项 Check 失败并沿用现有规则阻断受影响的下游生产。仅缺少本次对账所需的同日同版证据时，新增对账记未核验，页面显示「待确认」。原有生产门禁按各自规则判断。验收覆盖代码或业务键一致、总数相同但一缺一多，以及只有审计证据缺失三种情况。
 
 | 资产键 | 新增的齐备性判定 | 代码 |
 |---|---|---|
-| `gold_stock_daily_qfq` | 同日目标 Gold 和同日 Silver 股票日线逐 `ts_code` 对账；复用正式生产已有复权因子门禁，不读前序日线。 只证明当天目标相对同版上游，源不齐不继承。 | [依据](../../orchestrator/src/orchestrator/defs/checks/stock_daily_qfq_checks.py#L59) |
 | `ch_dc_daily_technical` | 在既有同日 Gold 与本机 ClickHouse 返回数据上比较 `(ts_code, trade_date, category)`；不增加数据库查询。 只证明当天目标相对同版上游，源不齐不继承。 | [依据](../../orchestrator/src/orchestrator/defs/checks/dc_daily_technical_serving_checks.py#L141) |
 
 ### 5.3 一期齐备不适用（原 9 个）
