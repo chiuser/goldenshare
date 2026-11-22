@@ -13,6 +13,7 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate,
 )
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -29,7 +30,11 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
 )
-from orchestrator.defs.run_contracts.asset_tags import AssetLayer, DataDomain, build_asset_tags
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -46,7 +51,6 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     write_gold_stk_mins_qfq_macd_kdj_asset_partition,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 LOGGER = DgStdoutLogger("stk_mins_qfq_macd_kdj")
 
@@ -342,6 +346,7 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
                     "freq": write_result.freq,
                     "partition_key": partition_key,
                     "source_file_count": write_result.source_file_count,
+                    "audit_comparison": write_result.indicator_audit,
                     "output_file_count": write_result.indicator_file_count,
                     "output_sample_file_paths": list(
                         write_result.indicator_sample_file_paths
@@ -372,6 +377,11 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
                 extra_metadata={
                     "freq": write_result.freq,
                     "partition_key": partition_key,
+                    "audit_file_version": stat_version(write_result.state_file_path),
+                    "audit_comparison": (
+                        {**write_result.state_audit, "file_version": stat_version(write_result.state_file_path)}
+                        if write_result.state_audit else None
+                    ),
                     "previous_state_file_path": (
                         str(write_result.previous_state_file_path)
                         if write_result.previous_state_file_path is not None

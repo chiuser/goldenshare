@@ -124,7 +124,7 @@
 | 股票前复权分钟 MACD/KDJ 递推状态 | `stk_mins_qfq_macd_kdj_state/gold` | 7 | 同版上游齐备后，核应承接状态和当日有指标的股票代码，每只一行，合计与实际总行数匹配。从生产已读入的前序状态和当日输入生成统计，沿用停牌股票的前序状态。 [递推规则](dagster-daily-data-audit-rules-review-v1.md#33-股票前复权分钟-macdkdj-及状态14-项) |
 | 东方财富板块分类 Raw、Silver | `dc_index/raw`、`dc_index/silver` | 2 | 按分类标准集核板块代码，概念逐交易日留档。首次分类标准集及概念板块名单增减由人工确认，生产调度在各项所需依据齐备后执行覆盖 Check。 [分类标准集](dagster-daily-data-audit-rules-review-v1.md#东方财富板块分类标准集) |
 
-预算依据是物理访问步骤，不是按口径猜耗时。令 `S`、`G` 是股票日线 Silver、Gold 当日行数，`C`、`T` 是本机 ClickHouse 现有检查已读回的上游和目标当日行数：首项键对账只处理 `S + G` 行的键投影，最多两个既定日分区文件；次项在已读回的 `C + T` 行上追加键集合运算，新增数据库请求和文件读取均为零。两项合计不新增历史文件、行情字段计算、源请求或 Prod 查询。这里的行数是被核对的键记录数，不是实际磁盘字节或毫秒。现有结果若能以可靠生产证据证明等价，则优先复用，不再落第二项证据。
+股票日线前复权 Gold 的日报只读当日股票日线 Silver Check 和当次 Gold 任务终态，再确认一个 Gold 文件存在。没有新增行情文件内容读取。设 `C`、`T` 为本机 ClickHouse 现有 Check 已读回的上游和目标当日行数，板块日线技术指标的对账复用这 `C + T` 条记录的键。两项都沿用单日范围，新增源请求和 Prod 查询为零。
 
 主要指数周线、月线 Silver 各最多核 11 个应有指数的代码和日期。规则复用写入过程已构造的应有名单和现有 Check 扫描的当期数据，新增文件读取和源请求均为零。内存只需保留应有代码、键和异常记录。补跑也只核本次目标日。耗时尚无实测。 [应有代码和当期数据](../../orchestrator/src/orchestrator/defs/io/index_period_writer.py#L461) · [现有当期键检查](../../orchestrator/src/orchestrator/defs/checks/index_period_checks.py#L98)
 

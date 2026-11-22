@@ -43,8 +43,10 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.sensors.stock_daily_audit_coverage import (
+    late_stock_daily_coverage_request,
+)
 from orchestrator.defs.stk_nineturn_contract import STK_NINETURN_HISTORY_START_DATE
-
 
 RAW_STK_NINETURN_RUN_START = time(21, 15)
 SILVER_STOCK_NINETURN_RUN_START = time(21, 20)
@@ -353,6 +355,13 @@ def raw_stk_nineturn_update_job_sensor(
         )
 
     blocked = selection.blocked_reason == "materialized_check_failed"
+    if not blocked and expected_window.expected_trade_dates:
+        request = late_stock_daily_coverage_request(
+            context, evaluated_at, context.resources.lake_root.root(),
+            expected_window.expected_trade_dates[-1], "raw_tushare_stk_nineturn",
+        )
+        if request:
+            return dg.SensorResult(run_requests=[request])
     reason = (
         "最早未就绪神奇九转 Raw 分区已存在但 checks 未全绿，暂不自动重跑。"
         if blocked

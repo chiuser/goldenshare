@@ -9,9 +9,14 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.namechange import silver_namechange
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.checks.daily_audit_coverage import (
+    snapshot_comparison,
+    stat_version,
+    version_string,
+)
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
     copy_query_to_parquet,
@@ -40,16 +45,17 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.utils.dg_log_helper import DgStdoutLogger
 from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_ALLOWED_CONFIDENCE as STOCK_IDENTITY_ALLOWED_SEED_CONFIDENCE,
+)
+from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_ALLOWED_SEED_SOURCES,
     STOCK_IDENTITY_MAPPINGS_SEED_PATH,
     STOCK_IDENTITY_MAPPINGS_SEED_VERSION,
     StockIdentityMappingSeedRow,
     load_stock_identity_mapping_seed,
 )
-
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 STOCK_LIFECYCLE_IDENTITY_SOURCE = "stock_lifecycle"
 STOCK_LIFECYCLE_IDENTITY_CONFIDENCE = "confirmed"
@@ -160,6 +166,7 @@ def write_stock_identity_map_snapshot(
     duckdb: DuckDBResource,
     rows: Sequence[dict[str, Any]],
     target_path: Path,
+    comparison: dict | None = None,
 ) -> tuple[int, tuple[str, ...]]:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = target_path.with_name(f"{target_path.name}.tmp")
@@ -204,6 +211,14 @@ def write_stock_identity_map_snapshot(
                 describe_parquet_query(temporary_path, hive_partitioning=False)
             ).fetchall()
         )
+
+        if comparison is not None:
+            result = snapshot_comparison(
+                connection, f"SELECT {select_sql} FROM identity_rows",
+                temporary_path, ('source_ts_code', 'latest_ts_code', 'valid_from', 'valid_to'),
+            )
+            if result:
+                comparison.update(result)
 
     os.replace(temporary_path, target_path)
     return row_count, columns
@@ -376,6 +391,11 @@ def silver_stock_identity_map(
         raise FileNotFoundError(f"Missing silver namechange file: {namechange_path}")
 
     LOGGER.stdout("stock_identity_map_started")
+    audit_input_paths = {
+        "silver_stock_lifecycle": lifecycle_path,
+        "silver_namechange": namechange_path,
+    }
+    input_versions = {key: stat_version(path) for key, path in audit_input_paths.items()}
     seed_rows = load_stock_identity_mapping_seed()
     try:
         build_result = build_stock_identity_map_rows(
@@ -391,10 +411,12 @@ def silver_stock_identity_map(
             seed_row_count=len(seed_rows),
         )
         raise
+    comparison = {}
     row_count, columns = write_stock_identity_map_snapshot(
         duckdb=duckdb,
         rows=build_result.rows,
         target_path=target_path,
+        comparison=comparison,
     )
     LOGGER.stdout(
         "stock_identity_map_completed",
@@ -403,12 +425,25 @@ def silver_stock_identity_map(
         seed_row_count=build_result.seed_row_count,
     )
 
+    target_version = stat_version(target_path)
+    if comparison and all(
+        input_versions[key] and stat_version(path) == input_versions[key]
+        for key, path in audit_input_paths.items()
+    ):
+        inputs = {key: version_string(value) for key, value in input_versions.items()}
+        inputs["股票身份映射规则"] = STOCK_IDENTITY_MAPPINGS_SEED_VERSION
+        comparison.update(file_version=target_version, inputs=inputs)
+    else:
+        comparison = None
+
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "audit_file_version": target_version,
+                "audit_comparison": comparison,
                 "summary": "已重建股票身份映射快照，历史源代码可映射到当前标准股票代码。",
                 "next_action": "等待 silver_stock_identity_map blocking checks 通过后供下游历史代码归一使用。",
                 "result_status": "written",

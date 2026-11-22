@@ -1,6 +1,6 @@
 # 财势乾坤本地 DG 每日数据审计 LLD v1
 
-第一阶段详细设计及 DG 样本读回已完成，第二阶段待开发。业务依据为[每日数据审计方案](dagster-daily-data-audit-wealth-data-center-plan-v1.md)和[逐资产规则](dagster-daily-data-audit-rules-review-v1.md)。本文中的新增文件、字段与接口是实现约定。现有代码用链接标出。
+第一阶段详细设计及 DG 样本读回已完成。第二阶段实现见 §12。业务依据为[每日数据审计方案](dagster-daily-data-audit-wealth-data-center-plan-v1.md)和[逐资产规则](dagster-daily-data-audit-rules-review-v1.md)。本文中的新增文件、字段与接口是实现约定。现有代码用链接标出。
 
 ## 1. 目标与交付顺序
 
@@ -105,6 +105,8 @@
 
 先用生产调度已有的依赖检查。如果目标尚未产出，依赖成功后走原生产 job，检查随该次产出执行。如果目标已产出、相应覆盖字段为待确认，则由该资产生产传感器在既有业务日期窗口比较当天目标版本、最新依赖证据和已有覆盖结论。依赖可用时提交当天、该资产的检查选择，使用仅选现有 Check 的方式，运行参数显式给分区和目标版本。资金流依赖的接线使用 [moneyflow_update_selection.py](../../orchestrator/src/orchestrator/defs/sensors/moneyflow_update_selection.py)，分类及参照依赖使用 [dc_board_silver_sensor.py](../../orchestrator/src/orchestrator/defs/sensors/dc_board_silver_sensor.py) 的生产就绪检查与分类 Check 完成记录。相同目标、输入、规则已有完成覆盖结果或已排队就跳过。指标和年度文件的新增审计只接受已有生产统计或同一次生产已经读取的单日数据。页面不会提交补查。
 
+东方财富个股资金流向和股票日线神奇九转复用原生产传感器的最新适用交易日。日线晚到时，传感器在没有常规更新请求的轮次核对这一天的发布和 Check 记录，最多提交一个原 Check，按目标产出和日线版本去重。补查沿用同日键列预算，日报按原生 Check 指向的同版产出读取结果。
+
 ### 5.1 复用现有 Check 或交付
 
 `evidence_resolver` 按[方案 §4.1 全部 130 项](dagster-daily-data-audit-wealth-data-center-plan-v1.md#41-优先用现有-check-或发布证据130-个)和[逐资产 §5.1](dagster-daily-data-audit-rules-review-v1.md#51-原-105-项复用候选)读取检查字段。各组证据的适用范围如下。
@@ -127,14 +129,14 @@
 
 在 `daily_data_audit/jobs.py` 随已有批量取证读取同日日线 Check。生成或刷新该行时最多确认一次 Gold 文件是否存在。`summary.py` 合并日线 Check、Gold 文件存在和该次任务成功三个证据。原生产 Check、写入、下游就绪判断和调度沿用原流程，生产增量读写为零。日报只查当天一个文件的存在，新增 Parquet 内容读取、源请求和文件写入均为零，重跑相同。沿用现有按版本读取接口，有证据才填写正式版本，文件存在结论无需新增版本记录。
 
-此前实现只判断日线 Check 和文件存在，相关隔离回归共 23 项通过。正式 DG 的 2026-11-20 样本中，股票日线 Silver 的 6 条阻断 Check 均通过，Gold 文件存在，按当时两条口径复算通过。新增的任务成功条件待接入日报。隔离验收另覆盖当天已有文件但任务失败时保持待确认。
+日报已接入任务终态。正式 DG 的 2026-11-19 样本中，股票日线 Silver 的 6 条阻断 Check 均通过，Gold 文件存在，且发布所对应的 Gold 任务已成功。隔离验收覆盖文件存在但当次任务失败时齐备仍为「待确认」。
 
 
 #### 股票分钟前复权 Gold
 
 适用 `gold_stk_mins_qfq_{1,5,15,30,60,90,120}m`。先复用所选交易日 `D` 实际来源频度的股票分钟行情 Silver 齐备结论，频度用[现行输入合同](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11)，例如 15 分钟用 5 分钟 Silver。再读取同日、同频 Gold 已有物化中本次写入文件数、当日替换行数和该次任务终态。实际交付和任务成功均确认后，日报判「已确认齐备」。证据欠缺保持「待确认」。
 
-股票分钟前复权文件按频度、股票和年度存放，日报以[生产已经写完后留下的交付记录](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py#L2623)确认新日期的输出。复用日报批量读取到的物化记录，日线和分钟前复权的同日任务终态至多合并查询这 8 项对应的运行。日报增量为已有记录读取，生产增量和年度文件的新增内容读取均为零。接线时验证当日成功且已交付、已有年度文件但当天没有新交付、任务失败、实际输入频度未齐备四种情况。此规则待接入日报，生产 Check 沿用各自原规则。
+股票分钟前复权文件按频度、股票和年度存放，日报以[生产已经写完后留下的交付记录](../../orchestrator/src/orchestrator/defs/assets/stk_mins.py)确认新日期的输出。复用日报批量读取到的物化记录，日线和分钟前复权的同日任务终态至多合并查询这 8 项对应的运行。现有生产写入记录实际输入身份及交付批次，日报只读记录，新增年度文件内容读取为零。生产 Check 沿用各自原规则。
 
 2026-11-19 已有 DG 任务日志显示，1、60、120 分钟 Gold 前复权各发布 5,573 个文件。前复权生产步骤分别耗时 221.46、55.10、49.46 秒，现有阻断 Check 步骤分别耗时 152.53、18.36、16.29 秒。原 Check 回读 Silver、复权因子及目标年度文件。日报只复用交付和运行结论。 [现有 Check 的读取](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py#L1239)
 
@@ -142,7 +144,7 @@
 
 | 资产键或频度组 | 改动点、应有集合、结果 |
 |---|---|
-| `ch_dc_daily_technical` | [ch_dc_daily_technical_core_check](../../orchestrator/src/orchestrator/defs/checks/dc_daily_technical_serving_checks.py#L141) 对当前查询已读回的同日 Gold 和本机 ClickHouse 的 `(ts_code, trade_date, category)` 双向差集。数量相同且一缺一多仍失败，沿用原阻断。缺新增证据只记待确认。零新增查询。 |
+| `ch_dc_daily_technical` | [ch_dc_daily_technical_core_check](../../orchestrator/src/orchestrator/defs/checks/dc_daily_technical_serving_checks.py#L141) 对已读回的同日 Gold 和本机 ClickHouse 的 `(ts_code, trade_date, category)` 双向差集。产出记录本次读取的 Gold 文件身份，Check 至多读一条本分区的最新发布记录，与当次读取的 Gold 文件身份相符时才用新增差集阻断。数量相同且一缺一多仍失败。缺新增证据只记待确认。新增 ClickHouse 查询和行情文件内容读取均为零。 |
 | `silver_index_weekly`、`silver_index_monthly` | 第三阶段第一批，按 [§5.3](#53-第三阶段第一批主要指数周线月线-silver) 实现。在现有文件合同 Check 内，正式提升前从已生成的当期数据核对固定名单中截至目标交易日已上市的指数，每只恰好一行且实际 `trade_date` 等于目标交易日。原 Check 阻断保留。周线 Raw 期末交付，月线 Raw 次月首个交易日交付上月期末。两项 Raw 复用现有结果，北证 50 可合法空的规则仅适用于 Raw。 |
 | `silver_index_basic` | [index_basic_checks.py](../../orchestrator/src/orchestrator/defs/checks/index_basic_checks.py) 复用发布前的同次源与候选对账和目前的生命周期 Check，核候选实际保留指数、终止日期和适用交易日。更新 job/sensor 由现有指数基础信息方案管理，本任务消费结果。 |
 | `silver_stock_basic`、`silver_namechange`、`silver_stock_identity_map`、`silver_stock_lifecycle` | 分别在 [stock_basic_checks.py](../../orchestrator/src/orchestrator/defs/checks/stock_basic_checks.py)、[namechange_checks.py](../../orchestrator/src/orchestrator/defs/checks/namechange_checks.py)、[stock_identity_map_checks.py](../../orchestrator/src/orchestrator/defs/checks/stock_identity_map_checks.py)、[stock_lifecycle_checks.py](../../orchestrator/src/orchestrator/defs/checks/stock_lifecycle_checks.py)。期望分别是当前上市人民币股 `ts_code`，同次曾用名有效事件与合法开区间，源代码自映射与获准历史映射的有效边界，生命周期 `ts_code/上市日/退市日/状态`。用生产已算的投影和 Check 现有键/关键字段做双向差异，附该版输入。一个有效快照复用一次结果。上游范围待确认时只证明同版转换。 |
@@ -155,6 +157,8 @@
 | `raw_tushare_dc_index`、`silver_dc_index` | 接 [Raw 分类 Check](../../orchestrator/src/orchestrator/defs/checks/dc_board_checks.py#L269) 和 [Silver 分类 Check](../../orchestrator/src/orchestrator/defs/checks/dc_board_silver_checks.py#L262)。行业、地域、概念分别按第 6 节核对。Silver 另核按同版 Raw 正式转换后的代码关系。 |
 
 股票分钟前复权 Gold 按第 5.1 节复用当日上游齐备和交付。分钟前复权九转及 MACD/KDJ 指标七频沿用各自的复用规则，代码和根数来自已读的日内结果。一个前复权 K 线对应一行指标。频度依赖按 [前复权输入合同](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py) 和生产实际来源，不能将输出 15m、120m 误当读相同频度的 Silver。指标缺少代码统计时，只从现有读取已取得的结果中生成，证据仍缺时保留「待确认」。比如 10 只状态已存在，一只全天停牌，其他九只各 5 根 60m，指标 45 行，递推状态 10 行。已有原 Check 的质控仍依各自合同。
+
+MACD/KDJ 使用前复权写入时已确认的年度文件身份和计算时已取得的当日输入文件身份核对版本。事件只保存身份列表的摘要。代码和行数从现有当日工作表及文件写入结果汇总，上一交易日状态沿用计算时已读的状态表。新增读取范围为零个年度文件，重跑和日报读回沿同一边界。
 
 ### 5.3 第三阶段第一批主要指数周线、月线 Silver
 
@@ -203,6 +207,24 @@
 - 隔离样本取一周 5 个、一个月 23 个日线文件。周线 17 次文件身份调用、月线 53 次。文件身份调用、当期 SQL 投影、Python 键比较三个实测步骤合计约 1.4 毫秒和 2.1 毫秒。Python 键比较的增量峰值约 8.1 KiB 和 2.8 KiB，为 `tracemalloc` 观测值，不含 DuckDB 或全 job。另从期中日更的原生事件读回扩展字段，周线 7 条输入引用时，发布和 Check 新增 JSON 分别为 1,593 和 1,633 字节，月线 4 条输入引用时分别为 1,113 和 1,153 字节。字节数按新增字段的紧凑 UTF-8 JSON 计算，不含 DG 存储外层。此处均为隔离样本开销。
 - 相关隔离回归 102 项通过。扩展回归中，指数周期传感器的 10 个失败项在开发前提交 `582b7f38a` 上全部复现。传感器测试用例和调度代码保持原样。
 - 使用正式 DG 的 2026-11-20 已有事件只读复算 187 行日报。首批两项均为「已更新、齐备待确认」，原因是历史发布没有新增 Check 字段。指数基础信息 Silver 的既有同版 Check 可以直接复用。本机 ClickHouse 板块日线技术指标的样本发布仍只有源路径，原有对账方案继续按 §5.2。股票日线前复权 Gold 已改用 §5.1 的简化口径。第三阶段其他改动仍按 §5.2 的逐资产范围实施。
+
+### 5.4 第三阶段其余批次的实现与验收
+
+第 5.2 节 33 项中，30 项已有生产检查接线或可直接复用的现有证据。其中主要指数周线、月线 Silver 是第一批，指数基础信息 Silver 直接复用现有检查。东方财富板块分类 Raw、Silver 和东方财富板块资金流向 Raw 共三项依赖第 6 节的每日标准集，在第四阶段联验。在标准集生效前，这三项依各自已有证据显示，覆盖不足时保留「待确认」。
+
+| 范围 | 代码和验收口径 | 读取边界 |
+|---|---|---|
+| 本机 ClickHouse 板块日线技术指标 | [现有核心 Check](../../orchestrator/src/orchestrator/defs/checks/dc_daily_technical_serving_checks.py) 比较当次读取的键。当前 Gold 文件与本次写入来源一致时，同量一缺一多会被拦截。更换 Gold 文件后旧交付记录只可使用原 Check 口径。 | 复用该日两个现有结果。新增一条有界的 DG 发布记录读取，ClickHouse 和 Parquet 内容查询次数照旧。 |
+| 指数与股票相关 Silver 快照 | [快照对账](../../orchestrator/src/orchestrator/defs/checks/daily_audit_coverage.py) 使用生产已经算出的投影和本版输出；检查与目标发布关联。股票基础信息 Raw 比较上一交易日全状态数量，净增减 20 条可通过，21 条待确认。上游覆盖未确认时，Silver 只显示转换一致。 | 每次仅对一个输出快照的关键字段检查；日报追溯一份上一交易日的股票基础信息 Raw 记录。 |
+| 普通个股、东方财富个股、同花顺行业及概念资金流向 Raw，股票日线神奇九转 Raw | [资金流向覆盖](../../orchestrator/src/orchestrator/defs/checks/moneyflow_daily.py) 和[日线九转内容检查](../../orchestrator/src/orchestrator/defs/checks/stk_nineturn_checks.py) 在原查询统计代码。同花顺使用 11 月 19 日已核对的 386 个概念和 90 个行业作为首份生效名单，概念变化待人工确认。日线晚到时仅补同日、同版本的现有 Check。 | 复用单日目标的键列。读取适用的小名单、生命周期投影或已核验日线键列。补查不触发重写或源请求。 |
+| 股票分钟线 Raw、Silver 五频 | [生产与检查](../../orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py) 核常规时段应有股票代码和总根数。Raw 常规统计剔除全天停牌股票及盘后记录，盘后独立记录。Silver 绑定本次使用的 Raw、日线和参照文件，日报先确认上游。历史冻结范围仍按适用证据判断。 | Raw 复用 Prod 批内分组。Silver 复用 Check 已访问的目标及当日股票日线。新增证据不扫历史，不逐根核对。 |
+| 股票日线前复权 Gold、股票分钟前复权 Gold、MACD/KDJ 指标和状态 | [日报](../../orchestrator/src/orchestrator/defs/daily_data_audit/summary.py) 和[现有生产统计](../../orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py) 复用当次运行、交付和工作表计数。分钟按实际输入频度绑定版本。递推状态纳入已有状态但当天无行情的股票。 | 前复权日线确认一个文件存在；分钟前复权、指标和状态不增加年度文件读取。首次、重试和读回均沿同日范围。 |
+
+正式 DG 的 2026-11-19 已有记录可只读复算 187 行，股票日线前复权 Gold 为「已更新、已确认齐备」。历史周月线和分钟线记录缺本阶段新增证据，齐备仍待确认。另投影同日 60 分钟 Raw、Silver、股票日线和最终停牌四个文件，常规时段两层均为 5,573 只、27,865 根，股票代码缺口为零。投影样本约 0.235 秒，这是一次只读查询的耗时，生产 Check 增量耗时尚待正式运行测量。
+
+隔离回归通过 684 项，包含两组受保护的股票分钟线测试。验证了同量换码、文件存在但任务失败、更新后旧版本证据失效、晚到只选原 Check、全天停牌与盘后不能冲抵缺根、以及停牌股票的前序递推状态保留。DG 定义、文档完整性和变更差异检查均通过。
+
+本轮验收使用隔离 DG 和正式实例既有事实。正式日报、生产任务、发布记录及调度配置均未改动。日报刷新优化另行处理。第四阶段页面和标准集操作继续按第 6 节实施。
 
 ## 6. 东方财富板块分类与人工核查
 
@@ -372,7 +394,7 @@ DG 汇总以一天和目录生成的明确键范围批读已有记录，最多�
 
 | 数据集和 DG 资产键 | 项数 | 所用证据或仍缺什么 |
 |---|---:|---|
-| 股票日线前复权 Gold<br>`gold_stock_daily_qfq` | 1 | 本样本原列第三阶段补 Check。当前口径已转入 §5.1，直接复用当日日线 Check 和同日文件是否存在。 |
+| 股票日线前复权 Gold<br>`gold_stock_daily_qfq` | 1 | 本样本原列第三阶段补 Check。当前口径已转入 §5.1，直接复用当日日线 Check、同日文件存在及当次 Gold 任务成功。 |
 | 本机 ClickHouse 板块日线技术指标<br>`ch_dc_daily_technical` | 1 | 第三阶段。原 Check 通过，本日已有交付。还需按实际业务键双向对账。 |
 | 主要指数周线、月线 Silver<br>`silver_index_monthly`、`silver_index_weekly` | 2 | 第三阶段。实际截至日已经到 11 月 20 日。现有 Check 未记录当日每个应有指数均已达到该截至日。 |
 | 股票基础信息、股票曾用名、股票身份映射、股票生命周期 Silver<br>`silver_namechange`、`silver_stock_basic`、`silver_stock_identity_map`、`silver_stock_lifecycle` | 4 | 第三阶段。原快照 Check 继续保留。用各自正式转换规则补同版输入输出差异。 |
@@ -387,7 +409,7 @@ DG 汇总以一天和目录生成的明确键范围批读已有记录，最多�
 
 ## 14. 91 项待确认的处理方案（待 Review）
 
-把 2026-11-20 这 91 项分别查清楚，让后续的日报能说明数据已齐备、确实缺数据，或者当前还缺哪份证据。这里以第 13 节的只读样本为基线，并用现行代码核对证据来源和依赖。正式调度保持关闭，第三阶段尚未启动。
+把 2026-11-20 这 91 项分别查清楚，让后续的日报能说明数据已齐备、确实缺数据，或者当前还缺哪份证据。这里保留第二阶段的只读样本和处理清单，第三阶段实现及验收见第 5.4 节。正式调度保持关闭。
 
 | 优先按什么处理 | 项数 | 可预期的结果 |
 |---|---:|---|

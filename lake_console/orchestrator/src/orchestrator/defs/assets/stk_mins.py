@@ -15,12 +15,20 @@ from orchestrator.defs.asset_guards.stk_mins_prod_readiness import (
 )
 from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
     load_current_listed_stock_codes_for_stk_mins,
+    stk_mins_stock_code_set_hash,
 )
 from orchestrator.defs.assets.adj_factor import silver_adj_factor
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import silver_stock_daily
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
+from orchestrator.defs.checks.daily_audit_coverage import (
+    minute_file_batch_version,
+    select_codes,
+    stat_version,
+    stock_minute_coverage,
+    version_string,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
@@ -175,6 +183,7 @@ class StkMinsRawWriteResult:
     repair_returned_row_count: int = 0
     repair_replaced_row_count: int = 0
     repair_appended_row_count: int = 0
+    audit_comparison: dict | None = None
 
     def materialization_extra_metadata(
         self,
@@ -205,6 +214,9 @@ class StkMinsRawWriteResult:
                     "repair_appended_row_count": self.repair_appended_row_count,
                 }
             )
+        if self.audit_comparison:
+            metadata["audit_comparison"] = self.audit_comparison
+            metadata["audit_file_version"] = self.audit_comparison["file_version"]
         return metadata
 
 
@@ -270,6 +282,7 @@ class SilverStkMinsWriteResult:
     frozen_source_row_count: int = 0
     frozen_one_minute_source_row_count: int = 0
     frozen_preserved_row_count: int = 0
+    audit_input_versions: dict | None = None
 
     def materialization_extra_metadata(
         self,
@@ -317,6 +330,9 @@ class SilverStkMinsWriteResult:
             metadata["reused_existing_partition"] = True
         if self.one_minute_raw_file_path is not None:
             metadata["one_minute_raw_file_path"] = str(self.one_minute_raw_file_path)
+        if self.audit_input_versions:
+            metadata["audit_input_versions"] = self.audit_input_versions
+            metadata["audit_file_version"] = stat_version(self.silver_file_path)
         return metadata
 
 
@@ -404,6 +420,8 @@ class GoldStkMinsQfqPartitionWriteResult:
     row_count: int
     replacement_row_count: int
     observed_columns: tuple[str, ...]
+    source_file_version: tuple[int, ...] | None = None
+    audit_delivery_version: str | None = None
 
     def materialization_extra_metadata(
         self,
@@ -421,6 +439,8 @@ class GoldStkMinsQfqPartitionWriteResult:
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
+            "audit_source_file_version": self.source_file_version,
+            "audit_delivery_version": self.audit_delivery_version,
             "physical_layout": "freq_ts_code_year",
         }
 
@@ -476,6 +496,8 @@ class GoldStkMinsQfqDerivedPartitionWriteResult:
     exchange_mismatch_window_count: int
     replacement_row_count: int
     observed_columns: tuple[str, ...]
+    source_file_version: tuple[int, ...] | None = None
+    audit_delivery_version: str | None = None
 
     @property
     def row_count(self) -> int:
@@ -501,6 +523,8 @@ class GoldStkMinsQfqDerivedPartitionWriteResult:
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
+            "audit_source_file_version": self.source_file_version,
+            "audit_delivery_version": self.audit_delivery_version,
             "physical_layout": "freq_ts_code_year",
             "calculation_model": "silver_direct_canonical_qfq",
         }
@@ -655,6 +679,7 @@ def write_raw_stk_mins_partition_from_prod_db(
         partition_key=partition_key,
         load_postgres_extension=True,
         publication_id=publication_id,
+        suspend_path=silver_stock_suspend_daily_path(lake_root, partition_key),
     )
     columns, row_count = _raw_file_columns_and_count(duckdb, target_path)
     return StkMinsRawWriteResult(
@@ -667,6 +692,10 @@ def write_raw_stk_mins_partition_from_prod_db(
         page_count=0,
         query_count=stats["query_count"],
         source_method="prod_db_raw_tushare",
+        audit_comparison=(
+            {**stats["audit_comparison"], "file_version": stat_version(target_path)}
+            if stats.get("audit_comparison") else None
+        ),
     )
 
 
@@ -929,7 +958,8 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
     *, duckdb: DuckDBResource, postgres_connection_string: str | None = None,
     source_sql: str, target_path: Path, stock_codes: Sequence[str], freq: int,
     partition_key: str, load_postgres_extension: bool, publication_id: str | None = None,
-) -> dict[str, int]:
+    suspend_path: Path | None = None,
+) -> dict:
     publication = MinutePartitionPublication(
         dataset="raw_stk_mins", target=target_path, day=partition_key, freq=int(freq),
         publication_id=publication_id, overwrite=True, source_identity=(tuple(stock_codes),
@@ -940,7 +970,8 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
         stats = _build_raw_stk_mins_rows_from_prod_db_source(
             duckdb=duckdb, postgres_connection_string=postgres_connection_string,
             source_sql=source_sql, target_path=candidate, stock_codes=stock_codes,
-            freq=freq, partition_key=partition_key, load_postgres_extension=load_postgres_extension)
+            freq=freq, partition_key=partition_key, load_postgres_extension=load_postgres_extension,
+            suspend_path=suspend_path)
         with connect_configured_duckdb() as connection:
             stats["row_count"] = int(connection.execute(count_parquet_query(candidate, hive_partitioning=False)).fetchone()[0])
         return stats
@@ -962,7 +993,8 @@ def _build_raw_stk_mins_rows_from_prod_db_source(
     freq: int,
     partition_key: str,
     load_postgres_extension: bool,
-) -> dict[str, int]:
+    suspend_path: Path | None = None,
+) -> dict:
     requested_stock_codes = tuple(
         dict.fromkeys(str(stock_code).strip() for stock_code in stock_codes)
     )
@@ -1020,12 +1052,38 @@ def _build_raw_stk_mins_rows_from_prod_db_source(
                 f"scope: invalid_row_count={invalid_scope_count}."
             )
 
-        returned_stock_code_count = int(
-            connection.execute(
-                "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
-                "FROM prod_stk_mins_source"
-            ).fetchone()[0]
+        suspend_version = stat_version(suspend_path) if suspend_path else None
+        suspended = (
+            select_codes(
+                connection,
+                "SELECT DISTINCT ts_code FROM read_parquet(?, hive_partitioning=false) "
+                "WHERE trade_date = ?::DATE AND suspend_type = 'S' AND suspend_timing IS NULL",
+                [str(suspend_path), partition_key],
+            )
+            if suspend_version else None
         )
+        audit_comparison = None
+        if suspended is not None and stat_version(suspend_path) == suspend_version:
+            counts = connection.execute(
+                "SELECT ts_code, count(*) FILTER (WHERE trade_time::TIME <= TIME '15:00:00'), "
+                "count(*) FILTER (WHERE trade_time::TIME > TIME '15:00:00') "
+                "FROM prod_stk_mins_source GROUP BY ts_code"
+            ).fetchall()
+            returned_stock_code_count = len(counts)
+            audit_comparison = stock_minute_coverage(
+                set(requested_stock_codes) - suspended,
+                {code: regular for code, regular, _ in counts if regular and code not in suspended},
+                freq,
+            )
+            audit_comparison["post_close_count"] = sum(row[2] for row in counts)
+            audit_comparison["inputs"] = {
+                "本次股票分钟线取数名单": stk_mins_stock_code_set_hash(requested_stock_codes),
+                "silver_stock_suspend_daily": version_string(suspend_version),
+            }
+        else:
+            returned_stock_code_count = connection.execute(
+                "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) FROM prod_stk_mins_source"
+            ).fetchone()[0]
         if returned_stock_code_count != len(requested_stock_codes):
             raise RuntimeError(
                 "Prod DB stk_mins source coverage is incomplete before raw promote: "
@@ -1039,6 +1097,7 @@ def _build_raw_stk_mins_rows_from_prod_db_source(
         "returned_stock_code_count": returned_stock_code_count,
         "empty_stock_code_count": len(requested_stock_codes)
         - returned_stock_code_count,
+        **({"audit_comparison": audit_comparison} if audit_comparison else {}),
     }
 
 
@@ -2169,6 +2228,17 @@ def _build_silver_stk_mins_partition(
     if one_minute_raw_path is not None:
         input_paths["one_minute_raw"] = one_minute_raw_path
     _require_stk_mins_input_files(input_paths)
+    keys = {
+        "raw": f"raw_stk_mins_{normalized_freq}m",
+        "identity_map": "silver_stock_identity_map",
+        "stock_daily": "silver_stock_daily",
+        "suspend": "silver_stock_suspend_daily",
+        "one_minute_raw": "raw_stk_mins_1m",
+    }
+    audit_input_versions = {
+        keys[name]: version_string(stat_version(path))
+        for name, path in input_paths.items()
+    }
     if target_path.exists() and not overwrite:
         raise FileExistsError(f"Silver stk_mins file already exists: {target_path}")
 
@@ -2250,6 +2320,7 @@ def _build_silver_stk_mins_partition(
         vol_amount_normalized_row_count=final_counts["vol_amount_normalized_row_count"],
         row_count=row_count,
         observed_columns=observed_columns,
+        audit_input_versions=audit_input_versions,
     )
 
 
@@ -2382,6 +2453,8 @@ class _CanonicalQfqSourceAudit:
     invalid_frequency_count: int
     unexpected_source_time_count: int
     invalid_value_count: int
+    source_file_version: tuple[int, ...] | None = None
+    audit_delivery_version: str | None = None
 
 
 def _canonical_qfq_source_audit(
@@ -2584,8 +2657,14 @@ def _write_daily_gold_qfq_partition(
                 connection, publication=publication, lake_root=lake_root, freq=target_freq,
                 replace_trade_dates=[partition_key],
             )
+            delivery_version = minute_file_batch_version(
+                (result.path, publication.verified_files[result.path]["identity"])
+                for result in results
+            )
 
-    return results, source_audit
+    return results, replace(
+        source_audit, source_file_version=input_identities[0], audit_delivery_version=delivery_version
+    )
 
 
 def write_gold_stk_mins_qfq_asset_partition(
@@ -2608,7 +2687,7 @@ def write_gold_stk_mins_qfq_asset_partition(
     }
     _require_stk_mins_input_files(input_paths)
 
-    write_results, _ = _write_daily_gold_qfq_partition(
+    write_results, source_audit = _write_daily_gold_qfq_partition(
         lake_root=lake_root, source_path=silver_file_path,
         factor_path=trade_adj_factor_file_path, target_freq=normalized_freq,
         partition_key=partition_key, publication_id=publication_id,
@@ -2631,6 +2710,8 @@ def write_gold_stk_mins_qfq_asset_partition(
         row_count=sum(result.replacement_row_count for result in write_results),
         replacement_row_count=sum(result.replacement_row_count for result in write_results),
         observed_columns=GOLD_STK_MINS_QFQ_COLUMNS,
+        source_file_version=source_audit.source_file_version,
+        audit_delivery_version=source_audit.audit_delivery_version,
     )
 
 
@@ -2699,6 +2780,8 @@ def write_gold_stk_mins_qfq_derived_asset_partition(
             result.replacement_row_count for result in write_results
         ),
         observed_columns=GOLD_STK_MINS_QFQ_COLUMNS,
+        source_file_version=source_audit.source_file_version,
+        audit_delivery_version=source_audit.audit_delivery_version,
     )
 
 

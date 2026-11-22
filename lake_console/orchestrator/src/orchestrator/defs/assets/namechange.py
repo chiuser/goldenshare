@@ -7,8 +7,13 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.checks.daily_audit_coverage import (
+    snapshot_comparison,
+    stat_version,
+    version_string,
+)
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
@@ -28,7 +33,11 @@ from orchestrator.defs.paths import (
     silver_namechange_path,
     silver_stock_basic_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
@@ -51,7 +60,6 @@ from orchestrator.seeds.basic.stock_identity_mappings import (
     load_stock_identity_mapping_seed,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 NAMECHANGE_ANNOUNCEMENT_START_DATE = date(1990, 1, 1)
@@ -125,6 +133,7 @@ def _replace_silver_rows(
     duckdb: DuckDBResource,
     rows: tuple[dict[str, Any], ...],
     target_path: Path,
+    comparison: dict | None = None,
 ) -> tuple[int, tuple[str, ...]]:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = target_path.with_name(f"{target_path.name}.tmp")
@@ -158,6 +167,14 @@ def _replace_silver_rows(
         columns = tuple(
             _column_names(connection, temporary_path, hive_partitioning=False)
         )
+
+        if comparison is not None:
+            result = snapshot_comparison(
+                connection, f"SELECT {select_sql} FROM silver_rows",
+                temporary_path, ('ts_code', 'name', 'start_date', 'end_date'),
+            )
+            if result:
+                comparison.update(result)
 
     os.replace(temporary_path, target_path)
     return row_count, columns
@@ -221,6 +238,7 @@ def raw_tushare_namechange(
     return dg.MaterializeResult(
         metadata={
             **metadata,
+            "goldenshare/audit_file_version": stat_version(target_path),
             **build_materialization_metadata(
                 extra_metadata={
                     "summary": "已写入股票曾用名 raw 去重全量快照。",
@@ -275,6 +293,11 @@ def silver_namechange(
         raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
     LOGGER.stdout("namechange_silver_started")
+    audit_input_paths = {
+        "raw_tushare_namechange": raw_path,
+        "silver_stock_basic": stock_basic_path,
+    }
+    input_versions = {key: stat_version(path) for key, path in audit_input_paths.items()}
     seed_rows = load_stock_identity_mapping_seed()
     with connect_configured_duckdb() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
@@ -328,10 +351,12 @@ def silver_namechange(
         )
         raise RuntimeError("Namechange timeline produced 0 silver rows.")
 
+    comparison = {}
     row_count, columns = _replace_silver_rows(
         duckdb=duckdb,
         rows=timeline.rows,
         target_path=target_path,
+        comparison=comparison,
     )
     LOGGER.stdout(
         "namechange_silver_completed",
@@ -343,12 +368,24 @@ def silver_namechange(
         selected_event_count=timeline.selected_event_count,
     )
 
+    target_version = stat_version(target_path)
+    if comparison and all(
+        input_versions[key] and stat_version(path) == input_versions[key]
+        for key, path in audit_input_paths.items()
+    ):
+        inputs = {key: version_string(value) for key, value in input_versions.items()}
+        comparison.update(file_version=target_version, inputs=inputs)
+    else:
+        comparison = None
+
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "audit_file_version": target_version,
+                "audit_comparison": comparison,
                 "summary": "已生成股票曾用名标准时间线，确保同一股票同一天最多命中一个名称区间。",
                 "next_action": "等待 silver_namechange blocking checks 通过后供身份映射和历史名称解释使用。",
                 "result_status": "written",

@@ -7,16 +7,18 @@ from typing import Any
 
 import dagster as dg
 from dagster_clickhouse import ClickhouseResource
+from sqlalchemy.exc import SQLAlchemyError
 
+from orchestrator.defs.asset_guards.dc_daily_technical_quality import (
+    GOLD_DC_DAILY_TECHNICAL_CHECK_NAME,
+)
 from orchestrator.defs.assets.dc_daily_technical_asset import gold_dc_daily_technical
 from orchestrator.defs.assets.dc_daily_technical_serving import (
     _read_gold_rows,
     ch_dc_daily_technical,
     prod_ch_dc_daily_technical,
 )
-from orchestrator.defs.asset_guards.dc_daily_technical_quality import (
-    GOLD_DC_DAILY_TECHNICAL_CHECK_NAME,
-)
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import gold_dc_daily_technical_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -31,7 +33,6 @@ from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     PROD_CH_DC_DAILY_TECHNICAL_CHECKS,
 )
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-
 
 CH_DC_DAILY_TECHNICAL_CHECK_NAME = "ch_dc_daily_technical_core_check"
 PROD_CH_DC_DAILY_TECHNICAL_CHECK_NAME = PROD_CH_DC_DAILY_TECHNICAL_CHECKS[0]
@@ -113,6 +114,39 @@ def _technical_key(row: tuple[Any, ...]) -> tuple[object, str, object]:
     return row[0], _date_value(row[1]), row[2]
 
 
+def _local_key_coverage(context, day, source_version, source_rows, target_keys):
+    try:
+        records = context.instance.fetch_materializations(
+            dg.AssetRecordsFilter(asset_key=ch_dc_daily_technical.key, asset_partitions=[day]),
+            limit=1,
+        ).records
+    except SQLAlchemyError:
+        return {}
+    if not (source_version and records):
+        return {}
+    published = records[0]
+    recorded = published.asset_materialization.metadata.get(
+        "goldenshare/source_file_version"
+    )
+    if recorded is None or recorded.value != source_version:
+        return {}
+    expected = {_technical_key(row) for row in source_rows}
+    missing, extra = expected - target_keys, target_keys - expected
+    return {
+        "source_file_version": source_version,
+        "materialization_id": published.storage_id,
+        "expected_count": len(expected),
+        "actual_count": len(target_keys),
+        "missing_count": len(missing),
+        "extra_count": len(extra),
+        "samples": [
+            {"change": change, **_row_sample(row)}
+            for change, keys in (("missing", missing), ("extra", extra))
+            for row in sorted(keys, key=str)[:5]
+        ],
+    }
+
+
 def _updated_at_is_not_older(
     local_row: tuple[Any, ...],
     prod_row: tuple[Any, ...],
@@ -158,6 +192,7 @@ def ch_dc_daily_technical_core_check(
 
     source_path = gold_dc_daily_technical_path(lake_root.root(), partition_key)
     try:
+        source_version = stat_version(source_path)
         duckdb_resource = duckdb
         with duckdb_resource.connect() as connection:
             source_rows = _read_gold_rows(
@@ -183,8 +218,8 @@ def ch_dc_daily_technical_core_check(
     if not target_rows:
         failed_rules.append("target_partition_exists_and_non_empty")
 
-    target_keys = [(row[0], _date_value(row[1]), row[2]) for row in target_rows]
-    duplicate_count = len(target_keys) - len(set(target_keys))
+    target_keys = {_technical_key(row) for row in target_rows}
+    duplicate_count = len(target_rows) - len(target_keys)
     if duplicate_count:
         failed_rules.append("business_key_unique")
     date_mismatch_count = sum(
@@ -212,6 +247,14 @@ def ch_dc_daily_technical_core_check(
         failed_rules.append("indicator_metadata_matches_contract")
     if len(target_rows) != len(source_rows):
         failed_rules.append("row_count_matches_gold")
+    coverage = {}
+    if source_version and stat_version(source_path) == source_version:
+        coverage = _local_key_coverage(
+            context, partition_key, source_version, source_rows, target_keys
+        )
+    key_differences = coverage.get("missing_count", 0) + coverage.get("extra_count", 0)
+    if key_differences:
+        failed_rules.append("business_keys_match_gold")
 
     sample_rows = tuple(_row_sample(row) for row in target_rows[:5])
     return _check_result(
@@ -227,6 +270,7 @@ def ch_dc_daily_technical_core_check(
                 invalid_identity_count,
                 metadata_mismatch_count,
                 abs(len(target_rows) - len(source_rows)),
+                key_differences,
             )
             if value
         ),
@@ -242,6 +286,7 @@ def ch_dc_daily_technical_core_check(
             "invalid_identity_count": invalid_identity_count,
             "metadata_mismatch_count": metadata_mismatch_count,
             "null_semantics": "MA/BOLL warmup NULL preserved",
+            "local_key_coverage": coverage,
         },
     )
 

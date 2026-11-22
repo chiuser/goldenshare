@@ -41,6 +41,9 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
     build_trade_day_partition_registration_result,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.sensors.stock_daily_audit_coverage import (
+    late_stock_daily_coverage_request,
+)
 from orchestrator.defs.source_readiness.moneyflow_ths import (
     check_moneyflow_ths_source_ready,
     moneyflow_ths_connection,
@@ -255,6 +258,12 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
     else:
         selected = next((day for day in order if not current[day].ready), None)
         if selected is None:
+            if contract.dataset == "moneyflow_dc":
+                request = late_stock_daily_coverage_request(
+                    context, now, root, dates[-1], contract.raw_asset
+                )
+                if request:
+                    return result("request_run", "当日日线已齐备，只补执行覆盖 Check。", day=dates[-1], request=request)
             return result("all_ready", "窗口内Raw已齐备，不重复下载。")
         item = state.setdefault(selected, {})
         records = context.instance.get_run_records(

@@ -4,6 +4,11 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.checks.daily_audit_coverage import (
+    snapshot_comparison,
+    stat_version,
+    version_string,
+)
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -32,7 +37,6 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 LOGGER = DgStdoutLogger("basic_facts.stock_lifecycle")
 
@@ -126,6 +130,7 @@ def silver_stock_lifecycle(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
+    raw_version = stat_version(raw_path)
     LOGGER.stdout("stock_lifecycle_started")
     with duckdb_resource.connect() as connection:
         source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
@@ -134,10 +139,12 @@ def silver_stock_lifecycle(
             raw_path,
             hive_partitioning=False,
         )
-        _replace_parquet_from_query(
-            connection,
-            silver_stock_lifecycle_select(raw_path),
-            target_path,
+        connection.execute(
+            "CREATE TEMP TABLE expected_snapshot AS " + silver_stock_lifecycle_select(raw_path)
+        )
+        _replace_parquet_from_query(connection, "SELECT * FROM expected_snapshot", target_path)
+        comparison = snapshot_comparison(
+            connection, "SELECT * FROM expected_snapshot", target_path, ('ts_code', 'list_date', 'delist_date', 'list_status')
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
         row_count = _row_count(connection, target_path, hive_partitioning=False)
@@ -163,12 +170,23 @@ def silver_stock_lifecycle(
         filtered_out_row_count=source_row_count - row_count,
     )
 
+    target_version = stat_version(target_path)
+    if comparison and raw_version and raw_version == stat_version(raw_path):
+        comparison.update(
+            file_version=target_version,
+            inputs={"raw_tushare_stock_basic": version_string(raw_version)},
+        )
+    else:
+        comparison = None
+
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "audit_file_version": target_version,
+                "audit_comparison": comparison,
                 "summary": "已生成历史 CNY 股票生命周期事实，包含当前和已退市股票。",
                 "next_action": "等待 silver_stock_lifecycle blocking checks 通过后供历史行情和覆盖率校验使用。",
                 "result_status": "written",

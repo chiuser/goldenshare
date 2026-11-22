@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.checks.daily_audit_coverage import published_comparison_metadata
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
@@ -512,11 +513,22 @@ def _build_state_check(asset_name: str, check_name: str, freq: int):
                 partition_key=partition_key,
             )
         if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_LATEST_COVERAGE_CHECK:
-            return _state_latest_coverage_result(
+            result = _state_latest_coverage_result(
                 lake_root=lake_root.root(),
                 freq=freq,
                 partition_key=partition_key,
             )
+            source = published_comparison_metadata(
+                context,
+                asset_name,
+                gold_stk_mins_qfq_macd_kdj_state_path(lake_root.root(), freq, partition_key),
+                partition=partition_key,
+            )
+            if source:
+                return result.with_metadata({
+                    **result.metadata, "goldenshare/audit_coverage": source["audit_coverage"],
+                })
+            return result
         raise AssertionError(f"Unsupported MACD/KDJ state check: {check_name}")
 
     return _check

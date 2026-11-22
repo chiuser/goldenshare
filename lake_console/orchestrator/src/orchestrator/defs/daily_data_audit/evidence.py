@@ -19,15 +19,23 @@ from dagster._serdes import deserialize_value
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.exc import SQLAlchemyError
 
+from orchestrator.defs.catalog.lake_assets import (
+    SILVER_STOCK_DAILY_CHECKS,
+    get_lake_asset_catalog_entry,
+)
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.daily_data_audit.registry import (
     DAILY_SNAPSHOTS,
     DELIVERY_DATE_FIELDS,
     FIXED_SNAPSHOTS,
+    LATE_STOCK_DAILY_COVERAGE_CHECKS,
     OUTSIDE_LOCAL,
     SILVER_INDEX_PERIOD,
     AuditTarget,
 )
+from orchestrator.defs.paths import silver_stock_daily_path
 
+STOCK_DAILY = "silver_stock_daily"
 SUMMARY_JOB = "daily_data_audit_summary_job"
 SUMMARY_META = "data_audit_summary"
 BUSINESS_DATE_TAG = "audit/business_date"
@@ -215,6 +223,7 @@ def load_evidence(
                 sa.or_(
                     scope.c.producer_run_id.is_(None),
                     Checks.c.run_id == scope.c.producer_run_id,
+                    Checks.c.check_name.in_(tuple(LATE_STOCK_DAILY_COVERAGE_CHECKS.values())),
                 ),
                 # Legacy checks can omit their own partition. The native
                 # target still points to the exact partitioned publication.
@@ -257,6 +266,32 @@ def load_evidence(
             ):
                 current.checks[row["check_name"]] = record
     return evidence
+
+
+def verified_stock_daily(instance, root, day):
+    """Return the published daily quote file only when its own Checks passed."""
+    path = silver_stock_daily_path(root, day)
+    version = stat_version(path)
+    if version is None:
+        return None
+    trade_date = date.fromisoformat(day)
+    target = AuditTarget(
+        get_lake_asset_catalog_entry(STOCK_DAILY),
+        day, trade_date, True, SILVER_STOCK_DAILY_CHECKS, False, "日更",
+    )
+    try:
+        bundle = load_evidence(instance, (target,), trade_date, datetime.now(SHANGHAI)).get(STOCK_DAILY)
+    except SQLAlchemyError:
+        logger.warning("暂无法读取 %s 股票日线的齐备证据", day, exc_info=True)
+        return None
+    if (
+        bundle
+        and bundle.materialization
+        and metadata(bundle.materialization.asset_materialization).get("audit_file_version") == version
+        and all(name in bundle.checks and bundle.checks[name].evaluation.passed for name in SILVER_STOCK_DAILY_CHECKS)
+    ):
+        return path, version
+    return None
 
 
 def read_summary(instance: dg.DagsterInstance, business_date: date) -> dict | None:

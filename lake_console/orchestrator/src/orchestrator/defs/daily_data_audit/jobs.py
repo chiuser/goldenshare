@@ -16,14 +16,34 @@ from orchestrator.defs.daily_data_audit.evidence import (
     read_summary,
 )
 from orchestrator.defs.daily_data_audit.registry import read_calendar, targets_for_day
-from orchestrator.defs.daily_data_audit.summary import ETF_DAILY_INPUTS, make_summary
-from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
+from orchestrator.defs.daily_data_audit.summary import (
+    ETF_DAILY_INPUTS,
+    MACD_KDJ_INDICATOR_INPUTS,
+    MACD_KDJ_STATE_INPUTS,
+    MONEYFLOW_SILVER_INPUTS,
+    STOCK_BASIC_RAW,
+    STOCK_DAILY_QFQ_GOLD,
+    STOCK_DAILY_SILVER,
+    STOCK_MINUTE_QFQ_INPUTS,
+    STOCK_MINUTE_SILVER_INPUTS,
+    make_summary,
+    stock_daily_checks_passed,
+)
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, gold_stock_daily_qfq_path
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 
 
 class SummaryConfig(dg.Config):
     business_date: str
     changed_asset_keys: list[str] = Field(default_factory=list)
+
+
+STOCK_SNAPSHOT_INPUTS = {
+    "silver_stock_basic": (STOCK_BASIC_RAW,),
+    "silver_stock_lifecycle": (STOCK_BASIC_RAW,),
+    "silver_namechange": ("raw_tushare_namechange", "silver_stock_basic"),
+    "silver_stock_identity_map": ("silver_stock_lifecycle", "silver_namechange"),
+}
 
 
 @dg.op(out=dg.Out(dg.Nothing))
@@ -46,15 +66,110 @@ def generate_data_audit_summary(
     for silver, raw in ETF_DAILY_INPUTS.items():
         if changed.intersection({silver, raw}):
             changed.update({silver, raw})
+    changed.update(
+        silver for silver, raw in MONEYFLOW_SILVER_INPUTS.items() if raw in changed
+    )
+    for key, inputs in STOCK_SNAPSHOT_INPUTS.items():
+        if changed.intersection(inputs):
+            changed.add(key)
+    if STOCK_DAILY_SILVER in changed:
+        changed.add(STOCK_DAILY_QFQ_GOLD)
+        changed.update(STOCK_MINUTE_SILVER_INPUTS)
+    changed.update(
+        key
+        for key, sources in STOCK_MINUTE_SILVER_INPUTS.items()
+        if changed.intersection(sources)
+    )
+    changed.update(
+        key for key, source in STOCK_MINUTE_QFQ_INPUTS.items() if source in changed
+    )
+    changed.update(
+        key for key, source in MACD_KDJ_INDICATOR_INPUTS.items() if source in changed
+    )
+    changed.update(
+        key for key, source in MACD_KDJ_STATE_INPUTS.items() if source in changed
+    )
+    read_keys = set(changed)
+    if STOCK_DAILY_QFQ_GOLD in changed or changed.intersection(
+        STOCK_MINUTE_SILVER_INPUTS
+    ):
+        read_keys.add(STOCK_DAILY_SILVER)
     selected = tuple(
-        target for target in targets if not changed or target.asset_key in changed
+        target for target in targets if not changed or target.asset_key in read_keys
     )
     evidence = {}
+    previous_stock_basic = None
     try:
         evidence = load_evidence(context.instance, selected, day, observed_at)
+        if STOCK_BASIC_RAW in evidence and calendar.get(day):
+            previous_day = max(
+                (
+                    day_key
+                    for day_key, is_open in calendar.items()
+                    if is_open and day_key < day
+                ),
+                default=None,
+            )
+            if previous_day:
+                target = next(
+                    target for target in selected if target.asset_key == STOCK_BASIC_RAW
+                )
+                previous_stock_basic = load_evidence(
+                    context.instance,
+                    (replace(target, expected_date=previous_day),),
+                    previous_day,
+                    observed_at,
+                ).get(STOCK_BASIC_RAW)
     except SQLAlchemyError as error:
         context.log.warning(f"产出和 Check 记录暂不可读取: {error}")
-    result = make_summary(day, observed_at, targets, evidence, previous, changed)
+    qfq_run_ids = {
+        key: bundle.materialization.run_id
+        for key, bundle in evidence.items()
+        if bundle.materialization
+        and (key == STOCK_DAILY_QFQ_GOLD or key in STOCK_MINUTE_QFQ_INPUTS)
+    }
+    successful_deliveries = set()
+    if qfq_run_ids:
+        try:
+            run_ids = sorted(set(qfq_run_ids.values()))
+            successful_run_ids = {
+                run.run_id
+                for run in context.instance.get_runs(
+                    filters=dg.RunsFilter(
+                        run_ids=run_ids, statuses=[dg.DagsterRunStatus.SUCCESS]
+                    ),
+                    limit=len(run_ids),
+                )
+            }
+            successful_deliveries = {
+                key
+                for key, run_id in qfq_run_ids.items()
+                if run_id in successful_run_ids
+            }
+        except SQLAlchemyError as error:
+            context.log.warning(f"前复权任务终态暂不可读取: {error}")
+    file_exists = None
+    if stock_daily_checks_passed(evidence) and any(
+        target.asset_key == STOCK_DAILY_QFQ_GOLD and target.requires_update
+        for target in selected
+    ):
+        try:
+            file_exists = gold_stock_daily_qfq_path(
+                Path(DEFAULT_LAKE_ROOT), day.isoformat()
+            ).is_file()
+        except OSError as error:
+            context.log.warning(f"前复权日线文件存在情况暂无法确认: {error}")
+    result = make_summary(
+        day,
+        observed_at,
+        targets,
+        evidence,
+        previous,
+        changed,
+        stock_daily_qfq_file_exists=file_exists,
+        qfq_successful_deliveries=successful_deliveries,
+        previous_stock_basic=previous_stock_basic,
+    )
     context.add_output_metadata({SUMMARY_META: dg.MetadataValue.json(result)})
 
 

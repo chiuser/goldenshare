@@ -8,8 +8,9 @@ from zoneinfo import ZoneInfo
 import dagster as dg
 from dagster_clickhouse import ClickhouseResource
 
-from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.assets.dc_daily_technical_asset import gold_dc_daily_technical
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
+from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.partitions import cn_a_dc_daily_trade_days
 from orchestrator.defs.paths import gold_dc_daily_technical_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -32,7 +33,6 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
@@ -233,6 +233,7 @@ def ch_dc_daily_technical(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     target_path = gold_dc_daily_technical_path(lake_root.root(), partition_key)
+    source_version = stat_version(target_path)
     duckdb_resource = duckdb
     with duckdb_resource.connect() as connection:
         gold_rows = _read_gold_rows(
@@ -240,6 +241,8 @@ def ch_dc_daily_technical(
             target_path,
             partition_key=partition_key,
         )
+    if stat_version(target_path) != source_version:
+        source_version = None
     updated_at = datetime.now(CN_A_TIMEZONE).replace(tzinfo=None)
     serving_rows = [(*row, updated_at) for row in gold_rows]
     with clickhouse.get_connection() as client:
@@ -261,6 +264,7 @@ def ch_dc_daily_technical(
                 "clickhouse_table": DC_DAILY_TECHNICAL_SERVING_TABLE,
                 "source_asset": "gold_dc_daily_technical",
                 "source_path": str(target_path),
+                "source_file_version": source_version,
                 "replace_mode": "sync_delete_then_insert",
                 "lightweight_deletes_sync": 1,
                 "null_semantics": "MA/BOLL warmup NULL preserved",

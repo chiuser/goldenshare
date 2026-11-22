@@ -2,6 +2,7 @@ import json
 from datetime import date, datetime, time, timedelta
 
 from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET
+from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
 from orchestrator.defs.daily_data_audit.evidence import (
     SHANGHAI,
     DeliveryEvidence,
@@ -14,6 +15,9 @@ from orchestrator.defs.daily_data_audit.registry import (
     SILVER_INDEX_PERIOD,
     AuditTarget,
 )
+from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET,
+)
 from orchestrator.defs.run_contracts.index_period import INDEX_PERIOD_COVERAGE_RULE
 
 STATUSES = ("complete", "gap", "pending", "not_applicable")
@@ -22,6 +26,30 @@ CALENDAR_SILVER = "silver_trade_calendar"
 DC_MEMBER = {"raw_tushare_dc_member", "silver_dc_member"}
 DC_CLASSIFICATION = {"raw_tushare_dc_index", "silver_dc_index"}
 INDEX_BASIC = {"raw_tushare_index_basic", "silver_index_basic"}
+STOCK_DAILY_SILVER = "silver_stock_daily"
+STOCK_DAILY_QFQ_GOLD = "gold_stock_daily_qfq"
+LOCAL_TECHNICAL = "ch_dc_daily_technical"
+STOCK_BASIC_RAW = "raw_tushare_stock_basic"
+STOCK_MINUTE_QFQ_INPUTS = {
+    f"gold_stk_mins_qfq_{target}m": f"silver_stk_mins_{source}m"
+    for target, source in CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET.items()
+}
+STOCK_MINUTE_SILVER_INPUTS = {
+    f"silver_stk_mins_{freq}m": (
+        ("raw_stk_mins_1m",)
+        if freq == 1
+        else (f"raw_stk_mins_{freq}m", "raw_stk_mins_1m")
+    )
+    for freq in (1, 5, 15, 30, 60)
+}
+MACD_KDJ_INDICATOR_INPUTS = {
+    f"gold_stk_mins_qfq_macd_kdj_{freq}m": f"gold_stk_mins_qfq_{freq}m"
+    for freq in CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET
+}
+MACD_KDJ_STATE_INPUTS = {
+    f"gold_stk_mins_qfq_macd_kdj_state_{freq}m": f"gold_stk_mins_qfq_macd_kdj_{freq}m"
+    for freq in CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET
+}
 RAW_INDEX_PERIOD = {"raw_index_weekly", "raw_index_monthly"}
 RAW_ETF_BASIC = "raw_tushare_etf_basic"
 SILVER_ETF_BASIC = "silver_etf_basic"
@@ -94,6 +122,8 @@ def _target_version(details: dict) -> str | None:
         value = details.get(key)
         if isinstance(value, str) and len(value) == 64:
             return value
+    if version := details.get("audit_file_version"):
+        return json.dumps(version, separators=(",", ":"))
     return None
 
 
@@ -202,6 +232,39 @@ def _index_period_proof(scope, details, check, target_version):
     return None
 
 
+def _local_technical_proof(bundle, details):
+    check = bundle.checks.get(f"{LOCAL_TECHNICAL}_core_check")
+    if check is None:
+        return None
+    coverage = metadata(check.evaluation).get("local_key_coverage")
+    if (
+        coverage
+        and coverage.get("materialization_id") == bundle.materialization.storage_id
+        and coverage.get("source_file_version") == details.get("source_file_version")
+    ):
+        return coverage
+    return None
+
+
+def _production_coverage(bundle, details):
+    version = details.get("audit_file_version")
+    if not version:
+        return None
+    for check in bundle.checks.values():
+        if not check.evaluation.passed:
+            continue
+        coverage = metadata(check.evaluation).get("audit_coverage")
+        if coverage and coverage.get("file_version") == version:
+            return coverage
+    return None
+
+
+def _checks_passed(names, checks):
+    return bool(names) and all(
+        name in checks and checks[name].evaluation.passed for name in names
+    )
+
+
 def _moneyflow_source(key, details, bundle, rows):
     raw = rows.get(MONEYFLOW_SILVER_INPUTS[key])
     check = bundle.checks.get(f"{key}_standardization_check")
@@ -220,9 +283,7 @@ def _moneyflow_source(key, details, bundle, rows):
 def _reuse(target, day, actual, details, bundle, rows):
     key = target.asset_key
     proofs = bundle.checks
-    checks_passed = bool(target.check_names) and all(
-        name in proofs and proofs[name].evaluation.passed for name in target.check_names
-    )
+    checks_passed = _checks_passed(target.check_names, proofs)
     if not checks_passed:
         return None
     if key == CALENDAR_RAW and details.get(
@@ -626,7 +687,7 @@ def _etf_daily(key, evidence, rows, recalculated):
         )
 
 
-def _row(target, day, observed_at, evidence, built):
+def _row(target, day, observed_at, evidence, built, previous_stock_basic):
     key = target.asset_key
     details = materialization_fields(evidence) if evidence else {}
     record = evidence.materialization if evidence else None
@@ -649,6 +710,14 @@ def _row(target, day, observed_at, evidence, built):
         ),
     }
     target_version = _published_version(key, details)
+    local_coverage = (
+        _local_technical_proof(evidence, details)
+        if record and key == LOCAL_TECHNICAL
+        else None
+    )
+    production_coverage = _production_coverage(evidence, details) if record else None
+    if local_coverage:
+        target_version = f"dg-materialization:{record.storage_id}"
     if key in RAW_INDEX_PERIOD:
         target_version = details.get("upstream_batch_id")
     if key in INDEX_BASIC:
@@ -693,6 +762,88 @@ def _row(target, day, observed_at, evidence, built):
             "not_applicable",
             _reason("not_in_scope", target.excluded_reason),
         )
+    elif local_coverage:
+        if local_coverage["missing_count"] or local_coverage["extra_count"]:
+            status = "gap"
+            reason = _reason(
+                "missing_or_extra_keys",
+                "本机板块日线技术指标与同版 Gold 的业务键有差异",
+            )
+        elif checks[f"{LOCAL_TECHNICAL}_core_check"].evaluation.passed:
+            status = "complete"
+            reason = _reason(
+                "check_passed", "本机板块日线技术指标与同版 Gold 的业务键一致"
+            )
+        version["inputs"] = [
+            _versioned_input(
+                "gold_dc_daily_technical",
+                json.dumps(
+                    local_coverage["source_file_version"], separators=(",", ":")
+                ),
+            )
+        ]
+    elif production_coverage and (
+        not target.exact_as_of or actual == update["expected_date"]
+    ):
+        status = production_coverage["status"]
+        if status == "complete" and not _checks_passed(target.check_names, checks):
+            status = "pending"
+        reason = {
+            "complete": _reason("check_passed", "现有生产 Check 已核对当次产出的覆盖"),
+            "gap": _reason("missing_or_extra_keys", "当次产出与应有范围有差异"),
+            "pending": (
+                _reason("manual_review", "名单有增减，需要人工确认")
+                if production_coverage["status"] == "pending"
+                else _reason("not_verified", "其余生产 Check 尚未通过")
+            ),
+        }[status]
+        version["rule_version"] = production_coverage["rule_version"]
+        version["inputs"] = [
+            _versioned_input(asset, value)
+            for asset, value in production_coverage["inputs"].items()
+        ]
+        if (
+            status == "complete"
+            and version["rule_version"] == "stock_snapshot_projection_v1"
+            and any(
+                asset != "股票身份映射规则"
+                and (
+                    asset not in built
+                    or built[asset]["completeness"]["status"] != "complete"
+                    or built[asset]["version"]["target_version"] != input_version
+                )
+                for asset, input_version in production_coverage["inputs"].items()
+            )
+        ):
+            status = "pending"
+            reason = _reason(
+                "upstream_parity_only", "与本次输入转换一致，来源范围齐备待确认"
+            )
+    elif key == STOCK_BASIC_RAW and update["status"] == "updated" and target_version:
+        counts_are_comparable = (
+            previous_stock_basic
+            and previous_stock_basic.materialization
+            and _checks_passed(target.check_names, checks)
+            and _checks_passed(target.check_names, previous_stock_basic.checks)
+        )
+        if counts_are_comparable:
+            previous_details = materialization_fields(previous_stock_basic)
+            previous_version = _target_version(previous_details)
+            count = details.get("dagster/row_count")
+            previous_count = previous_details.get("dagster/row_count")
+            if previous_version and count is not None and previous_count is not None:
+                version["inputs"] = [
+                    _versioned_input("上一交易日股票基础信息 Raw", previous_version)
+                ]
+                if abs(count - previous_count) <= 20:
+                    status = "complete"
+                    reason = _reason(
+                        "check_passed", "股票基础信息全状态数量净增减不超过 20 条"
+                    )
+                else:
+                    reason = _reason(
+                        "not_verified", "股票基础信息全状态数量净增减超过 20 条"
+                    )
     elif (
         target_version
         and record
@@ -722,9 +873,21 @@ def _row(target, day, observed_at, evidence, built):
             _component("东方财富概念板块", status, reason),
         ]
     if key.startswith("raw_stk_mins_"):
+        post_close = (
+            production_coverage.get("post_close_count") if production_coverage else None
+        )
         components.append(
             _component(
                 "盘后时段", "pending", _reason("not_verified", "暂无盘后交付覆盖结论")
+            )
+            if post_close is None
+            else _component(
+                "盘后时段",
+                "complete",
+                _reason(
+                    "published_coverage",
+                    f"已保留当次 Prod 交付的 {post_close} 根盘后记录",
+                ),
             )
         )
     if status == "pending" and target_version and key in MONEYFLOW_SILVER_INPUTS:
@@ -736,8 +899,9 @@ def _row(target, day, observed_at, evidence, built):
             )
     check_time = max((check.event.timestamp for check in checks.values()), default=None)
     counts = _counts(status, key, details)
-    if index_period_coverage:
-        counts = {field: index_period_coverage[field] for field in counts}
+    coverage = index_period_coverage or local_coverage or production_coverage
+    if coverage:
+        counts = {field: coverage[field] for field in counts}
     return {
         "dataset_name": target.entry.dataset_name,
         "layer": target.entry.layer.value,
@@ -750,9 +914,7 @@ def _row(target, day, observed_at, evidence, built):
             "reason": reason,
             "checked_at": _timestamp(check_time) if check_time is not None else None,
             **counts,
-            "samples": index_period_coverage["samples"]
-            if index_period_coverage
-            else [],
+            "samples": coverage["samples"] if coverage else [],
             "exceptions": [],
             "evidence": proof,
             "components": components,
@@ -777,7 +939,216 @@ def _counts(status, key, details):
     }
 
 
-def make_summary(day, observed_at, targets, evidence, previous=None, changed=()):
+def stock_daily_checks_passed(evidence):
+    daily = evidence.get(STOCK_DAILY_SILVER)
+    return daily is not None and _checks_passed(SILVER_STOCK_DAILY_CHECKS, daily.checks)
+
+
+def _stock_daily_qfq(row, evidence, file_exists, run_succeeded):
+    completeness = row["completeness"]
+    if completeness["status"] == "not_applicable":
+        return
+    if not stock_daily_checks_passed(evidence):
+        completeness["reason"] = _reason(
+            "upstream_pending", "当日股票日线 Silver Check 尚未全部通过"
+        )
+        return
+    if not file_exists:
+        completeness["reason"] = _reason("not_verified", "未确认当日前复权文件存在")
+        return
+    if not run_succeeded:
+        completeness["reason"] = _reason("not_verified", "未确认当次前复权任务成功")
+        return
+    completeness["status"] = "complete"
+    completeness["reason"] = _reason(
+        "check_passed", "当日股票日线 Silver Check 通过，前复权 Gold 文件存在且任务成功"
+    )
+    completeness["evidence"].extend(
+        {**_check_ref(name, check, None), "asset_key": STOCK_DAILY_SILVER}
+        for name, check in evidence[STOCK_DAILY_SILVER].checks.items()
+    )
+
+
+def _stock_minute_qfq(row, source, evidence, run_succeeded):
+    completeness = row["completeness"]
+    if completeness["status"] == "not_applicable":
+        return
+    if not source or source["completeness"]["status"] != "complete":
+        completeness["reason"] = _reason(
+            "upstream_pending", "当日输入频度的股票分钟线 Silver 齐备待确认"
+        )
+        return
+    details = materialization_fields(evidence) if evidence else {}
+    if not (
+        details.get("output_file_count", 0) > 0
+        and details.get("replacement_row_count", 0) > 0
+        and run_succeeded
+    ):
+        completeness["reason"] = _reason(
+            "not_verified", "未确认当日股票分钟前复权 Gold 已写入且任务成功"
+        )
+        return
+    source_version = details.get("audit_source_file_version")
+    if (
+        not source_version
+        or json.dumps(source_version, separators=(",", ":"))
+        != source["version"]["target_version"]
+    ):
+        completeness["reason"] = _reason(
+            "version_mismatch", "暂无法确认当次前复权使用了已核验的股票分钟线 Silver"
+        )
+        return
+    row["version"].update(
+        target_version=details.get("audit_delivery_version"),
+        inputs=[_input(source)],
+    )
+    completeness["status"] = "complete"
+    completeness["actual_count"] = details["replacement_row_count"]
+    completeness["reason"] = _reason(
+        "check_passed",
+        "当日输入频度的股票分钟线 Silver 齐备，前复权 Gold 已写入且任务成功",
+    )
+
+
+def _stock_minute_silver(row, evidence, bundles, rows, raw_keys):
+    details = materialization_fields(evidence) if evidence else {}
+    inputs = details.get("audit_input_versions")
+    completeness = row["completeness"]
+    if not inputs or completeness["status"] not in {"complete", "gap"}:
+        return
+    if details.get("frozen_preserved_row_count"):
+        completeness.update(
+            status="pending",
+            reason=_reason("not_verified", "历史冻结记录的适用范围还未核验"),
+        )
+        return
+    daily = bundles.get(STOCK_DAILY_SILVER)
+    if not (
+        stock_daily_checks_passed(bundles)
+        and _target_version(materialization_fields(daily))
+        == inputs.get(STOCK_DAILY_SILVER)
+        and any(
+            item["asset_key"] == STOCK_DAILY_SILVER
+            and item["target_version"] == inputs[STOCK_DAILY_SILVER]
+            for item in row["version"]["inputs"]
+        )
+        and all(
+            raw in rows
+            and rows[raw]["completeness"]["status"] == "complete"
+            and rows[raw]["version"]["target_version"] == inputs.get(raw)
+            for raw in raw_keys
+        )
+    ):
+        completeness.update(
+            status="pending",
+            reason=_reason(
+                "upstream_pending", "股票分钟线 Raw 或当日日线的同版齐备证据待确认"
+            ),
+        )
+        return
+    row["version"]["inputs"] = [
+        *(_input(rows[raw]) for raw in raw_keys),
+        *(
+            _versioned_input(asset, value)
+            for asset, value in inputs.items()
+            if asset not in raw_keys
+        ),
+    ]
+
+
+def _macd_kdj_coverage(row, target, evidence, indicator, source):
+    state = target.asset_key in MACD_KDJ_STATE_INPUTS
+    completeness = row["completeness"]
+    if completeness["status"] == "not_applicable":
+        return
+    fields = materialization_fields(evidence) if evidence else {}
+    comparison = (
+        _production_coverage(evidence, fields)
+        if evidence and state
+        else fields.get("audit_comparison")
+    )
+    same_indicator_run = bool(
+        indicator and evidence and evidence.materialization
+    ) and any(
+        item["type"] == "materialization"
+        and item["run_id"] == evidence.materialization.run_id
+        for item in indicator["completeness"]["evidence"]
+    )
+    if not (
+        source
+        and source["completeness"]["status"] == "complete"
+        and (
+            not state
+            or same_indicator_run
+            and indicator["completeness"]["status"] == "complete"
+        )
+        and comparison
+        and comparison["inputs"].get(source["scope"]["asset_key"])
+        and comparison["inputs"][source["scope"]["asset_key"]]
+        == source["version"]["target_version"]
+    ):
+        completeness.update(
+            status="pending",
+            reason=_reason(
+                "upstream_pending", "当次采用的股票分钟前复权或指标齐备证据待确认"
+            ),
+        )
+        return
+    if comparison["status"] == "complete" and not _checks_passed(
+        target.check_names, evidence.checks
+    ):
+        completeness.update(
+            status="pending", reason=_reason("not_verified", "其余生产 Check 尚未通过")
+        )
+        return
+    status = comparison["status"]
+    row["version"]["inputs"] = [_input(source)]
+    if state:
+        row["version"]["inputs"].append(_input(indicator))
+        row["version"]["inputs"].extend(
+            _versioned_input(key, value)
+            for key, value in comparison["inputs"].items()
+            if key != source["scope"]["asset_key"]
+        )
+    else:
+        row["version"]["target_version"] = (
+            f"dg-materialization:{evidence.materialization.storage_id}"
+        )
+    row["version"]["rule_version"] = comparison["rule_version"]
+    completeness.update(
+        status=status,
+        reason=(
+            _reason("check_passed", "本次计算的股票代码和行数符合预期")
+            if status == "complete"
+            else _reason(
+                "missing_or_extra_keys", "本次计算的股票代码或行数与预期不一致"
+            )
+        ),
+        **{
+            field: comparison[field]
+            for field in (
+                "expected_count",
+                "actual_count",
+                "missing_count",
+                "extra_count",
+                "samples",
+            )
+        },
+    )
+
+
+def make_summary(
+    day,
+    observed_at,
+    targets,
+    evidence,
+    previous=None,
+    changed=(),
+    *,
+    stock_daily_qfq_file_exists=None,
+    qfq_successful_deliveries=(),
+    previous_stock_basic=None,
+):
     prior_rows = (
         {row["scope"]["asset_key"]: row for row in previous["rows"]}
         if previous and changed
@@ -789,8 +1160,51 @@ def make_summary(day, observed_at, targets, evidence, previous=None, changed=())
         if key in prior_rows and key not in changed:
             built[key] = prior_rows[key]
         else:
-            built[key] = _row(target, day, observed_at, evidence.get(key), built)
+            built[key] = _row(
+                target, day, observed_at, evidence.get(key), built, previous_stock_basic
+            )
     recalculated = set(changed) if prior_rows else set(built)
+    for key, raw_keys in STOCK_MINUTE_SILVER_INPUTS.items():
+        if key in built and key in recalculated:
+            _stock_minute_silver(
+                built[key], evidence.get(key), evidence, built, raw_keys
+            )
+    if STOCK_DAILY_QFQ_GOLD in built and STOCK_DAILY_QFQ_GOLD in recalculated:
+        _stock_daily_qfq(
+            built[STOCK_DAILY_QFQ_GOLD],
+            evidence,
+            stock_daily_qfq_file_exists,
+            STOCK_DAILY_QFQ_GOLD in qfq_successful_deliveries,
+        )
+    for key, source in STOCK_MINUTE_QFQ_INPUTS.items():
+        if key in recalculated and key in built:
+            _stock_minute_qfq(
+                built[key],
+                built.get(source),
+                evidence.get(key),
+                key in qfq_successful_deliveries,
+            )
+    for target in targets:
+        key = target.asset_key
+        if key in recalculated and key in MACD_KDJ_INDICATOR_INPUTS:
+            _macd_kdj_coverage(
+                built[key],
+                target,
+                evidence.get(key),
+                None,
+                built.get(MACD_KDJ_INDICATOR_INPUTS[key]),
+            )
+    for target in targets:
+        key = target.asset_key
+        if key in recalculated and key in MACD_KDJ_STATE_INPUTS:
+            indicator = MACD_KDJ_STATE_INPUTS[key]
+            _macd_kdj_coverage(
+                built[key],
+                target,
+                evidence.get(key),
+                built.get(indicator),
+                built.get(MACD_KDJ_INDICATOR_INPUTS[indicator]),
+            )
     for prefix in ("raw_etf_mins_", "silver_etf_mins_"):
         for key, bundle in evidence.items():
             if (

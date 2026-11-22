@@ -10,7 +10,7 @@ from orchestrator.defs.assets.moneyflow_cnt_ths import (
     silver_moneyflow_cnt_ths,
 )
 from orchestrator.defs.checks.moneyflow_daily import (
-    audit_daily_moneyflow_file,
+    audit_covered_raw_moneyflow_file,
     audit_daily_moneyflow_standardization,
 )
 from orchestrator.defs.duckdb_connection import (
@@ -30,7 +30,6 @@ from orchestrator.defs.run_contracts.moneyflow import (
     assert_moneyflow_memory_budget,
 )
 
-audit_file = partial(audit_daily_moneyflow_file, dataset="moneyflow_cnt_ths")
 audit_standardization = partial(
     audit_daily_moneyflow_standardization, dataset="moneyflow_cnt_ths"
 )
@@ -40,6 +39,7 @@ def _check(context, lake_root, *, silver: bool) -> dg.AssetCheckResult:
     days = tuple(context.partition_keys)
     passed, reason, target = False, "single_partition_execution", None
     count = 0
+    coverage = None
     if len(days) == 1:
         day = days[0]
         raw = raw_moneyflow_path(lake_root.root(), "moneyflow_cnt_ths", day)
@@ -62,7 +62,9 @@ def _check(context, lake_root, *, silver: bool) -> dg.AssetCheckResult:
                 if silver:
                     count = audit_standardization(connection, raw, target, day)
                 else:
-                    count = audit_file(connection, raw, day)
+                    count, coverage = audit_covered_raw_moneyflow_file(
+                        connection, context, lake_root.root(), raw, day, dataset="moneyflow_cnt_ths"
+                    )
             passed, reason = True, "passed"
         except MoneyflowContractError as error:
             reason = str(error)
@@ -75,6 +77,7 @@ def _check(context, lake_root, *, silver: bool) -> dg.AssetCheckResult:
             file_path=target,
             extra_metadata={
                 "reason_code": reason,
+                "audit_coverage": coverage,
                 "partition_key": days[0] if len(days) == 1 else None,
             },
         ),

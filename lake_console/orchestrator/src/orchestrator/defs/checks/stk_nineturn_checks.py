@@ -6,11 +6,19 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stk_nineturn import (
     raw_tushare_stk_nineturn,
     silver_stock_nineturn_daily,
 )
+from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
+from orchestrator.defs.checks.daily_audit_coverage import (
+    is_requested_version,
+    key_coverage,
+    select_codes,
+    stat_version,
+    version_string,
+)
+from orchestrator.defs.daily_data_audit.evidence import verified_stock_daily
 from orchestrator.defs.duckdb_sql import count_parquet_query
 from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
@@ -26,6 +34,7 @@ from orchestrator.defs.run_contracts.metadata import (
 from orchestrator.defs.stk_nineturn_contract import (
     RAW_STK_NINETURN_EXPECTED_SCHEMA,
     SILVER_STOCK_NINETURN_DAILY_EXPECTED_SCHEMA,
+    STK_NINETURN_HISTORY_START_DATE,
     build_stk_nineturn_path_plan,
     describe_stk_nineturn_parquet_schema,
     load_raw_stk_nineturn_failure_samples,
@@ -35,9 +44,7 @@ from orchestrator.defs.stk_nineturn_contract import (
     raw_stk_nineturn_failed_row_count,
     raw_stk_nineturn_failed_rule_names,
     silver_stock_nineturn_daily_failed_rule_names,
-    STK_NINETURN_HISTORY_START_DATE,
 )
-
 
 STK_NINETURN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
@@ -208,6 +215,10 @@ def raw_tushare_stk_nineturn_content_integrity_check(
             check_scope=CheckScope.VALUE_SANITY,
         )
 
+    reference = verified_stock_daily(context.instance, lake_root.root(), partition_key)
+    version = stat_version(raw_path) if reference else None
+    observed_daily_codes = {} if reference and is_requested_version(context, version) else None
+    coverage = None
     connect_duckdb = duckdb.connect
     with connect_duckdb() as connection:
         observed_schema = describe_stk_nineturn_parquet_schema(connection, raw_path)
@@ -237,6 +248,7 @@ def raw_tushare_stk_nineturn_content_integrity_check(
                     path=raw_path,
                 )
             ],
+            observed_daily_codes=observed_daily_codes,
         ).get(partition_key)
         if metrics is None:
             return dg.AssetCheckResult(
@@ -263,6 +275,21 @@ def raw_tushare_stk_nineturn_content_integrity_check(
             if failed_rule_names
             else ()
         )
+        if not failed_rule_names and observed_daily_codes and version == stat_version(raw_path):
+            daily_path, daily_version = reference
+            expected = select_codes(
+                connection,
+                "SELECT ts_code FROM read_parquet(?, hive_partitioning=false) "
+                "WHERE trade_date = ?::DATE",
+                [str(daily_path), partition_key],
+            )
+            if expected and stat_version(daily_path) == daily_version:
+                coverage = {
+                    **key_coverage(expected, observed_daily_codes[partition_key], record_extras=False),
+                    "file_version": version,
+                    "inputs": {"silver_stock_daily": version_string(daily_version)},
+                    "rule_version": "stock_daily_nineturn_coverage_v1",
+                }
 
     metric_summary = {
         "null_key_count": metrics.null_key_count,
@@ -295,6 +322,7 @@ def raw_tushare_stk_nineturn_content_integrity_check(
                 "failed_rule_names": list(failed_rule_names),
                 "rule_summary": metric_summary,
                 "failure_samples": list(failure_samples),
+                "audit_coverage": coverage,
             },
         ),
     )

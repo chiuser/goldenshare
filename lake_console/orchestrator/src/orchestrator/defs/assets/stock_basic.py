@@ -4,6 +4,11 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.checks.daily_audit_coverage import (
+    snapshot_comparison,
+    stat_version,
+    version_string,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_RAW_COLUMNS,
@@ -24,14 +29,14 @@ from orchestrator.defs.resources import (
     LakeRootResource,
     TushareResource,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_BASIC_SCHEMA,
+    SILVER_STOCK_BASIC_SCHEMA,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
-)
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_TUSHARE_STOCK_BASIC_SCHEMA,
-    SILVER_STOCK_BASIC_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
@@ -40,7 +45,6 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 STOCK_BASIC_API_PARAMS = {"list_status": "L,D,P,G"}
 STOCK_BASIC_RAW_COLUMN_TYPES = {
@@ -164,6 +168,7 @@ def raw_tushare_stock_basic(
                     "summary": "已写入 Tushare 股票基础信息 raw 全状态快照。",
                     "next_action": "等待 raw blocking checks 通过后生成当前股票池和历史生命周期事实。",
                     "result_status": "written",
+                    "audit_file_version": stat_version(path),
                     "input_summary": "来源为 Tushare stock_basic，list_status=L,D,P,G。",
                     "filter_summary": "raw 层不做 current-listed 过滤，保留源站全状态股票身份。",
                     "diagnostic_ref": "完整诊断看 raw_stock_basic checks 和 run stdout。",
@@ -209,6 +214,7 @@ def silver_stock_basic(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
+    raw_version = stat_version(raw_path)
     LOGGER.stdout("stock_basic_silver_started")
     with connect_configured_duckdb() as connection:
         source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
@@ -217,10 +223,12 @@ def silver_stock_basic(
             raw_path,
             hive_partitioning=False,
         )
-        _replace_parquet_from_query(
-            connection,
-            silver_stock_basic_select(raw_path),
-            target_path,
+        connection.execute(
+            "CREATE TEMP TABLE expected_snapshot AS " + silver_stock_basic_select(raw_path)
+        )
+        _replace_parquet_from_query(connection, "SELECT * FROM expected_snapshot", target_path)
+        comparison = snapshot_comparison(
+            connection, "SELECT * FROM expected_snapshot", target_path, ('ts_code',)
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
         row_count = _row_count(connection, target_path, hive_partitioning=False)
@@ -236,12 +244,23 @@ def silver_stock_basic(
         filtered_out_row_count=source_row_count - row_count,
     )
 
+    target_version = stat_version(target_path)
+    if comparison and raw_version and raw_version == stat_version(raw_path):
+        comparison.update(
+            file_version=target_version,
+            inputs={"raw_tushare_stock_basic": version_string(raw_version)},
+        )
+    else:
+        comparison = None
+
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "audit_file_version": target_version,
+                "audit_comparison": comparison,
                 "summary": "已生成当前上市 CNY 股票基础信息 silver 快照。",
                 "next_action": "等待 silver_stock_basic blocking checks 通过后供下游日频和分钟线资产消费。",
                 "result_status": "written",

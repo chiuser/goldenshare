@@ -449,6 +449,10 @@ def test_new_stock_keeps_original_seed_and_dormant_stock_keeps_state(
     source(root, [qfq(DAY, close=13, high=14, low=12)])
     result = daily(root)
     assert result.initialized_without_previous_state is False
+    assert result.indicator_audit["status"] == "complete"
+    assert result.indicator_audit["expected_count"] == result.indicator_audit["actual_count"] == 1
+    assert result.state_audit["status"] == "complete"
+    assert result.state_audit["expected_count"] == result.state_audit["actual_count"] == 2
     actual = records(gold_stk_mins_qfq_macd_kdj_path(root, 1, CODE, "2026"))[0]
     assert_values(actual, (0, 0, 0, 50, 50, 50))
     states = {

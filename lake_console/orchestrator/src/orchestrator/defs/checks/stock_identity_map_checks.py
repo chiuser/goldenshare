@@ -4,14 +4,15 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_identity_map import (
     STOCK_IDENTITY_ALLOWED_CONFIDENCE,
     STOCK_IDENTITY_ALLOWED_SOURCES,
     STOCK_IDENTITY_COLUMN_TYPES,
     silver_stock_identity_map,
 )
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.checks.daily_audit_coverage import published_comparison_metadata
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
@@ -81,6 +82,7 @@ def _combined_check_result(
     *,
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
+    audit_metadata: dict | None = None,
 ) -> dg.AssetCheckResult:
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
@@ -106,6 +108,7 @@ def _combined_check_result(
                     for rule_name, result in rule_results
                 },
                 "failed_rule_names": failed_rule_names,
+                **(audit_metadata or {}),
             },
         ),
     )
@@ -562,11 +565,13 @@ def _enum_check(
 
 @dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_contract_check(
+    context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     return _combined_check_result(
         check_scope=CheckScope.SCHEMA,
+        audit_metadata=published_comparison_metadata(context, "silver_stock_identity_map", silver_stock_identity_map_path(lake_root.root())),
         rule_results=(
             (
                 "silver_stock_identity_map_file_exists",

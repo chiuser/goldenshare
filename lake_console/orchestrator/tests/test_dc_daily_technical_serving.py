@@ -1,22 +1,68 @@
+import tempfile
+import unittest
 from contextlib import contextmanager
 from datetime import date
 from pathlib import Path
-import tempfile
-import unittest
+from types import SimpleNamespace
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.assets.dc_daily_technical_serving import (
     _read_gold_rows,
     replace_dc_daily_technical_partition,
 )
+from orchestrator.defs.checks import dc_daily_technical_serving_checks as checks
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
+from orchestrator.defs.paths import gold_dc_daily_technical_path
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.dc_daily_technical_serving import (
     DC_DAILY_TECHNICAL_SERVING_COLUMNS,
     DC_DAILY_TECHNICAL_SERVING_TABLE,
 )
 
-
 DATE = "2026-07-14"
+
+
+def test_local_check_rejects_same_count_with_wrong_key_only_for_bound_gold(tmp_path, monkeypatch):
+    path = gold_dc_daily_technical_path(tmp_path, DATE)
+    path.parent.mkdir(parents=True)
+    path.touch()
+    expected_row = ("BK0001.DC", date.fromisoformat(DATE), "行业") + (None,) * 19 + (
+        checks.DC_DAILY_TECHNICAL_PARAMS_KEY, checks.DC_DAILY_TECHNICAL_INDICATOR_VERSION,
+    )
+    target_row = ("BK0002.DC", *expected_row[1:])
+    queries = []
+
+    class Reader:
+        def execute(self, sql, parameters):
+            queries.append(parameters)
+            return [target_row]
+
+    @dg.asset(name="ch_dc_daily_technical", partitions_def=dg.StaticPartitionsDefinition([DATE]))
+    def serving():
+        return dg.MaterializeResult(metadata={"goldenshare/source_file_version": stat_version(path)})
+
+    monkeypatch.setattr(checks, "_read_gold_rows", lambda *args, **kwargs: [expected_row])
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        dg.materialize([serving], instance=instance, partition_key=DATE)
+        evaluate = checks.ch_dc_daily_technical_core_check.op.compute_fn.decorated_fn
+        context = SimpleNamespace(partition_keys=[DATE], instance=instance)
+        lake = LakeRootResource(root_path=str(tmp_path))
+        clickhouse = _FakeClickHouseResource(Reader())
+        result = evaluate(context=context, lake_root=lake, duckdb=DuckDBResource(), clickhouse=clickhouse)
+        assert not result.passed
+        assert result.metadata["goldenshare/failed_rules"].value == ["business_keys_match_gold"]
+        coverage = result.metadata["goldenshare/local_key_coverage"].value
+        assert (coverage["missing_count"], coverage["extra_count"]) == (1, 1)
+        assert queries == [{"trade_date": DATE}]
+
+        path.write_bytes(b"new Gold version")
+        result = evaluate(context=context, lake_root=lake, duckdb=DuckDBResource(), clickhouse=clickhouse)
+        assert result.passed
+        assert result.metadata["goldenshare/local_key_coverage"].value == {}
 
 
 class _FakeClickHouseClient:

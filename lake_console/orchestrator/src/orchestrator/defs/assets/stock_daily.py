@@ -7,14 +7,15 @@ import dagster as dg
 from orchestrator.defs.asset_guards.stock_daily import (
     assert_silver_stock_basic_fresh_for_stock_daily,
 )
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
-    STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_MIN_TRADE_DATE,
+    STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
@@ -38,30 +39,29 @@ from orchestrator.defs.resources import (
     LakeRootResource,
     TushareResource,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.asset_column_schemas import (
-    RAW_TUSHARE_STOCK_DAILY_SCHEMA,
-    SILVER_STOCK_DAILY_SCHEMA,
+from orchestrator.defs.run_contracts.configs import (
+    STOCK_DAILY_RAW_CONFIG_SCHEMA,
+    parse_stock_daily_raw_config,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.run_contracts.configs import (
-    STOCK_DAILY_RAW_CONFIG_SCHEMA,
-    parse_stock_daily_raw_config,
-)
 from orchestrator.defs.tushare_api_io import (
     fetch_tushare_partition_to_raw,
     fetch_tushare_stock_daily_missing_codes_to_raw,
 )
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
-
 
 STOCK_DAILY_COLUMNS = tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA)
 
@@ -667,6 +667,7 @@ def silver_stock_daily(
                 "silver_stock_lifecycle_file_path": str(stock_lifecycle_path),
                 "stock_basic_file_path": str(basic_path),
                 "stock_suspend_daily_file_path": str(suspend_path),
+                "audit_file_version": stat_version(target_path),
                 "partition_key": partition_key,
                 **filter_counts,
                 "duplicate_removed_count": duplicate_removed_count,

@@ -3,6 +3,7 @@
 import dagster as dg
 
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.partitions import cn_a_stk_nineturn_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -31,8 +32,8 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.stk_nineturn_contract import (
-    RAW_STK_NINETURN_COLUMNS,
     RAW_STK_NINETURN_COLUMN_TYPES,
+    RAW_STK_NINETURN_COLUMNS,
     write_silver_stock_nineturn_daily_partition,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
@@ -130,6 +131,7 @@ def raw_tushare_stk_nineturn(
         output_row_count=metadata.get("dagster/row_count"),
         page_count=metadata.get("goldenshare/page_count"),
     )
+    metadata["goldenshare/audit_file_version"] = stat_version(target_path)
     return dg.MaterializeResult(metadata=metadata)
 
 

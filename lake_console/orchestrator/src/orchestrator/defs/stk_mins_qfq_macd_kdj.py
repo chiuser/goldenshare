@@ -11,6 +11,11 @@ import duckdb
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_exact_previous_state_path,
 )
+from orchestrator.defs.checks.daily_audit_coverage import (
+    key_coverage,
+    minute_file_batch_version,
+    version_string,
+)
 from orchestrator.defs.duckdb_connection import (
     DEFAULT_DUCKDB_CONNECTION_SETTINGS,
     DuckDBConnectionSettings,
@@ -107,6 +112,8 @@ class GoldStkMinsQfqMacdKdjPartitionWriteResult:
     initialized_without_previous_state: bool
     observed_indicator_columns: tuple[str, ...]
     observed_state_columns: tuple[str, ...]
+    indicator_audit: dict | None = None
+    state_audit: dict | None = None
 
 
 def _read_parquet_paths(paths: Sequence[Path]) -> str:
@@ -886,6 +893,7 @@ def _prepare_daily_macd_kdj_replacement_tables(
     previous_state_paths: Sequence[Path],
     freq: int,
     source_file_identities: dict[Path, tuple[int, int, int, int, int]],
+    input_day_counts: dict[str, int] | None = None,
 ) -> StkMinsQfqMacdKdjReplacementTables:
     trade_date = date.fromisoformat(target_trade_date).isoformat()
     current_year = trade_date[:4]
@@ -966,6 +974,8 @@ def _prepare_daily_macd_kdj_replacement_tables(
                 "GROUP BY ts_code ORDER BY ts_code"
             ).fetchall()
         if target_counts:
+            if input_day_counts is not None:
+                input_day_counts.update(target_counts)
             active_codes = tuple(str(row[0]) for row in target_counts)
             active_current_paths = tuple(
                 paths_by_code[code][current_year] for code in active_codes
@@ -1500,6 +1510,7 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
         allow_without_previous_state=allow_without_previous_state,
     )
     source_file_identities: dict[Path, tuple[int, int, int, int, int]] = {}
+    input_day_counts: dict[str, int] = {}
     with (
         StkMinsQfqPublication(
             lake_root=lake_root,
@@ -1519,7 +1530,18 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             ),
             freq=normalized_freq,
             source_file_identities=source_file_identities,
+            input_day_counts=input_day_counts,
         )
+        previous_codes = {
+            code for (code,) in connection.execute(
+                "SELECT ts_code FROM macd_kdj_previous_state_rows"
+            ).fetchall()
+        }
+        state_codes = {
+            code for (code,) in connection.execute(
+                "SELECT ts_code FROM macd_kdj_state_replacement_rows"
+            ).fetchall()
+        }
         indicator_results, state_results, initialized_without_previous_state = (
             _publish_macd_kdj_replacement_tables(
                 connection,
@@ -1548,6 +1570,31 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
         )
 
     indicator_file_paths = tuple(str(result.path) for result in indicator_results)
+    indicator_codes = {result.ts_code for result in indicator_results}
+    indicator_rows = sum(result.replacement_row_count for result in indicator_results)
+    indicator_coverage = key_coverage(set(input_day_counts), indicator_codes)
+    expected_rows = sum(input_day_counts.values())
+    indicator_coverage.update(expected_count=expected_rows, actual_count=indicator_rows)
+    if expected_rows != indicator_rows:
+        indicator_coverage["status"] = "gap"
+    input_version = minute_file_batch_version(
+        (path, source_file_identities[path])
+        for path in source_paths
+        if path.parent.name == f"year={partition_key[:4]}"
+        and path.parents[1].name.removeprefix("ts_code=") in input_day_counts
+    )
+    inputs = {f"gold_stk_mins_qfq_{normalized_freq}m": input_version}
+    indicator_coverage.update(inputs=inputs, rule_version="macd_kdj_daily_coverage_v1")
+    state_coverage = key_coverage(previous_codes | indicator_codes, state_codes)
+    state_coverage["actual_count"] = state_results[0].row_count
+    if state_coverage["actual_count"] != state_coverage["expected_count"]:
+        state_coverage["status"] = "gap"
+    state_inputs = dict(inputs)
+    if previous_state_path is not None:
+        state_inputs["上一交易日的 MACD/KDJ 递推状态"] = version_string(
+            source_file_identities[previous_state_path]
+        )
+    state_coverage.update(inputs=state_inputs, rule_version="macd_kdj_state_coverage_v1")
     return GoldStkMinsQfqMacdKdjPartitionWriteResult(
         freq=normalized_freq,
         trade_date=partition_key,
@@ -1566,6 +1613,8 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
         initialized_without_previous_state=initialized_without_previous_state,
         observed_indicator_columns=GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
         observed_state_columns=GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
+        indicator_audit=indicator_coverage,
+        state_audit=state_coverage,
     )
 
 

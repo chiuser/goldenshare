@@ -4,13 +4,14 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.namechange import (
     NAMECHANGE_RAW_COLUMN_TYPES,
     NAMECHANGE_SILVER_COLUMN_TYPES,
     raw_tushare_namechange,
     silver_namechange,
 )
+from orchestrator.defs.checks.daily_audit_coverage import published_comparison_metadata
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_REQUIRED_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
@@ -76,6 +77,7 @@ def _combined_check_result(
     *,
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
+    audit_metadata: dict | None = None,
 ) -> dg.AssetCheckResult:
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
@@ -101,6 +103,7 @@ def _combined_check_result(
                     for rule_name, result in rule_results
                 },
                 "failed_rule_names": failed_rule_names,
+                **(audit_metadata or {}),
             },
         ),
     )
@@ -860,11 +863,13 @@ def raw_namechange_date_domain_check(
 
 @dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_contract_check(
+    context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     return _combined_check_result(
         check_scope=CheckScope.SCHEMA,
+        audit_metadata=published_comparison_metadata(context, "silver_namechange", silver_namechange_path(lake_root.root())),
         rule_results=(
             ("silver_namechange_file_exists", silver_namechange_file_exists(lake_root)),
             (

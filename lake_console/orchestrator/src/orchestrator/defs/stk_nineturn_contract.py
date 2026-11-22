@@ -25,7 +25,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_NINETURN_DAILY_SCHEMA,
 )
 
-
 STK_NINETURN_HISTORY_START_DATE = "2023-01-03"
 
 
@@ -148,6 +147,7 @@ def load_raw_stk_nineturn_metrics(
     connection,
     *,
     path_plans: Sequence[StkNineturnPathPlan],
+    observed_daily_codes: dict[str, set[str]] | None = None,
 ) -> Mapping[str, StkNineturnPartitionMetrics]:
     existing_plans = tuple(
         plan for plan in path_plans if plan.file_exists and plan.path.exists()
@@ -160,6 +160,10 @@ def load_raw_stk_nineturn_metrics(
         for plan in existing_plans
     )
     parquet_paths = ", ".join(duckdb_string(plan.path) for plan in existing_plans)
+    code_projection = (
+        ", list(DISTINCT ts_code) FILTER (WHERE trim(freq) = 'daily') AS daily_codes"
+        if observed_daily_codes is not None else ""
+    )
     query_result = connection.execute(
         f"""
         WITH path_plan(expected_trade_date, file_path) AS (
@@ -245,6 +249,7 @@ def load_raw_stk_nineturn_metrics(
             count(*) FILTER (
               WHERE nine_up_turn IS NOT NULL AND nine_down_turn IS NOT NULL
             ) AS simultaneous_marker_count
+            {code_projection}
           FROM raw_rows
           GROUP BY expected_trade_date
         )
@@ -261,6 +266,8 @@ def load_raw_stk_nineturn_metrics(
     for row in query_result.fetchall():
         values = dict(zip(column_names, row, strict=True))
         trade_date = str(values["trade_date"])
+        if observed_daily_codes is not None:
+            observed_daily_codes[trade_date] = set(values["daily_codes"] or ())
         metrics_by_trade_date[trade_date] = StkNineturnPartitionMetrics(
             trade_date=trade_date,
             row_count=int(values["row_count"]),

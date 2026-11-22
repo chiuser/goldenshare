@@ -8,6 +8,7 @@ from orchestrator.defs.asset_guards.moneyflow_row_count import (
     moneyflow_row_count_baseline,
     moneyflow_row_count_decision,
 )
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.checks.moneyflow_daily import (
     audit_daily_moneyflow_equality,
     audit_daily_moneyflow_file,
@@ -248,6 +249,7 @@ def update_daily_moneyflow_raw(
             **final_metadata,
             "target": str(target),
             "file_sha256": state["published_sha256"],
+            "audit_file_version": stat_version(target),
             "promotion_mode": state["mode"],
             "source_proof_path": str(receipt_path),
         }

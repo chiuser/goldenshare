@@ -1,5 +1,6 @@
 from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +33,12 @@ from orchestrator.defs.assets.stk_mins import (
     silver_stk_mins_60m,
 )
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
+from orchestrator.defs.checks.daily_audit_coverage import (
+    published_comparison_metadata,
+    stat_version,
+    stock_minute_coverage,
+    version_string,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
@@ -1985,6 +1992,9 @@ def _raw_key_integrity_check(
             "partition_set": cn_a_stock_mins_trade_days.name,
             "is_registered": is_registered,
             "duplicate_group_count": duplicate_group_count,
+            **published_comparison_metadata(
+                context, f"raw_stk_mins_{freq}m", path, partition=partition_key
+            ),
             "failed_rule_names": failed_rule_names,
             **_readable_check_metadata(
                 dataset_label=f"股票 {freq} 分钟 raw 主键",
@@ -2433,6 +2443,7 @@ def _silver_codes_exist_in_stock_daily(
     duckdb: DuckDBResource,
     freq: int,
     silver_path_override: Path | None = None,
+    include_coverage: bool = False,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = silver_path_override or _silver_path(lake_root, freq, partition_key)
@@ -2442,25 +2453,36 @@ def _silver_codes_exist_in_stock_daily(
     if not daily_path.exists():
         return _missing_input_file_result(path, daily_path)
 
+    target_version = stat_version(path) if include_coverage else None
+    daily_version = stat_version(daily_path) if include_coverage else None
+    code_projection = (
+        "ts_code, count(*) AS roots" if include_coverage else "DISTINCT ts_code"
+    )
+    group_by_code = "GROUP BY ts_code" if include_coverage else ""
+    coverage_projection = (
+        ", (SELECT list(ts_code) FROM daily_codes), "
+        "(SELECT list((ts_code, roots)) FROM silver_codes)"
+        if include_coverage else ""
+    )
     with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         daily_relation = read_parquet(daily_path, hive_partitioning=False)
         row = connection.execute(
             f"""
             WITH silver_codes AS (
-              SELECT DISTINCT ts_code FROM {relation}
+              SELECT {code_projection} FROM {relation} {group_by_code}
+            ),
+            daily_codes AS (
+              SELECT DISTINCT ts_code FROM {daily_relation}
+              WHERE trade_date = CAST({duckdb_string(partition_key)} AS DATE)
             ),
             missing_codes AS (
-              SELECT silver_codes.ts_code
-              FROM silver_codes
-              LEFT JOIN {daily_relation} AS daily_rows
-                ON silver_codes.ts_code = daily_rows.ts_code
-               AND daily_rows.trade_date = CAST({duckdb_string(partition_key)} AS DATE)
-              WHERE daily_rows.ts_code IS NULL
+              SELECT ts_code FROM silver_codes ANTI JOIN daily_codes USING (ts_code)
             )
             SELECT
               (SELECT count(*) FROM silver_codes) AS checked_count,
               (SELECT count(*) FROM missing_codes) AS failed_count
+              {coverage_projection}
             """
         ).fetchone()
         sample_rows = connection.execute(
@@ -2477,10 +2499,20 @@ def _silver_codes_exist_in_stock_daily(
             ORDER BY silver_codes.ts_code
             LIMIT 10
             """
-        ).fetchall()
+        ).fetchall() if row[1] else ()
 
     checked_count = int(row[0])
     failed_count = int(row[1])
+    coverage = None
+    if (
+        target_version and daily_version and row[2]
+        and stat_version(path) == target_version and stat_version(daily_path) == daily_version
+    ):
+        coverage = {
+            **stock_minute_coverage(set(row[2]), dict(row[3] or ()), freq),
+            "file_version": target_version,
+            "inputs": {"silver_stock_daily": version_string(daily_version)},
+        }
     return _check_result(
         passed=failed_count == 0,
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
@@ -2491,6 +2523,7 @@ def _silver_codes_exist_in_stock_daily(
         extra_metadata={
             "partition_key": partition_key,
             "freq": freq,
+            "audit_coverage": coverage,
             "failure_samples": _sample_dicts(("ts_code",), sample_rows),
         },
     )
@@ -2666,6 +2699,7 @@ def _collapsed_silver_check_result(
     partition_key = context.partition_key
     path = _silver_path(lake_root, freq, partition_key)
     failed_rule_names: list[str] = []
+    audit_metadata = {}
     for rule_name, evaluator in rule_evaluators:
         result = evaluator(
             context=context,
@@ -2673,6 +2707,9 @@ def _collapsed_silver_check_result(
             duckdb=duckdb,
             freq=freq,
         )
+        value = result.metadata.get("goldenshare/audit_coverage")
+        if value and value.value:
+            audit_metadata["audit_coverage"] = value.value
         if not result.passed:
             failed_rule_names.append(rule_name)
 
@@ -2686,6 +2723,7 @@ def _collapsed_silver_check_result(
             "partition_key": partition_key,
             "freq": freq,
             "failed_rule_names": failed_rule_names,
+            **audit_metadata,
             **_readable_check_metadata(
                 dataset_label=f"股票 {freq} 分钟 silver {check_label}",
                 rule_names=tuple(rule_name for rule_name, _ in rule_evaluators),
@@ -2798,7 +2836,7 @@ def _silver_reference_coverage_check(
         rule_evaluators=(
             (
                 SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
-                _silver_codes_exist_in_stock_daily,
+                partial(_silver_codes_exist_in_stock_daily, include_coverage=True),
             ),
             (
                 SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,

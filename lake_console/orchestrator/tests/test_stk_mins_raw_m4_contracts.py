@@ -11,7 +11,6 @@ from zoneinfo import ZoneInfo
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
@@ -23,9 +22,9 @@ from orchestrator.defs.asset_guards.stk_mins_stock_universe import (
     load_current_listed_stock_codes_for_stk_mins,
     stk_mins_stock_code_set_hash,
 )
+from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet
-from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string
 from orchestrator.defs.jobs.stock_mins_raw_update import (
     stock_mins_raw_update_from_prod_job,
     stock_mins_raw_update_job,
@@ -36,15 +35,15 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.prod_db.stk_mins import (
-    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
+    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
+    ProdStkMinsCodeCoverageProbe,
+    ProdStkMinsFrequencyCoverage,
     build_prod_stk_mins_duckdb_source_sql,
     build_prod_stk_mins_remote_query,
     validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
-    ProdStkMinsCodeCoverageProbe,
-    ProdStkMinsFrequencyCoverage,
 )
 from orchestrator.defs.prod_db.stk_mins_task_run import (
     ProdStkMinsFullMarketTaskRun,
@@ -63,10 +62,9 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.sensors import (
     readiness,
-    stock_mins_raw_sensor as stock_mins_raw_sensor_module,
 )
-from orchestrator.defs.sensors.stock_mins_raw_sensor import (
-    _cursor_payload as build_stock_mins_raw_sensor_cursor,
+from orchestrator.defs.sensors import (
+    stock_mins_raw_sensor as stock_mins_raw_sensor_module,
 )
 from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     STOCK_MINS_RAW_RUN_START,
@@ -76,14 +74,16 @@ from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     _run_request_for_trade_date,
     stock_mins_raw_sensor,
 )
+from orchestrator.defs.sensors.stock_mins_raw_sensor import (
+    _cursor_payload as build_stock_mins_raw_sensor_cursor,
+)
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
-    _cursor_payload as build_stock_mins_silver_trade_day_cursor,
-)
-from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     build_stock_mins_silver_trade_day_registration_decision,
 )
-
+from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
+    _cursor_payload as build_stock_mins_silver_trade_day_cursor,
+)
 
 PARTITION_KEY = "2026-05-29"
 EVALUATED_AT = datetime(2026, 5, 29, 18, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
@@ -834,6 +834,46 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     f"SELECT open FROM read_parquet('{target_path.as_posix()}')"
                 ).fetchone()[0]
             self.assertEqual(open_value, 7.0)
+
+    def test_prod_scope_counts_regular_bars_without_suspended_or_after_hours(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            suspend = lake_root / "suspend.parquet"
+            with DuckDBResource().connect() as connection:
+                connection.execute(copy_query_to_parquet(
+                    "SELECT '600001.SH' AS ts_code, DATE '2026-05-29' AS trade_date, "
+                    "'S' AS suspend_type, NULL::VARCHAR AS suspend_timing",
+                    suspend,
+                ))
+            stats = stk_mins._build_raw_stk_mins_rows_from_prod_db_source(
+                duckdb=DuckDBResource(),
+                source_sql="""
+                    SELECT ts_code, 60 AS freq,
+                           DATE '2026-05-29' + bar_time AS trade_time,
+                           10.0 AS open, 10.0 AS close, 10.1 AS high, 9.9 AS low,
+                           0 AS vol, 0.0 AS amount
+                    FROM (VALUES ('920000.BJ'), ('600001.SH')) codes(ts_code)
+                    CROSS JOIN (VALUES (TIME '09:30'), (TIME '10:30'), (TIME '11:30'),
+                                       (TIME '14:00'), (TIME '15:00')) bars(bar_time)
+                    WHERE NOT (ts_code = '920000.BJ' AND bar_time = TIME '15:00')
+                    UNION ALL
+                    SELECT '920000.BJ', 60, TIMESTAMP '2026-05-29 15:30:00',
+                           10.0, 10.0, 10.1, 9.9, 0, 0.0
+                """,
+                target_path=lake_root / "raw.parquet",
+                stock_codes=("920000.BJ", "600001.SH"),
+                freq=60,
+                partition_key="2026-05-29",
+                load_postgres_extension=False,
+                suspend_path=suspend,
+            )
+            comparison = stats["audit_comparison"]
+            self.assertEqual(stats["returned_stock_code_count"], 2)
+            self.assertEqual(comparison["status"], "gap")
+            self.assertEqual(comparison["expected_code_count"], 1)
+            self.assertEqual(comparison["expected_count"], 5)
+            self.assertEqual(comparison["actual_count"], 4)
+            self.assertEqual(comparison["post_close_count"], 1)
 
     def test_prod_db_path_does_not_use_python_row_fetch_or_executemany(self) -> None:
         source = Path(stk_mins.__file__).read_text()

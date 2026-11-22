@@ -56,6 +56,10 @@ ETF_COVERAGE_CHECK = {
     "silver_etf_daily": "silver_etf_daily_basic_coverage_check",
     "silver_etf_adj_factor": "silver_etf_adj_factor_basic_coverage_check",
 }
+LATE_STOCK_DAILY_COVERAGE_CHECKS = {
+    "raw_tushare_moneyflow_dc": "raw_tushare_moneyflow_dc_file_contract_check",
+    "raw_tushare_stk_nineturn": "raw_tushare_stk_nineturn_content_integrity_check",
+}
 DELIVERY_DATE_FIELDS = (
     "trade_date",
     "as_of_trade_date",
