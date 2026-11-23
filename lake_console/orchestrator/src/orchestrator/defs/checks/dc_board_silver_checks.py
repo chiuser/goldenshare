@@ -25,6 +25,7 @@ from orchestrator.defs.assets.dc_board_silver import (
     silver_dc_index,
     silver_dc_member,
 )
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
@@ -85,6 +86,29 @@ def _sample_rows(connection, relation: str, columns: Sequence[str], condition: s
     ]
 
 
+def _board_parity(context, partition_key, target_version, boards):
+    records = context.instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=silver_dc_index.key, asset_partitions=[partition_key]),
+        limit=1,
+    ).records
+    if not records or records[0].event_log_entry.run_id != context.run.run_id:
+        return None
+    board_input = records[0].asset_materialization.metadata.get(
+        "goldenshare/board_classification_input"
+    )
+    if board_input is None or board_input.value["target_version"] != target_version:
+        return None
+    expected = {tuple(key) for key in board_input.value["expected_keys"]}
+    actual = {(board["category"], board["code"]) for board in boards}
+    return {
+        "raw_run_id": board_input.value["raw_run_id"],
+        "target_version": target_version,
+        "status": "complete" if expected == actual else "gap",
+        "missing_codes": sorted({code for _, code in expected - actual}),
+        "extra_codes": sorted({code for _, code in actual - expected}),
+    }
+
+
 def _core_check(
     *,
     context: dg.AssetCheckExecutionContext,
@@ -96,6 +120,7 @@ def _core_check(
     identity_condition: str,
     numeric_condition: str,
     relation_mode: str | None = None,
+    board_classification: bool = False,
 ) -> dg.AssetCheckResult:
     partition_key = _selected_partition(context)
     if partition_key is None:
@@ -126,6 +151,8 @@ def _core_check(
     expected_columns = tuple(column.name for column in schema)
     expected_types = {column.name: str(column.type).upper() for column in schema}
     quote_metadata: dict[str, object] = {}
+    classification_codes = None
+    target_version = stat_version(path) if board_classification else None
     failed_rules: list[str] = []
     failed_row_count = 0
     samples: list[dict[str, Any]] = []
@@ -200,11 +227,19 @@ def _core_check(
             failed_row_count += date_mismatch_count
             samples.extend(_sample_rows(connection, relation, ("trade_date",), date_mismatch_condition))
 
-        identity_failed_count = int(
-            connection.execute(
+        if board_classification:
+            identity_failed_count, classification_codes = connection.execute(
+                f"""
+                SELECT count(*) FILTER (WHERE NOT ({identity_condition})),
+                       list(struct_pack(category := idx_type, code := ts_code, name := name)
+                            ORDER BY idx_type, ts_code)
+                FROM {relation}
+                """
+            ).fetchone()
+        else:
+            identity_failed_count = connection.execute(
                 f"SELECT count(*) FROM {relation} WHERE NOT ({identity_condition})"
             ).fetchone()[0]
-        )
         if identity_failed_count:
             failed_rules.append("dataset_identity_fields_legal")
             failed_row_count += identity_failed_count
@@ -237,6 +272,12 @@ def _core_check(
                 failed_rules.append("same_day_board_relation_integrity")
                 failed_row_count += relation_failed_count
                 samples.extend(relation_samples)
+
+    if not failed_rules and classification_codes is not None and stat_version(path) == target_version:
+        quote_metadata["board_classification_codes"] = classification_codes
+        parity = _board_parity(context, partition_key, target_version, classification_codes)
+        if parity is not None:
+            quote_metadata["board_parity"] = parity
 
     return _result(
         passed=not failed_rules,
@@ -273,6 +314,7 @@ def silver_dc_index_core_check(
         key_columns=SILVER_DC_INDEX_QUALITY.key_columns,
         identity_condition=SILVER_DC_INDEX_QUALITY.identity_condition,
         numeric_condition=SILVER_DC_INDEX_QUALITY.numeric_condition,
+        board_classification=True,
     )
 
 

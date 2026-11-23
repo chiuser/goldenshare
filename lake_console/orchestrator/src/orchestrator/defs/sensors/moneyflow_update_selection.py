@@ -10,8 +10,21 @@ from dagster._grpc.utils import default_sensor_grpc_timeout
 
 from orchestrator.defs.asset_guards.moneyflow_delivery_readiness import (
     batch_moneyflow_readiness,
+    latest_moneyflow_check_evaluations,
 )
-from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.checks.daily_audit_coverage import (
+    TARGET_VERSION_TAG,
+    stat_version,
+    version_string,
+)
+from orchestrator.defs.checks.moneyflow_ind_dc import (
+    BOARD_COVERAGE_META,
+    BOARD_RAW_RUN_TAG,
+    BOARD_STANDARD_RUN_TAG,
+)
+from orchestrator.defs.daily_data_audit.dc_index_review import BOARD_CONFIRM_JOB
+from orchestrator.defs.daily_data_audit.evidence import BUSINESS_DATE_TAG
+from orchestrator.defs.paths import raw_moneyflow_path, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
     cursor_runtime_state,
@@ -107,6 +120,86 @@ def moneyflow_failure_retryable(instance, run):
     data = records[0].event_log_entry.dagster_event.step_failure_data.user_failure_data
     value = data.metadata.get("goldenshare/retryable") if data else None
     return value is not None and value.value is True
+
+
+def _late_board_coverage_request(instance, root, order, deliveries, contract):
+    standards = {}
+    for run in instance.get_runs(
+        filters=dg.RunsFilter(
+            job_name=BOARD_CONFIRM_JOB,
+            tags={BUSINESS_DATE_TAG: order},
+            statuses=[dg.DagsterRunStatus.SUCCESS],
+        ),
+        limit=MONEYFLOW_EVENT_RECORD_LIMIT,
+    ):
+        standards.setdefault(run.tags[BUSINESS_DATE_TAG], run.run_id)
+    if not standards:
+        return None
+
+    check_key = dg.AssetCheckKey(dg.AssetKey(contract.raw_asset), contract.raw_check)
+    checks = latest_moneyflow_check_evaluations(
+        instance.event_log_storage.get_asset_check_execution_history(
+            check_key, limit=MONEYFLOW_EVENT_RECORD_LIMIT
+        ),
+        set(standards),
+    )
+    requests = []
+    for day in order:
+        standard_version = standards.get(day)
+        check = checks.get(day)
+        delivery = deliveries[day]
+        if not standard_version or not delivery.ready or not check:
+            continue
+        evaluation = check.event.dagster_event.event_specific_data
+        raw_run_id = delivery.record.event_log_entry.run_id
+        target = evaluation.target_materialization_data
+        if (
+            not raw_run_id or target is None or not evaluation.passed
+            or target.run_id != raw_run_id or target.storage_id != delivery.record.storage_id
+        ):
+            continue
+        file_sha256 = delivery.metadata["file_sha256"]
+        evidence = evaluation.metadata.get(BOARD_COVERAGE_META)
+        if evidence is not None and (
+            evidence.value["raw_run_id"] == raw_run_id
+            and evidence.value["file_version"] == file_sha256
+            and evidence.value["standard_version"] == standard_version
+            and evidence.value["status"] in {"complete", "gap"}
+        ):
+            continue
+        run_key = build_asset_update_run_key(
+            subject=contract.raw_check, unit_id=f"{day}:{raw_run_id}:{standard_version}"
+        )
+        requests.append((run_key, day, raw_run_id, standard_version))
+    if not requests:
+        return None
+
+    submitted = {
+        run.tags[RUN_KEY_TAG]
+        for run in instance.get_runs(
+            filters=dg.RunsFilter(
+                job_name=contract.raw_job, tags={RUN_KEY_TAG: [key for key, *_ in requests]},
+            ),
+            limit=len(requests),
+        )
+    }
+    for run_key, day, raw_run_id, standard_version in requests:
+        if run_key in submitted:
+            continue
+        file_version = stat_version(raw_moneyflow_path(root, contract.dataset, day))
+        if file_version is not None:
+            return dg.RunRequest(
+                run_key=run_key,
+                partition_key=day,
+                asset_selection=[],
+                asset_check_keys=[check_key],
+                tags={
+                    BOARD_RAW_RUN_TAG: raw_run_id,
+                    BOARD_STANDARD_RUN_TAG: standard_version,
+                    TARGET_VERSION_TAG: version_string(file_version),
+                },
+            )
+    return None
 
 
 def evaluate_moneyflow_update(context, now, *, contract, silver=False):
@@ -264,6 +357,13 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
                 )
                 if request:
                     return result("request_run", "当日日线已齐备，只补执行覆盖 Check。", day=dates[-1], request=request)
+            elif contract.dataset == "moneyflow_ind_dc":
+                request = _late_board_coverage_request(context.instance, root, order, current, contract)
+                if request:
+                    return result(
+                        "request_run", "当天板块标准集已确认，只补执行覆盖 Check。",
+                        day=request.partition_key, request=request,
+                    )
             return result("all_ready", "窗口内Raw已齐备，不重复下载。")
         item = state.setdefault(selected, {})
         records = context.instance.get_run_records(

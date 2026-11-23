@@ -46,7 +46,8 @@ def daily_file_scope_counts(connection, path: Path, *, dataset: str):
 
 
 def audit_daily_moneyflow_file(
-    connection, path: Path, trade_date: str, *, dataset: str, silver=False, observed_codes=None
+    connection, path: Path, trade_date: str, *, dataset: str, silver=False, observed_codes=None,
+    observed_board_keys: set[tuple[str, str]] | None = None,
 ) -> int:
     day = market_moneyflow_day(trade_date)
     schema = daily_schema(dataset, silver=silver)
@@ -65,6 +66,8 @@ def audit_daily_moneyflow_file(
             f"{f} IS NULL OR trim({f})=''" for f in key_fields if f != "trade_date"
         )
         code_projection = ", list(DISTINCT ts_code)" if observed_codes is not None else ""
+        if observed_board_keys is not None:
+            code_projection += ", list(DISTINCT (content_type, ts_code))"
         count, invalid, keys, *collections = connection.execute(
             "SELECT count(*),count(*) FILTER(WHERE trade_date IS NULL OR trade_date != ? "
             f"OR {invalid_key}),count(DISTINCT ({key_sql})){code_projection} "
@@ -76,6 +79,8 @@ def audit_daily_moneyflow_file(
         daily_file_scope_counts(connection, path, dataset=dataset)
         if observed_codes is not None:
             observed_codes.update(collections[0])
+        if observed_board_keys is not None:
+            observed_board_keys.update(collections[-1])
         return count
     except MoneyflowContractError:
         raise

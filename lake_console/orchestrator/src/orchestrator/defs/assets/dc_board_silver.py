@@ -18,6 +18,7 @@ from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_index,
     raw_tushare_dc_member,
 )
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     describe_parquet_query,
@@ -93,6 +94,7 @@ class DcBoardSilverWriteResult:
     observed_columns: tuple[str, ...]
     elapsed_ms: float
     filtered_placeholder_row_count: int = 0
+    expected_board_codes: tuple[tuple[str, str], ...] = ()
 
     def to_metadata(self) -> dict[str, object]:
         return {
@@ -400,16 +402,18 @@ def _stage_silver_partition(
 
     effective_normalized_sql = normalized_sql
     filtered_placeholder_row_count = 0
+    expected_board_codes = ()
     if dataset == "dc_index":
         effective_normalized_sql = (
             f"SELECT * FROM ({normalized_sql}) normalized "
             f"WHERE NOT ({DC_INDEX_PLACEHOLDER_SQL})"
         )
-        effective_row_count = int(
-            connection.execute(
-                f"SELECT count(*) FROM ({effective_normalized_sql}) effective"
-            ).fetchone()[0]
-        )
+        effective_row_count, expected_board_codes = connection.execute(
+            f"""
+            SELECT count(*), list(DISTINCT (idx_type, ts_code) ORDER BY (idx_type, ts_code))
+            FROM ({effective_normalized_sql}) effective
+            """
+        ).fetchone()
         filtered_placeholder_row_count = source_row_count - effective_row_count
         if effective_row_count <= 0:
             raise DcBoardSilverValidationError(
@@ -482,6 +486,7 @@ def _stage_silver_partition(
             observed_columns=tuple(column.name for column in spec.silver_schema),
             elapsed_ms=(perf_counter() - started_at) * 1000,
             filtered_placeholder_row_count=filtered_placeholder_row_count,
+            expected_board_codes=tuple(expected_board_codes),
         ),
         staging_path=staging_path,
     )
@@ -557,13 +562,15 @@ def write_silver_dc_daily_partition(*, lake_root_path: Path, duckdb: DuckDBResou
     )
 
 
-def _materialize_result(result: DcBoardSilverWriteResult, schema: Sequence[object]) -> dg.MaterializeResult:
+def _materialize_result(
+    result: DcBoardSilverWriteResult, schema: Sequence[object], *, board_input=None
+) -> dg.MaterializeResult:
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=result.target_file_path,
             row_count=result.output_row_count,
             observed_columns=tuple(column.name for column in schema),
-            extra_metadata=result.to_metadata(),
+            extra_metadata={**result.to_metadata(), **(board_input or {})},
         )
     )
 
@@ -592,10 +599,29 @@ def _materialize_result(result: DcBoardSilverWriteResult, schema: Sequence[objec
 )
 def silver_dc_index(context: dg.AssetExecutionContext, lake_root: LakeRootResource, duckdb: DuckDBResource) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
+    partition = context.partition_key
+    root = lake_root.root()
+    raw_path = raw_dc_index_path(root, partition)
+    raw_version = stat_version(raw_path)
+    raw_records = context.instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=raw_tushare_dc_index.key, asset_partitions=[partition]),
+        limit=1,
+    ).records
     result = write_silver_dc_index_partition(
-        lake_root_path=lake_root.root(), duckdb=duckdb, partition_key=context.partition_key
+        lake_root_path=root, duckdb=duckdb, partition_key=partition
     )
-    return _materialize_result(result, SILVER_DC_INDEX_SCHEMA)
+    board_input = None
+    if raw_records and raw_version is not None and stat_version(raw_path) == raw_version:
+        raw_run_id = raw_records[0].event_log_entry.run_id
+        if raw_run_id:
+            board_input = {
+                "board_classification_input": {
+                    "raw_run_id": raw_run_id,
+                    "expected_keys": [list(key) for key in result.expected_board_codes],
+                    "target_version": stat_version(result.target_file_path),
+                }
+            }
+    return _materialize_result(result, SILVER_DC_INDEX_SCHEMA, board_input=board_input)
 
 
 @dg.asset(

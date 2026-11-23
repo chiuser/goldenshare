@@ -7,6 +7,17 @@ import duckdb
 from pydantic import Field
 from sqlalchemy.exc import SQLAlchemyError
 
+from orchestrator.defs.daily_data_audit.board_refresh import next_board_refresh
+from orchestrator.defs.daily_data_audit.board_summary import (
+    BOARD_CHECKS,
+    RAW_CLASSIFICATION,
+    apply_board_summary,
+)
+from orchestrator.defs.daily_data_audit.dc_index_review import (
+    BASELINE_DAY,
+    read_board_review,
+    read_dc_index_standard,
+)
 from orchestrator.defs.daily_data_audit.evidence import (
     BUSINESS_DATE_TAG,
     SHANGHAI,
@@ -36,6 +47,9 @@ from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 class SummaryConfig(dg.Config):
     business_date: str
     changed_asset_keys: list[str] = Field(default_factory=list)
+    board_confirmation_run_id: str | None = None
+    board_recheck_run_id: str | None = None
+    use_board_history: bool = False
 
 
 STOCK_SNAPSHOT_INPUTS = {
@@ -46,23 +60,79 @@ STOCK_SNAPSHOT_INPUTS = {
 }
 
 
+def _board_review(instance, day, previous_trade_date, evidence, *, use_history=False, historical_candidate=None):
+    return read_board_review(
+        instance, day, previous_trade_date=previous_trade_date,
+        raw_evidence=evidence.get(RAW_CLASSIFICATION),
+        use_history=use_history,
+        lake_root=Path(DEFAULT_LAKE_ROOT),
+        historical_candidate=historical_candidate,
+    )
+
+
+def _refresh_board_summary(instance, day, observed_at, previous, config):
+    previous_review = None
+    if config.board_confirmation_run_id:
+        standard = read_dc_index_standard(instance, day)
+        if not standard or standard["version"] != config.board_confirmation_run_id:
+            raise dg.Failure("所用东方财富板块分类标准集已变更")
+        reference = (
+            instance.get_run_by_id(standard["reference_version"])
+            if standard["reference_version"] else None
+        )
+        previous_date = date.fromisoformat(reference.tags[BUSINESS_DATE_TAG]) if reference else None
+    else:
+        previous_review = next(
+            row["board_review"] for row in previous["rows"]
+            if row["scope"]["asset_key"] == RAW_CLASSIFICATION and "board_review" in row
+        )
+        reference = previous_review["reference"]
+        previous_date = date.fromisoformat(reference["business_date"]) if reference else None
+    changed = set(config.changed_asset_keys).intersection(BOARD_CHECKS)
+    read_keys = changed | {RAW_CLASSIFICATION}
+    targets = tuple(
+        target for target in targets_for_day(day, {day: True})
+        if target.asset_key in read_keys
+    )
+    evidence = load_evidence(instance, targets, day, observed_at)
+    review = _board_review(instance, day, previous_date, evidence, historical_candidate=previous_review)
+    if config.board_recheck_run_id and (
+        review["standard"] or (review["recheck"] or {}).get("run_id") != config.board_recheck_run_id
+    ):
+        raise dg.Failure("所用东方财富板块复核结果已变更")
+    report = {
+        **previous,
+        "observed_at": observed_at.isoformat(),
+        "generated_at": datetime.now(SHANGHAI).isoformat(),
+    }
+    return apply_board_summary(report, evidence, review, review["standard"], changed)
+
+
 @dg.op(out=dg.Out(dg.Nothing))
 def generate_data_audit_summary(
     context: dg.OpExecutionContext, config: SummaryConfig
 ) -> None:
     day = date.fromisoformat(config.business_date)
+    if config.use_board_history and day < BASELINE_DAY:
+        raise dg.Failure("东方财富板块分类历史接续从 2026-11-19 开始")
     observed_at = datetime.now(SHANGHAI)
     context.instance.add_run_tags(context.run_id, {BUSINESS_DATE_TAG: day.isoformat()})
+    previous = read_summary(context.instance, day) if config.changed_asset_keys or config.use_board_history else None
+    if (config.board_confirmation_run_id or config.board_recheck_run_id) and previous:
+        result = _refresh_board_summary(
+            context.instance, day, observed_at, previous, config,
+        )
+        context.add_output_metadata({SUMMARY_META: dg.MetadataValue.json(result)})
+        return
     try:
         calendar = read_calendar(Path(DEFAULT_LAKE_ROOT), day)
     except (OSError, duckdb.Error) as error:
         context.log.warning(f"交易日历暂不可读取: {error}")
         calendar = {}
     targets = targets_for_day(day, calendar)
-    previous = (
-        read_summary(context.instance, day) if config.changed_asset_keys else None
-    )
     changed = set(config.changed_asset_keys) if previous else set()
+    if config.use_board_history and previous:
+        changed.add(RAW_CLASSIFICATION)
     for silver, raw in ETF_DAILY_INPUTS.items():
         if changed.intersection({silver, raw}):
             changed.update({silver, raw})
@@ -89,7 +159,12 @@ def generate_data_audit_summary(
     changed.update(
         key for key, source in MACD_KDJ_STATE_INPUTS.items() if source in changed
     )
-    read_keys = set(changed)
+    board_changes = set(BOARD_CHECKS) if not changed else changed.intersection(BOARD_CHECKS)
+    if RAW_CLASSIFICATION in changed and previous.get("board_standard_version"):
+        board_changes = set(BOARD_CHECKS)
+    read_keys = changed | board_changes if changed else set()
+    if board_changes and changed:
+        read_keys.add(RAW_CLASSIFICATION)
     if STOCK_DAILY_QFQ_GOLD in changed or changed.intersection(
         STOCK_MINUTE_SILVER_INPUTS
     ):
@@ -170,6 +245,18 @@ def generate_data_audit_summary(
         qfq_successful_deliveries=successful_deliveries,
         previous_stock_basic=previous_stock_basic,
     )
+    if board_changes and any(
+        target.asset_key in board_changes and not target.excluded_reason for target in selected
+    ):
+        previous_trade_date = max(
+            (candidate for candidate, is_open in calendar.items() if candidate < day and is_open),
+            default=None,
+        )
+        review = _board_review(
+            context.instance, day, previous_trade_date, evidence,
+            use_history=config.use_board_history,
+        )
+        result = apply_board_summary(result, evidence, review, review["standard"], board_changes)
     context.add_output_metadata({SUMMARY_META: dg.MetadataValue.json(result)})
 
 
@@ -179,7 +266,9 @@ def daily_data_audit_summary_job():
 
 
 def _request(
-    day: date, run_key: str, changed: list[str] | None = None
+    day: date, run_key: str, changed: list[str] | None = None,
+    *, board_confirmation_run_id: str | None = None,
+    board_recheck_run_id: str | None = None,
 ) -> dg.RunRequest:
     return dg.RunRequest(
         run_key=build_asset_update_run_key(subject=SUMMARY_JOB, unit_id=run_key),
@@ -189,6 +278,8 @@ def _request(
                 "generate_data_audit_summary": SummaryConfig(
                     business_date=day.isoformat(),
                     changed_asset_keys=changed or [],
+                    board_confirmation_run_id=board_confirmation_run_id,
+                    board_recheck_run_id=board_recheck_run_id,
                 )
             },
         ),
@@ -214,10 +305,20 @@ def daily_data_audit_summary_schedule(
 )
 def daily_data_audit_summary_refresh_sensor(context: dg.SensorEvaluationContext):
     observed_at = datetime.now(SHANGHAI)
+    board, cursor = next_board_refresh(context.instance, context.cursor, observed_at)
+    if board:
+        return dg.SensorResult(
+            cursor=cursor,
+            run_requests=[_request(
+                board.day, board.unit_id, list(board.assets),
+                board_confirmation_run_id=board.standard_version,
+                board_recheck_run_id=board.recheck_run_id,
+            )],
+        )
     day = observed_at.date() - timedelta(days=1)
     summary = read_summary(context.instance, day)
     if summary is None:
-        return dg.SkipReason("所选日尚无每日总结")
+        return dg.SensorResult(skip_reason="所选日尚无每日总结", cursor=cursor)
     rows = {row["scope"]["asset_key"]: row for row in summary["rows"]}
     targets = tuple(
         replace(target, partition=rows[target.asset_key]["scope"]["partition_key"])
@@ -235,14 +336,18 @@ def daily_data_audit_summary_refresh_sensor(context: dg.SensorEvaluationContext)
         event_time = max(
             [
                 materialization.timestamp,
-                *(check.event.timestamp for check in current.checks.values()),
+                *(
+                    check.event.timestamp
+                    for check in current.checks.values()
+                    if not (key in BOARD_CHECKS and summary.get("board_standard_version"))
+                ),
             ]
         )
         if event_time > row_time:
             changed.add(key)
             latest_event = max(latest_event, event_time)
     if not changed:
-        return dg.SkipReason("没有晚到产出或 Check")
+        return dg.SensorResult(skip_reason="没有晚到产出或 Check", cursor=cursor)
     graph = context.repository_def.asset_graph
     pending = [dg.AssetKey(key) for key in changed if graph.has(dg.AssetKey(key))]
     while pending:
@@ -251,4 +356,7 @@ def daily_data_audit_summary_refresh_sensor(context: dg.SensorEvaluationContext)
             if key in rows and key not in changed:
                 pending.append(child.key)
                 changed.add(key)
-    return _request(day, f"{day.isoformat()}-{latest_event}", sorted(changed))
+    return dg.SensorResult(
+        run_requests=[_request(day, f"{day.isoformat()}-{latest_event}", sorted(changed))],
+        cursor=cursor,
+    )

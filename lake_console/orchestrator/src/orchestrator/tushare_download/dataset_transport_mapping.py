@@ -51,6 +51,8 @@ class DatasetTransportMapping:
 BINDINGS = (
     TransportBinding(dataset_id="index_weekly", source_api_name="index_weekly"),
     TransportBinding(dataset_id="index_monthly", source_api_name="index_monthly"),
+    TransportBinding(dataset_id="dc_index", source_api_name="dc_index"),
+    TransportBinding(dataset_id="dc_member", source_api_name="dc_member"),
     TransportBinding(dataset_id="daily_basic", source_api_name="daily_basic"),
     TransportBinding(
         dataset_id="stk_factor_pro",

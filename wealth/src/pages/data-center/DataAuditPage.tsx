@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
-  completenessLabels, dataAuditApi, updateLabels,
+  completenessLabels, dataAuditApi, DC_CLASSIFICATION_RAW, DC_CLASSIFICATION_SILVER, updateLabels,
   type AuditDay, type AuditDetail, type AuditRow, type CompletenessStatus, type UpdateStatus,
 } from "../../features/data-center/api/dataAuditApi";
 import { clientPolicy } from "../../features/data-center/api/clientPolicy";
 import { errorMessage } from "../../features/data-center/api/dataCenterApi";
+import { BoardAuditDialog } from "../../features/data-center/ui/BoardAuditDialog";
 import { Button, Empty, Field, Notice, Pagination, Panel } from "../../features/data-center/ui/primitives";
 import { DataCenterShell } from "./DataCenterShell";
 import "./data-audit-page.css";
@@ -36,7 +37,7 @@ export function DataAuditPage() {
   const [completeness, setCompleteness] = useState<CompletenessStatus | "">("");
   const [update, setUpdate] = useState<UpdateStatus | "">("");
   const [page, setPage] = useState(0);
-  const [selection, setSelection] = useState<{ key: string; name: string; run: string }>();
+  const [selection, setSelection] = useState<{ row: AuditRow; run: string; board?: boolean }>();
   const table = useRef<HTMLDivElement>(null);
   const detailHeading = useRef<HTMLDivElement>(null);
 
@@ -68,9 +69,9 @@ export function DataAuditPage() {
     if (table.current) table.current.scrollTop = 0;
   }
 
-  function openDetails(row: AuditRow) {
+  function openDetails(row: AuditRow, board = false) {
     if (result?.summary_run_id) setSelection({
-      key: row.scope.asset_key, name: row.dataset_name, run: result.summary_run_id,
+      row, run: result.summary_run_id, board,
     });
   }
 
@@ -126,7 +127,8 @@ export function DataAuditPage() {
                 <AuditTableRow row={row} onOpen={() => openDetails(row)} />
                 {row.completeness.components.filter((component) =>
                   component.name === "东方财富概念板块" && (!completeness || component.status === completeness)).map((component) =>
-                  <AuditTableRow key={component.name} row={row} component={component} onOpen={() => openDetails(row)} />)}
+                  <AuditTableRow key={component.name} row={row} component={component}
+                    onOpen={() => openDetails(row, [DC_CLASSIFICATION_RAW, DC_CLASSIFICATION_SILVER].includes(row.scope.asset_key))} />)}
               </Fragment>)}</tbody>
           </table>
         </div> : <Empty title="没有符合筛选条件的数据集" />}
@@ -137,7 +139,11 @@ export function DataAuditPage() {
       </Panel>
       </div>
     </>}
-    {selection && <Details day={day} assetKey={selection.key} name={selection.name} run={selection.run} onClose={() => setSelection(undefined)} />}
+    {selection?.board ? <BoardAuditDialog day={day} row={selection.row} canOperate={result?.can_operate === true && !error}
+      onClose={() => setSelection(undefined)} onConfirmed={() => setRequestId((id) => id + 1)} />
+      : selection && <Details day={day} assetKey={selection.row.scope.asset_key} name={selection.row.dataset_name} run={selection.run}
+        onClose={() => setSelection(undefined)} onBoardStandard={selection.row.scope.asset_key === DC_CLASSIFICATION_SILVER
+          ? () => setSelection({ ...selection, board: true }) : undefined} />}
   </DataCenterShell>;
 }
 
@@ -159,8 +165,8 @@ function AuditTableRow({ row, component, onOpen }: {
   </tr>;
 }
 
-function Details({ day, assetKey, name, run, onClose }: {
-  day: string; assetKey: string; name: string; run: string; onClose: () => void;
+function Details({ day, assetKey, name, run, onClose, onBoardStandard }: {
+  day: string; assetKey: string; name: string; run: string; onClose: () => void; onBoardStandard?: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [detail, setDetail] = useState<AuditDetail>();
@@ -202,6 +208,7 @@ function Details({ day, assetKey, name, run, onClose }: {
         </a>{item.message && <span> · {item.message}</span>}</li>)}</ul>}
       {detail.completeness.samples.length > 0 && <p>差异样本 {JSON.stringify(detail.completeness.samples)}</p>}
       {detail.completeness.exceptions.length > 0 && <p>已采用例外 {JSON.stringify(detail.completeness.exceptions)}</p>}
+      {onBoardStandard && <Button onClick={onBoardStandard}>查看板块标准集</Button>}
     </>}
   </dialog>;
 }

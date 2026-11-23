@@ -32,6 +32,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_DC_INDEX_SCHEMA,
     RAW_TUSHARE_DC_MEMBER_SCHEMA,
 )
+from orchestrator.defs.run_contracts.dc_board import DC_INDEX_PLACEHOLDER_SQL
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
@@ -89,6 +90,7 @@ def _core_check(
     expected_columns = tuple(column.name for column in schema)
     expected_types = {column.name: column.type.upper() for column in schema}
     quote_metadata: dict[str, object] = {}
+    classification_codes = None
     failed_rules: list[str] = []
     samples: list[dict[str, Any]] = []
     checked_row_count = 0
@@ -172,11 +174,21 @@ def _core_check(
                 failed_rules.append("trade_date_matches_partition")
                 failed_row_count += date_mismatch_count
 
-            identity_failed_count = int(
-                connection.execute(
+            if dataset == "dc_index":
+                identity_failed_count, classification_codes = connection.execute(
+                    f"""
+                    SELECT count(*) FILTER (WHERE NOT ({identity_predicate})),
+                           list(struct_pack(category := trim(idx_type),
+                                            code := upper(trim(ts_code)), name := trim(name))
+                                ORDER BY idx_type, ts_code)
+                           FILTER (WHERE ({identity_predicate}) AND NOT ({DC_INDEX_PLACEHOLDER_SQL}))
+                    FROM {read_parquet(path)}
+                    """
+                ).fetchone()
+            else:
+                identity_failed_count = connection.execute(
                     f"SELECT count(*) FROM {read_parquet(path)} WHERE NOT ({identity_predicate})"
                 ).fetchone()[0]
-            )
             if identity_failed_count:
                 failed_rules.append("dataset_identity_fields_legal")
                 failed_row_count += identity_failed_count
@@ -251,6 +263,8 @@ def _core_check(
             failed_row_count=failed_row_count,
             extra_metadata={
                 **quote_metadata,
+                **({"board_classification_codes": classification_codes}
+                   if not failed_rules and classification_codes is not None else {}),
                 "failed_rules": failed_rules,
                 "reason_code": "core_check_failed" if failed_rules else "ready",
                 "partition_key": partition_key,

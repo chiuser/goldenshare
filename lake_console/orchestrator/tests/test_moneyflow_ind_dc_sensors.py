@@ -6,13 +6,18 @@ from types import SimpleNamespace
 
 import dagster as dg
 import pytest
-from dagster._core.storage.tags import RUN_KEY_TAG
+from dagster._core.storage.tags import PARTITION_NAME_TAG, RUN_KEY_TAG
 
 import orchestrator.defs.sensors.moneyflow_ind_dc_sensor as sensors
 import orchestrator.defs.sensors.moneyflow_update_selection as selection
 from orchestrator.defs.asset_guards.moneyflow_ind_dc_readiness import (
     batch_board_moneyflow_dc_readiness,
 )
+from orchestrator.defs.daily_data_audit.dc_index_review import (
+    BOARD_CONFIRM_JOB,
+    REVIEW_VERSION_TAG,
+)
+from orchestrator.defs.daily_data_audit.evidence import BUSINESS_DATE_TAG
 from orchestrator.defs.duckdb_connection import (
     DuckDBConnectionSettings,
     connect_configured_duckdb,
@@ -20,6 +25,7 @@ from orchestrator.defs.duckdb_connection import (
 from orchestrator.defs.paths import raw_moneyflow_path, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
 from orchestrator.defs.run_contracts.moneyflow import MoneyflowContractError
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 from . import test_moneyflow_ind_dc_definitions as support
@@ -87,6 +93,102 @@ def publish(env, *, amount="-123.4567", silver=True):
     assert run(env, sensors.RAW_JOB, day=DAY).success
     if silver:
         assert run(env, sensors.SILVER_JOB, day=DAY).success
+
+
+def confirm_standard(env, day=DAY):
+    # The native reader consumes the successful confirmation run's STEP_OUTPUT.
+    @dg.op
+    def confirm(context):
+        return dg.Output(None, metadata={"dc_index_standard": dg.MetadataValue.json({
+            "business_date": day,
+            "review_version": "test-review-version",
+            "version": context.run_id,
+            "boards": [
+                {"category": "行业板块", "code": "BK0001.DC", "name": "行业旧名"},
+                {"category": "概念板块", "code": "BK0002.DC", "name": "概念旧名"},
+                {"category": "地域板块", "code": "BK0003.DC", "name": "地域旧名"},
+            ],
+        })})
+
+    @dg.job(name=BOARD_CONFIRM_JOB)
+    def confirmation():
+        confirm()
+
+    return confirmation.execute_in_process(
+        instance=env.instance, tags={BUSINESS_DATE_TAG: day, REVIEW_VERSION_TAG: "test-review-version"}
+    ).run_id
+
+
+def publish_with_codes(env, *, codes=("BK0001.DC", "BK0002.DC", "BK0003.DC")):
+    rows = [
+        row(scope, code=code, name=f"{scope}现名", day=DAY)
+        for scope, code in zip(support.SCOPES, codes, strict=True)
+    ]
+    support.set_rows(env, rows)
+    return run(env, sensors.RAW_JOB, day=DAY)
+
+
+def test_late_standard_requests_only_original_check(env):
+    ctx = context(env)
+    raw = publish_with_codes(env)
+    assert decision(sensors.evaluate_board_moneyflow_dc(ctx, NOW)) == "all_ready"
+    assert raw.get_asset_check_evaluations()[0].metadata["goldenshare/board_coverage"].value[
+        "status"
+    ] == "pending"
+    confirm_standard(env, "2026-10-08")
+    assert not sensors.evaluate_board_moneyflow_dc(ctx, NOW).run_requests
+    standard_version = confirm_standard(env)
+    before = list(env.source.calls)
+    result = sensors.evaluate_board_moneyflow_dc(ctx, NOW)
+    request, = result.run_requests
+    original_check = dg.AssetCheckKey(dg.AssetKey("raw_tushare_moneyflow_ind_dc"),
+                                     "raw_tushare_moneyflow_ind_dc_file_contract_check")
+    assert request.partition_key == DAY
+    assert request.asset_selection == [] and request.asset_check_keys == [original_check]
+    assert request.run_key == build_asset_update_run_key(
+        subject=original_check.name, unit_id=f"{DAY}:{raw.run_id}:{standard_version}"
+    )
+    assert sensors.evaluate_board_moneyflow_dc(ctx, NOW).run_requests[0].run_key == request.run_key
+    job = env.defs.resolve_job_def(sensors.RAW_JOB).get_subset(
+        asset_selection=set(request.asset_selection),
+        asset_check_selection=set(request.asset_check_keys),
+    )
+    checked = job.execute_in_process(instance=env.instance, tags={
+        **request.tags, PARTITION_NAME_TAG: DAY, RUN_KEY_TAG: request.run_key,
+    })
+    assert env.source.calls == before
+    assert not checked.get_asset_materialization_events()
+    evaluation, = checked.get_asset_check_evaluations()
+    assert evaluation.passed and evaluation.partition == DAY
+    assert evaluation.target_materialization_data.run_id == raw.run_id
+    digest = raw.asset_materializations_for_node("raw_tushare_moneyflow_ind_dc")[0].metadata[
+        "goldenshare/file_sha256"
+    ].value
+    assert evaluation.metadata["goldenshare/board_coverage"].value == {
+        "raw_run_id": raw.run_id, "file_version": digest,
+        "standard_version": standard_version, "status": "complete",
+        "expected_count": 3, "actual_count": 3, "missing_codes": [], "extra_codes": [],
+    }
+    assert not sensors.evaluate_board_moneyflow_dc(ctx, NOW).run_requests
+
+
+@pytest.mark.parametrize("codes,missing,extra", [
+    (("BK0001.DC", "BK0002.DC", "BK0004.DC"), ["BK0003.DC"], ["BK0004.DC"]),
+    (("BK0002.DC", "BK0001.DC", "BK0003.DC"), ["BK0001.DC", "BK0002.DC"], ["BK0001.DC", "BK0002.DC"]),
+])
+def test_standard_first_gap_keeps_original_blocking_check_green(env, codes, missing, extra):
+    ctx = context(env)
+    standard_version = confirm_standard(env)
+    raw = publish_with_codes(env, codes=codes)
+    evaluation, = raw.get_asset_check_evaluations()
+    assert evaluation.passed and evaluation.blocking
+    coverage = evaluation.metadata["goldenshare/board_coverage"].value
+    assert coverage["standard_version"] == standard_version
+    assert coverage["status"] == "gap"
+    assert coverage["expected_count"] == coverage["actual_count"] == 3
+    assert coverage["missing_codes"] == missing
+    assert coverage["extra_codes"] == extra
+    assert not sensors.evaluate_board_moneyflow_dc(ctx, NOW).run_requests
 
 
 def test_three_sensors_stopped_and_source_absent():

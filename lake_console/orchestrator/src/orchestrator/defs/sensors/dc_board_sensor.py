@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import date, datetime
 
 import dagster as dg
+from dagster._core.storage.dagster_run import TagBucket
 
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
@@ -30,6 +31,18 @@ from orchestrator.defs.asset_guards.dc_board_source_probe import (
     DcBoardProdCompletionResult,
     DcBoardTushareSourceResult,
 )
+from orchestrator.defs.daily_data_audit.board_jobs import (
+    SaveDcIndexStandardConfig,
+    daily_data_audit_board_confirm_job,
+)
+from orchestrator.defs.daily_data_audit.dc_index_review import (
+    BASELINE_DAY,
+    BOARD_CONFIRM_JOB,
+    find_active_board_run,
+    read_board_review,
+)
+from orchestrator.defs.daily_data_audit.evidence import BUSINESS_DATE_TAG
+from orchestrator.defs.jobs.dc_board import raw_tushare_dc_index_update_job
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
     cn_a_dc_index_trade_days,
@@ -375,6 +388,45 @@ def _source_freeze_result(
     return dg.SensorResult(run_requests=[request], cursor=cursor)
 
 
+def _automatic_board_standard(instance, expected_dates, batch_status):
+    dates = [
+        day for day in expected_dates
+        if date.fromisoformat(day) > BASELINE_DAY and batch_status.status_for_trade_date(day).ready
+    ]
+    if not dates:
+        return None
+    current = instance.get_run_records(
+        filters=dg.RunsFilter(
+            job_name=BOARD_CONFIRM_JOB, statuses=[dg.DagsterRunStatus.SUCCESS],
+        ),
+        bucket_by=TagBucket(tag_key=BUSINESS_DATE_TAG, tag_values=dates, bucket_limit=1),
+    )
+    confirmed = {record.dagster_run.tags[BUSINESS_DATE_TAG] for record in current}
+    selected = next((day for day in dates if day not in confirmed), dates[-1])
+    position = expected_dates.index(selected)
+    if position == 0:
+        return None
+    day = date.fromisoformat(selected)
+    review = read_board_review(
+        instance, day, previous_trade_date=date.fromisoformat(expected_dates[position - 1]),
+    )
+    version = review["review_version"]
+    if not (
+        version and review["can_confirm"] and review["reference"]
+        and not review["added"] and not review["removed"]
+    ) or find_active_board_run(instance, day, version, BOARD_CONFIRM_JOB):
+        return None
+    return build_run_request(
+        job_name=BOARD_CONFIRM_JOB,
+        run_key=build_asset_update_run_key(subject=BOARD_CONFIRM_JOB, unit_id=f"{day}:{version}"),
+        run_config=dg.RunConfig(ops={
+            "save_dc_index_standard": SaveDcIndexStandardConfig(
+                business_date=selected, review_version=version, requested_by="sensor",
+            ),
+        }).to_config_dict(),
+    )
+
+
 def _evaluate_index_sensor(context: dg.SensorEvaluationContext, *, evaluated_at: datetime) -> dg.SensorResult:
     sensor_name = "raw_tushare_dc_index_update_job_sensor"
     job_name = "raw_tushare_dc_index_update_job"
@@ -386,6 +438,12 @@ def _evaluate_index_sensor(context: dg.SensorEvaluationContext, *, evaluated_at:
             partition_set=partition_set,
         )
         if early_result is not None:
+            if batch_status is not None:
+                request = _automatic_board_standard(
+                    context.instance, expected_window.expected_trade_dates, batch_status
+                )
+                if request:
+                    return dg.SensorResult(run_requests=[request], cursor=early_result.cursor)
             return early_result
         if selected_trade_date == evaluated_at.date().isoformat() and evaluated_at.time() < DC_BOARD_CURRENT_DAY_REFERENCE_NOT_BEFORE:
             return dg.SensorResult(skip_reason="当前日 index 等待 21:15。", cursor=_cursor(
@@ -395,9 +453,17 @@ def _evaluate_index_sensor(context: dg.SensorEvaluationContext, *, evaluated_at:
                 blocked_component="time_window", summary="等待当日完成窗口。", next_action="21:15 后重新观察。",
                 partition_set=partition_set, target_date=selected_trade_date,
             ))
-        return _source_freeze_result(context, evaluated_at=evaluated_at, sensor_name=sensor_name,
+        result = _source_freeze_result(context, evaluated_at=evaluated_at, sensor_name=sensor_name,
             job_name=job_name, partition_set=partition_set, expected_window=expected_window,
             gap_status=gap_status, batch_status=batch_status, selected_trade_date=selected_trade_date)
+        if result.run_requests:
+            return dg.SensorResult(
+                run_requests=[
+                    request.with_replaced_attrs(job_name=job_name) for request in result.run_requests
+                ],
+                cursor=result.cursor,
+            )
+        return result
     except Exception as exc:  # noqa: BLE001 - never submit with unavailable evidence.
         return dg.SensorResult(skip_reason=str(exc), cursor=_cursor(
             sensor_name=sensor_name, job_name=job_name, evaluated_at=evaluated_at,
@@ -502,7 +568,7 @@ def _evaluate_dependent_sensor(
 
 
 @dg.sensor(
-    job_name="raw_tushare_dc_index_update_job",
+    jobs=[raw_tushare_dc_index_update_job, daily_data_audit_board_confirm_job],
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     required_resource_keys={"lake_root", "duckdb", "tushare", "prod_postgres"},

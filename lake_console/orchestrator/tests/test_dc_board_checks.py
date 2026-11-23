@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from pathlib import Path
 
 import duckdb
@@ -41,7 +42,10 @@ def _write_index(path: Path, ts_code: str = "BK0001.DC", trade_date: str = "2026
 
 
 class _MemoryDuckDB(DuckDBResource):
-    pass
+    @contextmanager
+    def connect(self):
+        with duckdb.connect(":memory:") as connection:
+            yield connection
 
 
 def test_core_check_passes_for_valid_partition(tmp_path) -> None:
@@ -63,6 +67,9 @@ def test_core_check_passes_for_valid_partition(tmp_path) -> None:
         identity_columns=("ts_code", "idx_type", "name"),
     )
     assert result.passed is True
+    assert result.metadata["goldenshare/board_classification_codes"].value == [
+        {"category": "行业板块", "code": "BK0001.DC", "name": "板块"}
+    ]
 
 
 def test_core_check_reports_missing_file(tmp_path) -> None:
@@ -106,3 +113,4 @@ def test_core_check_rejects_exact_source_placeholder(tmp_path) -> None:
     assert result.metadata["goldenshare/failed_rules"].value == [
         "dataset_identity_fields_legal"
     ]
+    assert "goldenshare/board_classification_codes" not in result.metadata

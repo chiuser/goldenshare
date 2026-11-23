@@ -269,6 +269,21 @@ build_batch_id:
 上述 retry identity；最多 3 次。attempt 来自按 job/date 精确查询得到的正式 run guard，
 不从 cursor 或 run key 反解析。
 
+### 数据审计阶段四运行去重
+
+阶段四正式请求沿用 `build_asset_update_run_key`。业务日、阶段四各版本和实际运行 ID 由既有产出及 Check 记录提供，执行参数从各请求的配置或分区取得。
+
+| 请求 | `subject` | `unit_id` |
+| --- | --- | --- |
+| 同名单自动保存标准集 | `daily_data_audit_board_confirm_job` | `<业务日>:<核查版本>` |
+| 标准集确认后的首次日报刷新 | `daily_data_audit_summary_job` | `board-confirm:<业务日>:<标准集确认运行 ID>` |
+| 原 Check 出结果后的日报刷新 | `daily_data_audit_summary_job` | `board-check:<业务日>:<标准集确认运行 ID>:<Check 运行 ID>:<检查项>` |
+| 源端复核确认或解除板块缺口后的日报刷新 | `daily_data_audit_summary_job` | `board-recheck:<业务日>:<核查版本>:<复核运行 ID>` |
+| 板块分类 Raw 补齐后刷新原日报 | `daily_data_audit_summary_job` | `board-raw:<业务日>:<Raw 发布运行 ID>:<Check 运行 ID>` |
+| 东方财富板块资金流向 Raw 补原 Check | `raw_tushare_moneyflow_ind_dc_file_contract_check` | `<业务日>:<Raw 发布运行 ID>:<标准集确认运行 ID>` |
+
+Dagster 事件编号只用来读取、关联和判断记录先后。保留常规日报与各资产原更新请求的运行键和默认开关。阶段四详细边界见 [数据审计 LLD §6.1](dagster-daily-data-audit-low-level-design-v1.md#61-当日对账与标准集)。
+
 ### 6.1 基础事实两阶段刷新增量口径
 
 `lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md` 将基础事实日常自动化从“一天一个 asset update run key”调整为“同一 `trade_date/stage` 最多 3 次自动提交”。这类 run 不再适合 `build_asset_update_run_key(...)`，因为 asset update builder 表达的是同一输出单元只允许自动提交一次。

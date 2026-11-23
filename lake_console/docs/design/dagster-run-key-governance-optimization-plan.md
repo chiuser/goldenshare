@@ -329,6 +329,10 @@ payload:
 | `silver_index_daily:{trade_date}` | 指数日线 silver 日更 | `build_asset_update_run_key` | `subject=silver_index_daily`，`unit_id=trade_date` | 保持字符串不变 |
 | `market_major_indices_daily:{trade_date}` | 主要指数日线更新 | `build_asset_update_run_key` | `subject=market_major_indices_daily`，`unit_id=trade_date` | 保持字符串不变 |
 
+### 数据审计阶段四
+
+确认标准集后的日报刷新按业务日及标准集版本去重，晚到 Check 的刷新再按 Check 运行和检查项区分。源端复核确认或解除板块缺口后的日报刷新按业务日、核查版本和复核运行去重。板块分类 Raw 补齐后按业务日、Raw 发布运行及 Check 运行去重。东方财富板块资金流向 Raw 补原 Check 按业务日、当次 Raw 正式发布运行及标准集版本去重。沿用通用运行键函数，事件编号只用于证据读回和比较先后。详见 [阶段四运行去重清单](dagster-run-key-governance-low-level-design.md#数据审计阶段四运行去重)。
+
 ### 6.1 后续基础事实两阶段刷新的增量口径
 
 `lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md` 是 M9 后新增的基础事实自动化调整。它会把 `stock_basic`、`suspend_d`、`namechange`、`silver_stock_identity_map`、`adj_factor` 纳入同一 `cn_a_stock_current_trade_days` 两阶段链路，并允许同一 `job/trade_date/stage` 最多 3 次自动提交。

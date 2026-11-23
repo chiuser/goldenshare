@@ -1,15 +1,23 @@
 from pathlib import Path
+from types import SimpleNamespace
 
+import dagster as dg
 import duckdb
 import pytest
 
 from orchestrator.defs.assets.dc_board_silver import (
     DcBoardSilverValidationError,
+    silver_dc_index,
     write_silver_dc_daily_partition,
     write_silver_dc_index_partition,
     write_silver_dc_member_partition,
 )
-from orchestrator.defs.checks.dc_board_silver_checks import _core_check
+from orchestrator.defs.checks.daily_audit_coverage import stat_version
+from orchestrator.defs.checks.dc_board_silver_checks import (
+    _core_check,
+    silver_dc_index_core_check,
+)
+from orchestrator.defs.partitions import cn_a_dc_index_trade_days
 from orchestrator.defs.paths import (
     raw_dc_daily_path,
     raw_dc_index_path,
@@ -277,3 +285,92 @@ def test_silver_core_check_passes_for_writer_output(tmp_path):
         numeric_condition="FALSE",
     )
     assert result.passed is True
+
+
+def test_silver_core_check_publishes_same_run_raw_parity(tmp_path):
+    day = "2026-07-14"
+    root = tmp_path / "lake"
+    _write_calendar(root)
+    _write_valid_raw(root, "dc_index", [_index_row(), _index_placeholder_row()])
+
+    @dg.asset(name="raw_tushare_dc_index", partitions_def=cn_a_dc_index_trade_days)
+    def existing_raw():
+        return dg.MaterializeResult()
+
+    class IsolatedLake(LakeRootResource):
+        def ensure_available_for_run(self):
+            assert self.root() == root
+
+    resources = {
+        "lake_root": IsolatedLake(root_path=str(root)),
+        "duckdb": dg.ResourceDefinition.hardcoded_resource(_MemoryDuckDB()),
+    }
+    with dg.DagsterInstance.ephemeral() as instance:
+        instance.add_dynamic_partitions(cn_a_dc_index_trade_days.name, [day])
+        raw = dg.materialize([existing_raw], instance=instance, partition_key=day)
+        result = dg.materialize(
+            [existing_raw, silver_dc_index, silver_dc_index_core_check],
+            selection=dg.AssetSelection.assets(silver_dc_index),
+            instance=instance, partition_key=day, resources=resources,
+        )
+    check, = result.get_asset_check_evaluations()
+    assert check.passed and check.blocking
+    assert check.target_materialization_data.run_id == result.run_id
+    assert check.metadata["goldenshare/board_classification_codes"].value == [
+        {"category": "行业板块", "code": "BK0001.DC", "name": "板块一"}
+    ]
+    parity = check.metadata["goldenshare/board_parity"].value
+    assert parity == {
+        "raw_run_id": raw.run_id,
+        "target_version": stat_version(silver_dc_index_path(root, day)),
+        "status": "complete", "missing_codes": [], "extra_codes": [],
+    }
+
+
+@pytest.mark.parametrize("matched_target", [True, False])
+def test_silver_parity_requires_matching_target_and_is_non_blocking(tmp_path, matched_target):
+    day = "2026-07-14"
+    _write_calendar(tmp_path)
+    _write_valid_raw(tmp_path, "dc_index", [_index_row()])
+    write_silver_dc_index_partition(
+        lake_root_path=tmp_path, duckdb=_MemoryDuckDB(), partition_key=day,
+    )
+    target = silver_dc_index_path(tmp_path, day)
+    published_version = stat_version(target)
+    if not matched_target:
+        published_version[1] += 1
+    publication = SimpleNamespace(
+        event_log_entry=SimpleNamespace(run_id="silver-run"),
+        asset_materialization=SimpleNamespace(metadata={
+            "goldenshare/board_classification_input": dg.MetadataValue.json({
+                "raw_run_id": "raw-run",
+                "expected_keys": [["行业板块", "BK0002.DC"]],
+                "target_version": published_version,
+            }),
+        }),
+    )
+    context = SimpleNamespace(
+        partition_keys=(day,), run=SimpleNamespace(run_id="silver-run"),
+        instance=SimpleNamespace(
+            fetch_materializations=lambda *args, **kwargs: SimpleNamespace(records=[publication])
+        ),
+    )
+    result = _core_check(
+        context=context,
+        lake_root=LakeRootResource(root_path=str(tmp_path)),
+        duckdb_resource=_MemoryDuckDB(),
+        path_builder=silver_dc_index_path,
+        schema=SILVER_DC_INDEX_SCHEMA,
+        key_columns=("ts_code", "trade_date"),
+        identity_condition="idx_type = '行业板块'",
+        numeric_condition="FALSE",
+        board_classification=True,
+    )
+    assert result.passed
+    parity = result.metadata.get("goldenshare/board_parity")
+    if matched_target:
+        assert parity.value["status"] == "gap"
+        assert parity.value["missing_codes"] == ["BK0002.DC"]
+        assert parity.value["extra_codes"] == ["BK0001.DC"]
+    else:
+        assert parity is None

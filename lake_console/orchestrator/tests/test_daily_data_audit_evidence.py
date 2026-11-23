@@ -8,6 +8,15 @@ from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
 from orchestrator.defs.checks.daily_audit_coverage import stat_version
 from orchestrator.defs.checks.stk_mins_checks import _silver_codes_exist_in_stock_daily
 from orchestrator.defs.daily_data_audit import jobs
+from orchestrator.defs.daily_data_audit.board_jobs import (
+    daily_data_audit_board_confirm_job,
+)
+from orchestrator.defs.daily_data_audit.board_summary import BOARD_CHECKS, RAW_MONEYFLOW
+from orchestrator.defs.daily_data_audit.dc_index_review import (
+    BOARD_RECHECK_JOB,
+    BOARD_RECHECK_META,
+    REVIEW_VERSION_TAG,
+)
 from orchestrator.defs.daily_data_audit.evidence import (
     SHANGHAI,
     get_completeness,
@@ -22,6 +31,7 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.sensors.dc_board_sensor import _automatic_board_standard
 from orchestrator.defs.sensors.stock_daily_audit_coverage import (
     late_stock_daily_coverage_request,
 )
@@ -753,6 +763,284 @@ def test_refresh_sensor_picks_up_new_evidence_for_an_existing_day(
         assert not jobs.daily_data_audit_summary_refresh_sensor.evaluate_tick(
             context
         ).run_requests
+
+
+def test_board_confirmation_and_late_check_refresh_only_the_selected_day(tmp_path, monkeypatch):
+    day = date(2026, 11, 19)
+    partition = day.isoformat()
+    raw = "raw_tushare_dc_index"
+    silver = "silver_dc_index"
+    boards = [
+        {"category": "行业板块", "code": "BK0101.DC", "name": "行业样本"},
+        {"category": "地域板块", "code": "BK0201.DC", "name": "地域样本"},
+        {"category": "概念板块", "code": "BK0301.DC", "name": "概念样本"},
+    ]
+    target_version = [2, 3, 4, 5, 6]
+    monkeypatch.setattr(jobs, "read_calendar", lambda _root, _day: CALENDAR)
+    repo = dg.Definitions(
+        jobs=[jobs.daily_data_audit_summary_job, daily_data_audit_board_confirm_job],
+        sensors=[jobs.daily_data_audit_summary_refresh_sensor],
+    ).get_repository_def()
+
+    def audit(instance, config):
+        assert jobs.daily_data_audit_summary_job.execute_in_process(
+            instance=instance, run_config=config,
+        ).success
+        return read_summary(instance, day)
+
+    def evaluate(instance, cursor=None):
+        context = dg.build_sensor_context(instance=instance, repository_def=repo, cursor=cursor)
+        return jobs.daily_data_audit_summary_refresh_sensor.evaluate_tick(context)
+
+    def rows(report):
+        return {row["scope"]["asset_key"]: row for row in report["rows"]}
+
+    with dg.DagsterInstance.local_temp(str(tmp_path), overrides={"telemetry": {"enabled": False}}) as instance:
+        run = _materialize(
+            instance, digest=DIGEST, key=raw, partition=partition,
+            checks=[(BOARD_CHECKS[raw], True)],
+            published={"goldenshare/tushare_source_fingerprint": DIGEST},
+            check_metadata={"goldenshare/board_classification_codes": boards},
+        )
+        _materialize(
+            instance, digest=DIGEST, key=silver, partition=partition,
+            checks=[(BOARD_CHECKS[silver], True)],
+            published={"goldenshare/board_classification_input": {"target_version": target_version}},
+            check_metadata={
+                "goldenshare/board_classification_codes": boards,
+                "goldenshare/board_parity": {
+                    "raw_run_id": run.run_id, "status": "complete", "target_version": target_version,
+                },
+            },
+        )
+        flow = _materialize(
+            instance, digest=DIGEST, key=RAW_MONEYFLOW, partition=partition,
+            checks=[(BOARD_CHECKS[RAW_MONEYFLOW], True)],
+        )
+        before = audit(instance, {"ops": {"generate_data_audit_summary": {
+            "config": {"business_date": partition}
+        }}})
+        idle = evaluate(instance)
+        assert not idle.run_requests
+        confirm = daily_data_audit_board_confirm_job.execute_in_process(
+            instance=instance, run_config={"ops": {"save_dc_index_standard": {"config": {
+                "business_date": partition, "requested_by": "isolated-test", "use_history": True,
+            }}}},
+        )
+        assert confirm.success
+        after_confirmation = evaluate(instance, idle.cursor)
+        [request] = after_confirmation.run_requests
+        assert request.run_key == (
+            f"daily_data_audit_summary_job:board-confirm:{partition}:{confirm.run_id}"
+        )
+        assert request.tags["audit/business_date"] == partition
+
+        def no_calendar_read(*args):
+            raise AssertionError("board-only refresh must use DG records only")
+
+        monkeypatch.setattr(jobs, "read_calendar", no_calendar_read)
+        updated = audit(instance, request.run_config)
+        assert updated["board_standard_version"] == confirm.run_id
+        assert rows(updated)[raw]["completeness"]["status"] == "complete"
+        assert rows(updated)[silver]["completeness"]["status"] == "complete"
+        assert rows(updated)[RAW_MONEYFLOW]["completeness"]["status"] == "pending"
+        assert all(
+            row["update"] == rows(before)[key]["update"]
+            and row["observed_at"] == rows(before)[key]["observed_at"]
+            for key, row in rows(updated).items()
+        )
+        assert all(row == rows(before)[key] for key, row in rows(updated).items() if key not in BOARD_CHECKS)
+        next_day = date(2026, 11, 20).isoformat()
+        _materialize(
+            instance, digest=DIGEST, key=raw, partition=next_day, checks=[(BOARD_CHECKS[raw], True)],
+            published={"goldenshare/tushare_source_fingerprint": DIGEST},
+            check_metadata={"goldenshare/board_classification_codes": boards},
+        )
+        request_next = _automatic_board_standard(
+            instance, (partition, next_day),
+            SimpleNamespace(status_for_trade_date=lambda _: SimpleNamespace(ready=True)),
+        )
+        assert request_next.job_name == "daily_data_audit_board_confirm_job"
+        assert request_next.partition_key is None
+        config_next = request_next.run_config["ops"]["save_dc_index_standard"]["config"]
+        assert config_next["business_date"] == next_day
+        assert request_next.run_key == (
+            f"daily_data_audit_board_confirm_job:{next_day}:{config_next['review_version']}"
+        )
+
+        partitions = dg.StaticPartitionsDefinition([partition])
+
+        @dg.asset(name=RAW_MONEYFLOW, partitions_def=partitions)
+        def flow_asset():
+            raise AssertionError("the production asset is outside the Check-only selection")
+
+        @dg.asset_check(asset=flow_asset, name=BOARD_CHECKS[RAW_MONEYFLOW], partitions_def=partitions)
+        def late_check():
+            if fail_check:
+                return dg.AssetCheckResult(passed=False)
+            return dg.AssetCheckResult(passed=True, metadata={"goldenshare/board_coverage": {
+                "raw_run_id": flow.run_id, "file_version": DIGEST, "standard_version": confirm.run_id,
+                "status": "complete", "expected_count": 3, "actual_count": 3,
+                "missing_codes": [], "extra_codes": [],
+            }})
+
+        job = dg.define_asset_job("isolated_flow", selection=dg.AssetSelection.assets(flow_asset))
+        full_job = dg.Definitions(
+            assets=[flow_asset], asset_checks=[late_check], jobs=[job],
+        ).resolve_job_def("isolated_flow")
+        only_check = full_job.get_subset(
+            asset_selection=set(), asset_check_selection={
+                dg.AssetCheckKey(flow_asset.key, BOARD_CHECKS[RAW_MONEYFLOW])
+            },
+        )
+        fail_check = False
+        checked = only_check.execute_in_process(instance=instance, partition_key=partition)
+        assert checked.success and not checked.get_asset_materialization_events()
+
+        # Each tick consumes at most one Check record; other business dates cannot update this report.
+        current = after_confirmation
+        for _ in range(4):
+            current = evaluate(instance, current.cursor)
+            if current.run_requests:
+                break
+        [refresh] = current.run_requests
+        assert refresh.run_key == (
+            f"daily_data_audit_summary_job:board-check:{partition}:{confirm.run_id}:"
+            f"{checked.run_id}:{BOARD_CHECKS[RAW_MONEYFLOW]}"
+        )
+        assert refresh.run_config["ops"]["generate_data_audit_summary"]["config"]["changed_asset_keys"] == [
+            RAW_MONEYFLOW
+        ]
+        result = audit(instance, refresh.run_config)
+        assert rows(result)[RAW_MONEYFLOW]["completeness"]["status"] == "complete"
+        assert result["summary"]["complete"] == updated["summary"]["complete"] + 1
+        assert all(row == rows(updated)[key] for key, row in rows(result).items() if key != RAW_MONEYFLOW)
+
+        @dg.asset(name=raw, partitions_def=partitions)
+        def classification():
+            raise AssertionError("the production asset is outside the Check-only selection")
+
+        @dg.asset_check(asset=classification, name=BOARD_CHECKS[raw], partitions_def=partitions)
+        def classification_check():
+            return dg.AssetCheckResult(passed=raw_ok, metadata={
+                "goldenshare/board_classification_codes": boards,
+            } if raw_ok else {})
+
+        raw_check_job = dg.define_asset_job("isolated_raw", selection=dg.AssetSelection.assets(classification))
+        raw_check_only = dg.Definitions(
+            assets=[classification], asset_checks=[classification_check], jobs=[raw_check_job],
+        ).resolve_job_def("isolated_raw").get_subset(
+            asset_selection=set(), asset_check_selection={dg.AssetCheckKey(classification.key, BOARD_CHECKS[raw])},
+        )
+
+        original = result
+        for raw_ok, expected in ((False, "pending"), (True, "complete")):
+            checked_raw = raw_check_only.execute_in_process(instance=instance, partition_key=partition)
+            current = evaluate(instance, current.cursor)
+            [refresh] = current.run_requests
+            assert checked_raw.run_id in refresh.run_key
+            assert refresh.run_config["ops"]["generate_data_audit_summary"]["config"]["changed_asset_keys"] == list(BOARD_CHECKS)
+            result = audit(instance, refresh.run_config)
+            assert result["board_standard_version"] == (confirm.run_id if raw_ok else None)
+            assert all(rows(result)[key]["completeness"]["status"] == expected for key in BOARD_CHECKS)
+            assert all(row["update"] == rows(original)[key]["update"] for key, row in rows(result).items())
+            assert all(row == rows(original)[key] for key, row in rows(result).items() if key not in BOARD_CHECKS)
+
+        idle = evaluate(instance, current.cursor)
+        assert not idle.run_requests
+        fail_check = True
+        failed = only_check.execute_in_process(instance=instance, partition_key=partition)
+        failure = evaluate(instance, idle.cursor)
+        [refresh] = failure.run_requests
+        assert failed.run_id in refresh.run_key
+        updated_failure = audit(instance, refresh.run_config)
+        rejected = rows(updated_failure)[RAW_MONEYFLOW]
+        assert rejected["update"] == rows(result)[RAW_MONEYFLOW]["update"]
+        assert rejected["completeness"]["status"] == "pending"
+        assert rejected["completeness"]["evidence"][0]["passed"] is False
+        assert all(
+            row == rows(result)[key] for key, row in rows(updated_failure).items() if key != RAW_MONEYFLOW
+        )
+
+
+def test_board_source_gap_and_repaired_historical_publication_refresh(tmp_path, monkeypatch):
+    raw = "raw_tushare_dc_index"
+    baseline = "2026-11-19"
+    boards = [
+        {"category": "行业板块", "code": "BK0101.DC", "name": "行业样本"},
+        {"category": "概念板块", "code": "BK0301.DC", "name": "概念样本"},
+    ]
+    monkeypatch.setattr(jobs, "read_calendar", lambda _root, _day: CALENDAR)
+
+    @dg.op(out=dg.Out(dg.Nothing))
+    def confirm_source_gap(context):
+        context.add_output_metadata({BOARD_RECHECK_META: dg.MetadataValue.json({
+            "business_date": PARTITION, "review_version": review_version,
+            "run_id": context.run_id, "results": [], "has_confirmed_gap": True,
+        })})
+
+    @dg.job(name=BOARD_RECHECK_JOB)
+    def isolated_recheck():
+        confirm_source_gap()
+
+    repo = dg.Definitions(
+        jobs=[jobs.daily_data_audit_summary_job, daily_data_audit_board_confirm_job, isolated_recheck],
+        sensors=[jobs.daily_data_audit_summary_refresh_sensor],
+    ).get_repository_def()
+
+    def evaluate(instance, cursor=None):
+        context = dg.build_sensor_context(instance=instance, repository_def=repo, cursor=cursor)
+        return jobs.daily_data_audit_summary_refresh_sensor.evaluate_tick(context)
+
+    def publish(instance, partition, current):
+        return _materialize(
+            instance, digest=DIGEST, key=raw, partition=partition, checks=[(BOARD_CHECKS[raw], True)],
+            published={"goldenshare/tushare_source_fingerprint": DIGEST},
+            check_metadata={"goldenshare/board_classification_codes": current},
+        )
+
+    def audit(instance, config):
+        assert jobs.daily_data_audit_summary_job.execute_in_process(instance=instance, run_config=config).success
+        return {row["scope"]["asset_key"]: row for row in read_summary(instance, DAY)["rows"]}
+
+    with dg.DagsterInstance.local_temp(str(tmp_path), overrides={"telemetry": {"enabled": False}}) as instance:
+        publish(instance, baseline, boards)
+        assert daily_data_audit_board_confirm_job.execute_in_process(
+            instance=instance, run_config={"ops": {"save_dc_index_standard": {"config": {
+                "business_date": baseline, "requested_by": "isolated-test", "use_history": True,
+            }}}},
+        ).success
+        old = publish(instance, PARTITION, boards[:1])
+        rows = audit(instance, {"ops": {"generate_data_audit_summary": {"config": {"business_date": PARTITION}}}})
+        assert rows[raw]["completeness"]["status"] == "pending"
+        review_version = rows[raw]["board_review"]["review_version"]
+        idle = evaluate(instance)
+        assert not idle.run_requests
+        checked = isolated_recheck.execute_in_process(instance=instance, tags={
+            "audit/business_date": PARTITION, REVIEW_VERSION_TAG: review_version,
+        })
+        observed = evaluate(instance, idle.cursor)
+        [refresh] = observed.run_requests
+        assert refresh.run_key == f"daily_data_audit_summary_job:board-recheck:{PARTITION}:{review_version}:{checked.run_id}"
+        gap = audit(instance, refresh.run_config)
+        assert gap[raw]["completeness"]["status"] == "gap"
+        assert gap[raw]["update"] == rows[raw]["update"]
+        assert all(gap[key] == rows[key] for key in rows if key != raw)
+
+        repaired = publish(instance, PARTITION, boards)
+        latest = observed
+        for _ in range(3):
+            latest = evaluate(instance, latest.cursor)
+            if latest.run_requests:
+                break
+        [refresh] = latest.run_requests
+        assert refresh.run_key == f"daily_data_audit_summary_job:board-raw:{PARTITION}:{repaired.run_id}:{repaired.run_id}"
+        corrected = audit(instance, refresh.run_config)
+        assert corrected[raw]["completeness"]["status"] == "pending"
+        assert corrected[raw]["board_review"]["raw_run_id"] != old.run_id
+        assert corrected[raw]["board_review"]["raw_run_id"] == repaired.run_id
+        assert corrected[raw]["board_review"]["removed"] == []
+        assert corrected[raw]["board_review"]["recheck"] is None
 
 
 def test_legacy_check_uses_its_exact_materialization_when_partition_is_omitted(
