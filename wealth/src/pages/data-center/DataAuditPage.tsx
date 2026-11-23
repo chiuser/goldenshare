@@ -204,7 +204,7 @@ function Details({ day, assetKey, name, run, onClose, onBoardStandard }: {
       </p>)}
       {detail.completeness.evidence.length > 0 && <ul className="dc-audit-evidence">{detail.completeness.evidence.map((item) =>
         <li key={`${item.type}-${item.record_id}`}><a href={`http://127.0.0.1:3000/runs/${encodeURIComponent(item.run_id)}`} target="_blank" rel="noreferrer">
-          {item.check_name ?? "DG 产出记录"}{item.passed === undefined ? "" : item.passed ? " · 通过" : " · 未通过"}
+          {item.check_name ?? (item.type === "independent_audit" ? "DG 独立审计记录" : "DG 产出记录")}{item.passed === undefined ? "" : item.passed ? " · 通过" : " · 未通过"}
         </a>{item.message && <span> · {item.message}</span>}</li>)}</ul>}
       {detail.completeness.samples.length > 0 && <p>差异样本 {JSON.stringify(detail.completeness.samples)}</p>}
       {detail.completeness.exceptions.length > 0 && <p>已采用例外 {JSON.stringify(detail.completeness.exceptions)}</p>}

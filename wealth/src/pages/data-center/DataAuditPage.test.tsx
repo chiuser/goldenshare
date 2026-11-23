@@ -94,6 +94,26 @@ describe("local data audit", () => {
     await act(async () => finishOld(ready));
     expect(screen.queryByRole("table")).toBeNull();
   });
+
+  it("shows the DG independent audit evidence in the existing result detail", async () => {
+    const minute = row("通用指数 1 分钟 Raw", "complete", "updated");
+    vi.spyOn(dataAuditApi, "day").mockResolvedValue({ ...ready, rows: [minute] });
+    vi.spyOn(dataAuditApi, "detail").mockResolvedValue({
+      ...minute,
+      version: { target_version: "minute-version", inputs: [], rule_version: "index_mins_time_keys_v1" },
+      completeness: {
+        ...minute.completeness, expected_count: 241, actual_count: 241, missing_count: 0, extra_count: 0,
+        evidence: [{ type: "independent_audit", run_id: RUN, record_id: 10 }],
+        samples: [], exceptions: [],
+      },
+    });
+    render(<DataAuditPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "查看通用指数 1 分钟 Raw" }));
+    expect(await screen.findByRole("link", { name: "DG 独立审计记录" })).toHaveAttribute(
+      "href", `http://127.0.0.1:3000/runs/${RUN}`,
+    );
+    expect(screen.queryByRole("button", { name: "独立审计" })).toBeNull();
+  });
 });
 
 const rawClassification = boardRow(DC_CLASSIFICATION_RAW, "raw");

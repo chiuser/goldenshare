@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -19,12 +20,20 @@ from orchestrator.defs.daily_data_audit.dc_index_review import (
     read_dc_index_standard,
 )
 from orchestrator.defs.daily_data_audit.evidence import (
+    AUDIT_ASSET_TAG,
+    AUDIT_PUBLICATION_TAG,
     BUSINESS_DATE_TAG,
+    INDEX_MINUTE_JOB,
     SHANGHAI,
     SUMMARY_JOB,
     SUMMARY_META,
     load_evidence,
     read_summary,
+)
+from orchestrator.defs.daily_data_audit.index_minute_audit import (
+    INDEX_MINUTE_ASSETS,
+    SILVER_INPUTS,
+    matching_index_minute_result,
 )
 from orchestrator.defs.daily_data_audit.registry import read_calendar, targets_for_day
 from orchestrator.defs.daily_data_audit.summary import (
@@ -159,6 +168,14 @@ def generate_data_audit_summary(
     changed.update(
         key for key, source in MACD_KDJ_STATE_INPUTS.items() if source in changed
     )
+    minute_input_by_asset = {
+        row["scope"]["asset_key"]: {item["asset_key"] for item in row["version"]["inputs"]}
+        for row in previous["rows"] if row["scope"]["asset_key"] in SILVER_INPUTS
+    } if previous else {}
+    for silver, source in SILVER_INPUTS.items():
+        inputs = minute_input_by_asset.get(silver) or {source}
+        if changed.intersection(inputs):
+            changed.add(silver)
     board_changes = set(BOARD_CHECKS) if not changed else changed.intersection(BOARD_CHECKS)
     if RAW_CLASSIFICATION in changed and previous.get("board_standard_version"):
         board_changes = set(BOARD_CHECKS)
@@ -234,6 +251,21 @@ def generate_data_audit_summary(
             ).is_file()
         except OSError as error:
             context.log.warning(f"前复权日线文件存在情况暂无法确认: {error}")
+    minute_results = {}
+    identities = {}
+    for target in selected:
+        key = target.asset_key
+        if key not in INDEX_MINUTE_ASSETS or target.excluded_reason or (changed and key not in changed):
+            continue
+        bundle = evidence.get(key)
+        try:
+            minute_results[key] = matching_index_minute_result(
+                context.instance, key, day, bundle.materialization if bundle else None,
+                observed_at, Path(DEFAULT_LAKE_ROOT), identities,
+            )
+        except SQLAlchemyError as error:
+            context.log.warning(f"{key} 独立审计结果暂不可读取: {error}")
+            minute_results[key] = None
     result = make_summary(
         day,
         observed_at,
@@ -244,6 +276,7 @@ def generate_data_audit_summary(
         stock_daily_qfq_file_exists=file_exists,
         qfq_successful_deliveries=successful_deliveries,
         previous_stock_basic=previous_stock_basic,
+        index_minute_results=minute_results,
     )
     if board_changes and any(
         target.asset_key in board_changes and not target.excluded_reason for target in selected
@@ -300,6 +333,40 @@ def daily_data_audit_summary_schedule(
     return _request(day, day.isoformat())
 
 
+def _minute_result_refresh(instance, cursor, observed_at):
+    state = json.loads(cursor)
+    after = state.get("index_minute_after")
+    records = instance.get_run_records(
+        filters=dg.RunsFilter(
+            job_name=INDEX_MINUTE_JOB, statuses=[dg.DagsterRunStatus.SUCCESS],
+            updated_after=datetime.fromisoformat(after) if after else None,
+        ),
+        order_by="update_timestamp", ascending=True, limit=1,
+    )
+    if not records:
+        return None, cursor
+    record = records[0]
+    state["index_minute_after"] = record.update_timestamp.isoformat()
+    cursor = json.dumps(state)
+    run = record.dagster_run
+    asset = run.tags.get(AUDIT_ASSET_TAG)
+    publication_run = run.tags.get(AUDIT_PUBLICATION_TAG)
+    if asset not in INDEX_MINUTE_ASSETS or not publication_run:
+        return None, cursor
+    day = date.fromisoformat(run.tags[BUSINESS_DATE_TAG])
+    report = read_summary(instance, day)
+    if not report:
+        return None, cursor
+    row = next(row for row in report["rows"] if row["scope"]["asset_key"] == asset)
+    if record.update_timestamp <= datetime.fromisoformat(row["observed_at"]):
+        return None, cursor
+    targets = tuple(target for target in targets_for_day(day, {day: True}) if target.asset_key == asset)
+    delivery = load_evidence(instance, targets, day, observed_at).get(asset)
+    if not (delivery and delivery.materialization and delivery.materialization.run_id == publication_run):
+        return None, cursor
+    return _request(day, f"index-minute:{day}:{run.run_id}", [asset]), cursor
+
+
 @dg.sensor(
     job=daily_data_audit_summary_job, default_status=dg.DefaultSensorStatus.STOPPED
 )
@@ -315,6 +382,9 @@ def daily_data_audit_summary_refresh_sensor(context: dg.SensorEvaluationContext)
                 board_recheck_run_id=board.recheck_run_id,
             )],
         )
+    minute, cursor = _minute_result_refresh(context.instance, cursor, observed_at)
+    if minute:
+        return dg.SensorResult(cursor=cursor, run_requests=[minute])
     day = observed_at.date() - timedelta(days=1)
     summary = read_summary(context.instance, day)
     if summary is None:

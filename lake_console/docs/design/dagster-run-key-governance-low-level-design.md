@@ -284,6 +284,10 @@ build_batch_id:
 
 Dagster 事件编号只用来读取、关联和判断记录先后。保留常规日报与各资产原更新请求的运行键和默认开关。阶段四详细边界见 [数据审计 LLD §6.1](dagster-daily-data-audit-low-level-design-v1.md#61-当日对账与标准集)。
 
+### 数据审计阶段五运行去重
+
+通用指数分钟线独立审计完成后的日报刷新使用 `build_asset_update_run_key`，`subject=daily_data_audit_summary_job`，`unit_id=index-minute:<业务日>:<审计运行 ID>`。执行日期和资产键仍来自显式汇总配置，运行完成时间只用于发现新记录。现有日报传感器默认关闭，独立审计自动提交另行评审。 [数据审计 LLD §7.2](dagster-daily-data-audit-low-level-design-v1.md#72-日报读取独立审计结论)
+
 ### 6.1 基础事实两阶段刷新增量口径
 
 `lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md` 将基础事实日常自动化从“一天一个 asset update run key”调整为“同一 `trade_date/stage` 最多 3 次自动提交”。这类 run 不再适合 `build_asset_update_run_key(...)`，因为 asset update builder 表达的是同一输出单元只允许自动提交一次。

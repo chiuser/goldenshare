@@ -38,6 +38,10 @@ from orchestrator.defs.paths import silver_stock_daily_path
 STOCK_DAILY = "silver_stock_daily"
 SUMMARY_JOB = "daily_data_audit_summary_job"
 SUMMARY_META = "data_audit_summary"
+INDEX_MINUTE_JOB = "daily_data_audit_index_minute_job"
+INDEX_MINUTE_META = "data_audit_result"
+AUDIT_ASSET_TAG = "audit/asset_key"
+AUDIT_PUBLICATION_TAG = "audit/target_publication_run_id"
 BUSINESS_DATE_TAG = "audit/business_date"
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 logger = logging.getLogger(__name__)
@@ -322,6 +326,43 @@ def read_summary(instance: dg.DagsterInstance, business_date: date) -> dict | No
     ):
         return entry.value
     return None
+
+
+def read_index_minute_result(instance, day, asset_key, publication_run_id, observed_at):
+    runs = instance.get_run_records(
+        filters=dg.RunsFilter(
+            job_name=INDEX_MINUTE_JOB,
+            statuses=[dg.DagsterRunStatus.SUCCESS],
+            tags={
+                BUSINESS_DATE_TAG: day.isoformat(),
+                AUDIT_ASSET_TAG: asset_key,
+                AUDIT_PUBLICATION_TAG: publication_run_id,
+            },
+            updated_before=observed_at,
+        ),
+        order_by="update_timestamp",
+        limit=1,
+    )
+    if not runs:
+        return None
+    outputs = instance.get_records_for_run(
+        runs[0].dagster_run.run_id, of_type=dg.DagsterEventType.STEP_OUTPUT, limit=1,
+    ).records
+    if not outputs:
+        return None
+    output = outputs[0]
+    event = output.event_log_entry.dagster_event
+    if event.step_key != "audit_index_minute":
+        return None
+    entry = event.step_output_data.metadata.get(INDEX_MINUTE_META)
+    if not isinstance(entry, dg.JsonMetadataValue) or not isinstance(entry.value, dict):
+        return None
+    result = entry.value
+    if not all(isinstance(result.get(key), dict) for key in ("scope", "version", "completeness", "files")):
+        return None
+    if result.get("target_publication_run_id") != publication_run_id:
+        return None
+    return output, result
 
 
 def get_completeness(

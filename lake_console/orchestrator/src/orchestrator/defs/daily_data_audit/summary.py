@@ -1148,6 +1148,7 @@ def make_summary(
     stock_daily_qfq_file_exists=None,
     qfq_successful_deliveries=(),
     previous_stock_basic=None,
+    index_minute_results=None,
 ):
     prior_rows = (
         {row["scope"]["asset_key"]: row for row in previous["rows"]}
@@ -1216,6 +1217,28 @@ def make_summary(
     for key, raw_key in ETF_DAILY_INPUTS.items():
         if key in built and raw_key in built:
             _etf_daily(key, evidence, built, recalculated)
+    for key, stored in (index_minute_results or {}).items():
+        row = built[key]
+        if stored is None:
+            if row["update"]["status"] == "updated":
+                row["completeness"].update(
+                    status="pending",
+                    reason=_reason("not_verified", "缺少与当前产出及输入匹配的分钟线独立审计结果"),
+                )
+            continue
+        output, result = stored
+        row["version"] = result["version"]
+        proof = row["completeness"]["evidence"]
+        row["completeness"].update(
+            **result["completeness"],
+            evidence=[*proof, {
+                "type": "independent_audit",
+                "run_id": output.event_log_entry.run_id,
+                "record_id": output.storage_id,
+                "target_version": result["version"]["target_version"],
+                "message": result["completeness"]["reason"]["message"],
+            }],
+        )
     rows = list(built.values())
     counts = dict.fromkeys(STATUSES, 0)
     for row in rows:
