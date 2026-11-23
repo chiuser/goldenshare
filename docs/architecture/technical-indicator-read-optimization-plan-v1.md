@@ -1,6 +1,8 @@
 # 技术指标算子库读取优化方案 v1
 
-**2026-11-23｜阶段 1 至 4 已实现并复核。** 本专项减少已接算子库链路的重复读取。本地股票日线、指数日线和指数周月线已经由算子库按截止日和根数取数，见[股票日线复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-1-read-acceptance)、[指数日线复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-2-read-acceptance)和[指数周月线复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-3-read-acceptance)。本地指数 5 分钟算子仍按起止时间请求，定位与计算共用本次读取的行情。见[指数 5 分钟复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-4-read-acceptance)。基线参考[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
+**2026-11-23｜本轮已完成。** 阶段 1 至 4 已在 `dev-interface` 提交并通过复核，阶段 5 已完成 Prod 只读评估。现有 Prod 路径继续使用。若后续确认要改 Prod，建议优先做上证综指日线和股票日线。 [本地交付记录](technical-indicator-read-optimization-low-level-design-v1.md#local-read-optimization-closeout) · [Prod 评估结果](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation)
+
+本专项减少已接算子库链路的重复读取。本地股票日线、指数日线和指数周月线按截止日和根数取数。指数 5 分钟算子按起止时间请求，定位与计算共用本次读取的行情。原基线见[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
 
 ## 1. 范围
 
@@ -10,7 +12,7 @@
 | 本地指数日线首屏和续页 | 业务先按开市日选页。算子库读日期和四价，业务随后另读同一行情来源的量额、昨收及涨跌字段。 | 直接按截止日和根数取实际行情，复用同次取数。整页的行情更新判断由 `/page-init` 负责。 [现行指数选页和组装](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L231) · [现行定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L343) |
 | 本地指数周线和月线 | 业务先读成品选页和取展示字段，内核再读同一个成品文件的日期和价格。部分空页或延迟还会另查成品首尾。 | 选页、预热、价格和展示字段复用同一次读数，组装时复用该次取得的截止日和必要的范围信息。 [业务选页](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py#L35) · [内核定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L539) |
 | 指数 5 分钟不复权算子 | DG 和 Prod 已启用计算。DG 先读时间定位，再读行情列，部分场景还要重读时间找边界。指数分钟详情仍走现有成品接口。 | DG 按真实时间戳和已有开盘规则计算。每个用到的交易日分区查询一次，定位和计算共用行情。开发安排见 §5。 [分钟定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L702) · [分钟详情入口](../../src/biz/api/wealth/market/index_detail_minutes.py#L54) |
-| Prod 已接入的链路 | 股票日线、上证综指已接入的日线分支、指数周月线和独立的指数 5 分钟算子，存在程度不同的先查范围再取价。 | 纳入后续优化评估，先以本地结果和有界 Prod 测量判断实际收益，再决定是否实施。见 §5。 [指数路由](../../src/biz/api/wealth/market/index_detail.py#L174) · [Prod 行情读取](../../src/foundation/clients/technical_indicator_postgres.py#L173) |
+| Prod 已接入的链路 | 股票日线、上证综指已接入的日线分支、指数周月线和独立的指数 5 分钟算子，存在程度不同的先查范围再取价。 | 已以有界只读样本量化合并查询的收益。具体实施另行决定。 [Prod 行情读取](../../src/foundation/clients/technical_indicator_postgres.py#L173) · [评估结果](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation) |
 
 **股票周线、月线由原专项负责，排除在本次优化范围之外。** 原专项直接使用已发布的前复权行情，并复用已读成品计算指标。股票分钟线、指数九转迁移、趋势通道和 ETF 属于各自的后续需求。本专项只读现有来源，沿用本地读 DG、Prod 读 PostgreSQL 的运行方式。 [股票周月线专项](technical-indicator-stock-period-plan-v1.md) · [运行环境装配](../../src/app/runtime/technical_indicators/composition.py#L34)
 
@@ -57,7 +59,7 @@
 | 2. 本地指数日线 | 复用新取数能力，省掉业务日历选页和整页最新状态的二次判断，合并普通指数日线字段读取。 | 上证综指、深证成指、北证 50 和中证 A500 的首屏与续页可正常使用。校对页边界、空页、部分指标状态及直接请求休市日的语义。 [原验收记录](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance) |
 | 3. 本地指数周月线 | 合并周期成品的选页、预热和字段读取。实际截止日与行情一起交付业务。 | 分别核对周、月的首批、续页、历史起点和当期未齐场景。数据状态和日期与原合同一致，同一批成品服务于计算和组装。 |
 | 4. 本地指数 5 分钟算子 | 优化已启用的分钟取数与定位，安排在日线和周月线之后，可与后续指数分钟详情迁移衔接。 | 相同输入的时间、开盘规则、量额、预热和指标一致，记录重复读取的减少量。验收范围是算子库调用。 |
-| 5. Prod 评估 | 对股票日线、上证综指已接入的日线分支、指数周月线和指数 5 分钟现有路径做有界对照。评估合并日期和价格查询，以及股票日线基准日因子碰到批内日期时复用同一条。 | 单独记录查询次数、扫描范围、返回根数和耗时，按收益确定实施范围。实施和上线另行确认。 [Prod 复权基准与批次因子读取](../../src/foundation/clients/technical_indicator_postgres.py#L242) |
+| 5. Prod 只读评估（已完成） | 对股票日线、上证综指日线、周线、月线和 5 分钟的有界样本对照查询结果和执行计划。 | 已记录查询次数、扫描行次、返回根数及耗时，并确认复用股票复权基准因子只省读取一条记录。 [评估与开发建议](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation) |
 
 ## 6. 性能和验收
 
