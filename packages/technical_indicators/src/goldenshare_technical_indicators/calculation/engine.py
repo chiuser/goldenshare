@@ -9,6 +9,7 @@ from ..errors import CalculationExecutionError, ResourceCleanupError
 from ..sources.contracts import PriceBatch
 from .calculation import BatchCalculationOutputs, CalculationOutput, CalculationSession, ControlReadStep
 from .dependencies import CalculationPlan
+from .history import INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS
 from .sql_templates import load_sql_templates
 
 
@@ -100,7 +101,7 @@ class CalculationEngine:
             self._failed = True
             raise
 
-    def resolve_history_requirement(self, max_input_rows: int):
+    def resolve_history_requirement(self, max_input_rows: int, *, warmup_error_budget=INITIALIZATION_ERROR_BUDGET):
         """Resolve prepared parameters once, before the source reads prices."""
         from .history import combine_history_and_fields
 
@@ -110,6 +111,9 @@ class CalculationEngine:
         if self._history_requirement is not None or self._batch is not None or self._last_seq:
             raise CalculationExecutionError("History requirements can only be resolved once before input")
         try:
+            minimum = MIN_RECURSIVE_WARMUP_ROWS if warmup_error_budget == INITIALIZATION_ERROR_BUDGET else 0
+            for session in self.sessions.values():
+                session.recursive_warmup = (minimum, warmup_error_budget)
             requirements = tuple(node.calculation.input_requirement(
                 self.sessions[node.node_index], max_input_rows,
             ) for node in self.plan.nodes)

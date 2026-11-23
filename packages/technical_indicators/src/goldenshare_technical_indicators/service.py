@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 from time import monotonic
 
 from .configuration.settings import KernelConfig
-from .errors import OutputContractError, ResourceCleanupError, _clear_error_frames
+from .calculation.history import INITIALIZATION_ERROR_BUDGET, STOCK_WEEKLY_INITIALIZATION_ERROR_BUDGET
+from .errors import OutputContractError, RequestInvalidError, ResourceCleanupError, _clear_error_frames
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
 from .request_parser import CalculationRequestParser, _build_read_requirement
@@ -74,13 +75,21 @@ class TechnicalIndicatorService:
             ) for calculation_index, index in plan.instances
         )
 
-    def calculate(self, request):
+    def calculate(self, request, *, output_rows=None, warmup_error_budget=None):
         """Compute the requested region and return a detached immutable result."""
         control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
         prepared = None
         try:
             control.check_active()
             prepared = self._prepare_calculation(request)
+            if output_rows is not None:
+                if type(output_rows) is not int or output_rows not in (100, 500):
+                    raise RequestInvalidError("output_rows must select 100 or 500")
+                prepared = replace(prepared, max_output_rows=min(output_rows, self.config.max_output_rows))
+            if warmup_error_budget is not None:
+                if warmup_error_budget not in (INITIALIZATION_ERROR_BUDGET, STOCK_WEEKLY_INITIALIZATION_ERROR_BUDGET):
+                    raise RequestInvalidError("Unknown recursive indicator warmup precision")
+                prepared = replace(prepared, warmup_error_budget=warmup_error_budget)
             return self._calculate_library(prepared, control=control)[0]
         finally:
             prepared = None
@@ -93,7 +102,9 @@ class TechnicalIndicatorService:
         from .sources.session import PriceInputSession
 
         engine.prepare()
-        history = engine.resolve_history_requirement(self.config.max_input_rows)
+        history = engine.resolve_history_requirement(
+            self.config.max_input_rows, warmup_error_budget=prepared.warmup_error_budget,
+        )
         if collect_target_ohlc:
             history = replace(history, fields=history.fields | {"open", "high", "low", "close"})
         requirement = _build_read_requirement(prepared, history, batch_rows=self.config.batch_rows)

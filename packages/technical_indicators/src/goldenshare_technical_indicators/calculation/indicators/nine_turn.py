@@ -27,6 +27,7 @@ DEFINITION = CalculationDefinition(
     history_rule="首根目标前最多 16 根，批次之间保留前 4 根收盘价",
     units=(("up_count", "count"), ("down_count", "count")),
     supported_periods=("day",),
+    additional_sources=(("stock", "week", "qfq"), ("stock", "month", "qfq")),
 )
 
 

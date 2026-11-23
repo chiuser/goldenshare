@@ -9,9 +9,9 @@ import math
 from types import MappingProxyType
 from typing import Protocol, Literal, TYPE_CHECKING
 
-from ..contracts import Parameters, ParameterValue, PERIODS, Period, _freeze_parameters
+from ..contracts import Adjustment, Parameters, ParameterValue, PERIODS, Period, SecurityType, _freeze_parameters
 from ..errors import CalculationExecutionError, CalculationUnsupportedError, RequestInvalidError
-from .history import HistoryRequirement
+from .history import HistoryRequirement, INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS
 
 if TYPE_CHECKING:
     from ..sources.contracts import PriceBatch
@@ -64,6 +64,7 @@ class CalculationDefinition:
     supported_periods: tuple[Period, ...] = PERIODS
     public: bool = True
     parameter_relations: tuple[tuple[str, str], ...] = ()
+    additional_sources: tuple[tuple[SecurityType, Period, Adjustment], ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "parameter_specs", tuple(self.parameter_specs))
@@ -72,6 +73,7 @@ class CalculationDefinition:
         object.__setattr__(self, "units", tuple(tuple(item) for item in self.units))
         object.__setattr__(self, "supported_periods", tuple(self.supported_periods))
         object.__setattr__(self, "parameter_relations", tuple(tuple(item) for item in self.parameter_relations))
+        object.__setattr__(self, "additional_sources", tuple(tuple(item) for item in self.additional_sources))
         names = tuple(spec.name for spec in self.parameter_specs)
         if len(set(names)) != len(names):
             raise ValueError("Duplicate parameter definition")
@@ -79,6 +81,9 @@ class CalculationDefinition:
             spec.validate(spec.default)
         if any(left not in names or right not in names for left, right in self.parameter_relations):
             raise ValueError("Parameter relation references an undefined parameter")
+
+    def supports_source(self, security_type: SecurityType, period: Period, adjustment: Adjustment) -> bool:
+        return period in self.supported_periods or (security_type, period, adjustment) in self.additional_sources
 
     def validate_parameters(self, mapping: Mapping[str, ParameterValue]) -> Parameters:
         if not isinstance(mapping, Mapping):
@@ -185,6 +190,7 @@ class CalculationSession:
     table_roles: Mapping[str, tuple[str, str]] = field(default_factory=lambda: MappingProxyType({}))
     control_read_steps: Mapping[str, ControlReadStep] = field(default_factory=lambda: MappingProxyType({}))
     sql_templates: Mapping[str, str] = field(default_factory=lambda: MappingProxyType({}))
+    recursive_warmup: tuple[int, float] = (MIN_RECURSIVE_WARMUP_ROWS, INITIALIZATION_ERROR_BUDGET)
     _cleanup_mode: bool = False
 
     def __post_init__(self) -> None:

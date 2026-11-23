@@ -32,6 +32,7 @@ from ..technical_indicator_index_period import (
 from ..technical_indicator_stock_daily import (
     dg_index_daily_origin, full_day_suspension, scheduled_open_days, scheduled_stock_days,
 )
+from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, StockPeriodStream
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
 )
@@ -66,7 +67,8 @@ def _table_name(name):
 
 def _matches_type(pa, actual, expected):
     types = {"VARCHAR": pa.string(), "DATE": pa.date32(), "TIMESTAMP": pa.timestamp("us"), "INTEGER": pa.int32(),
-             "DOUBLE": pa.float64(), "DECIMAL(12,4)": pa.decimal128(12, 4), "DECIMAL(18,4)": pa.decimal128(18, 4),
+             "DOUBLE": pa.float64(), "DECIMAL(10,4)": pa.decimal128(10, 4),
+             "DECIMAL(12,4)": pa.decimal128(12, 4), "DECIMAL(18,4)": pa.decimal128(18, 4),
              "DECIMAL(20,4)": pa.decimal128(20, 4), "DECIMAL(20,6)": pa.decimal128(20, 6),
              "DECIMAL(20,7)": pa.decimal128(20, 7)}
     return actual == types[expected]
@@ -282,6 +284,8 @@ class LakeTechnicalIndicatorPriceSource:
         return LakePriceLocator(self, executor, requirement, read_context=read_context)
 
     def open(self, executor, description, requirement, *, read_context):
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            return StockPeriodStream(description, requirement, read_context, executor.control)
         return _LakePriceStream(description, requirement, executor.control, read_context)
 
     def _fact_rows(self, root, identifier, columns, filters, control, read_context, *, day=None):
@@ -319,6 +323,9 @@ class LakeTechnicalIndicatorPriceSource:
             raise SourceReadError(f"Cannot read daily facts from {identifier}") from exc
 
     def expected_positions(self, requirement, selection, *, read_context, control):
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            yield from read_context.source_state.positions
+            return
         root = self._root()
         if requirement.period in INDEX_PERIOD_DATASETS:
             dates = read_context.source_state

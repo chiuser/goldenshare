@@ -7,10 +7,7 @@ from typing import ClassVar
 from ...contracts import Parameters, _freeze_parameters
 from ...errors import CalculationExecutionError, ResourceCleanupError
 from ..calculation import CalculationDefinition, CalculationOutput, ControlReadStep, OutputField, ParameterSpec, SqlStep
-from ..history import (
-    HistoryRequirement, INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS,
-    PRICE_ABSOLUTE_BOUND,
-)
+from ..history import HistoryRequirement, PRICE_ABSOLUTE_BOUND
 from ..sql_templates import render_sql
 
 DEFINITION = CalculationDefinition(
@@ -81,8 +78,7 @@ class MACDCalculation:
             self._check_count(session.execute(SqlStep("macd_warmup",
                 render_sql(session.sql_templates["macd_warmup.sql"],
                            tables={"parameters": parameters, "warmup": warmup}),
-                (MIN_RECURSIVE_WARMUP_ROWS, INITIALIZATION_ERROR_BUDGET,
-                 PRICE_ABSOLUTE_BOUND, max_input_rows), (parameters,), (warmup,), 1)), 1)
+                (*session.recursive_warmup, PRICE_ABSOLUTE_BOUND, max_input_rows), (parameters,), (warmup,), 1)), 1)
         except CalculationExecutionError as exc:
             if "warmup_search_not_terminated" in str(exc.__cause__):
                 exc.reason, exc.step_name = "warmup_search_not_terminated", "macd_warmup"

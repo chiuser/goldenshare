@@ -5,6 +5,7 @@ from dataclasses import dataclass
 # Algorithm-version constants, bound into fixed SQL rather than recomputed in Python.
 MIN_RECURSIVE_WARMUP_ROWS = 500
 INITIALIZATION_ERROR_BUDGET = 2.5e-9
+STOCK_WEEKLY_INITIALIZATION_ERROR_BUDGET = 0.00001
 # This is the established precision-proof domain, not a per-request price check.
 PRICE_ABSOLUTE_BOUND = 1_000_000.0
 

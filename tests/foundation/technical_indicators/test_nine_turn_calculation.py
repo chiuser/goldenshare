@@ -84,7 +84,7 @@ def _request(first, last, *, kind="stock", period="day", adjustment="qfq", calcu
     )
 
 
-def test_discovery_advertises_only_enabled_daily_sources(tmp_path):
+def test_discovery_advertises_enabled_daily_and_adjusted_stock_period_sources(tmp_path):
     config = _config(tmp_path)
     registry = create_builtin_registry()
     description = describe_calculation(registry, "nineturn", config=config)
@@ -94,6 +94,8 @@ def test_discovery_advertises_only_enabled_daily_sources(tmp_path):
         SourceCapability("stock", "day", "none", "stock_daily"),
         SourceCapability("stock", "day", "qfq", "stock_daily"),
         SourceCapability("index", "day", "none", "index_daily"),
+        SourceCapability("stock", "week", "qfq", "stock_weekly"),
+        SourceCapability("stock", "month", "qfq", "stock_monthly"),
     }
     definition = description.definition
     assert definition.algorithm_version == "1.0.0"

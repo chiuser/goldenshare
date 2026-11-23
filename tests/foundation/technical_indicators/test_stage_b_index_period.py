@@ -281,18 +281,19 @@ def test_prod_keeps_one_read_only_snapshot_for_dates_and_prices(warehouse, monke
 
 
 @pytest.mark.parametrize("environment,backend", [("local", "dg"), ("prod", "prod_pg")])
-def test_runtime_config_and_discovery_enable_only_unadjusted_index_periods(environment, backend):
+def test_runtime_config_and_discovery_enable_index_and_adjusted_stock_periods(environment, backend):
     config = build_runtime_config(Settings(_env_file=None, APP_ENV=environment,
                                            GOLDENSHARE_LAKE_ROOT="/Volumes/datasource/data_lake"))
     capabilities = describe_calculation(create_builtin_registry(), "price", config=config).source_capabilities
     assert {(item.security_type, item.period, item.adjustment, item.source_id)
             for item in capabilities if item.period in ("week", "month")} == {
                 ("index", "week", "none", "index_weekly"), ("index", "month", "none", "index_monthly"),
+                ("stock", "week", "qfq", "stock_weekly"), ("stock", "month", "qfq", "stock_monthly"),
             }
     for period in ("week", "month"):
         dataset = config.market_dataset_id("index", period)
         assert config.resolve_dataset_location(dataset).backend == backend
-        assert not config.enabled_adjustments(config.market_dataset_id("stock", period))
+        assert config.enabled_adjustments(config.market_dataset_id("stock", period)) == {"qfq"}
 
 
 @pytest.mark.parametrize("warehouse", ["dg"], indirect=True)

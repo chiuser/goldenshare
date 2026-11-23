@@ -156,4 +156,5 @@ def build_calculation_result(
         range=OutputRange(times[0], times[-1], len(times)),
         statistics=statistics,
         msg="",
+        period_bars=description.period_bars,
     )

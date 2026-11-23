@@ -27,6 +27,9 @@ from .technical_indicator_stock_daily import (
     PROD_INDEX_DAILY_ORIGIN, daily_adjustment_paths, daily_price_projection, full_day_suspension,
     scheduled_open_days, scheduled_stock_days,
 )
+from .technical_indicator_stock_period import (
+    STOCK_PERIOD_DATASETS, StockPeriodStream, describe_stock_period, require_stock_period,
+)
 
 
 _SHANGHAI = ZoneInfo("Asia/Shanghai")
@@ -157,7 +160,9 @@ class PostgresTechnicalIndicatorPriceSource:
         return connection
 
     def create_locator(self, executor, requirement, *, read_context):
-        if requirement.period in INDEX_PERIOD_DATASETS:
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            require_stock_period(requirement, "prod_pg")
+        elif requirement.period in INDEX_PERIOD_DATASETS:
             require_index_period(requirement, "prod_pg")
         elif requirement.period.endswith("m"):
             index_minute_volume_unit(requirement, "prod_pg")
@@ -166,6 +171,8 @@ class PostgresTechnicalIndicatorPriceSource:
         return _PostgresPriceLocator(self, requirement, read_context, executor.control)
 
     def open(self, executor, description, requirement, *, read_context):
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            return StockPeriodStream(description, requirement, read_context, executor.control)
         connection = self._connection(read_context, executor.control)
         selection = description.selection
         minute = requirement.period.endswith("m")
@@ -190,6 +197,9 @@ class PostgresTechnicalIndicatorPriceSource:
         )
 
     def expected_positions(self, requirement, selection, *, read_context, control):
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            yield from read_context.source_state.positions
+            return
         connection = self._connection(read_context, control)
         dates = read_context.source_state
         if requirement.period in INDEX_PERIOD_DATASETS:
@@ -275,6 +285,22 @@ class _PostgresPriceLocator:
         self._control = control
         self._described = False
 
+    def _describe_stock_period(self, connection):
+        request = self._requirement
+        relation = _relation(request.target)
+        frequency = request.target.location["filters"]["freq"]
+
+        def read_rows(start, end, limit, columns):
+            projection = ", ".join(map(_identifier, columns))
+            rows = _query(connection, self._control, f"""
+                SELECT {projection} FROM {relation}
+                WHERE ts_code = %s AND freq = %s AND trade_date BETWEEN %s AND %s
+                ORDER BY trade_date DESC LIMIT %s
+            """, (request.ts_code, frequency, start, end, limit))
+            return [dict(zip(columns, row, strict=True)) for row in rows]
+
+        return describe_stock_period(request, self._read_context, read_rows)
+
     def _describe_index_period(self, connection):
         requirement, context = self._requirement, self._read_context
         relation, filters, identity = _price_scope(requirement)
@@ -296,11 +322,12 @@ class _PostgresPriceLocator:
         if last_period:
             check_period_key(last_period[0], requirement.period)
             check_index_period_cutoff(last_period[0][1], requirement, last_end)
+        output_limit = requirement.output_limit(context.config)
         targets = _query(connection, self._control, f"""
             {scope} AND b.period_start_date BETWEEN %s AND %s ORDER BY b.period_start_date LIMIT %s
-        """, (*identity, start, last_end, context.config.max_output_rows + 1))
+        """, (*identity, start, last_end, output_limit + 1))
         context.record_locator_rows(len(first) + 1 + len(last_period) + len(targets))
-        if len(targets) > context.config.max_output_rows:
+        if len(targets) > output_limit:
             raise ResourceLimitError("Target positions exceed max_output_rows")
         preceding = []
         if targets:
@@ -318,6 +345,8 @@ class _PostgresPriceLocator:
         self._described = True
         requirement, config = self._requirement, self._read_context.config
         connection = self._source._connection(self._read_context, self._control)
+        if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+            return self._describe_stock_period(connection)
         if requirement.period in INDEX_PERIOD_DATASETS:
             return self._describe_index_period(connection)
         minute = requirement.period.endswith("m")
@@ -327,14 +356,15 @@ class _PostgresPriceLocator:
         if minute:
             start, end = start.replace(tzinfo=None), end.replace(tzinfo=None)
         auction_keys = "count(*) FILTER (WHERE position::time = TIME '09:35')" if minute else "0"
+        output_limit = requirement.output_limit(config)
         count, first, last, extra_keys = _query(connection, self._control, f"""
             SELECT count(*), min(position), max(position), {auction_keys} FROM (
                 SELECT {position} AS position FROM {relation}
                 WHERE {filters} AND {position} BETWEEN %s AND %s ORDER BY {position} LIMIT %s
             ) AS target
-        """, (*identity, start, end, config.max_output_rows + 1))[0]
+        """, (*identity, start, end, output_limit + 1))[0]
         self._read_context.record_locator_rows(count + extra_keys)
-        if count > config.max_output_rows:
+        if count > output_limit:
             raise ResourceLimitError("Target positions exceed max_output_rows")
         selection = PriceReadSelection(None, None, None, None, 0, 0, False, ())
         if count:

@@ -32,7 +32,8 @@ class CalculationDescription:
 def _describe(
     definition: CalculationDefinition, source_capabilities: tuple[SourceCapability, ...],
 ) -> CalculationDescription:
-    supported = tuple(item for item in source_capabilities if item.period in definition.supported_periods)
+    supported = tuple(item for item in source_capabilities
+                      if definition.supports_source(item.security_type, item.period, item.adjustment))
     return CalculationDescription(definition, supported, bool(supported))
 
 

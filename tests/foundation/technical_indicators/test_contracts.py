@@ -167,6 +167,7 @@ def test_parameter_rules_allow_real_variations_without_period_or_multiplier_cap(
 def test_result_contract_matches_literal_top_level_and_copies_mutable_field_inputs():
     assert tuple(field.name for field in fields(CalculationResult)) == (
         "kernel_version", "series", "requested", "source", "price_adjustment", "times", "source_as_of", "calculations", "range", "statistics", "msg",
+        "period_bars",
     )
     source_values = [None, 11.0]
     values = CalculationValues("ma", "1.0.0", (("period", 2),), (("value", source_values),))

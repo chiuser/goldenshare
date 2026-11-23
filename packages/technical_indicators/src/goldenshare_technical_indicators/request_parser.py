@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 
 from .calculation.dependencies import CalculationPlan
-from .calculation.history import HistoryRequirement
+from .calculation.history import HistoryRequirement, INITIALIZATION_ERROR_BUDGET
 from .calculation.registry import CalculationRegistry
 from .configuration.settings import KernelConfig
 from .contracts import CalculationRequest, normalize_request_and_validate_all_instances
@@ -16,6 +16,8 @@ class _PreparedCalculation:
     request: CalculationRequest
     plan: CalculationPlan
     target: DatasetReadTarget
+    max_output_rows: int | None = None
+    warmup_error_budget: float = INITIALIZATION_ERROR_BUDGET
 
 
 class CalculationRequestParser:
@@ -48,4 +50,5 @@ def _build_read_requirement(
         history=history,
         batch_rows=batch_rows,
         target_adjustment=request.adjustment,
+        max_output_rows=prepared.max_output_rows,
     )

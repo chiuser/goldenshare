@@ -35,7 +35,8 @@ class _ContractJSONEncoder(json.JSONEncoder):
             }
         if isinstance(value, _RESULT_TYPES):
             # A shallow view keeps large numerical tuples shared with result.
-            return {item.name: getattr(value, item.name) for item in fields(value)}
+            return {item.name: getattr(value, item.name) for item in fields(value)
+                    if item.name != "period_bars"}
         if isinstance(value, (datetime, date)):
             return value.isoformat()
         if isinstance(value, Enum) and type(value.value) in (str, int, float, bool, type(None)):

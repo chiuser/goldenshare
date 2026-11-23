@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal, Protocol, TYPE_CHECKING
 
-from ..contracts import Adjustment, Period, TimePosition
+from ..contracts import Adjustment, Period, PeriodBarMetadata, TimePosition
 from ..calculation.history import HistoryRequirement
 
 if TYPE_CHECKING:
@@ -70,6 +70,7 @@ class SourceDescription:
     factor_paths: tuple[tuple[date, Path], ...] = ()
     source_projection: tuple[str, ...] = ()
     standard_projection: tuple[tuple[str, str], ...] = ()
+    period_bars: tuple[PeriodBarMetadata, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "supported_adjustment_paths", tuple(tuple(item) for item in self.supported_adjustment_paths))
@@ -77,6 +78,7 @@ class SourceDescription:
         object.__setattr__(self, "factor_paths", tuple((day, Path(path)) for day, path in self.factor_paths))
         object.__setattr__(self, "source_projection", tuple(self.source_projection))
         object.__setattr__(self, "standard_projection", tuple(tuple(item) for item in self.standard_projection))
+        object.__setattr__(self, "period_bars", tuple(self.period_bars))
         if not isinstance(self.selection, PriceReadSelection) or len(self.price_paths) != len(self.selection.row_groups):
             raise ValueError("Selected price paths and row groups must correspond")
 
@@ -98,6 +100,10 @@ class ReadRequirement:
     history: HistoryRequirement
     batch_rows: int
     target_adjustment: Adjustment
+    max_output_rows: int | None = None
+
+    def output_limit(self, config):
+        return self.max_output_rows if self.max_output_rows is not None else config.max_output_rows
 
 
 @dataclass(frozen=True, slots=True)

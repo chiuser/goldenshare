@@ -45,7 +45,7 @@ def expand_dependencies(registry: CalculationRegistry, normalized: CalculationRe
     validated = []
     for instance in normalized.calculations:
         definition = registry.resolve(instance["calculation_id"])
-        if normalized.period not in definition.supported_periods:
+        if not definition.supports_source(normalized.security_type, normalized.period, normalized.adjustment):
             raise CalculationUnsupportedError("Calculation does not support the requested period")
         parameters = definition.validate_parameters(instance["parameters"])
         validated.append((definition, parameters))
@@ -71,7 +71,7 @@ def expand_dependencies(registry: CalculationRegistry, normalized: CalculationRe
             if not isinstance(dependency.role, str) or not dependency.role or dependency.role in dependencies:
                 raise RequestInvalidError("Each dependency role must be nonempty and unique within its parent")
             upstream = registry.resolve_dependency(dependency.calculation_id, dependency.algorithm_version)
-            if normalized.period not in upstream.supported_periods:
+            if not upstream.supports_source(normalized.security_type, normalized.period, normalized.adjustment):
                 raise CalculationUnsupportedError("Dependency does not support the requested period")
             if not isinstance(dependency.parameters, tuple):
                 raise RequestInvalidError("Dependency parameters require immutable name/value pairs")

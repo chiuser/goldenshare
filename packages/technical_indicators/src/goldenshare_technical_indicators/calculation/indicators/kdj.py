@@ -7,9 +7,7 @@ from typing import ClassVar
 from ...contracts import Parameters, _freeze_parameters
 from ...errors import CalculationExecutionError, ResourceCleanupError
 from ..calculation import CalculationDefinition, CalculationOutput, ControlReadStep, Dependency, OutputField, ParameterSpec, SqlStep
-from ..history import (
-    HistoryRequirement, INITIALIZATION_ERROR_BUDGET, MIN_RECURSIVE_WARMUP_ROWS,
-)
+from ..history import HistoryRequirement
 from ..sql_templates import render_sql
 
 DEFINITION = CalculationDefinition(
@@ -127,8 +125,7 @@ class KDJCalculation:
             self._check_count(session.execute(SqlStep("kdj_warmup",
                 render_sql(session.sql_templates["kdj_warmup.sql"],
                            tables={"parameters": parameters, "warmup": warmup}),
-                (MIN_RECURSIVE_WARMUP_ROWS, INITIALIZATION_ERROR_BUDGET,
-                 window, max_input_rows), (parameters,), (warmup,), 1)), 1)
+                (*session.recursive_warmup, window, max_input_rows), (parameters,), (warmup,), 1)), 1)
         except CalculationExecutionError as exc:
             if "warmup_search_not_terminated" in str(exc.__cause__):
                 exc.reason, exc.step_name = "warmup_search_not_terminated", "kdj_warmup"

@@ -1,4 +1,4 @@
-"""Locate a bounded price range and retain selected DG stock daily rows."""
+"""Locate a bounded price range and retain selected DG stock rows."""
 
 from __future__ import annotations
 
@@ -25,7 +25,8 @@ from ..technical_indicator_index_period import (
     describe_index_period, index_period_projection, period_bounds, period_request_start,
     preceding_limit, require_index_period,
 )
-from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA
+from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, describe_stock_period, require_stock_period
+from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA, PERIOD_SCHEMA
 from .technical_indicator_price_source import _arrow, _file_version, _matches_type, _stock_batches
 
 
@@ -342,7 +343,7 @@ class LakePriceLocator:
     def _select(self, paths, schema, projection, standard, *, price_projection):
         history = self.requirement.history
         maximum = self.source._config.max_input_rows
-        output_maximum = self.source._config.max_output_rows
+        output_maximum = self.requirement.output_limit(self.context.config)
         daily = self.requirement.period == "day"
         stock_daily = self.requirement.target.dataset_id == "stock_daily"
         first_day = self.requirement.start if daily else self.requirement.start.date()
@@ -463,6 +464,78 @@ class LakePriceLocator:
         finally:
             self._close_key_reader()
 
+    def _describe_stock_period(self):
+        request = self.requirement
+        require_stock_period(request, "dg")
+        self._root = self.source._root()
+        template = Path(request.target.location["path_template"])
+        base = self.source._safe_path(self._root, template.parent.parent)
+        prefix = "week_end=" if request.period == "week" else "month="
+        partitions = []
+        if base.is_dir():
+            for entry in base.iterdir():
+                self.control.check_active()
+                if not entry.name.startswith(prefix):
+                    continue
+                label = entry.name.removeprefix(prefix)
+                try:
+                    day = date.fromisoformat(label if request.period == "week" else f"{label}-01")
+                except ValueError:
+                    continue
+                partitions.append((day, entry / template.name))
+        partitions.sort(reverse=True)
+
+        def read_rows(start, end, limit, columns):
+            rows = []
+            for day, path in partitions:
+                self.control.check_active()
+                if day > end:
+                    continue
+                if day < start or len(rows) == limit:
+                    break
+                if not path.is_file():
+                    continue
+                row = self._read_stock_period_partition(path, day, columns)
+                if row is not None:
+                    rows.append(row)
+            return rows
+
+        return describe_stock_period(request, self.context, read_rows)
+
+    def _read_stock_period_partition(self, path, day, columns):
+        projection = ("ts_code", *columns)
+        schema = (*PERIOD_SCHEMA, ("pct_chg", "DECIMAL(10,4)"))
+        metadata, _ = self._open_metadata(path, schema, projection, price_projection=())
+        row = None
+        try:
+            for index in range(metadata.num_row_groups):
+                self.control.check_active()
+                group = metadata.row_group(index)
+                if not self._may_match(group, projection):
+                    continue
+                self._check_group_bytes(group, projection)
+                for batch in _stock_batches(self._metadata_reader, projection, self.requirement.ts_code,
+                                            self.control, batch_rows=self.requirement.batch_rows, row_groups=[index]):
+                    if row is not None or batch.num_rows != 1:
+                        raise SourceContractError("Duplicate DG stock period positions in the partition")
+                    row = batch.select(columns).to_pylist()[0]
+        finally:
+            self._close_metadata()
+        if row is not None:
+            try:
+                row["trade_date"] = date.fromisoformat(row["trade_date"])
+            except (TypeError, ValueError) as exc:
+                raise SourceContractError("Invalid DG stock period trade_date") from exc
+            period = self.requirement.period
+            if period_bounds(row["trade_date"], period)[0] != period_bounds(day, period)[0]:
+                raise SourceContractError("DG stock period trade_date does not belong to its partition")
+            if "end_date" in row:
+                try:
+                    row["end_date"] = date.fromisoformat(row["end_date"])
+                except (TypeError, ValueError):
+                    row["end_date"] = None
+        return row
+
     def _describe_index_period(self):
         request, config = self.requirement, self.context.config
         require_index_period(request, "dg")
@@ -474,6 +547,7 @@ class LakePriceLocator:
                                                      price_projection=physical)
         first = latest = None
         targets, group_ranges = [], []
+        output_limit = request.output_limit(config)
         history_capacity, _ = preceding_limit(config, request, 0)
         preceding = deque(maxlen=history_capacity + 1)
         target_start = period_request_start(request)
@@ -499,7 +573,7 @@ class LakePriceLocator:
                         check_index_period_cutoff(key[1], request, last_period_end)
                     if label < target_start:
                         preceding.append(key)
-                    elif label <= last_period and len(targets) <= config.max_output_rows:
+                    elif label <= last_period and len(targets) <= output_limit:
                         targets.append(key)
             finally:
                 keys.close()
@@ -507,7 +581,7 @@ class LakePriceLocator:
                 group_ranges.append((index, group_first, group_last))
         if _file_version(path) != version:
             raise SourceReadError("The index period file changed during the request")
-        if len(targets) > config.max_output_rows:
+        if len(targets) > output_limit:
             raise ResourceLimitError("Target positions exceed max_output_rows")
         selected_groups = ()
         if targets:
@@ -530,6 +604,8 @@ class LakePriceLocator:
         pa, _, _, _ = _arrow()
         try:
             request = self.requirement
+            if request.target.dataset_id in STOCK_PERIOD_DATASETS.values():
+                return self._describe_stock_period()
             if request.period in INDEX_PERIOD_DATASETS:
                 return self._describe_index_period()
             minute = request.period.endswith("m")

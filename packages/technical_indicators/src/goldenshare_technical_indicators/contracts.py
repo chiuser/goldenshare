@@ -178,6 +178,15 @@ class CalculationStatistics:
 
 
 @dataclass(frozen=True, slots=True)
+class PeriodBarMetadata:
+    """Source fields for internal period-chart assembly, keyed by calculation time."""
+
+    period_start: date
+    end_date: date | None
+    pct_chg: float | None
+
+
+@dataclass(frozen=True, slots=True)
 class CalculationResult:
     kernel_version: str
     series: SeriesDescription
@@ -190,9 +199,11 @@ class CalculationResult:
     range: OutputRange
     statistics: CalculationStatistics
     msg: str
+    period_bars: tuple[PeriodBarMetadata, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "times", tuple(self.times))
         object.__setattr__(self, "calculations", tuple(self.calculations))
+        object.__setattr__(self, "period_bars", tuple(self.period_bars))
         if self.source_as_of is not None:
             object.__setattr__(self, "source_as_of", tuple(self.source_as_of))

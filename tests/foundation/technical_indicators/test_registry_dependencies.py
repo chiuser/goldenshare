@@ -355,7 +355,7 @@ def test_discovery_uses_registry_definition_objects_hides_internal_steps_and_doe
 
 def test_discovery_reports_only_explicit_matching_source_declarations():
     registry = frozen_registry((definition(periods=("week",)), BorrowedPriceCalculation))
-    weekly = SourceCapability("stock", "week", "none", "stock_weekly")
+    weekly = SourceCapability("stock", "week", "qfq", "stock_weekly")
     config = technical_indicator_config_from_settings(
         Settings(_env_file=None), data_location="prod_pg",
         market_datasets={("stock", "day"): "stock_daily", ("stock", "week"): "stock_weekly"},
@@ -368,7 +368,7 @@ def test_discovery_reports_only_explicit_matching_source_declarations():
                 "dg": None,
                 "prod_pg": {
                     "schema": "core_serving", "relation": "stk_period_bar_adj", "filters": {"freq": "week"},
-                    "enabled_adjustments": ("none",),
+                        "enabled_adjustments": ("qfq",),
                 },
             },
         },

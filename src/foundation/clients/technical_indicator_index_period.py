@@ -92,7 +92,7 @@ def describe_index_period(requirement, context, targets, preceding, source_first
     """Receive ascending date pairs, including at most one extra preceding pair."""
     physical, standard = index_period_projection(requirement)
     selection = PriceReadSelection(None, None, None, None, 0, 0, True, ())
-    if len(targets) > context.config.max_output_rows:
+    if len(targets) > requirement.output_limit(context.config):
         raise ResourceLimitError("Target positions exceed max_output_rows")
     if targets:
         wanted, needs_origin = preceding_limit(context.config, requirement, len(targets))

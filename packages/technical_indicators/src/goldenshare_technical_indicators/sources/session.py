@@ -94,7 +94,7 @@ class PriceInputSession:
         selection = self.description.selection
         history = self.requirement.history
         request = self.requirement
-        if selection.target_rows > self.read_context.config.max_output_rows:
+        if selection.target_rows > request.output_limit(self.read_context.config):
             raise ResourceLimitError("Target positions exceed max_output_rows")
         if selection.target_rows + selection.preceding_rows > self.executor.control.config.max_input_rows:
             raise ResourceLimitError("Selected input exceeds max_input_rows")

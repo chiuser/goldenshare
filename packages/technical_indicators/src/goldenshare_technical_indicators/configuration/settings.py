@@ -139,6 +139,8 @@ class KernelConfig:
             security_type, period = key
             adjustable = security_type == "stock" and period not in ("week", "month", "90m", "120m")
             supported = set(_ADJUSTMENTS) if adjustable else {"none"}
+            if security_type == "stock" and period in ("week", "month"):
+                supported = {"qfq"}
             if any(location is not None and location["enabled_adjustments"] - supported
                    for location in locations[dataset_id].values()):
                 raise ValueError("Adjustment is unsupported for this market dataset")
