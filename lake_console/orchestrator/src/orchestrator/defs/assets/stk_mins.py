@@ -439,7 +439,9 @@ class GoldStkMinsQfqPartitionWriteResult:
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
-            "audit_source_file_version": self.source_file_version,
+            "audit_source_file_version": (
+                list(self.source_file_version) if self.source_file_version is not None else None
+            ),
             "audit_delivery_version": self.audit_delivery_version,
             "physical_layout": "freq_ts_code_year",
         }
@@ -523,7 +525,9 @@ class GoldStkMinsQfqDerivedPartitionWriteResult:
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
-            "audit_source_file_version": self.source_file_version,
+            "audit_source_file_version": (
+                list(self.source_file_version) if self.source_file_version is not None else None
+            ),
             "audit_delivery_version": self.audit_delivery_version,
             "physical_layout": "freq_ts_code_year",
             "calculation_model": "silver_direct_canonical_qfq",

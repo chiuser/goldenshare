@@ -1,8 +1,13 @@
 import ast
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+
+import dagster as dg
+import pytest
 
 from orchestrator.defs.assets.stk_mins import (
+    GOLD_STK_MINS_QFQ_ASSETS,
     GoldStkMinsQfqDerivedPartitionWriteResult,
     GoldStkMinsQfqPartitionWriteResult,
     SilverStkMinsWriteResult,
@@ -34,6 +39,7 @@ from orchestrator.defs.jobs.stock_mins_raw_update import (
 from orchestrator.defs.jobs.stock_mins_silver_update import (
     stock_mins_silver_update_job,
 )
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.sensors.stock_mins_raw_sensor import stock_mins_raw_sensor
 from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
     stock_mins_qfq_daily_sensor,
@@ -65,6 +71,80 @@ def _stdout_calls(path: Path = ASSET_PATH) -> list[ast.Call]:
         if isinstance(node.func, ast.Attribute) and node.func.attr == "stdout":
             calls.append(node)
     return calls
+
+
+@pytest.mark.parametrize("with_source_version", [True, False])
+def test_qfq_assets_record_source_file_version(tmp_path, with_source_version):
+    trade_date = "2026-11-23"
+    # The five stat fields use the order and integer sizes observed in run ee48e412.
+    expected_version = [16777244, 50143164, 803018, 1795432863351259416, 1795432863430901258]
+    if not with_source_version:
+        expected_version = None
+    output = {
+        "output_root_path": tmp_path / "gold",
+        "output_file_count": 1,
+        "output_sample_file_paths": (),
+        "replacement_row_count": 2,
+        "observed_columns": ("ts_code", "freq"),
+        "source_file_version": tuple(expected_version) if expected_version else None,
+    }
+    native = GoldStkMinsQfqPartitionWriteResult(
+        silver_file_path=tmp_path / "minute.parquet",
+        trade_adj_factor_file_path=tmp_path / "factor.parquet",
+        as_of_adj_factor_file_path=tmp_path / "factor.parquet",
+        as_of_trade_date=trade_date,
+        row_count=2,
+        **output,
+    )
+
+    def write_derived(*, freq, **_):
+        return GoldStkMinsQfqDerivedPartitionWriteResult(
+            source_freq={90: 30, 120: 60}[freq],
+            source_file_count=1,
+            source_row_count=5,
+            source_stock_day_count=1,
+            expected_window_count=2,
+            generated_window_count=2,
+            incomplete_window_count=0,
+            exchange_mismatch_window_count=0,
+            **output,
+        )
+
+    for layer in ("raw", "silver", "gold"):
+        (tmp_path / layer).mkdir()
+    with (
+        dg.DagsterInstance.ephemeral(tempdir=str(tmp_path)) as instance,
+        patch(
+            "orchestrator.defs.assets.stk_mins.write_gold_stk_mins_qfq_asset_partition",
+            return_value=native,
+        ),
+        patch(
+            "orchestrator.defs.assets.stk_mins.write_gold_stk_mins_qfq_derived_asset_partition",
+            side_effect=write_derived,
+        ),
+    ):
+        instance.add_dynamic_partitions("cn_a_stock_mins_silver_trade_days", [trade_date])
+        result = dg.materialize(
+            GOLD_STK_MINS_QFQ_ASSETS,
+            partition_key=trade_date,
+            resources={
+                "lake_root": LakeRootResource(root_path=str(tmp_path)),
+                "duckdb": DuckDBResource(),
+            },
+            instance=instance,
+        )
+
+    assert result.success
+    versions = {
+        event.asset_key.path[-1]: event.step_materialization_data.materialization.metadata[
+            "goldenshare/audit_source_file_version"
+        ].value
+        for event in result.get_asset_materialization_events()
+    }
+    assert versions == {
+        f"gold_stk_mins_qfq_{freq}m": expected_version
+        for freq in (1, 5, 15, 30, 60, 90, 120)
+    }
 
 
 class StkMinsHumanReadableContractTests(unittest.TestCase):
