@@ -2238,3 +2238,13 @@ curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/
 验收后已恢复原自动规则，原生响应与 16:31 回查均为 RUNNING。启用时保存的运行位置和最后一次任务标识均保留；本批次只存在这一次成功重算。验收与恢复读回保存在 `/private/tmp/dg-macd-kdj-history-20261119/history-verified.json` 和 `/private/tmp/dg-macd-kdj-history-20261119/sensor-restored.json`。
 
 16:33 复核时，规则仍为 RUNNING。恢复后的前两次检查（tick 3856045、3856060）分别在约 60 秒后超时，均未提交任务。第三次仍在检查。现场数据库活动观察到通过事件类型和时间查找检查事件的查询，等待磁盘读取或并行扫描；现行自动规则确实按此方式逐项查找完成记录。这是目前定位到的慢查询，尚未测出每段耗时占比。五股重算的 14 条正式检查已按精确事件 ID 独立读回通过。自动规则保持开启，恢复后的自动检查尚未验收通过。两次超时证据保存在 `/private/tmp/dg-macd-kdj-history-20261119/sensor-restore-outcomes-163316.json`。
+
+## 25. 2026-11-23 股票分钟前复权登记失败后的单日恢复
+
+**目标和范围。** 管理员批准重跑当天失败的 `stock_mins_qfq_daily_update_job`。修复 `99805363b` 已隔离验收，正式代码位置在该提交之后重启。旧 run `ee48e412` 已提升七个频度各 5,570 份文件，随后物化登记失败。当天 `stock_mins_qfq_factor_repair_job` 的运行 `8e44f5e0` 成功并替换了其中 63 份文件，继续使用旧 run 会因正式目标与原凭证摘要不符而停止。沿 §21.4 的正式入口提交一个独立 run，只选 2026-11-23、原日更 Job 的七频资产和原 Check。年度文件只合并替换该日记录，保留现有历史记录。已有因子修复成功凭证由现有 MACD/KDJ sensor 复用；本次只提交前复权日更，保留现有自动触发配置。
+
+**执行。** 本机 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`。先确认当天尚无新的同 Job 运行、没有写入相同年度文件的活动任务、原分区计划可用。调用工作区 `orchestrator/__repository__` 的 `launchRun`，Job `stock_mins_qfq_daily_update_job`，配置 `{}`、分区 `2026-11-23`。请求只发送一次。命令为 `curl --fail-with-body --silent --show-error --max-time 25 http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-qfq-recovery-20261123.4fJdfK/launch.json --output /private/tmp/dg-qfq-recovery-20261123.4fJdfK/response.json`。若响应不明，先查此 Job 和分区的新运行。若新运行失败，保留现有数据和凭证，按失败点和最新文件核对后另定是否原组继续，不盲重发。
+
+**开销和验收。** 旧运行同一天七频日志的原年度文件大小合计 8,955,850,139 字节，冻结日数据 31,347,401 字节，候选摘要读取 9,004,231,492 字节。新运行采用同日同范围，候选空间以该样本和现有写入器的空间检查为依据。文件大小不等于实际设备读取量，原 Check 另有当日和年度文件读取；只读验收查询新 run 的状态、七条物化、28 条原检查、登记版本和已有日志，不另扫年度行情。以各项物化登记成功、来源版本为五元素数组、28 条原检查通过为验收，并观察 MACD/KDJ 的原 sensor 是否提交当天 Job。新运行中断时重试开销取决于已验证凭证，根据发生时的剩余文件逐频确认；若全量重新开始，仍是上述同日同七频规模。
+
+**正式结果。** 新 run `83265828-3d1f-426f-b46e-b57df78bd183` 只提交一次，上海时间 21:23:52 开始、21:39:35 成功。七频各登记 5,570 份文件，逐频读回的五元素来源版本均正确，28 条原 Check 全部通过。保留 23 日已有因子修复，未另外提交该 Job。MACD/KDJ 日更由原 sensor 自动提交运行 `1c7ae264-149b-4644-a42e-9279bedce9a0`，21:40:28 复核状态为启动中。MACD/KDJ 产出及后续指标修复尚未验收。
