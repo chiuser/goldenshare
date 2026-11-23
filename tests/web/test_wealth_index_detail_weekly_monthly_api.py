@@ -12,11 +12,13 @@ import pytest
 from sqlalchemy.orm import sessionmaker
 
 from goldenshare_technical_indicators.errors import SourceReadError
+from goldenshare_technical_indicators.executor import DuckDBExecutor
 from src.app.dependencies import index_period_technical_indicators as execution
 from src.app.dependencies.db import get_db_session
 from src.app.exceptions import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
 from src.biz.api.wealth.market import index_detail, index_detail_debug
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.config.settings import Settings, get_settings
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
@@ -108,18 +110,34 @@ def period_client(request, tmp_path, monkeypatch):
             for name, values in (("index_weekly", WEEKS), ("index_monthly", MONTHS)):
                 write_table(tmp_path / f"silver/{name}/full/part-000.parquet",
                             pa.Table.from_pylist(list(period_rows(values, dg=True)), schema=price_schema))
-        calls = []
-        original = execution.TechnicalIndicatorService.calculate
+        calls, materializations = [], []
+        method = "calculate_with_source" if dg else "calculate"
+        original = getattr(execution.TechnicalIndicatorService, method)
 
         def calculate(self, request):
+            result = original(self, request)
             calls.append(request)
-            return original(self, request)
+            return result
 
-        monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", calculate)
+        monkeypatch.setattr(execution.TechnicalIndicatorService, method, calculate)
+        execute = DuckDBExecutor.execute
+
+        def observe_materialization(executor, step):
+            if step.name == "materialize_index_period":
+                materializations.append(step.bindings)
+            return execute(executor, step)
+
+        monkeypatch.setattr(DuckDBExecutor, "execute", observe_materialization)
 
         @asynccontextmanager
         async def lifespan(app):
             runtime = create_runtime(settings, session_factory=sessions)
+            if dg:
+                def reject_second_read(*args, **kwargs):
+                    pytest.fail("DG page bounds and auxiliary fields must come from the retained prices")
+
+                monkeypatch.setattr(runtime.source, "index_period_page", reject_second_read)
+                monkeypatch.setattr(runtime.source, "index_period_boundary", reject_second_read)
             app.state.technical_indicator_runtime = runtime
             try:
                 yield
@@ -137,7 +155,8 @@ def period_client(request, tmp_path, monkeypatch):
         app.include_router(index_detail.build_router(**options), prefix="/api/v1")
         app.include_router(index_detail_debug.build_router(**options), prefix="/api/v1")
         with TestClient(app) as client:
-            yield SimpleNamespace(client=client, app=app, calls=calls, engine=engine)
+            yield SimpleNamespace(client=client, app=app, calls=calls, engine=engine, dg=dg,
+                                  materializations=materializations)
         assert engine.pool.checkedout() == 0
 
 
@@ -169,6 +188,11 @@ def test_weekly_pages_and_monthly_use_actual_dates_and_daily_units(period_client
     assert body["dataStatus"]["status"] == "READY"
     assert body["debugInfo"] is None
     assert len(period_client.calls) == 1
+    if period_client.dg:
+        [(period, path, ts_code)] = period_client.materializations
+        assert (period, ts_code) == ("week", CODE)
+        assert path.endswith("silver/index_weekly/full/part-000.parquet")
+        assert period_client.calls[0].latest_rows == 2
 
     older = kline(client, end="09-24", limit=1).json()
     assert older["bars"][0]["tradeDate"] == "2026-09-24"
@@ -194,7 +218,7 @@ def test_empty_delayed_and_wrong_dates(period_client, monkeypatch):
         assert body["dataStatus"]["status"] == "EMPTY"
         assert body["debugInfo"]["exceptions"][0]["code"] == "ID_SOURCE_EMPTY"
         assert ("周线" if period == "week" else "月线") in body["debugInfo"]["exceptions"][0]["message"]
-    assert not period_client.calls
+    assert len(period_client.calls) == (2 if period_client.dg else 0)
     for period in ("week", "month"):
         delayed = kline(client, period=period, end="10-12", debug=True, limit=1)
         assert delayed.status_code == 200, delayed.text
@@ -209,12 +233,16 @@ def test_empty_delayed_and_wrong_dates(period_client, monkeypatch):
     missing_bar = kline(client, tsCode=GAP)
     assert missing_bar.status_code == 500 and missing_bar.json()["code"] == "ID_QUERY_FAILED"
 
-    calculate = execution.TechnicalIndicatorService.calculate
+    method = "calculate_with_source" if period_client.dg else "calculate"
+    calculate = getattr(execution.TechnicalIndicatorService, method)
 
     def misalign(self, request):
-        return replace(calculate(self, request), source_as_of=(day("10-08"),))
+        result = calculate(self, request)
+        if period_client.dg:
+            return replace(result, result=replace(result.result, source_as_of=(day("10-08"),)))
+        return replace(result, source_as_of=(day("10-08"),))
 
-    monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", misalign)
+    monkeypatch.setattr(execution.TechnicalIndicatorService, method, misalign)
     response = kline(client, limit=1)
     assert response.status_code == 500 and response.json()["code"] == "ID_QUERY_FAILED"
     assert period_client.engine.pool.checkedout() == 0
@@ -222,25 +250,41 @@ def test_empty_delayed_and_wrong_dates(period_client, monkeypatch):
 
 def test_selection_failure_and_cancellation_release_resources(period_client, monkeypatch):
     source = period_client.app.state.technical_indicator_runtime.source
-    original = source.index_period_page
+    owner, method = ((LakePriceLocator, "_read_rows") if period_client.dg else
+                     (source, "index_period_page"))
+    original = getattr(owner, method)
+    cleanup = DuckDBExecutor.cleanup_drop
+    dropped = []
+
+    def record_cleanup(executor, name):
+        cleanup(executor, name)
+        if name == "ti_index_period_rows":
+            dropped.append(name)
+
+    monkeypatch.setattr(DuckDBExecutor, "cleanup_drop", record_cleanup)
 
     def fail(*args, **kwargs):
         raise SourceReadError("fixture source read failed")
 
     def cancel(*args, **kwargs):
+        if period_client.dg:
+            args[0].control.request_stop("cancel")
+            return original(*args, **kwargs)
         page = original(*args, **kwargs)
         kwargs["control"].request_stop("cancel")
         return page
 
     for interrupt in (fail, cancel):
         with monkeypatch.context() as patch:
-            patch.setattr(source, "index_period_page", interrupt)
+            patch.setattr(owner, method, interrupt)
             response = kline(period_client.client)
             assert response.status_code == 500 and response.json()["code"] == "ID_QUERY_FAILED"
         assert not period_client.calls
         assert period_client.engine.pool.checkedout() == 0
     assert kline(period_client.client).status_code == 200
     assert len(period_client.calls) == 1
+    if period_client.dg:
+        assert len(dropped) == 2
 
 
 def test_route_capability_validation_and_existing_auth(period_client, monkeypatch):

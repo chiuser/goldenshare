@@ -37,26 +37,32 @@ async def run_index_period_kline(request, *, arrived_at, ts_code, period, start_
     params = dict(ts_code=ts_code, period=period, start_date=start_date, end_date=end_date, limit=limit)
 
     def work(options, control):
-        def calculate(start, end):
+        def calculate(start, end, latest_rows=None):
             zone = ZoneInfo("Asia/Shanghai")
             service = TechnicalIndicatorService(
                 source=runtime.source, registry=runtime.registry, config=runtime.config, control=control,
             )
-            return service.calculate(CalculationRequest(
+            calculation = CalculationRequest(
                 security_type="index", ts_code=ts_code, period=period, adjustment="none",
-                start=datetime.combine(start, time.min, zone), end=datetime.combine(end, time.min, zone),
+                start=datetime.combine(start, time.min, zone) if start is not None else None,
+                end=datetime.combine(end, time.min, zone), latest_rows=latest_rows,
                 calculations=({"calculation_id": "price", "parameters": {}}, *SSE_DAILY_CALCULATIONS),
-            ))
+            )
+            return (service.calculate_with_source(calculation) if latest_rows is not None
+                    else service.calculate(calculation))
 
         try:
+            read_options = dict(options, source=runtime.source, control=control,
+                                calculate_recent=calculate if use_dg else None)
             if use_dg and end_date is not None:
-                page = query.read_page(None, source=runtime.source, control=control, **options)
+                page = query.read_page(None, **read_options)
             else:
                 with open_stock_daily_read_session(get_session_factory(), control) as session:
-                    page = query.read_page(session, source=runtime.source, control=control, **options)
+                    page = query.read_page(session, **read_options)
             control.check_active()
             response, missing = query.query_period_kline(
-                page, ts_code=ts_code, period=period, start_date=start_date, limit=limit, calculate=calculate,
+                page, ts_code=ts_code, period=period, start_date=start_date, limit=limit,
+                calculate=None if use_dg else calculate,
             )
             if project is not None:
                 response = project(response, missing)

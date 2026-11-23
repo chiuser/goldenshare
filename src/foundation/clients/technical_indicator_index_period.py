@@ -114,10 +114,11 @@ def describe_index_period(requirement, context, targets, preceding, source_first
                              min(positions[0], period_request_start(requirement)))
         calendar_end = min(requirement.end, source_latest[1])
         context.source_state = IndexPeriodDates(keys, calendar_start, calendar_end, file_version)
+    use_dg = requirement.target.backend == "dg"
     return SourceDescription(
         source_id=requirement.target.dataset_id, contract_version="1", input_adjustment="none",
         basis_rule=None, basis_date=None, basis_value=None, price_unit="index_point",
-        volume_unit="lot" if path else "share", amount_unit="thousand_CNY" if path else "CNY",
+        volume_unit="lot" if use_dg else "share", amount_unit="thousand_CNY" if use_dg else "CNY",
         timezone="Asia/Shanghai", period_label_rule="period_start", history_origin_rule="earliest_available_formal_row",
         available_through=source_latest[1] if source_latest else None, supports_partial_period=True,
         supported_adjustment_paths=(("none", "none"),), converted=False, selection=selection,

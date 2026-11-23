@@ -21,6 +21,7 @@ class SourceReadContext:
         self._basis_row = None
         self._pg_session = None
         self.source_state: object | None = None
+        self.retained_price_batches: tuple | None = None
 
     def sql_template(self, name: str, *, control) -> str:
         from ..calculation.sql_templates import load_sql_templates
@@ -44,6 +45,7 @@ class SourceReadContext:
         self._sql_texts.clear()
         self._basis_row = None
         self.source_state = None
+        self.retained_price_batches = None
 
     def open_postgres(self, session_factory):
         if self._pg_session is None:

@@ -541,6 +541,105 @@ class LakePriceLocator:
                     row["end_date"] = None
         return row
 
+    def _describe_recent_index_period(self):
+        request, config = self.requirement, self.context.config
+        require_index_period(request, "dg")
+        self._root = self.source._root()
+        path = self.source._safe_path(self._root, Path(request.target.location["path_template"]))
+        version = _file_version(path)
+        self.context.record_file(path, version[2])
+        physical, _ = index_period_projection(request)
+        price_columns = physical[len(INDEX_PERIOD_KEYS):]
+        auxiliary = ("pre_close", "change_amount", "pct_chg") if request.include_source_facts else ()
+        projection = "".join(f", {column}" for column in (*price_columns, *auxiliary))
+        table = "ti_index_period_rows"
+        self._tables.append(table)
+        self.executor.execute(SqlStep("materialize_index_period", f"""
+            CREATE TEMP TABLE {table} AS
+            SELECT period_start_date, CAST(date_trunc(?, period_start_date) AS DATE) AS period_start,
+                   trade_date{projection}
+            FROM read_parquet(?, hive_partitioning=false)
+            WHERE ts_code = ?
+        """, (request.period, str(path), request.ts_code), (), (table,), 0))
+        if _file_version(path) != version:
+            raise SourceReadError("The index period file changed during the request")
+
+        read_error = "The retained index period rows could not be read"
+        ((source_count, distinct_count, first_period, source_first, source_latest),) = self._read_rows(
+            f"""SELECT count(*), count(DISTINCT period_start), min(period_start),
+                       arg_min(row(period_start_date, trade_date), period_start),
+                       arg_max(row(period_start_date, trade_date), period_start)
+                FROM {table}""",
+            (), error_message=read_error,
+        )
+        self.context.record_locator_rows(source_count)
+        if source_count != distinct_count:
+            raise SourceContractError("Index period source has invalid or duplicate period keys")
+        if source_first is not None:
+            check_period_key(source_first, request.period)
+            check_period_key(source_latest, request.period)
+        lower = period_bounds(request.start, request.period)[0] if request.start is not None else None
+        upper = period_bounds(request.end, request.period)[0]
+        candidates = self._read_rows(
+            f"""SELECT * FROM {table}
+                WHERE period_start <= ? AND trade_date <= ?
+                  AND (?::DATE IS NULL OR (period_start >= ?::DATE AND trade_date >= ?::DATE))
+                ORDER BY period_start DESC
+                LIMIT ?""",
+            (upper, request.end, request.start, lower, request.start, request.latest_rows + 1),
+            error_message=read_error, as_arrow=True,
+        )
+
+        targets = candidates.slice(0, request.latest_rows)
+        preceding = candidates.slice(targets.num_rows)
+        older = preceding["trade_date"][0].as_py() if preceding.num_rows else None
+        effective_request = request
+        pa, _, _, _ = _arrow()
+        if targets.num_rows:
+            history_limit, _ = preceding_limit(config, request, targets.num_rows)
+            # Keep one further row as evidence when the source origin has not been reached.
+            before = (preceding["period_start"][0] if preceding.num_rows else targets["period_start"][-1]).as_py()
+            earlier = self._read_rows(
+                f"""SELECT * FROM {table} WHERE period_start < ?
+                    ORDER BY period_start DESC LIMIT ?""",
+                (before, history_limit + 1 - preceding.num_rows),
+                error_message=read_error, as_arrow=True,
+            )
+            preceding = pa.concat_tables((preceding, earlier))
+            effective_request = replace(
+                request, start=targets["period_start"][-1].as_py(), end=targets["trade_date"][0].as_py(),
+            )
+        self.executor.drop_table(table)
+        self._tables.remove(table)
+
+        def keys(rows):
+            return tuple(zip(reversed(rows["period_start_date"].to_pylist()),
+                             reversed(rows["trade_date"].to_pylist()), strict=True))
+
+        description = describe_index_period(
+            effective_request, self.context, keys(targets), keys(preceding), source_first, source_latest,
+        )
+        facts = SourceReadFacts()
+        if request.include_source_facts:
+            target_facts = targets.select(("period_start", "trade_date", *auxiliary)).to_pylist()
+            facts = SourceReadFacts(
+                target_bars=tuple(
+                    TargetBarFacts(row["period_start"], row["trade_date"],
+                                   *(float(row[name]) if row[name] is not None else None for name in auxiliary))
+                    for row in reversed(target_facts)
+                ),
+                previous_target_date=older,
+                first_available_period=first_period,
+                latest_available_date=source_latest[1] if source_latest is not None else None,
+            )
+        if targets.num_rows:
+            records = pa.concat_tables((targets, preceding.slice(0, description.selection.preceding_rows)))
+            # Feed the same dates and price columns to the existing checked stream.
+            positions = pa.array(range(records.num_rows - 1, -1, -1), type=pa.int32())
+            batches = records.select(physical[1:]).take(positions).to_batches(max_chunksize=request.batch_rows)
+            self.context.retained_price_batches = tuple(batches)
+        return replace(description, source_projection=physical[1:], source_facts=facts)
+
     def _describe_index_period(self):
         request, config = self.requirement, self.context.config
         require_index_period(request, "dg")
@@ -621,12 +720,18 @@ class LakePriceLocator:
         self.context.record_locator_rows(len(rows))
         return rows
 
-    def _read_rows(self, sql, bindings, *, error_message):
+    def _read_rows(self, sql, bindings, *, error_message, as_arrow=False):
         from duckdb import Error, OutOfMemoryException
 
         self.control.check_active()
         try:
-            rows = self.executor.connection.execute(sql, bindings).fetchall()
+            cursor = self.executor.connection.execute(sql, bindings)
+            if as_arrow:
+                # Keep the Arrow table read available on the supported DuckDB 1.3 runtime.
+                read_arrow_table = getattr(cursor, "to_arrow_table", None) or cursor.fetch_arrow_table
+                rows = read_arrow_table()
+            else:
+                rows = cursor.fetchall()
         except OutOfMemoryException as exc:
             self.control.check_active()
             raise ResourceLimitError("DuckDB query memory limit was exceeded") from exc
@@ -751,6 +856,8 @@ class LakePriceLocator:
             if request.target.dataset_id in STOCK_PERIOD_DATASETS.values():
                 return self._describe_stock_period()
             if request.period in INDEX_PERIOD_DATASETS:
+                if request.latest_rows is not None:
+                    return self._describe_recent_index_period()
                 return self._describe_index_period()
             minute = request.period.endswith("m")
             if minute:

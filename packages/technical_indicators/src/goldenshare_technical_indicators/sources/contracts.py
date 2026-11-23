@@ -68,6 +68,8 @@ class SourceReadFacts:
     target_bars: tuple[TargetBarFacts, ...] = ()
     previous_target_date: date | None = None
     calendar_days: tuple[CalendarDayFacts, ...] = ()
+    first_available_period: date | None = None
+    latest_available_date: date | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -186,9 +186,10 @@ def test_stage_a_enforces_item_limit_and_leaves_target_count_to_reader():
         parser.parse(replace(request, calculations=(MA3, MA3, MA3)))
 
 
-def test_latest_rows_uses_dg_daily_and_the_configured_limit():
+def test_latest_rows_uses_enabled_dg_datasets_and_the_configured_limit():
     registry = create_builtin_registry()
-    cfg = replace(config("dg", enable("stock_daily", "index_daily", backend="dg")), max_output_rows=2)
+    locations = enable("stock_daily", "index_daily", "index_weekly", "index_monthly", backend="dg")
+    cfg = replace(config("dg", locations), max_output_rows=2)
     parser = CalculationRequestParser(cfg, registry)
     request = stock(start=None, latest_rows=2)
     history = HistoryRequirement(frozenset({"close"}), 2, 2, False, (), "MA3")
@@ -197,8 +198,10 @@ def test_latest_rows_uses_dg_daily_and_the_configured_limit():
         None, date(2026, 11, 17), 2, 2,
     )
     assert parser.parse(index(period="day", start=None, latest_rows=2)).target.dataset_id == "index_daily"
+    assert parser.parse(index(period="week", start=None, latest_rows=2)).target.dataset_id == "index_weekly"
+    assert parser.parse(index(period="month", start=None, latest_rows=2)).target.dataset_id == "index_monthly"
     with pytest.raises(ResourceLimitError, match="max_output_rows"):
         parser.parse(replace(request, latest_rows=3))
     prod = CalculationRequestParser(config("prod_pg", enable("stock_daily", backend="prod_pg")), registry)
-    with pytest.raises(SourceUnsupportedError, match="DG stock and index daily"):
+    with pytest.raises(SourceUnsupportedError, match="selected DG market datasets"):
         prod.parse(request)

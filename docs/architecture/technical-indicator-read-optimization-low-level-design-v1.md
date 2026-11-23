@@ -1,6 +1,6 @@
 # 技术指标算子库读取优化 LLD v1
 
-**2026-11-23｜阶段 1、2 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。已实施部分见[阶段 1 复核](#stage-1-read-acceptance)和[阶段 2 复核](#stage-2-read-acceptance)，后续阶段为开发设计。
+**2026-11-23｜阶段 1 至 3 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。已实施部分见[阶段 1 复核](#stage-1-read-acceptance)、[阶段 2 复核](#stage-2-read-acceptance)和[阶段 3 复核](#stage-3-read-acceptance)，后续阶段为开发设计。
 
 ## 1. 交付边界
 
@@ -39,7 +39,7 @@ class CalculationRequest:
 
 ### 2.2 本次行情如何交给业务
 
-以下内部结果定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。阶段 1 实现股票日线用到的目标行情字段与续页日期，阶段 2 增加指数日线的日历记录。指数周月线字段在阶段 3 引入。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
+以下内部结果定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。阶段 1 实现股票日线用到的目标行情字段与续页日期，阶段 2 增加指数日线的日历记录，阶段 3 增加指数周月线的最早周期和最新实际截止日。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
 
 ~~~python
 @dataclass(frozen=True, slots=True)
@@ -155,7 +155,7 @@ ORDER BY trade_date
 
 [DATASET_LOCATIONS](../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L41) 提供 DG 单文件 `silver/index_weekly/full/part-000.parquet` 和 `silver/index_monthly/full/part-000.parquet`。两种日期均为 `DATE`。`period_start_date` 是来源保存的周期起点，可以是节假日后的第一个开市日。按其所在自然周或月计算 `period_start`。`trade_date` 是实际行情截止日。保持现行列类型。四价、昨收、涨跌额为 `DECIMAL(18,4)`，涨幅为 `DECIMAL(12,4)`，成交量 `DECIMAL(20,6)`、成交额 `DECIMAL(20,7)`。单位继续沿用 [index_period_projection()](../../src/foundation/clients/technical_indicator_index_period.py#L73) 和现行来源说明。
 
-在 `LakePriceLocator._describe_index_period()` 增加单次选取并保留行情的读取方法。对按根数的业务请求，在当前工作连接中投影单只指数的必要列，结果保留在请求私有临时表。临时表受现行 DuckDB 内存预算约束。在阶段验收对照旧实现的单标的文件读取和内存，确认只保存一只指数的投影列。输入根数上限应用于实际交给算子的目标和预热，表内其余记录用于同次确定最早和最新成品。若指数成品投影使用的资源超出现有预算，应调整读法再验收，不能使用截断的成品推断边界。
+[`LakePriceLocator._describe_recent_index_period()`](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L544) 处理按根数的 DG 请求，在当前工作连接中投影单只指数的必要列，结果保留在请求私有临时表。临时表受现行 DuckDB 内存预算约束。在阶段验收对照旧实现的单标的文件读取和内存，确认只保存一只指数的投影列。输入根数上限应用于实际交给算子的目标和预热，表内其余记录用于同次确定最早和最新成品。若指数成品投影使用的资源超出现有预算，应调整读法再验收，不能使用截断的成品推断边界。
 
 ~~~sql
 -- lld: dg-period-materialize
@@ -169,7 +169,9 @@ WHERE ts_code = ?
 ~~~sql
 -- lld: dg-period-bounds
 SELECT count(*) AS source_count, count(DISTINCT period_start) AS distinct_periods,
-       min(period_start) AS first_period, arg_max(trade_date, period_start) AS latest_cutoff
+       min(period_start) AS first_period,
+       arg_min(row(period_start_date, trade_date), period_start) AS first_source_dates,
+       arg_max(row(period_start_date, trade_date), period_start) AS latest_source_dates
 FROM ti_index_period_rows
 ~~~
 
@@ -191,7 +193,7 @@ LIMIT ?
 ~~~
 
 - 成品 SQL 第一项绑定已校验的 `week` 或 `month`，其次绑定一个配置文件路径和指数代码。边界查询要求周期键有效且 `source_count = distinct_periods`。目标 SQL 前两个参数分别绑定截止日所属自然周期的起始日和截止日；有 `startDate` 时绑定原请求的起始日和相应周期边界，复用旧选页对于首、尾周期的日期规则。`LIMIT=N+1`，第 `N+1` 根如存在，仅提供其实际 `trade_date` 作为下一页截止事实。需要预热时，若目标 SQL 已读到第 N+1 根，直接将该记录用作第一根前置，前置 SQL 的排他边界使用该记录的周期起点，限量减去已取得的一根。否则前置 SQL 的边界使用首个目标周期起点。源起点、有效预热和历史结束继续用现行 `preceding_limit()`。如需要用额外一行判断源起点，结果只参与选择。
-- `first_period` 和 `latest_cutoff` 来自同次成品，不另查文件。保留现有周期内部日期、重复键、与日历核对、当期只发布较晚版本的判断。文件版本以现有 `_file_version()` 做同一快照的读前和读后核对。取数结束后关闭临时表，交给行情流的是已选择、升序的目标与前置记录。保留明确定义的原起止请求和其超限、当期版本错误语义。
+- `first_period` 和最新实际截止日来自同次成品。边界 SQL 同时返回最早和最新一根的原始日期对，沿用 `check_period_key()` 校验。以选中行情的实际起止日和预热范围复用日历校验。文件版本以现有 `_file_version()` 做同一快照的读前和读后核对。取数结束后关闭临时表，交给行情流的是已选择、升序的 Arrow 批次。单位按数据来源确定，DG 成品为手、千元，算子库转换为股、元，页面接口转回手、千元。明确定义起止的原调用仍走原读取方式和原超限、当期版本错误语义。
 - *状态对账。* 有目标时按 `result.source_as_of[-1]` 与业务期望日比较。选中截止日更早且源最新截止也更早时，沿用旧延迟判断，允许显示已有历史。若源已有期望日及之后的发布而所请求的范围内应有记录仍缺失，沿用旧错误。无目标时按最早周期和请求下界判断历史空页，沿用 [read_page()](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py#L63) 的同一条件。新增读法用同次事实替代 `index_period_boundary()` 的额外文件读取。
 
 ### 5.2 业务接线
@@ -300,3 +302,23 @@ LIMIT %s
 - 上证综指与深证成指每页提交 1,000 个不同日线文件给行情 SQL。北证 50 首屏与续页分别为 950、450 个，中证 A500 为 523、23 个。上述数量是查询路径及对应行情行数，未测操作系统打开文件的次数。整轮隔离应用进程峰值约 446 → 458 MiB，含 Web、Arrow、Python 和 DuckDB。
 - 隔离样本读取 3 根行情和 4 条日历记录后取消，约 0.9 毫秒释放资源。用相同参数重试约 13 毫秒，返回两根目标，使用一根预热。
 - 259 项相关后端回归通过，涵盖空页、覆盖期内缺行情、缺收盘、部分缺失、默认日期、真实数据源接入，以及股票、指数周月线、指数分钟线和隔离 PostgreSQL 的既有用例。27 项前端控制器、分页请求及字段映射测试通过。CodeGraph 核对了普通与调试入口、算子库读数、回包组装和前端续页消费者。范围限定为阶段 2 的本地指数日 K。
+
+<a id="stage-3-read-acceptance"></a>
+
+## 10. 阶段 3 实施与复核
+
+2026-11-23 在同机隔离 HTTP 应用中用上证综指 DG 成品，对比阶段 2 提交 `bf7c58c51` 与本次实现。两版依次发送同一组请求，系统文件缓存未清空。正常请求的行情日期、四价、量额、指标值及空值、游标和状态逐字段一致，响应生成时间随请求变化。
+
+| 请求 | 根数 | 末根实际截止日 | 优化前 → 后耗时 |
+| --- | ---: | --- | ---: |
+| 周线首屏 | 500 | 2026-11-23 | 240 → 232 毫秒 |
+| 周线续页 | 500 | 2017-02-17 | 159 → 166 毫秒 |
+| 月线首屏，历史到头 | 425 | 2026-11-23 | 153 → 152 毫秒 |
+| 月线首屏，显式 100 根 | 100 | 2026-11-23 | 111 → 109 毫秒 |
+| 月线续页，显式 100 根 | 100 | 2018-07-31 | 107 → 104 毫秒 |
+| 国庆短周，按实际起止日 | 1 | 2026-10-09 | 84 → 90 毫秒 |
+
+- 周线和月线续页沿用前页实际游标，月线 425 根短页返回空游标。国庆短周从源的 10 月 8 日开始，归入 10 月 5 日的自然周，仍展示 10 月 9 日的实际截止。月线文件只有 11 月 23 日的版本时，请求截至 11 月 20 日仍返回 `ID_QUERY_FAILED`，错误内容一致。该请求本次耗时约 22 → 101 毫秒，新流程先计算已选历史行情，再由业务根据最新发布日判定错误。
+- 上述每次请求只执行一次源文件投影。选页、边界和预热都从同一张请求内临时表读取。业务预选页、另查周期边界和重新打开文件交付行情均为零次。行情输入保持 DG 的手、千元口径，算子库转换为股、元，HTTP 转回手、千元。正常请求耗时总体持平。两轮隔离应用进程峰值约 419 → 411 MiB。
+- 取消样本在一个文件的 3 根目标指数行情写入临时表后停止。约 0.9 毫秒释放资源，重试约 18 毫秒，得到两根目标和一根预热。回归同时验证了选页读取失败及取消时删除临时表。
+- 259 项后端回归、27 项前端测试通过。覆盖既有时期范围、隔离 PostgreSQL、默认截止日、涨跌和量额单位、空页、延迟、期内缺根、节假日周期及续页。CodeGraph 复核普通与调试入口、成品和交易日历、业务组装及前端分页消费。真实样本验收使用正式 DG 文件和隔离 HTTP 应用。
