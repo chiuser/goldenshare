@@ -1,4 +1,4 @@
-"""Find one request's price range using bounded key batches, never OHLC values."""
+"""Locate a bounded price range and retain selected DG stock daily rows."""
 
 from __future__ import annotations
 
@@ -26,7 +26,7 @@ from ..technical_indicator_index_period import (
     preceding_limit, require_index_period,
 )
 from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA
-from .technical_indicator_price_source import _arrow, _file_version, _matches_type
+from .technical_indicator_price_source import _arrow, _file_version, _matches_type, _stock_batches
 
 
 _INDEX_PERIOD_SCHEMA = (
@@ -46,6 +46,7 @@ class _Group:
     last: object
     price_schema_error: str | None
     price_projected_bytes: int
+    price_batch: object | None = None
 
 
 class LakePriceLocator:
@@ -270,6 +271,30 @@ class LakePriceLocator:
             self._close_iteration(iterator, primary)
         return _Group(path, index, rows, targets, first, last, price_schema_error, price_projected_bytes)
 
+    def _read_stock_daily_group(self, path, index, keys, prices, *, schema_error, projected_bytes):
+        import pyarrow.compute as pc
+
+        # A bad price projection matters only if this group is selected. Locate
+        # by its keys without reading unsafe columns in that case.
+        read_prices = (schema_error is None
+                       and projected_bytes <= self.source._config.max_projected_row_group_bytes)
+        columns = prices if read_prices else keys
+        partition_day = date.fromisoformat(path.parent.name.removeprefix("trade_date="))
+        rows, price_batch = 0, None
+        for batch in _stock_batches(self._metadata_reader, columns, self.requirement.ts_code, self.control,
+                                    batch_rows=self.requirement.batch_rows, row_groups=[index]):
+            self.context.record_locator_rows(batch.num_rows)
+            if not pc.all(pc.fill_null(pc.equal(batch.column("trade_date"), partition_day), False)).as_py():
+                raise SourceContractError("Source prices do not match their partition date")
+            rows += batch.num_rows
+            if rows > 1:
+                raise SourceContractError("Duplicate stock daily positions in the partition")
+            if read_prices:
+                price_batch = batch
+        position = partition_day if rows else None
+        targets = rows if partition_day >= self.requirement.start else 0
+        return _Group(path, index, rows, targets, position, position, schema_error, projected_bytes, price_batch)
+
     def _close_iteration(self, iterator, primary):
         try:
             iterator.close()
@@ -319,6 +344,7 @@ class LakePriceLocator:
         maximum = self.source._config.max_input_rows
         output_maximum = self.source._config.max_output_rows
         daily = self.requirement.period == "day"
+        stock_daily = self.requirement.target.dataset_id == "stock_daily"
         first_day = self.requirement.start if daily else self.requirement.start.date()
         first_target_partition = f"trade_date={first_day}"
         groups, rows, targets = [], 0, 0
@@ -342,8 +368,12 @@ class LakePriceLocator:
                 price_projected_bytes = sum(group_metadata.column(i).total_uncompressed_size
                     for i in range(group_metadata.num_columns)
                     if group_metadata.column(i).path_in_schema in price_projection)
-                group = self._count_group(path, index, projection, standard,
-                    price_schema_error=price_schema_error, price_projected_bytes=price_projected_bytes)
+                if stock_daily:
+                    group = self._read_stock_daily_group(path, index, projection, price_projection,
+                        schema_error=price_schema_error, projected_bytes=price_projected_bytes)
+                else:
+                    group = self._count_group(path, index, projection, standard,
+                        price_schema_error=price_schema_error, price_projected_bytes=price_projected_bytes)
                 if group.rows:
                     if not daily and groups and group.last >= groups[-1].first:
                         raise SourceContractError("DG index minute row groups overlap or are out of order")
@@ -516,10 +546,14 @@ class LakePriceLocator:
             paths = self.source._partition_paths(self._root, request, self.control)
             projection, standard = project(frozenset())
             price_projection, price_standard = project(request.history.fields)
-            self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
+            stock_daily = request.target.dataset_id == "stock_daily"
+            if not stock_daily:
+                self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
             paths, selection, groups = self._select(paths, schema, projection, standard,
                                                     price_projection=price_projection)
             self._validate_selected_price_groups(groups)
+            if stock_daily and selection.target_rows:
+                self.context.source_state = tuple(group.price_batch for group in groups)
             converted = request.target_adjustment == "qfq"
             factor_paths = ()
             if converted and selection.target_rows:

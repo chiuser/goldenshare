@@ -72,6 +72,20 @@ def _matches_type(pa, actual, expected):
     return actual == types[expected]
 
 
+def _stock_batches(reader, columns, ts_code, control, *, batch_rows, row_groups=None):
+    """Read one symbol from an already-open Parquet reader."""
+    import pyarrow.compute as pc
+
+    control.check_active()
+    for batch in reader.iter_batches(batch_size=batch_rows, row_groups=row_groups,
+                                     columns=columns, use_threads=False):
+        control.check_active()
+        selected = batch.filter(pc.equal(batch.column("ts_code"), ts_code))
+        if selected.num_rows:
+            yield selected.select(columns)
+        control.check_active()
+
+
 class LakeTechnicalIndicatorPriceSource:
     """Shareable immutable configuration, with no mutable request/read state."""
 
@@ -287,6 +301,15 @@ class LakeTechnicalIndicatorPriceSource:
                                     if footer.column(i).path_in_schema in columns)
                     if projected > self._config.max_projected_row_group_bytes:
                         raise ResourceLimitError("Projected stock fact row group exceeds its byte limit")
+                if identifier == "stock_suspend_daily":
+                    ((_, _, ts_code),) = filters
+                    projected_columns = ("ts_code", *columns)
+                    for name in projected_columns:
+                        source.schema_arrow.field(name)
+                    return [tuple(row[name] for name in columns)
+                            for batch in _stock_batches(source, projected_columns, ts_code, control,
+                                                        batch_rows=self._config.batch_rows)
+                            for row in batch.to_pylist()]
             table = pq.read_table(path, columns=list(columns), filters=filters, partitioning=None)
             control.check_active()
             return [tuple(row[name] for name in columns) for row in table.to_pylist()]
@@ -401,6 +424,12 @@ class _LakePriceStream:
         self._pending_batch = self._current_path = None
         self._exhausted = self._closed = self._failed = False
         self._delivered = 0
+        if requirement.target.dataset_id == "stock_daily":
+            pa, _, _, _ = _arrow()
+            batches = read_context.source_state
+            self._reader = pa.RecordBatchReader.from_batches(batches[0].schema, batches)
+            self._files = iter(())
+            read_context.source_state = None
 
     def _check_period_file(self):
         if self._period_dates is not None and (

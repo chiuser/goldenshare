@@ -1,9 +1,11 @@
 """Stock daily contracts with real Parquet reads and independently computed values."""
 
+from collections import Counter
 from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import replace
 from datetime import date, datetime, timezone
+from pathlib import Path
 from time import monotonic
 
 import pyarrow as pa
@@ -20,7 +22,9 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
 from goldenshare_technical_indicators.sources.read_context import SourceReadContext
-from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
+from src.foundation.clients.local_lake.technical_indicator_price_source import (
+    LakeTechnicalIndicatorPriceSource, _LakePriceStream,
+)
 from src.foundation.clients.technical_indicator_stock_daily import full_day_suspension
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 
@@ -119,6 +123,58 @@ def test_shared_input_units_and_prewarm_with_two_target_rows_at_the_limit(tmp_pa
     with pytest.raises(ResourceLimitError, match="max_output_rows"):
         with _read(tmp_path, FRI, TUE):
             pytest.fail("Excess target rows must never be truncated")
+
+
+def test_dg_stock_daily_and_suspension_each_open_one_reader(tmp_path, monkeypatch):
+    _dg(tmp_path, {FRI: [10], MON: [20], TUE: [30]})
+    opened = Counter()
+    stock_datasets = {"stock_daily", "stock_suspend_daily"}
+
+    def record(path):
+        path = Path(path)
+        if path.parent.parent.name in stock_datasets:
+            opened[path] += 1
+
+    original_parquet, original_table = pq.ParquetFile, pq.read_table
+    original_open = _LakePriceStream._open_file
+
+    def parquet_file(path, *args, **kwargs):
+        record(path)
+        return original_parquet(path, *args, **kwargs)
+
+    def read_table(path, *args, **kwargs):
+        record(path)
+        return original_table(path, *args, **kwargs)
+
+    def open_stream_file(stream, path):
+        record(path)
+        return original_open(stream, path)
+
+    monkeypatch.setattr(pq, "ParquetFile", parquet_file)
+    monkeypatch.setattr(pq, "read_table", read_table)
+    monkeypatch.setattr(_LakePriceStream, "_open_file", open_stream_file)
+
+    with _read(tmp_path, MON, TUE, calculations=(PRICE, MA2)) as (session, connection, context, _):
+        assert [window[-1][4] for window in _windows(session, connection)] == [10, 20, 30]
+        assert context.source_rows == 3
+    assert opened == {tmp_path / f"silver/quote/{dataset}/trade_date={day}/part-000.parquet": 1
+                      for dataset in stock_datasets for day in (FRI, MON, TUE)}
+
+
+def test_dg_stock_daily_validates_price_schema_for_selected_rows(tmp_path):
+    _dg(tmp_path, {MON: [20], TUE: [30]}, suspensions={TUE: [("S", None)]})
+    path = tmp_path / f"silver/quote/stock_daily/trade_date={TUE}/part-000.parquet"
+    original = pq.read_table(path, partitioning=None)
+    close_column = original.schema.get_field_index("close")
+    with_bad_price = original.set_column(close_column, "close", pa.array(["invalid"], type=pa.string()))
+    pq.write_table(with_bad_price.set_column(0, "ts_code", pa.array(["600000.SH"])), path)
+    with _read(tmp_path, MON, TUE) as (session, connection, _, _):
+        assert [window[-1][0] for window in _windows(session, connection)] == [MON]
+
+    pq.write_table(with_bad_price, path)
+    with pytest.raises(SourceContractError, match="price field.*close"):
+        with _read(tmp_path, MON, TUE):
+            pytest.fail("The selected price column must match its declared type")
 
 
 def test_no_target_stops_before_reading_auxiliary_facts(tmp_path):
