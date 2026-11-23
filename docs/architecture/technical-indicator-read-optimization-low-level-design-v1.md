@@ -1,6 +1,6 @@
 # 技术指标算子库读取优化 LLD v1
 
-**2026-11-23｜阶段 1 至 3 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。已实施部分见[阶段 1 复核](#stage-1-read-acceptance)、[阶段 2 复核](#stage-2-read-acceptance)和[阶段 3 复核](#stage-3-read-acceptance)，后续阶段为开发设计。
+**2026-11-23｜阶段 1 至 4 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。已实施部分见[阶段 1 复核](#stage-1-read-acceptance)、[阶段 2 复核](#stage-2-read-acceptance)、[阶段 3 复核](#stage-3-read-acceptance)和[阶段 4 复核](#stage-4-read-acceptance)。阶段 5 为 Prod 评估设计。
 
 ## 1. 交付边界
 
@@ -206,13 +206,12 @@ LIMIT ?
 
 路径为 `gold/quote/index_mins/freq=5/trade_date={trade_date}/part-000.parquet`。源 `trade_time` 为无时区的上海本地 `TIMESTAMP`。SQL 参数在进入适配层后从上海时间转换为本地墙上时间，行返回内核时按当前约定恢复时区。指数代码支持范围、单位采用 [index_minute_volume_unit()](../../src/foundation/clients/technical_indicator_index_minutes.py#L8)。
 
-将 [LakePriceLocator._count_group()](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L245) 与边界扫描、随后行情重读，在 DG 指数 5 分钟分支合并为基于实际记录的选择。先在请求区间确认目标根数并读取标准投影。区间模式保留 `output_limit+1` 检测超限。按首根时间向前取前置区间。候选可以按天分批，边界日晚于结束时间的记录过滤，首日的前置部分和目标部分需要同一文件时复用本次结果。尚未读过的更早分区按日倒序补读。使用请求上下界并检查批间时间递增、日期与分区日期、`freq=5`、重复时间。源已按现行规则处理开盘 K 线，DG 直接使用 09:35 业务行，09:30 行违反合同。缺失分钟照常按实际记录计算。
+[`LakePriceLocator._select_index_minutes()`](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L702) 将区间选择、边界定位和行情读取合在一起。候选按交易日倒序查询，每个分区查询一次。目标开始日同时取目标和该日可用的预热，仍缺预热时才查询更早分区。按请求上下界核对目标根数，超限报错。检查批间时间、分区日期、`freq=5` 和重复时间。源已按现行规则处理开盘 K 线，DG 直接使用 09:35 业务行，09:30 行违反合同。缺失分钟照常按实际记录计算。
 
 ~~~sql
 -- lld: dg-minute-batch
 WITH selected AS (
-    SELECT filename AS source_path,
-           CAST(regexp_extract(filename, '/trade_date=([0-9-]{10})/', 1) AS DATE) AS partition_day,
+    SELECT CAST(regexp_extract(filename, '/trade_date=([0-9-]{10})/', 1) AS DATE) AS partition_day,
            trade_date, trade_time, freq, open, high, low, close, vol, amount,
            count(*) OVER (PARTITION BY trade_time) AS position_rows
     FROM read_parquet(?, hive_partitioning=false, filename=true)
@@ -223,7 +222,7 @@ ORDER BY trade_time DESC
 LIMIT ?
 ~~~
 
-Python 根据 `start` 将同批结果划分为目标和前置，核对目标超限及前置需求，源校验应用于候选读取范围内递交的条目。候选文件大小按 §3 的资源规则逐批核算。查询行数上限使用本次仍需的输入容量加一作为探测界限。某批触及该上限时，用已返回的实际记录判定目标是否超限、预热是否已足或原点无法容纳。处理下一批之前必须确认本批已耗尽或本次请求已足，否则不能跳过尚未输出的旧记录。选中结果进入同一行情输入会话，省去时间窗口的二次扫描。沿用 [5 分钟真实源与隔离测试](../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py)。
+SQL 投影中的价格与量额字段由本次指标要求确定。Python 按 `start` 将同批结果划分为目标和预热。目标开始日之后的分区最多查询剩余目标容量与输入容量较小值再加一。目标开始日最多查剩余输入容量再加一，以便同一次查询同时覆盖两段。更早分区最多查剩余预热容量再加一。额外一行用于判断超限或是否还有更早行情。候选文件按 §3 核算，已有 DuckDB 内存及时限配置继续生效。选中的行情按时间升序交给现有输入会话，计算阶段直接消费保留的批次。 [跨日预热与读取回归](../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py#L131)
 
 ### 6.2 Prod 只读对照
 
@@ -322,3 +321,20 @@ LIMIT %s
 - 上述每次请求只执行一次源文件投影。选页、边界和预热都从同一张请求内临时表读取。业务预选页、另查周期边界和重新打开文件交付行情均为零次。行情输入保持 DG 的手、千元口径，算子库转换为股、元，HTTP 转回手、千元。正常请求耗时总体持平。两轮隔离应用进程峰值约 419 → 411 MiB。
 - 取消样本在一个文件的 3 根目标指数行情写入临时表后停止。约 0.9 毫秒释放资源，重试约 18 毫秒，得到两根目标和一根预热。回归同时验证了选页读取失败及取消时删除临时表。
 - 259 项后端回归、27 项前端测试通过。覆盖既有时期范围、隔离 PostgreSQL、默认截止日、涨跌和量额单位、空页、延迟、期内缺根、节假日周期及续页。CodeGraph 复核普通与调试入口、成品和交易日历、业务组装及前端分页消费。真实样本验收使用正式 DG 文件和隔离 HTTP 应用。
+
+<a id="stage-4-read-acceptance"></a>
+
+## 11. 阶段 4 实施与独立复核
+
+2026-11-23 使用本地 Web 的算子装配配置，从公开 `TechnicalIndicatorService.calculate()` 调用算子库。对照改动前的 `51692eaf7`、本次结果，以及直接查询的 2026-11-16 和 17 日正式 DG 指数 5 分钟行情。样本为上证综指 `000001.SH`、深证成指 `399001.SZ`，请求 `price` 和 MA(2)。两只指数的时间、目标和预热边界、四价、量额及 MA 逐根一致。09:35 取 DG 已归并的 K 线，截止 09:30 时两版都返回 `数据缺失`。上证综指的源成交量从手换算为股，深证成指源成交量直接使用股，两者成交额均为元。
+
+| 11 月 17 日目标区间（上海时间） | 目标与预热 | 每只指数的读取步骤，前 → 后 | 定位返回行数，前 → 后 | 用时，前 → 后（毫秒） |
+| --- | --- | ---: | ---: | --- |
+| 09:40–09:45 | 2 根目标，同日 09:35 预热 | 4 → 1 | 6 → 3 | 上证 24.4 → 20.0，深证 22.8 → 18.6 |
+| 09:35–09:45 | 3 根目标，前一交易日 15:00 预热 | 6 → 2 | 51 → 5 | 上证 70.5 → 28.0，深证 25.1 → 25.4 |
+| 09:35–15:00 | 48 根目标，前一交易日 15:00 预热 | 6 → 2 | 96 → 50 | 上证 36.8 → 26.5，深证 30.1 → 27.8 |
+
+- 旧版计数包括行情文件元数据读取、时间定位或边界重扫、行情列读取。新版每个候选文件只提交一次 DuckDB 查询，输入会话直接使用这份结果。表中计的是代码中的读取步骤，定位行数是返回给定位器的记录。操作系统打开文件次数和物理读取字节数未测量。跨日查询额外读到的那根历史记录用于判断是否到源起点，不计入算子的输入行数。用时为单次样本，两版依次运行，系统文件缓存未清空。各轮隔离 Python 进程峰值约 258–266 MiB，整日样本两版均约 258 MiB。
+- 在上证综指跨日样本的第一条查询取得 3 根目标后取消，未查询更早文件，约 0.9 毫秒释放资源。同参数重试约 20.6 毫秒，重新查询两个分区，得到 3 根目标和 1 根预热。
+- 上证综指整日样本在目标上限为 48 根时完整返回，上限改为 47 根时按原分类报超限。区间从 11 月 16 日最后一根到 11 月 17 日第一根时，两根均返回，确认跨分区的起止时间仍包含在目标区间内。
+- 260 项相关后端回归通过。新增回归验证跨日预热使用前一交易日行情，计算时不再打开 Parquet，且不继续查询第三个交易日。既有回归核对开盘规则、正常分钟间隔、上限、空目标、重复时间、未启用的指数，以及其他既有读数路径。CodeGraph 核对算子入口、DG 定位器、现有行情流及指数分钟详情入口。验收范围为本地算子库调用，指数分钟详情仍从原有 DG 成品读取。

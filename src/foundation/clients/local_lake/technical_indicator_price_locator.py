@@ -1,4 +1,4 @@
-"""Locate a bounded price range and retain selected DG stock rows."""
+"""Locate bounded price ranges and retain selected DG price rows."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ from ..technical_indicator_index_period import (
     preceding_limit, require_index_period,
 )
 from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, describe_stock_period, require_stock_period
-from .technical_indicator_contracts import DAILY_SCHEMA, MINUTE_SCHEMA, PERIOD_SCHEMA
+from .technical_indicator_contracts import DAILY_SCHEMA, PERIOD_SCHEMA
 from .technical_indicator_price_source import _arrow, _file_version, _matches_type, _stock_batches
 
 
@@ -138,10 +138,6 @@ class LakePriceLocator:
             if column.path_in_schema == "ts_code":
                 if request.ts_code < stats.min or request.ts_code > stats.max:
                     return False
-            if request.period.endswith("m") and column.path_in_schema == "trade_time":
-                end = request.end.replace(tzinfo=None) if isinstance(request.end, datetime) else request.end
-                if stats.min > end:
-                    return False
         return True
 
     def _check_group_bytes(self, group, projection):
@@ -181,13 +177,9 @@ class LakePriceLocator:
     def _read_key_batches(self, path, index, projection, standard):
         import pyarrow.compute as pc
 
-        pa, ds, fs, _ = _arrow()
+        _, ds, fs, _ = _arrow()
         request = self.requirement
         predicate = ds.field("ts_code") == request.ts_code
-        minute = request.period.endswith("m")
-        if minute:
-            predicate &= ds.field("trade_time") <= pa.scalar(
-                request.end.replace(tzinfo=None), type=pa.timestamp("us"))
         partition_day = date.fromisoformat(path.parent.name.removeprefix("trade_date="))
         self.control.check_active()
         self._fragment = ds.ParquetFileFormat().make_fragment(
@@ -198,7 +190,7 @@ class LakePriceLocator:
             fragment_scan_options=ds.ParquetFragmentScanOptions(pre_buffer=False, use_buffered_stream=False),
             use_threads=False, cache_metadata=False)
         self._reader = self._scanner.to_reader()
-        time_key = "trade_time" if request.period.endswith("m") else "period_start"
+        time_key = "period_start"
         expression = ", ".join(f'{sql} AS "{name}"' for name, sql in standard)
         text = self._stage_text.format(output_table="ti_locator_times", time_key=time_key,
                                        projection=expression, registration="ti_locator_keys")
@@ -216,12 +208,6 @@ class LakePriceLocator:
             if not pc.all(pc.fill_null(
                     pc.equal(batch.column("trade_date"), partition_day), False)).as_py():
                 raise SourceContractError("Source prices do not match their partition date")
-            if minute:
-                if not pc.all(pc.fill_null(pc.equal(batch.column("freq"), 5), False)).as_py():
-                    raise SourceContractError("Index minutes do not match their five-minute partition")
-                for stamp in batch.column("trade_time").to_pylist():
-                    if stamp.date() != partition_day or stamp.time() == time(9, 30):
-                        raise SourceContractError("Invalid business timestamp in DG index minutes")
             try:
                 self._registrations.append("ti_locator_keys")
                 self.executor.register_arrow("ti_locator_keys", batch)
@@ -263,9 +249,6 @@ class LakePriceLocator:
                 rows += summary["n"]
                 targets += summary["targets"]
                 if summary["n"]:
-                    if request.period.endswith("m") and (summary["n"] != summary["distinct_positions"]
-                            or last is not None and last >= summary["first_time"]):
-                        raise SourceContractError("DG index minute keys are duplicated or out of order")
                     if first is None:
                         first = summary["first_time"]
                     last = summary["last_time"]
@@ -349,10 +332,8 @@ class LakePriceLocator:
         history = self.requirement.history
         maximum = self.source._config.max_input_rows
         output_maximum = self.requirement.output_limit(self.context.config)
-        daily = self.requirement.period == "day"
         stock_daily = self.requirement.target.dataset_id == "stock_daily"
-        first_day = self.requirement.start if daily else self.requirement.start.date()
-        first_target_partition = f"trade_date={first_day}"
+        first_target_partition = f"trade_date={self.requirement.start}"
         groups, rows, targets = [], 0, 0
         candidates_exhausted = False
         complete = False
@@ -381,10 +362,8 @@ class LakePriceLocator:
                     group = self._count_group(path, index, projection, standard,
                         price_schema_error=price_schema_error, price_projected_bytes=price_projected_bytes)
                 if group.rows:
-                    if not daily and groups and group.last >= groups[-1].first:
-                        raise SourceContractError("DG index minute row groups overlap or are out of order")
                     partition_rows += group.rows
-                    if daily and partition_rows > 1:
+                    if partition_rows > 1:
                         raise SourceContractError("Duplicate stock daily positions in the partition")
                     groups.append(group)
                     rows += group.rows
@@ -701,6 +680,123 @@ class LakePriceLocator:
         return describe_index_period(request, self.context, targets, tuple(preceding), first, latest,
                                      path=path, row_groups=selected_groups, file_version=version)
 
+    def _read_index_minute_partition(self, path, columns, cutoff, limit):
+        self.control.check_active()
+        path = self.source._safe_path(self._root, path)
+        self.context.record_file(path, path.stat().st_size)
+        rows = self._read_rows(
+            f"""WITH selected AS (
+                    SELECT CAST(regexp_extract(filename, '/trade_date=([0-9-]{{10}})/', 1) AS DATE)
+                               AS partition_day,
+                           {", ".join(columns)}, count(*) OVER (PARTITION BY trade_time) AS position_rows
+                    FROM read_parquet(?, hive_partitioning=false, filename=true)
+                    WHERE ts_code = ? AND trade_time <= ?
+                )
+                SELECT * FROM selected ORDER BY trade_time DESC LIMIT ?""",
+            (str(path), self.requirement.ts_code, cutoff, limit),
+            error_message="The DG index minute partition could not be read", as_arrow=True,
+        )
+        self.context.record_locator_rows(rows.num_rows)
+        return rows
+
+    def _select_index_minutes(self, paths, *, price_projection):
+        request, config = self.requirement, self.context.config
+        start, cutoff = request.start.replace(tzinfo=None), request.end.replace(tzinfo=None)
+        first_partition = f"trade_date={start.date()}"
+        output_limit = request.output_limit(config)
+        pa, _, _, _ = _arrow()
+        batches = []
+        targets = preceding = 0
+        target_start = target_end = read_start = None
+        reached_origin = True
+
+        for path in reversed(paths):
+            history_limit, needs_origin = preceding_limit(config, request, targets)
+            partition = path.parent.name
+            if partition < first_partition:
+                if not targets or (preceding == history_limit and not needs_origin):
+                    reached_origin = False
+                    break
+                limit = history_limit - preceding + 1
+            elif partition == first_partition:
+                # This partition may contain both target and warmup rows.
+                limit = config.max_input_rows - targets + 1
+            else:
+                limit = min(output_limit - targets, config.max_input_rows - targets) + 1
+
+            rows = self._read_index_minute_partition(path, price_projection, cutoff, limit)
+            stamps = rows["trade_time"].to_pylist()
+            if not stamps:
+                continue
+            for stamp, day, partition_day, freq, duplicates in zip(
+                stamps, rows["trade_date"].to_pylist(), rows["partition_day"].to_pylist(),
+                rows["freq"].to_pylist(), rows["position_rows"].to_pylist(), strict=True,
+            ):
+                if duplicates != 1:
+                    raise SourceContractError("DG index minute timestamps overlap")
+                if day != partition_day:
+                    raise SourceContractError("Source prices do not match their partition date")
+                if freq != 5:
+                    raise SourceContractError("Index minutes do not match their five-minute partition")
+                if stamp.date() != partition_day or stamp.time() == time(9, 30):
+                    raise SourceContractError("Invalid business timestamp in DG index minutes")
+            if read_start is not None and stamps[0] >= read_start:
+                raise SourceContractError("DG index minute timestamps overlap or are out of order")
+
+            found_targets = sum(stamp >= start for stamp in stamps)
+            targets += found_targets
+            if targets > output_limit:
+                raise ResourceLimitError("Target positions exceed max_output_rows")
+            if not targets:
+                continue
+            history_limit, needs_origin = preceding_limit(config, request, targets)
+            found_preceding = len(stamps) - found_targets
+            available = history_limit - preceding
+            if needs_origin and found_preceding > available:
+                raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
+            keep_preceding = min(found_preceding, available)
+            preceding += keep_preceding
+            if found_targets:
+                target_end = target_end or stamps[0]
+                target_start = stamps[found_targets - 1]
+            keep = found_targets + keep_preceding
+            if keep:
+                read_start = stamps[keep - 1]
+                order = pa.array(range(keep - 1, -1, -1), type=pa.int32())
+                batches.append(rows.select(price_projection).take(order).to_batches(max_chunksize=request.batch_rows))
+            if found_preceding > keep_preceding:
+                # The extra row proves this finite warmup stopped before the source origin.
+                reached_origin = False
+                break
+
+        if not targets:
+            return PriceReadSelection(None, None, None, None, 0, 0, reached_origin, ())
+        self.context.retained_price_batches = tuple(batch for group in reversed(batches) for batch in group)
+        return PriceReadSelection(
+            self._position(target_start), self._position(target_end),
+            self._position(read_start), self._position(target_end),
+            targets, preceding, reached_origin, (),
+        )
+
+    def _describe_index_minutes(self):
+        request = self.requirement
+        volume_unit = index_minute_volume_unit(request, "dg")
+        self.control.check_active()
+        self._root = self.source._root()
+        paths = self.source._partition_paths(self._root, request, self.control)
+        physical, standard = index_minute_projection(request.history.fields)
+        price_projection = physical[1:]
+        selection = self._select_index_minutes(paths, price_projection=price_projection)
+        return SourceDescription(
+            source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
+            basis_rule=None, basis_date=None, basis_value=None,
+            price_unit="index_point", volume_unit=volume_unit, amount_unit="CNY", timezone="Asia/Shanghai",
+            period_label_rule="trade_time", history_origin_rule="earliest_available_formal_partition",
+            available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "none"),),
+            converted=False, selection=selection, price_paths=(), factor_paths=(),
+            source_projection=price_projection, standard_projection=standard,
+        )
+
     def _read_recent_daily_batch(self, paths, columns):
         for path in paths:
             self.control.check_active()
@@ -859,20 +955,14 @@ class LakePriceLocator:
                 if request.latest_rows is not None:
                     return self._describe_recent_index_period()
                 return self._describe_index_period()
-            minute = request.period.endswith("m")
-            if minute:
-                volume_unit = index_minute_volume_unit(request, "dg")
-                schema = (*MINUTE_SCHEMA, ("freq", "INTEGER"))
-                project = index_minute_projection
-                adjustments = (("none", "none"),)
-            else:
-                adjustments = daily_adjustment_paths(request, "dg")
-                volume_unit, schema, project = "lot", DAILY_SCHEMA, daily_price_projection
+            if request.period.endswith("m"):
+                return self._describe_index_minutes()
+            adjustments = daily_adjustment_paths(request, "dg")
             self.control.check_active()
             self._root = self.source._root()
             paths = self.source._partition_paths(self._root, request, self.control)
-            projection, standard = project(frozenset())
-            price_projection, price_standard = project(request.history.fields)
+            projection, standard = daily_price_projection(frozenset())
+            price_projection, price_standard = daily_price_projection(request.history.fields)
             stock_daily = request.target.dataset_id == "stock_daily"
             source_facts = SourceReadFacts()
             if request.latest_rows is not None:
@@ -886,7 +976,7 @@ class LakePriceLocator:
             else:
                 if not stock_daily:
                     self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
-                paths, selection, groups = self._select(paths, schema, projection, standard,
+                paths, selection, groups = self._select(paths, DAILY_SCHEMA, projection, standard,
                                                         price_projection=price_projection)
                 self._validate_selected_price_groups(groups)
                 if stock_daily and selection.target_rows:
@@ -900,10 +990,9 @@ class LakePriceLocator:
             return SourceDescription(
                 source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
                 basis_rule="latest_available_factor" if converted else None, basis_date=None, basis_value=None,
-                price_unit="index_point" if minute or request.target.dataset_id == "index_daily" else "CNY",
-                volume_unit=volume_unit,
-                amount_unit="CNY" if minute else "thousand_CNY", timezone="Asia/Shanghai",
-                period_label_rule="trade_time" if minute else "period_start",
+                price_unit="index_point" if request.target.dataset_id == "index_daily" else "CNY",
+                volume_unit="lot", amount_unit="thousand_CNY", timezone="Asia/Shanghai",
+                period_label_rule="period_start",
                 history_origin_rule="earliest_available_formal_partition", available_through=None,
                 supports_partial_period=False, supported_adjustment_paths=adjustments, converted=converted,
                 selection=selection, price_paths=paths, factor_paths=factor_paths,

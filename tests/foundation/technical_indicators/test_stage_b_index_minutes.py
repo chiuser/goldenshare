@@ -21,7 +21,10 @@ from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.request_parser import _build_read_requirement
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
 from goldenshare_technical_indicators.sources.read_context import SourceReadContext
-from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
+from src.foundation.clients.local_lake.technical_indicator_price_source import (
+    LakeTechnicalIndicatorPriceSource, _LakePriceStream,
+)
 from src.foundation.clients.technical_indicator_postgres import _minute_price_column, _price_scope
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 
@@ -51,17 +54,19 @@ def _setup(root, backend, first, last, *, code=SH, limit=2, prewarm=False):
     return config, request
 
 
-def _write_gold(root, code, minutes):
+def _write_gold(root, code, minutes, *, day=17, hour=9, close=105):
     # Gold schema from the formal 2026-11-17 Parquet. Values are synthetic.
-    path = root / "gold/quote/index_mins/freq=5/trade_date=2026-11-17/part-000.parquet"
+    path = root / f"gold/quote/index_mins/freq=5/trade_date=2026-11-{day:02}/part-000.parquet"
     path.parent.mkdir(parents=True, exist_ok=True)
     schema = pa.schema([
         ("ts_code", pa.string()), ("freq", pa.int32()), ("trade_date", pa.date32()), ("trade_time", pa.timestamp("us")),
         *((name, pa.float64()) for name in FIELDS),
     ])
-    rows = [dict(ts_code=code, freq=5, trade_date=_time(m).date(), trade_time=_time(m).replace(tzinfo=None),
-                 open=100, high=110, low=95, close=105, vol=7, amount=250) for m in minutes]
+    stamps = (datetime(2026, 11, day, hour, minute) for minute in minutes)
+    rows = [dict(ts_code=code, freq=5, trade_date=stamp.date(), trade_time=stamp,
+                 open=100, high=110, low=95, close=close, vol=7, amount=250) for stamp in stamps]
     pq.write_table(pa.Table.from_pylist(rows, schema=schema), path, row_group_size=1)
+    return path
 
 
 @contextmanager
@@ -121,6 +126,36 @@ def test_dg_uses_0935_in_warmup_and_reports_empty_through_0930(tmp_path):
         with _dg(tmp_path, 30, 30):
             pytest.fail("Gold does not return an auction as a business bar")
     assert error.value.detail == "数据缺失"
+
+
+def test_dg_reuses_selected_minutes_and_the_previous_days_last_bar(tmp_path, monkeypatch):
+    _write_gold(tmp_path, SH, (0,), day=13, hour=15)
+    # Different closes demonstrate that the first MA value uses the earlier day.
+    previous = _write_gold(tmp_path, SH, (55,), day=16, hour=14, close=101)
+    current = _write_gold(tmp_path, SH, (35, 40, 45))
+    reads = []
+    read = LakePriceLocator._read_rows
+
+    def record(locator, sql, bindings, **kwargs):
+        if "read_parquet" in sql:
+            reads.append(bindings[0])
+        return read(locator, sql, bindings, **kwargs)
+
+    def fail_reopen(*args):
+        pytest.fail("The minute stream must use the already selected price rows")
+
+    monkeypatch.setattr(LakePriceLocator, "_read_rows", record)
+    monkeypatch.setattr(_LakePriceStream, "_open_file", fail_reopen)
+    config, request = _setup(tmp_path, "dg", 35, 40, prewarm=True)
+    service = TechnicalIndicatorService(config=config, source=LakeTechnicalIndicatorPriceSource(config),
+                                        registry=create_builtin_registry())
+    result = service.calculate(request)
+
+    assert result.times == (_time(35), _time(40))
+    assert result.source.read_start == datetime(2026, 11, 16, 14, 55, tzinfo=SHANGHAI)
+    assert result.calculations[1].fields == (("value", (103.0, 105.0)),)
+    assert result.statistics.source_rows == 3
+    assert reads == [str(current), str(previous)]
 
 
 def test_dg_rejects_duplicate_and_unverified_index(tmp_path):
