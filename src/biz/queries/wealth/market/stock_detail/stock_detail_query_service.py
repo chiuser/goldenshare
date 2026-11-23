@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 from datetime import date
 
 from sqlalchemy.orm import Session
@@ -159,6 +160,16 @@ class StockDetailQueryService:
         remaining_seconds: Callable[[], float] | None = None,
         paginated: bool = False,
     ) -> StockDailyKlineInput:
+        source, start = self.resolve_kline_input(
+            session, request, remaining_seconds=remaining_seconds, paginated=paginated,
+        )
+        page = load_rows(request.ts_code, source.query_end_date, start, request.limit)
+        return self.with_kline_page(source, page)
+
+    def resolve_kline_input(
+        self, session: Session | None, request: StockDailyKlineRequest, *,
+        remaining_seconds: Callable[[], float] | None = None, paginated: bool = False,
+    ) -> tuple[StockDailyKlineInput, date | None]:
         context = self._context_query.resolve_context(
             session, market="CN_A", requested_trade_date=request.end_date or request.trade_date,
             timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
@@ -170,7 +181,10 @@ class StockDetailQueryService:
         )
         query_end_date = request.end_date or context.trade_date
         start = security.list_date if paginated else request.start_date
-        page = load_rows(request.ts_code, query_end_date, start, request.limit)
+        return StockDailyKlineInput(request, context, security.ts_code, security.name, query_end_date, ()), start
+
+    @staticmethod
+    def with_kline_page(source: StockDailyKlineInput, page: StockDailyKlinePage) -> StockDailyKlineInput:
         # Strict indexing distinguishes a missing column from a legitimate SQL NULL.
         bars = tuple(StockDailyKlineRow(
             trade_date=row["trade_date"],
@@ -179,9 +193,7 @@ class StockDetailQueryService:
                 "pre_close", "change", "pct_chg", "turnover_rate", "volume_ratio",
             )},
         ) for row in page.rows)
-        return StockDailyKlineInput(
-            request, context, security.ts_code, security.name, query_end_date, bars, page.next_end_date,
-        )
+        return replace(source, bars=bars, next_end_date=page.next_end_date)
 
     def _load_security_or_raise(
         self, session: Session | None, *, ts_code: str, timeout_seconds: float | None = None,

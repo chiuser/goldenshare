@@ -28,7 +28,6 @@ _FACTOR_FIELD_NAMES: tuple[str, ...] = (
 )
 FACTOR_COLUMNS = tuple(getattr(EquityFactorPro, field_name) for field_name in _FACTOR_FIELD_NAMES)
 STOCK_DAILY_BASIC_FIELDS = ("turnover_rate", "volume_ratio")
-STOCK_DAILY_AUX_FIELDS = ("pre_close", "change_amount", "pct_chg")
 
 
 def stock_daily_dates(ts_code, *, start, end, limit, before=None):

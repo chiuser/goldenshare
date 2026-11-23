@@ -16,6 +16,8 @@ from src.app.exceptions import install_exception_handlers
 from src.app.runtime.reference_data import build_reference_data
 from src.app.web.middleware.access_log import AccessLogMiddleware
 from src.biz.api.wealth.market.stock_detail import build_router
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
+from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
 from src.foundation.config.settings import Settings
 from goldenshare_technical_indicators.errors import SourceContractError
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
@@ -84,16 +86,17 @@ def source_client(tmp_path, monkeypatch):
     def reject_pg(*args, **kwargs):
         pytest.fail("本地股票详情业务不应创建 PostgreSQL 会话")
 
-    original_calculate = TechnicalIndicatorService.calculate
+    original_calculate = TechnicalIndicatorService.calculate_with_source
     calculations = []
 
     def calculate(service, request):
-        result = original_calculate(service, request)
-        calculations.append(result)
-        return result
+        calculated = original_calculate(service, request)
+        if calculated.result is not None:
+            calculations.append(calculated.result)
+        return calculated
 
     monkeypatch.setattr(wiring, "open_stock_daily_read_session", reject_pg)
-    monkeypatch.setattr(TechnicalIndicatorService, "calculate", calculate)
+    monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", calculate)
 
     @contextmanager
     def client_for(env="local", *, source_root=root):
@@ -298,6 +301,34 @@ def test_dg_skips_unrelated_file(source_client):
     assert source_client.calculations[0].statistics.source_rows == 21
 
 
+def test_stock_daily_reads_each_quote_partition_once_and_uses_only_actual_dates(source_client, monkeypatch):
+    recent_batch = LakePriceLocator._read_recent_daily_batch
+    fact_rows = LakeTechnicalIndicatorPriceSource._fact_rows
+    queries, basic_dates = [], []
+
+    def record_batch(locator, paths, columns):
+        queries.append((locator.requirement.latest_rows, paths))
+        return recent_batch(locator, paths, columns)
+
+    def record_facts(source, root, dataset, *args, **kwargs):
+        assert dataset == "stock_daily_basic"
+        basic_dates.append(kwargs["day"])
+        return fact_rows(source, root, dataset, *args, **kwargs)
+
+    monkeypatch.setattr(LakePriceLocator, "_read_recent_daily_batch", record_batch)
+    monkeypatch.setattr(LakeTechnicalIndicatorPriceSource, "_fact_rows", record_facts)
+    with source_client.client_for() as client:
+        response = request(client, tradeDate=OTHER_DAY.isoformat(), endDate=OTHER_DAY.isoformat())
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    check_values(payload, DAYS)
+    assert payload["meta"]["nextEndDate"] is None
+    assert basic_dates == [DAYS[-1]]
+    [(limit, paths)] = queries
+    assert limit == 500
+    assert tuple(path.parent.name for path in paths) == tuple(f"trade_date={day}" for day in (*DAYS, OTHER_DAY))
+
+
 def test_empty_and_missing_source(source_client):
     with source_client.client_for() as client:
         response = request(client, tradeDate="1900-01-01", endDate="1900-01-01")
@@ -307,6 +338,10 @@ def test_empty_and_missing_source(source_client):
         assert "quote" in response.json() and response.json()["quote"] is None
         assert response.json()["meta"]["nextEndDate"] is None
         assert response.json()["nineTurnMarkers"] == []
+        response = request(client, startDate=OTHER_DAY.isoformat(), endDate=OTHER_DAY.isoformat())
+        assert response.status_code == 200, response.text
+        assert response.json()["dataStatus"]["status"] == "EMPTY"
+        assert response.json()["bars"] == []
         for path in (INIT_PATH, PATH):
             assert client.get(path, params={"tsCode": "T00018.SH"}).json()["code"] == "404001"
     with source_client.client_for(source_root=source_client.root / "absent") as client:

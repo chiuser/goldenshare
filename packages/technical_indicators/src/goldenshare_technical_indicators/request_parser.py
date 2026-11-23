@@ -7,7 +7,7 @@ from .calculation.history import HistoryRequirement, INITIALIZATION_ERROR_BUDGET
 from .calculation.registry import CalculationRegistry
 from .configuration.settings import KernelConfig
 from .contracts import CalculationRequest, normalize_request_and_validate_all_instances
-from .errors import SourceUnsupportedError
+from .errors import ResourceLimitError, SourceUnsupportedError
 from .sources.contracts import DatasetReadTarget, ReadRequirement
 
 
@@ -18,6 +18,7 @@ class _PreparedCalculation:
     target: DatasetReadTarget
     max_output_rows: int | None = None
     warmup_error_budget: float = INITIALIZATION_ERROR_BUDGET
+    include_source_facts: bool = False
 
 
 class CalculationRequestParser:
@@ -32,6 +33,11 @@ class CalculationRequestParser:
         if normalized.adjustment not in self._config.enabled_adjustments(dataset_id):
             raise SourceUnsupportedError("Dataset adjustment is not enabled in this environment")
         target = self._config.resolve_dataset_location(dataset_id)
+        if normalized.latest_rows is not None:
+            if normalized.latest_rows > self._config.max_output_rows:
+                raise ResourceLimitError("Target positions exceed max_output_rows")
+            if (target.backend, target.dataset_id) != ("dg", "stock_daily"):
+                raise SourceUnsupportedError("Reading by row count is only enabled for DG stock daily bars")
         return _PreparedCalculation(normalized, plan, target)
 
 
@@ -45,10 +51,12 @@ def _build_read_requirement(
         target=prepared.target,
         ts_code=request.ts_code,
         period=request.period,
-        start=request.start if minute else request.start.date(),
+        start=request.start if minute or request.start is None else request.start.date(),
         end=request.end if minute else request.end.date(),
         history=history,
         batch_rows=batch_rows,
         target_adjustment=request.adjustment,
         max_output_rows=prepared.max_output_rows,
+        latest_rows=request.latest_rows,
+        include_source_facts=prepared.include_source_facts,
     )

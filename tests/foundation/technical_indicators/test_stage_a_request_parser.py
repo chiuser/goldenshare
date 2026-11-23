@@ -77,6 +77,7 @@ def test_parser_and_discovery_share_backend_and_build_read_instruction(backend, 
         read_minute = _build_read_requirement(minute, history, batch_rows=cfg.batch_rows)
     assert {field.name for field in fields(read_daily)} == {
         "target", "ts_code", "period", "start", "end", "history", "batch_rows", "target_adjustment", "max_output_rows",
+        "latest_rows", "include_source_facts",
     }
     assert read_daily.max_output_rows is read_minute.max_output_rows is None
     assert (read_daily.start, read_daily.end) == (date(2026, 11, 17), date(2026, 11, 17))
@@ -183,3 +184,20 @@ def test_stage_a_enforces_item_limit_and_leaves_target_count_to_reader():
     assert parser.parse(request).plan.instances == ((0, 1), (1, 1))
     with pytest.raises(ResourceLimitError, match="max_indicator_instances"):
         parser.parse(replace(request, calculations=(MA3, MA3, MA3)))
+
+
+def test_latest_rows_uses_dg_stock_daily_and_the_configured_limit():
+    registry = create_builtin_registry()
+    cfg = replace(config("dg", enable("stock_daily", backend="dg")), max_output_rows=2)
+    parser = CalculationRequestParser(cfg, registry)
+    request = stock(start=None, latest_rows=2)
+    history = HistoryRequirement(frozenset({"close"}), 2, 2, False, (), "MA3")
+    read = _build_read_requirement(parser.parse(request), history, batch_rows=cfg.batch_rows)
+    assert (read.start, read.end, read.latest_rows, read.output_limit(cfg)) == (
+        None, date(2026, 11, 17), 2, 2,
+    )
+    with pytest.raises(ResourceLimitError, match="max_output_rows"):
+        parser.parse(replace(request, latest_rows=3))
+    prod = CalculationRequestParser(config("prod_pg", enable("stock_daily", backend="prod_pg")), registry)
+    with pytest.raises(SourceUnsupportedError, match="DG stock daily"):
+        prod.parse(request)

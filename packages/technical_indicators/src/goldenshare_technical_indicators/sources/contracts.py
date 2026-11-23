@@ -8,7 +8,7 @@ from datetime import date
 from pathlib import Path
 from typing import Literal, Protocol, TYPE_CHECKING
 
-from ..contracts import Adjustment, Period, PeriodBarMetadata, TimePosition
+from ..contracts import Adjustment, CalculationResult, Period, PeriodBarMetadata, TimePosition
 from ..calculation.history import HistoryRequirement
 
 if TYPE_CHECKING:
@@ -48,6 +48,28 @@ class PriceReadSelection:
 
 
 @dataclass(frozen=True, slots=True)
+class TargetBarFacts:
+    position: date
+    trade_date: date
+    pre_close: float | None
+    change_amount: float | None
+    pct_chg: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class SourceReadFacts:
+    target_bars: tuple[TargetBarFacts, ...] = ()
+    previous_target_date: date | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class CalculationWithSource:
+    result: CalculationResult | None
+    selection: PriceReadSelection
+    source_facts: SourceReadFacts
+
+
+@dataclass(frozen=True, slots=True)
 class SourceDescription:
     source_id: str
     contract_version: str
@@ -71,6 +93,7 @@ class SourceDescription:
     source_projection: tuple[str, ...] = ()
     standard_projection: tuple[tuple[str, str], ...] = ()
     period_bars: tuple[PeriodBarMetadata, ...] = ()
+    source_facts: SourceReadFacts = SourceReadFacts()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "supported_adjustment_paths", tuple(tuple(item) for item in self.supported_adjustment_paths))
@@ -95,12 +118,14 @@ class ReadRequirement:
     target: DatasetReadTarget
     ts_code: str
     period: Period
-    start: TimePosition
+    start: TimePosition | None
     end: TimePosition
     history: HistoryRequirement
     batch_rows: int
     target_adjustment: Adjustment
     max_output_rows: int | None = None
+    latest_rows: int | None = None
+    include_source_facts: bool = False
 
     def output_limit(self, config):
         return self.max_output_rows if self.max_output_rows is not None else config.max_output_rows

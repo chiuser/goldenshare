@@ -51,9 +51,10 @@ class CalculationRequest:
     ts_code: str
     period: Period
     adjustment: Adjustment
-    start: datetime
+    start: datetime | None = None
     end: datetime
     calculations: Sequence[Mapping[str, object]]
+    latest_rows: int | None = None
 
     def __post_init__(self) -> None:
         if self.security_type not in ("stock", "index"):
@@ -64,12 +65,15 @@ class CalculationRequest:
             raise RequestInvalidError("Unsupported period")
         if self.adjustment not in ("none", "qfq", "hfq"):
             raise RequestInvalidError("One target adjustment is required")
-        for name in ("start", "end"):
+        if self.latest_rows is not None and (type(self.latest_rows) is not int or self.latest_rows <= 0):
+            raise RequestInvalidError("latest_rows must be a positive integer")
+        bounds = ("end",) if self.latest_rows is not None and self.start is None else ("start", "end")
+        for name in bounds:
             value = getattr(self, name)
             if not isinstance(value, datetime) or value.utcoffset() is None:
                 raise RequestInvalidError("Calculation ranges require timezone-aware datetime")
             object.__setattr__(self, name, value.astimezone(ZoneInfo(TIMEZONE)))
-        if self.start > self.end:
+        if self.start is not None and self.start > self.end:
             raise RequestInvalidError("start must not exceed end")
 
         if (not isinstance(self.calculations, Sequence)
@@ -122,7 +126,7 @@ class SeriesDescription:
 
 @dataclass(frozen=True, slots=True)
 class RequestedRange:
-    start: datetime
+    start: datetime | None
     end: datetime
 
 

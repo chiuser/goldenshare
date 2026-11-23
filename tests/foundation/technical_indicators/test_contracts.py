@@ -29,15 +29,20 @@ def request(**kwargs):
     return CalculationRequest(**(values | kwargs))
 
 
-def test_each_adjustment_is_structurally_valid_and_all_fields_are_required():
+def test_each_adjustment_is_structurally_valid_and_request_fields_follow_the_range_mode():
     for adjustment in ("none", "qfq", "hfq"):
         assert request(adjustment=adjustment).adjustment == adjustment
     original = request()
     values = {field.name: getattr(original, field.name) for field in fields(CalculationRequest)}
-    assert set(values) == {"security_type", "ts_code", "period", "adjustment", "start", "end", "calculations"}
-    for field in values:
+    required = {"security_type", "ts_code", "period", "adjustment", "end", "calculations"}
+    assert set(values) == required | {"start", "latest_rows"}
+    for field in required:
         with pytest.raises(TypeError):
             CalculationRequest(**{key: value for key, value in values.items() if key != field})
+    del values["start"]
+    with pytest.raises(RequestInvalidError, match="timezone-aware"):
+        CalculationRequest(**values)
+    assert CalculationRequest(**(values | {"latest_rows": 2})).start is None
 
 
 @pytest.mark.parametrize("kwargs", [

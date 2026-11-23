@@ -59,6 +59,10 @@ class PriceInputSession:
                 raise SourceContractError("Source must return the declared source description")
             self._validate_selection()
             if not self.description.selection.target_rows:
+                if request.include_source_facts:
+                    self._resolved = self.description
+                    self._prepared = self._exhausted = True
+                    return
                 raise SourceReadError("读取数据失败", detail="数据缺失")
             path = (self.description.input_adjustment, request.target_adjustment)
             if path not in self.description.supported_adjustment_paths:

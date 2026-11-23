@@ -1,6 +1,6 @@
 # 技术指标算子库读取优化 LLD v1
 
-**2026-11-23｜待评审，尚未实施。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。现行代码基线为 `dev-interface` 的 `52d0bc207`。本文的类型、方法和 SQL 中标为新增或改造的部分是开发设计。
+**2026-11-23｜阶段 1 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。阶段 1 的实现与验收见[复核记录](#stage-1-read-acceptance)，后续阶段为开发设计。
 
 ## 1. 交付边界
 
@@ -39,7 +39,7 @@ class CalculationRequest:
 
 ### 2.2 本次行情如何交给业务
 
-新增以下内部结果，定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
+以下内部结果定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。阶段 1 实现股票日线用到的目标行情字段与续页日期，日历和指数周月线字段在对应阶段引入。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
 
 ~~~python
 @dataclass(frozen=True, slots=True)
@@ -82,9 +82,11 @@ class CalculationWithSource:
 
 `dataset_locations.stock_daily.dg` 指向 `silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet`。阶段 2 的 `index_daily.dg` 指向 `silver/index_daily/trade_date={trade_date}/part-000.parquet`。两者日线日期均为 `DATE`。股票每日指标的 `trade_date` 为 `YYYYMMDD` 文本，只在业务匹配时转换。文件来源由 [datasets.py](../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L17) 确定。
 
-- 在 [LakePriceLocator](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L343) 增加日线按根数读取方法 `_select_recent_daily(...)`。复用 `_dated_partitions()`、`_safe_path()` 和既有 schema。以截止日过滤路径，日期倒序，候选以完整分区为边界。用已有 `batch_rows` 作为单次候选文件数上限，用仍缺的目标和预热所需根数限制每批规模。股票、指数日线每日每标的最多一根时，取所缺行数个候选分区。跨停牌、上市前或无该股记录时按下一批更早路径继续，已经查过的路径集合不进入下一批。
-- 候选路径的选择只处理目录日期和文件位置。打开每批文件时复用现有路径、投影 schema、文件数、字节数与行组限制。文件头检查和实际数据读取分别记账，允许文件头与 DuckDB 数据读取各一次，验收按实际打开与耗时和旧链比较。保持只在所选或实际进入该批检查范围的路径上触发对应错误。空路径集合直接结束该批，避开空列表查询。
-- 读取目标和预热采用同一倒序遍历。允许随同一批保留已经读到的前置行。确认目标的后继批位置时，复用目标首根之前最近的实际行。`start` 只限制目标和游标，向其之前找到的记录只能用作预热。已有的原点需求和输入上限规则继续由 `preceding_limit()` 处理。若需确认历史起点且已达输入上限，允许查一条更早的边界证据，存在额外历史则按既有资源错误退出。先确定目标根数，再计算可用历史容量。遇到目标下界，已读到的更早记录进入预热；遇到 N 根上限，其后一根只有仍在目标下界内时才可用于续页。若预热无需继续但还不能确定续页，最多保留一根符合目标下界的更早记录。
+2026-11-20 的 DG 股票不复权日线样本确认，昨收 `pre_close`、涨跌额 `change_amount`、涨跌幅 `pct_chg` 均为 `DOUBLE`。按发布字段直接查询，随目标行情交付给业务组装盘口。
+
+- [`LakePriceLocator._select_recent_daily()`](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L633) 复用 `_dated_partitions()`、`_safe_path()` 和既有行情字段。以截止日过滤路径，再用目标下界确定选页最早分区。用已有 `batch_rows` 作为单次候选文件数上限，用仍缺的目标和预热所需根数限制每批规模。日线每日每标的最多一根，取所缺行数个候选分区。没有该股记录的分区直接跳过，继续取更早路径，每个候选文件只进入一批查询。
+- 候选路径的选择只处理目录日期和文件位置。用 `SourceReadContext.record_file()` 登记候选文件和大小，复用文件数上限。非空批次把路径直接交给当前请求的 DuckDB 连接，沿用现有输入根数、内存和时限。按行组读取的现有路径继续使用原行组限制。
+- 读取目标和预热采用同一倒序遍历，先确定目标，再由 `preceding_limit()` 计算可用预热容量。确认续页位置时，优先复用预热读到的第一根实际行情。`start` 只限制目标和游标，向其之前找到的记录用于预热。若需确认历史起点且已达输入上限，允许查一条更早的记录，存在额外历史则按既有资源错误退出。若无需预热但仍有符合目标下界的较早分区，最多取一根实际行情确定游标。
 - 最终把预热和目标合并为升序，构造 `PriceReadSelection`（`target_start/target_end/read_start/read_end`、目标根数、预热根数、是否到源起点）。只有被交付的目标和预热计入 `source_rows`；额外空间、候选文件和 SQL 工作量另记。算指标时从第 `preceding_rows + 1` 根起输出结果。
 
 读取器按以下步骤组织，不新增单独查日期的入口。
@@ -97,10 +99,10 @@ def _select_recent_daily(
     target_rows = []
     history_rows = []
     previous_target_date = None
-    # 每次查询只取尚未读过的候选。返回的行按交易日倒序检查。
-    # 目标未满且行在 start 或之后时进入 target_rows。
-    # 目标满额或跨过 start 后，行进入 history_rows；第一根早于目标、
-    # 但仍在 start 范围内的行同时提供 previous_target_date。
+    # 每次查询只取尚未读过的候选，DuckDB 按交易日倒序返回实际行情。
+    # 先在 start 及之后的候选分区查找目标行情。
+    # 目标满额或目标分区用完后，从剩余分区继续读取预热。
+    # 首个更早的实际行情日若仍在 start 范围内，可用作 previous_target_date。
     # 达到既有预热要求及游标判断条件，或到源起点后停止。
     # 只用最终保留的目标和预热构造 PriceReadSelection 及标准行情。
     ...
@@ -108,29 +110,23 @@ def _select_recent_daily(
 
 ### 3.2 DG 日线批量 SQL
 
-放在 DG 行情适配层，路径列表、证券代码、批次行数绑定为参数。下列完整投影用于详情请求。普通计算使用 `daily_price_projection()` 构造白名单投影，附加字段只在请求组装事实时读取。`filename` 回查路径与分区日期，`file_rows` 保留旧的单股单日唯一性检查，即使 `LIMIT` 会截掉第二行也可检查。批次只包含从文件名推导的当批日期区间，边界含截止日。
+放在 DG 行情适配层，路径列表、证券代码、批次行数绑定为参数。下列完整投影用于详情请求的目标行情。普通计算和预热使用 `daily_price_projection()` 构造白名单投影，附加字段只随目标行情读取。候选路径按目录日期选定，包含截止日。直接采用 DG 发布的字段和每标的每交易日一条记录的约定，去掉额外的逐文件表头、分区日期和重复行检查。
 
 ~~~sql
 -- lld: dg-daily-batch
-WITH selected AS (
-    SELECT filename AS source_path,
-           CAST(regexp_extract(filename, '/trade_date=([0-9-]{10})/', 1) AS DATE) AS partition_day,
-           trade_date, open, high, low, close, vol, amount,
-           pre_close, change_amount, pct_chg,
-           count(*) OVER (PARTITION BY filename) AS file_rows
-    FROM read_parquet(?, hive_partitioning=false, filename=true)
-    WHERE ts_code = ?
-)
-SELECT * FROM selected
-ORDER BY partition_day DESC
+SELECT trade_date, open, high, low, close, vol, amount,
+       pre_close, change_amount, pct_chg
+FROM read_parquet(?, hive_partitioning=false)
+WHERE ts_code = ?
+ORDER BY trade_date DESC
 LIMIT ?
 ~~~
 
-每批检查返回行的 `trade_date = partition_day`、`file_rows = 1`，以及批内、批间日期的严格顺序。选中行情的字段类型、数值和复权因子由现有输入会话校验。候选批上限以 §7 的基线和内存条件验收，禁止将全市场文件加载进内存后再筛选。
+拿到本批结果后，按 §3.1 划分目标与预热，再交给现有输入会话。实际查询失败沿用现有读取错误处理。候选批上限以 §7 的基线和内存条件验收，标的筛选在 DuckDB 内完成。
 
 ### 3.3 股票业务接线
 
-- [StockDailyKlineAppBackend.work](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) 的 DG 分支先用 `StockDetailQueryService` 解析证券身份及请求上下文，再构造带 `latest_rows=request.limit` 的计算指令。现有分页首屏与续页使用股票上市日作为目标下界。显式普通区间保留请求下界。将原先读取日期和行情字段的 `_load_page_fields()` 调用移出 DG 日 K 链路，Prod 和旧的其他调用各自保留原语义。
+- [StockDailyKlineAppBackend.work](../../src/app/dependencies/stock_daily_technical_indicators.py#L181) 的 DG 分支通过 [StockDailyKlineService.prepare_recent](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py#L58) 解析证券身份及请求上下文，再构造带 `latest_rows=request.limit` 的计算指令。分页首屏与续页使用股票上市日作为目标下界，显式普通区间使用请求下界。Prod 业务装配沿用原先选页后按起止日期计算的方式。
 - `stock_daily_calculations()` 原样选择现有指标和 `price`。保持本地首屏及续页请求九转，普通区间沿用既有形状。将 `source_facts.target_bars` 与结果日期对齐后，由业务按这些日期查询 `stock_daily_basic` 的 `turnover_rate`、`volume_ratio`，沿用现有 `daily_rows()`。每日指标文件缺少当日记录时按旧规则留空。本阶段沿用这条独立查询，传入实际日期即可。
 - [LakeTechnicalIndicatorPriceSource.expected_positions](../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L325) 对 DG 股票日线直接使用本次已选日期序列，停止重建应有日期及逐日读取 `stock_suspend_daily`。字段无效、行情文件不能读取、因子缺失等错误继续沿用现行处理。交易日历和上市日仍供现有业务 `pageContext`、上市起点使用。历史漏数交给 [DG 覆盖检查](../../lake_console/orchestrator/src/orchestrator/defs/checks/stock_daily_checks.py#L1135)。
 - `prepare_basis()` 和 `prepare_factors()` 保持原逻辑，仍以当前来源上该股票最新可用因子为前复权基准。候选日线截止点只限报价，不能误用为因子基准截止日。实际需要的目标和预热日期用既有因子选择；同一批 OHLC 的复权结果供全部指标共用。
@@ -151,7 +147,7 @@ ORDER BY trade_date
 ~~~
 
 4. 业务调用 [resolve_local_context()](../../src/biz/queries/wealth/market/context/market_page_context_query.py#L224) 时传已取得的日历记录和当次 `now`。常规首屏与续页以给定日期组装 `pageContext`，本批状态仍能报告空页或部分指标缺失。历史日期查询早于源起点的空页只取上下文所需日期事实。直接请求省略截止日时，先用现有短窗口日历规则解析一次默认日期，后续以该日期作为读取上界。直接请求休市日，仍以该日生成 `meta.endDate`，使用上一开市日给出现有状态日期。持久化字段没有对应行情时沿用旧错误分类。正常页面调用不产生重新判断全页应更新到哪天的逻辑。
-5. 界面不需要改参数或 DTO。阶段验收要证明周日直接请求保持 `meta.endDate` 为周日且最近开市日行情齐备时返回 `READY`，并证明历史漏行情和非空行情缺收盘价仍返回原 `ID_QUERY_FAILED`。对照 [指数日线回归](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)。
+5. 界面沿用现有参数和 DTO。阶段验收核对周日直接请求时 `meta.endDate` 为周日，最近开市日行情齐备时返回 `READY`。历史漏行情、缺收盘价的错误处理沿用 [已有指数日线回归](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)。
 
 ## 5. 阶段 3　本地指数周线、月线
 
@@ -249,16 +245,16 @@ LIMIT %s
 
 | 阶段 | 实施和过关证据 |
 | --- | --- |
-| 1. 通用能力与本地股票日线 | [请求与读数合同](../../tests/foundation/technical_indicators/test_stage_a_request_parser.py)、[DG 股票日线读取](../../tests/foundation/technical_indicators/test_stage_b_stock_daily.py)、[股票 HTTP 回归](../../tests/app/technical_indicators/test_stock_daily_source_repair.py)。覆盖无效根数、区间兼容、跨分区、首屏、续页、恰好满页到头、短历史、空页、已上市但停牌日缺 K、报价字段或因子无效、读取失败。跟踪确认选页和计算共用行情，DG 该请求无逐日停牌读取。 |
-| 2. 本地指数日线 | [指数日线集成](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)覆盖默认与显式截止、周日请求、普通和调试回包、历史起点、短页、缺行情和缺收盘价、首尾及游标。按原验收的上证综指、深证成指、北证 50、中证 A500 复验首屏和续页。分别记录 `/page-init` 跨请求使用的最新一根，以及 `/kline` 内的价格和辅助字段查询。 |
-| 3. 本地指数周月线 | [算子周月测试](../../tests/foundation/technical_indicators/test_stage_b_index_period.py)、[周月接口测试](../../tests/web/test_wealth_index_detail_weekly_monthly_api.py)。分别覆盖首批、翻页、历史起点、节假日短周、当期未到、当期只有较晚版本、源发布范围内缺行。核对源文件只投影读取一次，同次结果给出实际截止日和辅助字段。 |
-| 4. 本地指数 5 分钟 | 用 [分钟算子回归](../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py) 验证 09:30 空结果、09:35 开盘归并结果、分钟缺口、跨日预热、时间重复、非法频率和单位。复用上证综指和深证成指的有界样本，对照读数和计算结果。 |
+| 1. 通用能力与本地股票日线 | 复用 [请求合同测试](../../tests/foundation/technical_indicators/test_stage_a_request_parser.py)、[DG 股票日线读取测试](../../tests/foundation/technical_indicators/test_stage_b_stock_daily.py) 和 [股票 HTTP 回归](../../tests/app/technical_indicators/test_stock_daily_source_repair.py)。新增回归覆盖 500 根首屏、向左续页、历史不足和翻页到头。核对前复权价格、指标、九转及盘口；用请求跟踪确认选页和计算共用行情，业务不再提前查日期或查逐日停牌。 |
+| 2. 本地指数日线 | 复用 [指数日线集成测试](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)，重点核对实际日期、游标和页面状态。按原验收的上证综指、深证成指、北证 50、中证 A500 复验首屏和续页。分别记录 `/page-init` 跨请求使用的最新一根，以及 `/kline` 内的价格和辅助字段查询。 |
+| 3. 本地指数周月线 | 复用 [算子周月测试](../../tests/foundation/technical_indicators/test_stage_b_index_period.py) 和 [周月接口测试](../../tests/web/test_wealth_index_detail_weekly_monthly_api.py)。核对周、月的首批、翻页、节假日短周和当期未齐时的截止日。核对源文件只投影读取一次，同次结果给出实际截止日和辅助字段。 |
+| 4. 本地指数 5 分钟 | 复用 [分钟算子回归](../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py) 及上证综指、深证成指的有界样本。核对开盘归并、跨日预热、实际时间、量额和指标。 |
 | 5. Prod 评估 | 输出旧查询和对照方式的次数、扫描范围、返回根数及耗时；明确潜在收益和是否值得纳入后续开发。 |
 
 ### 7.1 数量和时间预算
 
-- 沿用 [Settings](../../src/foundation/config/settings.py#L76) 和 [ExecutionControl](../../packages/technical_indicators/src/goldenshare_technical_indicators/execution_control.py#L21)。按现有生效配置限制目标、输入、文件、内存和行组尺寸。默认 8 秒总时限包含 2 秒资源清理，读取、计算和交付使用到达后 6 秒工作窗口。并发与队列使用现有参数。
-- 重点比较每请求的目标行数、预热行数、仅用于界定范围的探测行数、实际 Parquet 文件打开、唯一文件、数据查询次数、内存峰值、总耗时。单次输入是目标加预热；若保留额外一行用于游标或判断源起点，单列，不计作算子输入。将文件头检查与列读取分开计量。用相同标的、参数及可说明的文件缓存条件比较。查询数变少并不能代替实际文件打开及端到端耗时的核验。
+- 沿用 [Settings](../../src/foundation/config/settings.py#L76) 和 [ExecutionControl](../../packages/technical_indicators/src/goldenshare_technical_indicators/execution_control.py#L21)。按现有生效配置限制目标、输入、文件和内存。按行组读取的路径沿用原行组尺寸限制。默认 8 秒总时限包含 2 秒资源清理，读取、计算和交付使用到达后 6 秒工作窗口。并发与队列使用现有参数。
+- 重点比较每请求的目标行数、预热行数、仅用于界定范围的探测行数、实际 Parquet 文件打开、唯一文件、数据查询次数、内存峰值、总耗时。单次输入是目标加预热。若保留额外一行用于游标或判断源起点，单列为探测行。用相同标的、参数及可说明的文件缓存条件比较，同时核对查询数、实际文件打开及端到端耗时。
 - 股票日线正式样本沿用 [平安银行前次修复验收](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair) 的首批和一批续页。每批 500 根目标与该组合所需 500 根预热，共 1,000 根输入；两批前后各一次，共 4,000 根次，选页、文件、复权因子及独立对照另计。指数日线按既有四只指数每只首批与续页，按请求数与实际短页记录，不额外扩大历史。指数周期和 5 分钟用[既有周期样本](technical-indicator-index-period-low-level-design-v1.md#7-实施与独立复核记录)及[现有分钟样本](technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据)约定的标的、实际历史和预热规模；用对应旧版本或独立计算作为参照。
 - 中断只对每个新读取方法做必要样本。记录取消前的候选文件、实际读数与已完成查询，按现有 `ExecutionControl` 中断，同一次请求清理 SQL、Arrow 与上下文。下一次以同参数从头读，用正常一次请求的同一限额测完整重试。取消前开销、清理耗时和重试开销分别记录。正式读取只做有界只读。
 
@@ -266,4 +262,21 @@ LIMIT %s
 
 1. 对照函数及 SQL 查询范围，证明本地股票日线路由不再选择日期后重读行情，指数日线不再按历法预选整页，指数周月线计算与回包用同一份成品，指数 5 分钟定位不再重扫同一批时间。验收记录附实际查询范围与调用方。
 2. 核对输入日期、四价、量额、指标空值与数值、九转 1–9 标记、页面状态和页间日期。状态口径中的唯一明确变化是本地股票日线历史缺口交给 DG，浏览器正常流与周月、分钟其它范围继续按原合同核对。保留零目标、合法短页、数据读取失败、取消、超限之间的区别。
-3. 回归股票周月线专项、Prod 现有路由、旧区间计算、9:35 开盘归并、编码结果和原数据源权限边界。使用隔离正例和反例，加各阶段约定的有界真实样本。验收完成后将实际数据源和运行状态写回本地后端技术指标来源审计表。
+3. 旧区间计算、Prod 现有路由和股票周月线等路径复跑既有测试。新增回归聚焦各阶段实际改变的读取和业务结果，使用约定的有界真实样本核对。DG 日线批量读取无需构造文件损坏或字段类型错误的专门用例。验收完成后将实际数据源和运行状态写回本地后端技术指标来源审计表。
+
+<a id="stage-1-read-acceptance"></a>
+
+## 8. 阶段 1 实施与复核
+
+2026-11-23 使用同机隔离的本地 HTTP 应用和正式 DG 文件，只读核对平安银行 `000001.SZ`。前后两版各跑一次首屏与向左一页，沿用默认 500 根。系统文件缓存未清空。除每次生成的 `pageContext.generatedAt` 外，`/page-init` 和两次 `/kline` 回包逐字段相同，覆盖交易日期、前复权四价、成交量额、指标值及空值、九转标记、盘口、状态和续页日期。
+
+| 请求 | 返回日期 | 目标／预热 | 优化前 | 优化后 |
+| --- | --- | ---: | ---: | ---: |
+| 首屏 | 2024-10-31 至 2026-11-20 | 500／500 根 | 3.56 秒 | 2.47 秒 |
+| 向左一页 | 2022-10-10 至 2024-10-30 | 500／500 根 | 2.47 秒 | 1.86 秒 |
+
+- 每批取消 1,001 次业务行情查找和字段读取，以及内核 1,000 次逐日停牌读取。原路径可观察到 2,001 次日线 `ParquetFile` 读取器创建。新路径用两条 DuckDB 行情查询，分别读取目标和预热的 500 个文件，DuckDB 查询统计合计 1,000 个文件，两批路径无交叉。统计口径是读取器和查询所见文件，操作系统打开文件的次数未测。股票每日指标仍按实际目标日期读取，复权因子仍按原规则读取。
+- 两个请求的 DuckDB 行情查询缓冲峰值均约 66 MiB，低于现行 128 MiB 查询内存配置。隔离应用进程峰值由约 398 MiB 增至约 441 MiB，含 Web、Arrow、Python 和 DuckDB，不能直接当成单条查询占用。两次 HTTP 请求均在现行默认 6 秒工作时限内。
+- 用隔离样本在完成第一批的一文件一行后取消，约 0.7 毫秒释放资源。以相同参数重新读取约 20 毫秒，取得两根目标与一根预热。
+- 阶段相关后端回归共 234 项通过，包括股票日线首屏、翻页、到头、空页、取消，以及指数日线、指数 5 分钟、周月线和隔离 PostgreSQL 的既有用例。补充真实空页断言后，97 项相关用例复跑通过。前端图表和续页的 12 项既有用例通过。页面验收覆盖隔离应用的 HTTP 回包和前端测试。全目录试跑另有旧测试引用未导出的 `CalculationInstance`，旧股票路由测试有三项在原版本同样失败。
+- CodeGraph 复查了计算指令到 DG 读取会话、本地股票日线到业务组装和路由，以及前端续页消费者。实际变更限定在阶段 1 的共用指令和本地股票日线接线，后续范围通过原调用链的回归检查。

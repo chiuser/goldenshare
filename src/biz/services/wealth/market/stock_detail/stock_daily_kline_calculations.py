@@ -1,6 +1,6 @@
 """The stock daily API's fixed requests; no indicator arithmetic or source access."""
 
-from datetime import datetime, time
+from datetime import date, datetime, time
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
@@ -66,9 +66,23 @@ def build_calculation_request(
     """Use actual returned dates; the kernel determines its own preceding history."""
     if not source.bars:
         return None
+    return _calculation_request(source, source.bars[0].trade_date, source.bars[-1].trade_date,
+                                include_nine_turn=include_nine_turn)
+
+
+def build_recent_calculation_request(
+    source: StockDailyKlineInput, start: date | None, *, include_nine_turn: bool,
+) -> CalculationRequest:
+    return _calculation_request(source, start, source.query_end_date, latest_rows=source.request.limit,
+                                include_nine_turn=include_nine_turn)
+
+
+def _calculation_request(source, start, end, *, latest_rows=None, include_nine_turn):
+    timezone = ZoneInfo("Asia/Shanghai")
     return CalculationRequest(
         security_type="stock", ts_code=source.ts_code, period="day", adjustment="qfq",
         calculations=stock_daily_calculations(include_nine_turn=include_nine_turn),
-        start=datetime.combine(source.bars[0].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
-        end=datetime.combine(source.bars[-1].trade_date, time.min, ZoneInfo("Asia/Shanghai")),
+        start=datetime.combine(start, time.min, timezone) if start is not None else None,
+        end=datetime.combine(end, time.min, timezone),
+        latest_rows=latest_rows,
     )

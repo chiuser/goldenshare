@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections import deque
 from dataclasses import dataclass
 from datetime import date, datetime, time
@@ -15,7 +16,9 @@ from goldenshare_technical_indicators.errors import (
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
     TechnicalIndicatorError,
 )
-from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
+from goldenshare_technical_indicators.sources.contracts import (
+    PriceReadSelection, SourceDescription, SourceReadFacts, TargetBarFacts,
+)
 from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
 from ..technical_indicator_stock_daily import daily_adjustment_paths, daily_price_projection
@@ -597,6 +600,102 @@ class LakePriceLocator:
         return describe_index_period(request, self.context, targets, tuple(preceding), first, latest,
                                      path=path, row_groups=selected_groups, file_version=version)
 
+    def _read_recent_daily_batch(self, paths, columns):
+        from duckdb import Error, OutOfMemoryException
+
+        for path in paths:
+            self.control.check_active()
+            self.source._safe_path(self._root, path)
+            self.context.record_file(path, path.stat().st_size)
+        sql = f"""
+            SELECT {", ".join(columns)}
+            FROM read_parquet(?, hive_partitioning=false)
+            WHERE ts_code = ?
+            ORDER BY trade_date DESC
+            LIMIT ?
+        """
+        try:
+            rows = self.executor.connection.execute(
+                sql, (list(map(str, paths)), self.requirement.ts_code, len(paths)),
+            ).fetchall()
+        except OutOfMemoryException as exc:
+            self.control.check_active()
+            raise ResourceLimitError("DuckDB query memory limit was exceeded") from exc
+        except Error as exc:
+            self.control.check_active()
+            raise SourceReadError("The daily price batch could not be read") from exc
+        finally:
+            self.control._note_sql_returned()
+        self.control.check_active()
+        self.context.record_locator_rows(len(rows))
+        return rows
+
+    def _select_recent_daily(self, paths, *, price_projection):
+        request = self.requirement
+        columns = price_projection + (
+            ("pre_close", "change_amount", "pct_chg") if request.include_source_facts else ()
+        )
+        remaining = len(paths)
+        target_floor = 0 if request.start is None else bisect_left(
+            paths, f"trade_date={request.start}", key=lambda path: path.parent.name,
+        )
+
+        def read_previous(wanted, projection, floor=0):
+            nonlocal remaining
+            first = max(floor, remaining - min(wanted, request.batch_rows))
+            rows = self._read_recent_daily_batch(paths[first:remaining], projection)
+            remaining = first
+            return rows
+
+        target = []
+        while remaining > target_floor and len(target) < request.latest_rows:
+            target.extend(read_previous(request.latest_rows - len(target), columns, target_floor))
+        if not target:
+            return PriceReadSelection(None, None, None, None, 0, 0, not remaining, ()), SourceReadFacts()
+
+        history_limit, needs_origin = preceding_limit(self.context.config, request, len(target))
+        history = []
+        previous_target_date = None
+        while remaining:
+            cursor_pending = request.include_source_facts and not history and remaining > target_floor
+            wanted = max(history_limit - len(history) + int(needs_origin), int(cursor_pending))
+            if not wanted:
+                break
+            rows = read_previous(wanted, price_projection)
+            if cursor_pending and rows:
+                day = rows[0][0]
+                if request.start is None or day >= request.start:
+                    previous_target_date = day
+            history.extend(rows)
+            if len(history) > history_limit:
+                if needs_origin:
+                    raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
+                break
+
+        reached_origin = not remaining and len(history) <= history_limit
+        del history[history_limit:]
+        target.reverse()
+        history.reverse()
+        pa, _, _, _ = _arrow()
+        price_values = zip(*(row[:len(price_projection)] for row in (*history, *target)), strict=True)
+        price_table = pa.Table.from_arrays(
+            [pa.array(values, type=pa.date32() if name == "trade_date" else pa.float64())
+             for name, values in zip(price_projection, price_values, strict=True)],
+            names=price_projection,
+        )
+        self.context.source_state = tuple(price_table.to_batches(max_chunksize=request.batch_rows))
+        selection = PriceReadSelection(
+            target[0][0], target[-1][0], (history or target)[0][0], target[-1][0],
+            len(target), len(history), reached_origin, (),
+        )
+        facts = SourceReadFacts()
+        if request.include_source_facts:
+            facts = SourceReadFacts(
+                tuple(TargetBarFacts(row[0], row[0], *row[len(price_projection):]) for row in target),
+                previous_target_date,
+            )
+        return selection, facts
+
     def describe(self):
         if self._closed or self._started:
             raise SourceContractError("A source locator can only describe one request")
@@ -623,13 +722,20 @@ class LakePriceLocator:
             projection, standard = project(frozenset())
             price_projection, price_standard = project(request.history.fields)
             stock_daily = request.target.dataset_id == "stock_daily"
-            if not stock_daily:
-                self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
-            paths, selection, groups = self._select(paths, schema, projection, standard,
-                                                    price_projection=price_projection)
-            self._validate_selected_price_groups(groups)
-            if stock_daily and selection.target_rows:
-                self.context.source_state = tuple(group.price_batch for group in groups)
+            source_facts = SourceReadFacts()
+            if request.latest_rows is not None:
+                # ts_code is only a filter. All requested price columns come from this query.
+                price_projection = price_projection[1:]
+                selection, source_facts = self._select_recent_daily(paths, price_projection=price_projection)
+                paths = ()
+            else:
+                if not stock_daily:
+                    self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
+                paths, selection, groups = self._select(paths, schema, projection, standard,
+                                                        price_projection=price_projection)
+                self._validate_selected_price_groups(groups)
+                if stock_daily and selection.target_rows:
+                    self.context.source_state = tuple(group.price_batch for group in groups)
             converted = request.target_adjustment == "qfq"
             factor_paths = ()
             if converted and selection.target_rows:
@@ -646,7 +752,7 @@ class LakePriceLocator:
                 history_origin_rule="earliest_available_formal_partition", available_through=None,
                 supports_partial_period=False, supported_adjustment_paths=adjustments, converted=converted,
                 selection=selection, price_paths=paths, factor_paths=factor_paths,
-                source_projection=price_projection, standard_projection=price_standard,
+                source_projection=price_projection, standard_projection=price_standard, source_facts=source_facts,
             )
         except TechnicalIndicatorError:
             raise

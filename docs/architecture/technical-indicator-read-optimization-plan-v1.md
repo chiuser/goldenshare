@@ -1,12 +1,12 @@
 # 技术指标算子库读取优化方案 v1
 
-**2026-11-23｜待评审。** 本专项减少已接算子库链路的重复读取。前一次修复已经让 DG 股票日线在内核中复用定位时读到的行情，并减少了打开停牌文件的次数。此次继续处理整个请求中的业务预读、算子库取数和回包组装。现状以下列代码和 [股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance) 为依据。前一次修复的实测见 [股票日线读取修复验收](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。 代码、SQL 与实施验收见[专项 LLD](technical-indicator-read-optimization-low-level-design-v1.md)。
+**2026-11-23｜阶段 1 已实现并复核。** 本专项减少已接算子库链路的重复读取。本地股票日线已经由算子库按截止日和根数取数，实测见[阶段 1 复核记录](technical-indicator-read-optimization-low-level-design-v1.md#stage-1-read-acceptance)。其余链路按下表分阶段推进。基线参考[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
 
 ## 1. 范围
 
-| 链路 | 当前情况 | 本次优化 |
+| 链路 | 优化前 | 本次优化 |
 | --- | --- | --- |
-| 本地股票日线首屏和续页 | 业务先逐日查找本页日期，再读日线展示字段。算子库另读同一批日线取价，并逐日查停牌做缺口检查。 | 算子库接收截止日和根数，直接读日 K 和所需预热，当次返回同源展示字段。缺口检查交给 DG。 [现行股票取数](../../src/app/dependencies/stock_daily_technical_indicators.py#L230) · [现行停牌读取](../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L338) |
+| 本地股票日线首屏和续页 | 业务先逐日查找本页日期，再读日线展示字段。算子库另读同一批日线取价，并逐日查停牌做缺口检查。 | 算子库接收截止日和根数，直接读日 K 和所需预热，当次返回同源展示字段。缺口检查交给 DG。 [股票日线接线](../../src/app/dependencies/stock_daily_technical_indicators.py#L181) · [按根数读取](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L633) |
 | 本地指数日线首屏和续页 | 业务先按开市日选页。算子库读日期和四价，业务随后另读同一行情来源的量额、昨收及涨跌字段。 | 直接按截止日和根数取实际行情，复用同次取数。整页的行情更新判断由 `/page-init` 负责。 [现行指数选页和组装](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L231) · [现行定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L343) |
 | 本地指数周线和月线 | 业务先读成品选页和取展示字段，内核再读同一个成品文件的日期和价格。部分空页或延迟还会另查成品首尾。 | 选页、预热、价格和展示字段复用同一次读数，组装时复用该次取得的截止日和必要的范围信息。 [业务选页](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py#L35) · [内核定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L539) |
 | 指数 5 分钟不复权算子 | DG 和 Prod 已启用计算。DG 先读时间定位，再读行情列，部分场景还要重读时间找边界。指数分钟详情仍走现有成品接口。 | 优化已启用的 5 分钟取数。时间定位和价格共用读取结果，按真实时间戳和已有开盘规则计算。开发安排见 §5。 [分钟定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L245) · [分钟详情入口](../../src/biz/api/wealth/market/index_detail_minutes.py#L54) |
@@ -18,7 +18,7 @@
 
 1. **业务传截止日和根数。** 算子库增加「截至某个日期或时间，取最近 N 根」的内部调用方式。调用方传标的、周期、复权口径、指标、包含该时刻的截止点和返回根数。上游明确给出起始日期时，用它限制可返回的目标行情。已有明确起止范围的计算调用继续用原合同。当前 `output_rows` 是上限，只改上限无法替代本次取数能力。 [计算请求](../../packages/technical_indicators/src/goldenshare_technical_indicators/contracts.py#L48) · [现有根数上限](../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L78)
 2. **从实际行情选中目标记录。** 从截止点往前按时间排序，匹配该标的的记录才计一根。达到目标根数就确定本页。到数据历史起点时，返回实际可用根数。已有的业务历史下限仍约束返回范围。算子库按原有指标预热规则读取目标之前的记录，预热行情只用于计算。500 根是现有日 K 页的返回上限，部署给出较低上限时按现行限制执行。请求超限按对应接口的既有规则处理。 [前端日 K 页大小](../../wealth/src/shared/charts/dailyChartRequestLimits.ts) · [股票日 K 请求校验](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py#L42)
-3. **DG 按批查实际文件。** 按截止点和候选分区的目录日期形成一批路径，交给 DuckDB 批量读取所需字段。按标的和日期或时间过滤，倒序取所需记录。路径选择只看目录和文件位置，省掉先查每个文件里这只证券有没有记录的步骤。候选范围内根数不足时，向更早的分区补读，复用已取得的记录。对单个周线或月线成品文件，用标的和周期范围读取所需数据。`LIMIT` 约束查询返回行数，候选文件范围、实际打开次数和内存开销分别验收。现有股票复权因子读取已经使用多文件查询，见 [DG 读取器](../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L383)。
+3. **DG 按批查实际文件。** 按截止点和候选分区的目录日期形成一批路径，交给 DuckDB 批量读取所需字段。按标的和日期或时间过滤，倒序取所需记录。日线批量读取直接使用 DG 已发布的数据，按现有字段读取，省掉读取前逐文件检查表头和查找证券。候选范围内根数不足时，向更早的分区补读，复用已取得的记录。对单个周线或月线成品文件，用标的和周期范围读取所需数据。`LIMIT` 约束查询返回行数，候选文件范围、实际打开次数和内存开销分别验收。现有股票复权因子读取已经使用多文件查询，见 [DG 读取器](../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L383)。
 4. **同一批数据交给算子与组装层。** 记录按时间升序交付。计算结果提供每根的实际时间、现有行情和指标结果，读取层同时交付同源展示字段。本页最早记录之前如有更早一根，其实际时间供业务生成 `nextEndDate`。预热已经读到那一根时直接复用。没有更早可返回的行情时，业务返回空游标。算子库提供行情日期，业务负责首屏、续页和 HTTP 字段。
 5. **沿用现有计算和错误口径。** 一次请求中的算子共用同一批标准行情。股票日线不复权行情与股票复权因子仍是前复权计算输入，复权基准与价格计算规则沿用现有实现。既有的单位、预热精度、指标公式、九转显示、日期时区、数据源归属、输出上限、取消和错误分类均按对应合同验收。业务正常空页与数据读取故障分别处理。一次调用的行情、预热和交接数据随请求释放，失败或取消后相同参数重新执行。
 
@@ -63,6 +63,6 @@
 
 - 用相同标的、截止日期、根数和指标做优化前后对照。股票日线复用平安银行首批和向前一批的样本。现有参考样本每批返回 500 根、另外用 500 根前置行情计算。后者是该样本和现有指标组合的记录，其他请求按自身指标所需预热计算。 [股票日线历史实测](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)
 - 分开计量 DG 文件实际打开次数、唯一文件数、执行查询次数、返回根数、预热根数和端到端耗时。首屏验收分开记录 `/page-init` 与 `/kline`，分别识别同一请求内的重复读取和两个接口间的行情重叠。查询条数减少仍要核对实际文件读取范围。对比采用可说明的相同缓存条件。按现行部署的输出、内存、输入和文件限制验收。默认总时限 8 秒含 2 秒清理预留，从请求到达起的工作时限为 6 秒。 [部署配置](../../src/foundation/config/settings.py#L76) · [时限计算](../../packages/technical_indicators/src/goldenshare_technical_indicators/execution_control.py#L21)
-- 对照同一批 K 线的日期、价格、量额、指标值及空值位置和回包状态。用隔离样本区分周末、真实停牌、历史较短和文件读取失败。复跑股票与指数既有路由和分钟、周月算子测试。按阶段用有界正式样本核对，对涉及页面的阶段验收首屏、向左翻页和到头停止。
+- 新增回归集中在实际使用的路径。涉及页面的阶段验收首屏、向左翻页和历史到头，对照同一批 K 线的日期、价格、量额、指标值及空值位置和回包状态。复用股票与指数既有路由和分钟、周月算子测试，按阶段用有界正式样本核对。
 - 对可能跨批读取的请求，记录取消前已读取的范围和条数、释放资源的时间、用相同参数重试的总开销。正常执行、取消清理和重试都沿用当前资源配置。
 - 各阶段开工前在专项 LLD 明确具体方法、查询边界、结果字段、调用方和基线。验收完成后将相应结果回写既有设计和 本地后端技术指标来源审计表，便于核对实际运行状态。

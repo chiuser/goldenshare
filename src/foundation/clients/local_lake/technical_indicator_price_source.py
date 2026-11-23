@@ -323,6 +323,10 @@ class LakeTechnicalIndicatorPriceSource:
             raise SourceReadError(f"Cannot read daily facts from {identifier}") from exc
 
     def expected_positions(self, requirement, selection, *, read_context, control):
+        if requirement.latest_rows is not None:
+            for batch in read_context.source_state:
+                yield from batch.column("trade_date").to_pylist()
+            return
         if requirement.target.dataset_id in STOCK_PERIOD_DATASETS.values():
             yield from read_context.source_state.positions
             return

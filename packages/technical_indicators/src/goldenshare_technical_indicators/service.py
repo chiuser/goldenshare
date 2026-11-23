@@ -9,10 +9,11 @@ from time import monotonic
 
 from .configuration.settings import KernelConfig
 from .calculation.history import INITIALIZATION_ERROR_BUDGET, STOCK_WEEKLY_INITIALIZATION_ERROR_BUDGET
-from .errors import OutputContractError, RequestInvalidError, ResourceCleanupError, _clear_error_frames
+from .errors import OutputContractError, RequestInvalidError, ResourceCleanupError, ResourceLimitError, _clear_error_frames
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
 from .request_parser import CalculationRequestParser, _build_read_requirement
+from .sources.contracts import CalculationWithSource
 
 if TYPE_CHECKING:
     from .calculation.registry import CalculationRegistry
@@ -77,6 +78,17 @@ class TechnicalIndicatorService:
 
     def calculate(self, request, *, output_rows=None, warmup_error_budget=None):
         """Compute the requested region and return a detached immutable result."""
+        return self._calculate_request(
+            request, output_rows=output_rows, warmup_error_budget=warmup_error_budget,
+        )[0]
+
+    def calculate_with_source(self, request) -> CalculationWithSource:
+        """Return the calculation and the source facts selected by the same read."""
+        return self._calculate_request(request, include_source_facts=True)
+
+    def _calculate_request(
+        self, request, *, output_rows=None, warmup_error_budget=None, include_source_facts=False,
+    ):
         control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
         prepared = None
         try:
@@ -86,11 +98,15 @@ class TechnicalIndicatorService:
                 if type(output_rows) is not int or output_rows not in (100, 500):
                     raise RequestInvalidError("output_rows must select 100 or 500")
                 prepared = replace(prepared, max_output_rows=min(output_rows, self.config.max_output_rows))
+                if request.latest_rows is not None and request.latest_rows > prepared.max_output_rows:
+                    raise ResourceLimitError("Target positions exceed max_output_rows")
             if warmup_error_budget is not None:
                 if warmup_error_budget not in (INITIALIZATION_ERROR_BUDGET, STOCK_WEEKLY_INITIALIZATION_ERROR_BUDGET):
                     raise RequestInvalidError("Unknown recursive indicator warmup precision")
                 prepared = replace(prepared, warmup_error_budget=warmup_error_budget)
-            return self._calculate_library(prepared, control=control)[0]
+            if include_source_facts:
+                prepared = replace(prepared, include_source_facts=True)
+            return self._calculate_library(prepared, control=control)
         finally:
             prepared = None
 
@@ -144,53 +160,54 @@ class TechnicalIndicatorService:
                                                collect_target_ohlc=collect_target_ohlc)
             inputs.prepare()
             description = inputs.resolved_description()
-            output = OutputCollector(
-                executor=executor, request=normalized, instances=self._describe_output_instances(plan),
-                selection=description.selection,
-            )
-            while True:
-                control.check_active()
-                batch = inputs.next_batch()
-                if batch is None:
-                    break
-                engine.consume(batch)
-                output.append_new_rows(engine.output_for(batch))
-                if target_ohlc is not None:
-                    start = max(description.selection.preceding_rows + 1, batch.new_first_seq)
-                    if start <= batch.new_last_seq:
-                        target_ohlc.extend(executor.read_result(SqlStep(
-                            "collect_target_ohlc",
-                            f"SELECT open, high, low, close FROM {batch.table_name} "
-                            "WHERE seq BETWEEN ? AND ? ORDER BY seq",
-                            (start, batch.new_last_seq), (batch.table_name,), (), batch.new_row_count,
-                        ), expected_columns=tuple((name, "DOUBLE") for name in ("open", "high", "low", "close")),
-                            max_rows=batch.new_last_seq - start + 1))
-                inputs.retain_required_history()
-                engine.release_batch_tables()
-                inputs.finish_batch()
-                control.check_active()
-            engine.finish()
-            statistics = CalculationStatistics(
-                source_rows=read_context.source_rows,
-                sql_processed_rows=executor.sql_processed_rows,
-                source_files=read_context.source_files,
-                source_file_bytes=read_context.source_file_bytes,
-                locator_rows=read_context.locator_rows,
-                price_conversion_batches=inputs.conversion_batches,
-                elapsed_ms=(control.clock() - control.arrived_at) * 1000,
-            )
-            result = output.build_result(
-                description, statistics,
-                read_start=inputs.read_start, read_end=inputs.read_end,
-            )
-            if target_ohlc is not None and len(target_ohlc) != len(result.times):
-                raise OutputContractError("Target OHLC and calculated dates differ", reason="count_mismatch",
-                                          stage="collect_target_ohlc")
-            if target_ohlc is not None and any(
-                value is None or not isfinite(value) for row in target_ohlc for value in row
-            ):
-                raise OutputContractError("Target OHLC must be finite", reason="invalid_value",
-                                          stage="collect_target_ohlc")
+            if description.selection.target_rows:
+                output = OutputCollector(
+                    executor=executor, request=normalized, instances=self._describe_output_instances(plan),
+                    selection=description.selection,
+                )
+                while True:
+                    control.check_active()
+                    batch = inputs.next_batch()
+                    if batch is None:
+                        break
+                    engine.consume(batch)
+                    output.append_new_rows(engine.output_for(batch))
+                    if target_ohlc is not None:
+                        start = max(description.selection.preceding_rows + 1, batch.new_first_seq)
+                        if start <= batch.new_last_seq:
+                            target_ohlc.extend(executor.read_result(SqlStep(
+                                "collect_target_ohlc",
+                                f"SELECT open, high, low, close FROM {batch.table_name} "
+                                "WHERE seq BETWEEN ? AND ? ORDER BY seq",
+                                (start, batch.new_last_seq), (batch.table_name,), (), batch.new_row_count,
+                            ), expected_columns=tuple((name, "DOUBLE") for name in ("open", "high", "low", "close")),
+                                max_rows=batch.new_last_seq - start + 1))
+                    inputs.retain_required_history()
+                    engine.release_batch_tables()
+                    inputs.finish_batch()
+                    control.check_active()
+                engine.finish()
+                statistics = CalculationStatistics(
+                    source_rows=read_context.source_rows,
+                    sql_processed_rows=executor.sql_processed_rows,
+                    source_files=read_context.source_files,
+                    source_file_bytes=read_context.source_file_bytes,
+                    locator_rows=read_context.locator_rows,
+                    price_conversion_batches=inputs.conversion_batches,
+                    elapsed_ms=(control.clock() - control.arrived_at) * 1000,
+                )
+                result = output.build_result(
+                    description, statistics,
+                    read_start=inputs.read_start, read_end=inputs.read_end,
+                )
+                if target_ohlc is not None and len(target_ohlc) != len(result.times):
+                    raise OutputContractError("Target OHLC and calculated dates differ", reason="count_mismatch",
+                                              stage="collect_target_ohlc")
+                if target_ohlc is not None and any(
+                    value is None or not isfinite(value) for row in target_ohlc for value in row
+                ):
+                    raise OutputContractError("Target OHLC must be finite", reason="invalid_value",
+                                              stage="collect_target_ohlc")
             control.check_active()
         except BaseException as exc:
             primary_error = exc
@@ -203,6 +220,8 @@ class TechnicalIndicatorService:
         try:
             raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
             control.check_active()
+            if prepared.include_source_facts:
+                return CalculationWithSource(result, description.selection, description.source_facts)
             return result, description.selection.preceding_rows, None if target_ohlc is None else tuple(target_ohlc)
         finally:
             result = output = inputs = engine = executor = connection = prepared = plan = None

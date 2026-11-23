@@ -16,9 +16,7 @@ from src.biz.api.wealth.market.stock_detail_dependencies import (
     StockDailyKlineBackend, get_stock_daily_kline_backend,
 )
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailNotFoundError
-from src.biz.queries.wealth.market.stock_detail.stock_detail_query import (
-    STOCK_DAILY_AUX_FIELDS, STOCK_DAILY_BASIC_FIELDS, StockDetailQuery,
-)
+from src.biz.queries.wealth.market.stock_detail.stock_detail_query import STOCK_DAILY_BASIC_FIELDS, StockDetailQuery
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, build_calculation_request, is_stock_detail_first_page,
     stock_daily_calculations, validate_stock_daily_request,
@@ -191,12 +189,17 @@ class StockDailyKlineAppBackend:
             control.check_active()
             return control.work_until - control.clock()
 
+        indicators = TechnicalIndicatorService(
+            source=self.runtime.source, registry=self.runtime.registry,
+            config=self.runtime.config, control=control,
+        )
         if self._use_dg:
             try:
-                snapshot = self.service.prepare(
-                    None, request,
-                    load_rows=lambda code, end, start, count: self._load_page_fields(
-                        None, code, end, start, count, control, paginated=paginated,
+                snapshot, result = self.service.prepare_recent(
+                    request, calculate=indicators.calculate_with_source,
+                    load_basics=lambda code, dates: self.runtime.source.daily_rows(
+                        "stock_daily_basic", code, dates, STOCK_DAILY_BASIC_FIELDS,
+                        control=control, read_context=SourceReadContext(self.runtime.config),
                     ),
                     remaining_seconds=remaining_seconds, paginated=paginated,
                 )
@@ -207,18 +210,16 @@ class StockDailyKlineAppBackend:
             with open_stock_daily_read_session(self.session_factory_provider(), control) as session:
                 snapshot = self.service.prepare(
                     session, request,
-                    load_rows=lambda code, end, start, count: self._load_page_fields(
-                        session, code, end, start, count, control,
+                    load_rows=lambda code, end, start, count: StockDailyKlinePage(
+                        self._price_query.load_kline_rows(
+                            session, ts_code=code, end_date=end, start_date=start, limit=count,
+                        ),
                     ),
                 )
+            control.check_active()
+            calculation = build_calculation_request(snapshot)
+            result = None if calculation is None else indicators.calculate(calculation)
         control.check_active()
-        calculation = build_calculation_request(snapshot, include_nine_turn=paginated)
-        result = None
-        if calculation is not None:
-            result = TechnicalIndicatorService(
-                source=self.runtime.source, registry=self.runtime.registry,
-                config=self.runtime.config, control=control,
-            ).calculate(calculation)
         dto = self.service.assemble(
             snapshot, result, source_tables=self._source_tables,
             include_quote=self._use_dg and is_stock_detail_first_page(request),
@@ -226,31 +227,6 @@ class StockDailyKlineAppBackend:
         )
         control.check_active()
         return dto.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
-
-    def _load_page_fields(self, session, code, end, start, limit, control, *, paginated=False):
-        if not self._use_dg:
-            return StockDailyKlinePage(self._price_query.load_kline_rows(
-                session, ts_code=code, end_date=end, start_date=start, limit=limit,
-            ))
-        source = self.runtime.source
-        with_args = {"control": control, "read_context": SourceReadContext(self.runtime.config)}
-        dates = source.daily_page_dates(
-            "stock_daily", code, start=start, end=end, limit=limit + int(paginated), **with_args,
-        )
-        next_end_date = dates[0] if len(dates) > limit else None
-        dates = dates[-limit:]
-        quotes = source.daily_rows("stock_daily", code, dates, STOCK_DAILY_AUX_FIELDS, **with_args)
-        basics = source.daily_rows("stock_daily_basic", code, dates, STOCK_DAILY_BASIC_FIELDS, **with_args)
-        if tuple(quotes) != dates:
-            raise SourceReadError("读取数据失败", detail="数据缺失")
-        rows = [
-            {
-                **quotes[day], "change": quotes[day]["change_amount"],
-                **{field: basics.get(day, {}).get(field) for field in STOCK_DAILY_BASIC_FIELDS},
-            }
-            for day in dates
-        ]
-        return StockDailyKlinePage(rows, next_end_date)
 
 
 class StockDailyKlineResponse(Response):

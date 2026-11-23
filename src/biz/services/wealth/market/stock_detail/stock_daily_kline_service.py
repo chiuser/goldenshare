@@ -1,6 +1,6 @@
 """Prepare detached business facts and map kernel results to the stock daily response."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import date
 
@@ -16,11 +16,13 @@ from src.biz.schemas.wealth.market.stock_detail import (
 )
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.reference_data import ReferenceData
-from goldenshare_technical_indicators.contracts import CalculationResult
+from goldenshare_technical_indicators.contracts import CalculationRequest, CalculationResult
 from goldenshare_technical_indicators.errors import OutputContractError
+from goldenshare_technical_indicators.sources.contracts import CalculationWithSource
 
 from .stock_daily_kline_calculations import (
-    STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_OUTPUT_FIELDS, stock_daily_calculations,
+    STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_OUTPUT_FIELDS, build_recent_calculation_request,
+    stock_daily_calculations,
 )
 from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest
 from .stock_detail_field_mapper import (
@@ -52,6 +54,32 @@ class StockDailyKlineService:
         return self._query.prepare_kline_input(
             session, request, load_rows=load_rows, remaining_seconds=remaining_seconds, paginated=paginated,
         )
+
+    def prepare_recent(
+        self, request: StockDailyKlineRequest, *,
+        calculate: Callable[[CalculationRequest], CalculationWithSource],
+        load_basics: Callable[[str, tuple[date, ...]], Mapping[date, Mapping]],
+        remaining_seconds: Callable[[], float], paginated: bool,
+    ) -> tuple[StockDailyKlineInput, CalculationResult | None]:
+        source, start = self._query.resolve_kline_input(
+            None, request, remaining_seconds=remaining_seconds, paginated=paginated,
+        )
+        if start is not None and start > source.query_end_date:
+            return source, None
+        calculated = calculate(build_recent_calculation_request(source, start, include_nine_turn=paginated))
+        result, facts = calculated.result, calculated.source_facts
+        if result is None:
+            return source, None
+        basics = load_basics(source.ts_code, tuple(row.trade_date for row in facts.target_bars))
+        rows = []
+        for row in facts.target_bars:
+            basic = basics.get(row.trade_date, {})
+            rows.append(dict(
+                trade_date=row.trade_date, pre_close=row.pre_close, change=row.change_amount, pct_chg=row.pct_chg,
+                turnover_rate=basic.get("turnover_rate"), volume_ratio=basic.get("volume_ratio"),
+            ))
+        page = StockDailyKlinePage(rows, facts.previous_target_date if paginated else None)
+        return self._query.with_kline_page(source, page), result
 
     def _validate_result(
         self, source: StockDailyKlineInput, result: CalculationResult, *, include_nine_turn: bool = False,

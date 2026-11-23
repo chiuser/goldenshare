@@ -25,6 +25,7 @@ from goldenshare_technical_indicators.sources.read_context import SourceReadCont
 from src.foundation.clients.local_lake.technical_indicator_price_source import (
     LakeTechnicalIndicatorPriceSource, _LakePriceStream,
 )
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.clients.technical_indicator_stock_daily import full_day_suspension
 from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 
@@ -66,7 +67,7 @@ def _dg(root, prices, *, suspensions=None, listed=FRI, delisted=None):
 
 
 @contextmanager
-def _read(root, first, last, *, max_output=2, batch_rows=1, calculations=(PRICE,)):
+def _read(root, first, last, *, max_output=2, batch_rows=1, calculations=(PRICE,), latest_rows=None):
     locations = deepcopy(DATASET_LOCATIONS)
     locations["stock_daily"]["dg"]["enabled_adjustments"] = ("none",)
     config = technical_indicator_config_from_settings(Settings(
@@ -81,6 +82,7 @@ def _read(root, first, last, *, max_output=2, batch_rows=1, calculations=(PRICE,
         start=datetime.combine(first, datetime.min.time(), tzinfo=timezone.utc),
         end=datetime.combine(last, datetime.min.time(), tzinfo=timezone.utc),
         calculations=calculations,
+        latest_rows=latest_rows,
     )
     prepared = service._prepare_calculation(request)
     read_context = SourceReadContext(config)
@@ -261,6 +263,26 @@ def test_cancelled_request_releases_input_and_restarts_from_the_beginning(tmp_pa
             session.executor.control.check_active()
     with _read(tmp_path, MON, TUE) as (session, connection, _, _):
         assert [window[-1][0] for window in _windows(session, connection)] == [MON, TUE]
+
+
+def test_cancelled_daily_batch_restarts_from_the_same_cutoff(tmp_path, monkeypatch):
+    _dg(tmp_path, {FRI: [10], MON: [20], TUE: [30]})
+    read_recent = LakePriceLocator._read_recent_daily_batch
+
+    def cancel_after_read(locator, paths, columns):
+        rows = read_recent(locator, paths, columns)
+        assert [row[0] for row in rows] == [TUE]
+        locator.control.request_stop("cancel")
+        return rows
+
+    with monkeypatch.context() as patch:
+        patch.setattr(LakePriceLocator, "_read_recent_daily_batch", cancel_after_read)
+        with pytest.raises(CalculationCancelledError):
+            with _read(tmp_path, FRI, TUE, latest_rows=2):
+                pytest.fail("A cancelled read must not hand off input")
+    with _read(tmp_path, FRI, TUE, latest_rows=2) as (session, connection, context, _):
+        assert [window[-1][0] for window in _windows(session, connection)] == [MON, TUE]
+        assert context.source_rows == 2
 
 
 def test_dg_reader_rejects_a_prod_target_before_checking_its_path(tmp_path, monkeypatch):
