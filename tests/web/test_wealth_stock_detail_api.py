@@ -242,7 +242,7 @@ def test_stock_detail_kline_rejects_unsupported_period_and_adjustment(app_client
     with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property):
         period_response = app_client.get(
             "/api/v1/wealth/market/stock-detail/kline",
-            params={"tsCode": "603806.SH", "period": "week", "adjustment": "forward"},
+            params={"tsCode": "603806.SH", "period": "year", "adjustment": "forward"},
         )
         adjustment_response = app_client.get(
             "/api/v1/wealth/market/stock-detail/kline",

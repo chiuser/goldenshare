@@ -23,6 +23,9 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlinePage
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+from src.biz.services.wealth.market.stock_detail.stock_period_kline_service import (
+    StockPeriodKlineService, validate_stock_period_request,
+)
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.reference_data_reader import STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION
 from src.foundation.clients.reference_data import ReferenceDataReadError
@@ -151,6 +154,7 @@ class StockDailyKlineAppBackend:
         self.runtime = runtime
         self.session_factory_provider = session_factory_provider
         self.service = StockDailyKlineService(reference_data)
+        self.period_service = StockPeriodKlineService(reference_data)
         self._price_query = StockDetailQuery()
         self._use_dg = runtime.config.data_location == "dg"
         self._source_tables = (
@@ -172,7 +176,10 @@ class StockDailyKlineAppBackend:
 
     def validate_before_wait(self, request):
         try:
-            validate_stock_daily_request(request)
+            if request.period in ("week", "month"):
+                validate_stock_period_request(request)
+            else:
+                validate_stock_daily_request(request)
         except ValueError as error:
             raise WebAppError(status_code=400, code="400001",
                               message=str(error)) from error
@@ -193,6 +200,8 @@ class StockDailyKlineAppBackend:
             source=self.runtime.source, registry=self.runtime.registry,
             config=self.runtime.config, control=control,
         )
+        if request.period in ("week", "month"):
+            return self._work_period(request, control, indicators, remaining_seconds)
         if self._use_dg:
             try:
                 snapshot, result = self.service.prepare_recent(
@@ -225,6 +234,39 @@ class StockDailyKlineAppBackend:
             include_quote=self._use_dg and is_stock_detail_first_page(request),
             paginated=paginated,
         )
+        control.check_active()
+        return dto.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
+
+    def _work_period(self, request, control, indicators, remaining_seconds):
+        service = self.period_service
+        source = self.runtime.source
+        if self._use_dg:
+            try:
+                context = service.prepare(
+                    None, request, remaining_seconds=remaining_seconds,
+                    load_suspensions=lambda code, days: source.stock_period_suspensions(
+                        code, days, control=control, read_context=SourceReadContext(self.runtime.config),
+                    ),
+                )
+            except TimeoutError as error:
+                control.check_active()
+                raise CalculationDeadlineError("stock_period_reference_data/deadline") from error
+        else:
+            with open_stock_daily_read_session(self.session_factory_provider(), control) as session:
+                context = service.prepare(
+                    session, request, remaining_seconds=remaining_seconds,
+                    load_suspensions=lambda code, days: source.stock_period_suspensions(
+                        code, days, control=control, session=session,
+                    ),
+                )
+        calculation = service.calculate(context, request, indicators)
+        target = self.runtime.config.resolve_dataset_location(
+            self.runtime.config.market_dataset_id("stock", request.period),
+        )
+        location = target.location
+        price_source = location["path_template"] if self._use_dg else f"{location['schema']}.{location['relation']}"
+        dto = service.assemble(context, request, calculation, max_output_rows=self.runtime.config.max_output_rows,
+                               price_source=price_source)
         control.check_active()
         return dto.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
 

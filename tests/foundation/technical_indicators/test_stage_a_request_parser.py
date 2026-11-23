@@ -77,9 +77,10 @@ def test_parser_and_discovery_share_backend_and_build_read_instruction(backend, 
         read_minute = _build_read_requirement(minute, history, batch_rows=cfg.batch_rows)
     assert {field.name for field in fields(read_daily)} == {
         "target", "ts_code", "period", "start", "end", "history", "batch_rows", "target_adjustment", "max_output_rows",
-        "latest_rows", "include_source_facts",
+        "latest_rows", "include_source_facts", "require_current_period_end_date",
     }
     assert read_daily.max_output_rows is read_minute.max_output_rows is None
+    assert not read_daily.require_current_period_end_date and not read_minute.require_current_period_end_date
     assert (read_daily.start, read_daily.end) == (date(2026, 11, 17), date(2026, 11, 17))
     assert read_minute.start.isoformat() == "2026-11-17T09:35:00+08:00"
     assert read_minute.end == MINUTE

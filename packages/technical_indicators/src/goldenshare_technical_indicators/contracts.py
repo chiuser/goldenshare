@@ -67,7 +67,8 @@ class CalculationRequest:
             raise RequestInvalidError("One target adjustment is required")
         if self.latest_rows is not None and (type(self.latest_rows) is not int or self.latest_rows <= 0):
             raise RequestInvalidError("latest_rows must be a positive integer")
-        bounds = ("end",) if self.latest_rows is not None and self.start is None else ("start", "end")
+        full_stock_months = (self.security_type, self.period, self.adjustment) == ("stock", "month", "qfq")
+        bounds = ("end",) if self.start is None and (self.latest_rows is not None or full_stock_months) else ("start", "end")
         for name in bounds:
             value = getattr(self, name)
             if not isinstance(value, datetime) or value.utcoffset() is None:

@@ -11,7 +11,7 @@ export type NineTurnLayerPhase =
   | "FORBIDDEN"
   | "UNSUPPORTED";
 
-export type NineTurnDisplayPeriod = NineTurnPeriod | "1";
+export type NineTurnDisplayPeriod = NineTurnPeriod | "week" | "month" | "1";
 
 export interface NineTurnLayerViewModel {
   canRetry: boolean;

@@ -23,6 +23,7 @@ import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/tre
 import { buildStockDailyNineTurnLayer } from "../api/stockDetailViewModelAdapter";
 import type { StockTrendChannelViewModel } from "../trend-channel/api/stockTrendChannelViewModelAdapter";
 import type { StockDailyHistory } from "../controller/useStockDailyHistory";
+import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import type {
   StockCandlePoint,
   StockIndicatorTab,
@@ -42,6 +43,14 @@ interface StockChartWorkspaceProps {
   supportsTrendChannel: boolean;
   trend: StockTrendChannelViewModel | null;
   tsCode: string;
+  period?: "day" | "week" | "month";
+  tradeDate?: string;
+  periodNote?: string | null;
+  periodHistory?: {
+    phase: "idle" | "loading" | "error";
+    onViewport: (viewport: DetailChartHistoryViewport) => void;
+    retry: () => void;
+  };
 }
 
 export function StockChartWorkspace({
@@ -57,6 +66,10 @@ export function StockChartWorkspace({
   supportsTrendChannel,
   trend,
   tsCode,
+  period = "day",
+  tradeDate,
+  periodNote,
+  periodHistory,
 }: StockChartWorkspaceProps) {
   const [overlay, setOverlay] = useState<StockMainOverlay | null>("MA");
   useEffect(() => {
@@ -90,7 +103,7 @@ export function StockChartWorkspace({
     () => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [],
     [overlay],
   );
-  const dataKey = `stock:${tsCode}:day`;
+  const dataKey = period === "day" ? `stock:${tsCode}:day` : `stock:${tsCode}:${period}:${tradeDate}`;
   const nineTurnChartLayer = useNineTurnChartLayer({
     dataKey,
     layer: nineTurnLayer,
@@ -136,10 +149,15 @@ export function StockChartWorkspace({
       bottomBarAriaLabel="底部指标栏"
       dataKey={dataKey}
       hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
-      historyPhase={history?.active ? historical?.phase ?? "idle" : undefined}
-      onHistoryViewport={history?.active ? history.onViewport : undefined}
+      historyPhase={periodHistory?.phase ?? (history?.active ? historical?.phase ?? "idle" : undefined)}
+      onHistoryViewport={periodHistory?.onViewport ?? (history?.active ? history.onViewport : undefined)}
       mainLayerAccessory={(
-        <><NineTurnLayerStatus
+        <>{periodNote ? <div className="stock-history-layer-errors" role="status">{periodNote}</div> : null}
+        {periodHistory?.phase === "error" ? (
+          <div className="stock-history-layer-errors" role="status">
+            <span>周线历史加载失败</span><button type="button" onClick={periodHistory.retry}>重试</button>
+          </div>
+        ) : null}<NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
@@ -172,8 +190,8 @@ export function StockChartWorkspace({
         />
       )}
       renderPanelHeader={(panel, point) => <StockIndicatorPanelHeader panel={panel} point={point} />}
-      renderTooltip={(point, side) => <StockKlineTooltip point={point} side={side} />}
-      timeAxisAriaLabel="日线底部时间轴"
+      renderTooltip={(point, side) => <StockKlineTooltip point={point} side={side} daily={period === "day"} />}
+      timeAxisAriaLabel={period === "week" ? "周线底部时间轴" : period === "month" ? "月线底部时间轴" : "日线底部时间轴"}
       timeMode="daily"
     />
   );
@@ -426,7 +444,7 @@ function StockIndicatorBar({
   );
 }
 
-function StockKlineTooltip({ point, side }: { point: DetailChartPoint; side: DetailChartTooltipSide }) {
+function StockKlineTooltip({ point, side, daily }: { point: DetailChartPoint; side: DetailChartTooltipSide; daily: boolean }) {
   const rows: Array<[string, string, string]> = [
     ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
     ["开盘", formatTooltipNumber(point.open), directionClass(resolvePriceDirection(point.open, point.preClose))],
@@ -434,11 +452,13 @@ function StockKlineTooltip({ point, side }: { point: DetailChartPoint; side: Det
     ["最高", formatTooltipNumber(point.high), directionClass(resolvePriceDirection(point.high, point.open, { equalAsDown: true }))],
     ["最低", formatTooltipNumber(point.low), directionClass(resolvePriceDirection(point.low, point.preClose, { equalAsDown: true }))],
     ["涨幅", `${formatTooltipNumber(point.changePct)}%`, directionClass(resolveValueDirection(point.changePct))],
-    ["振幅", `${formatTooltipNumber(point.amplitude)}%`, "secondary"],
     ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatTooltipAmount(point.amount), "secondary"],
-    ["换手率", `${formatTooltipNumber(point.turnoverRate)}%`, "secondary"],
   ];
+  if (daily) {
+    rows.splice(6, 0, ["振幅", `${formatTooltipNumber(point.amplitude)}%`, "secondary"]);
+    rows.push(["换手率", `${formatTooltipNumber(point.turnoverRate)}%`, "secondary"]);
+  }
   return (
     <div className={`detail-chart-tooltip ${side}`}>
       <div className="detail-chart-tooltip-grid">

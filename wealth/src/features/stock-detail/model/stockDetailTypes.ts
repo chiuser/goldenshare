@@ -59,13 +59,13 @@ export interface StockCandlePoint {
   high: number;
   low: number;
   close: number;
-  preClose: number;
+  preClose: number | null;
   changePct: number;
-  amplitude: number;
+  amplitude: number | null;
   volume: number;
   volumeDisplay: string | null;
   amount: number;
-  turnoverRate: number;
+  turnoverRate: number | null;
   volumeRatio: number;
   ma5: number | null;
   ma10: number | null;

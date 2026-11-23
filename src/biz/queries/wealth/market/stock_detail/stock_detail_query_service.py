@@ -53,8 +53,9 @@ class StockDetailNotFoundError(ValueError):
 class StockDetailQueryService:
     """Assemble wealth stock detail responses from serving facts."""
 
-    def __init__(self, reference_data: ReferenceData | None = None) -> None:
+    def __init__(self, reference_data: ReferenceData | None = None, *, period_capabilities=()) -> None:
         self._reference_data = reference_data
+        self._period_capabilities = period_capabilities
         self._context_query = MarketPageContextQuery()
         self._query = StockDetailQuery()
 
@@ -64,7 +65,7 @@ class StockDetailQueryService:
         context = self._context_query.resolve_context(
             None, market="CN_A", requested_trade_date=trade_date, reference_data=self._reference_data,
         )
-        security = self._load_security_or_raise(None, ts_code=ts_code)
+        security = self.load_security_or_raise(None, ts_code=ts_code)
         chart_defaults, capabilities = self._page_options()
         return LocalStockDetailPageInitResponseDto(
             pageContext=build_page_context(context),
@@ -86,7 +87,7 @@ class StockDetailQueryService:
         debug: bool,
     ) -> StockDetailPageInitResponseDto:
         context = self._context_query.resolve_context(session, market="CN_A", requested_trade_date=trade_date)
-        security = self._load_security_or_raise(session, ts_code=ts_code)
+        security = self.load_security_or_raise(session, ts_code=ts_code)
         factor_row = self._query.load_latest_factor_row(
             session,
             ts_code=ts_code,
@@ -122,8 +123,7 @@ class StockDetailQueryService:
             ) if debug else None,
         )
 
-    @staticmethod
-    def _page_options() -> tuple[StockChartDefaultsDto, StockDetailCapabilitiesDto]:
+    def _page_options(self) -> tuple[StockChartDefaultsDto, StockDetailCapabilitiesDto]:
         minute_capability = resolve_local_minute_capability(get_settings())
         nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
             get_settings()
@@ -134,6 +134,7 @@ class StockDetailQueryService:
 
         return (
             StockChartDefaultsDto(
+                availablePeriods=["day", *self._period_capabilities],
                 availableMainOverlays=(
                     ["MA", "BOLL", "TREND_CHANNEL"]
                     if trend_channel_capability.enabled
@@ -146,11 +147,9 @@ class StockDetailQueryService:
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
                 supportsNineTurn=True,
                 supportsTrendChannel=trend_channel_capability.enabled,
-                nineTurnPeriods=(
-                    ["day", "30", "60", "90", "120"]
-                    if nine_turn_minute_capability.enabled
-                    else ["day"]
-                ),
+                supportsWeeklyMonthly=bool(self._period_capabilities),
+                nineTurnPeriods=["day", *self._period_capabilities,
+                                 *(["30", "60", "90", "120"] if nine_turn_minute_capability.enabled else [])],
             ),
         )
 
@@ -175,7 +174,7 @@ class StockDetailQueryService:
             timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
             reference_data=self._reference_data,
         )
-        security = self._load_security_or_raise(
+        security = self.load_security_or_raise(
             session, ts_code=request.ts_code,
             timeout_seconds=remaining_seconds() if remaining_seconds is not None else None,
         )
@@ -195,7 +194,7 @@ class StockDetailQueryService:
         ) for row in page.rows)
         return replace(source, bars=bars, next_end_date=page.next_end_date)
 
-    def _load_security_or_raise(
+    def load_security_or_raise(
         self, session: Session | None, *, ts_code: str, timeout_seconds: float | None = None,
     ) -> Security | SecurityReferenceRow:
         if self._reference_data is not None:

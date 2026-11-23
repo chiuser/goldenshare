@@ -1,6 +1,7 @@
 """Stock period reads against the audited Parquet schema and Serving model."""
 
 from collections import Counter
+from dataclasses import replace
 from datetime import date, datetime, time, timedelta
 from decimal import Decimal
 from time import monotonic
@@ -116,6 +117,41 @@ def request_for(period, start, end, calculations=(PRICE, MA2, NINE), *, adjustme
                               calculations=calculations)
 
 
+def test_stock_period_cutoff_pages_share_reads_and_keep_current_coverage(warehouse):
+    seed, service, _, opened, queries, _ = warehouse
+    first, second, third, latest = (date(2026, 10, day) for day in (2, 9, 23, 30))
+    seed("week", ((first, first, 10), (second, second, 11), (third, third, 12), (latest, None, 13)))
+    kernel = service()
+    recent = replace(request_for("week", latest, latest), start=None, latest_rows=2)
+    page = kernel.calculate_with_source(recent, output_rows=100, warmup_error_budget=0.00001,
+                                        require_current_period_end_date=True)
+    assert page.result.source_as_of == (second, third)
+    assert dict(page.result.calculations[1].fields)["value"] == (10.5, 11.5)
+    assert page.selection.preceding_rows == 1
+    assert page.source_facts.current_period_bar.period_start == date(2026, 10, 26)
+    assert page.source_facts.current_period_bar.end_date is None
+    assert page.source_facts.previous_target_date == first
+    assert all(count == 1 for count in opened.values())
+    assert len(queries) <= 2
+    next_page = kernel.calculate_with_source(replace(recent, end=datetime.combine(first, time(), TZ)))
+    assert next_page.result.source_as_of == (first,)
+    assert next_page.source_facts.previous_target_date is None
+    exact = kernel.calculate_with_source(replace(recent, end=datetime.combine(second, time(), TZ)))
+    assert exact.result.source_as_of == (first, second)
+    assert exact.source_facts.previous_target_date is None
+    empty = kernel.calculate_with_source(replace(recent, end=datetime(2013, 12, 27, tzinfo=TZ)))
+    assert empty.result is None and empty.source_facts.previous_target_date is None
+
+    seed("month", ((latest, latest, 20), (date(2026, 11, 30), date(2026, 11, 20), 24)))
+    monthly = replace(request_for("month", latest, date(2026, 11, 20)), start=None)
+    page = kernel.calculate_with_source(monthly, require_current_period_end_date=True)
+    assert page.result.source_as_of == (latest, date(2026, 11, 30))
+    assert dict(page.result.calculations[1].fields)["value"] == (None, 22.)
+    assert page.selection.preceding_rows == 0
+    assert page.source_facts.current_period_bar.end_date == date(2026, 11, 20)
+    assert page.source_facts.previous_target_date is None
+
+
 def test_boundaries_period_dates_and_pre_adjusted_input(warehouse):
     seed, service, _, opened, queries, _ = warehouse
     outside, origin, next_week = date(2013, 12, 27), date(2014, 1, 3), date(2014, 1, 17)
@@ -227,11 +263,19 @@ def test_nine_turn_consumes_its_sixteenth_preceding_period(warehouse, freq, firs
     assert result.calculations[0].fields == (("up_count", (counts,)), ("down_count", (0,)))
 
 
-def test_cancel_stock_period_read_and_retry(warehouse, monkeypatch):
+@pytest.mark.parametrize("recent", (False, True), ids=("range", "cutoff"))
+def test_cancel_stock_period_read_and_retry(warehouse, monkeypatch, recent, record_property):
     seed, service, _, _, _, engine = warehouse
     first, last = date(2014, 1, 3), date(2014, 1, 10)
     seed("week", ((first, first, 10), (last, last, 12)))
     kernel = service(control_factory=lambda cfg: ExecutionControl(arrived_at=monotonic(), config=cfg))
+    request = request_for("week", first, last)
+    if recent:
+        request = replace(request, start=None, latest_rows=2)
+
+    def calculate(kernel):
+        return kernel.calculate_with_source(request, require_current_period_end_date=True).result if recent else kernel.calculate(request)
+
     if engine is None:
         original = LakePriceLocator._read_stock_period_partition
 
@@ -243,7 +287,7 @@ def test_cancel_stock_period_read_and_retry(warehouse, monkeypatch):
         with monkeypatch.context() as patch:
             patch.setattr(LakePriceLocator, "_read_stock_period_partition", interrupt)
             with pytest.raises(CalculationCancelledError):
-                kernel.calculate(request_for("week", first, last))
+                calculate(kernel)
     else:
         def interrupt(conn, cursor, statement, params, context, executemany):
             if "stk_period_bar_adj" in statement:
@@ -252,11 +296,14 @@ def test_cancel_stock_period_read_and_retry(warehouse, monkeypatch):
         event.listen(engine, "after_cursor_execute", interrupt)
         try:
             with pytest.raises(CalculationCancelledError):
-                kernel.calculate(request_for("week", first, last))
+                calculate(kernel)
         finally:
             event.remove(engine, "after_cursor_execute", interrupt)
         assert engine.pool.checkedout() == 0
     assert kernel.control.resources_released_at is not None
-    result = service().calculate(request_for("week", first, last))
+    record_property("cleanup_ms", round((kernel.control.resources_released_at - kernel.control.stop_requested_at) * 1000, 3))
+    started = monotonic()
+    result = calculate(service())
+    record_property("retry_ms", round((monotonic() - started) * 1000, 3))
     assert result.source_as_of == (first, last)
     assert result.statistics.source_rows == 2

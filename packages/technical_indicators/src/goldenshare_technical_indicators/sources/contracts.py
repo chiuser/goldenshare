@@ -70,6 +70,7 @@ class SourceReadFacts:
     calendar_days: tuple[CalendarDayFacts, ...] = ()
     first_available_period: date | None = None
     latest_available_date: date | None = None
+    current_period_bar: PeriodBarMetadata | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +137,7 @@ class ReadRequirement:
     max_output_rows: int | None = None
     latest_rows: int | None = None
     include_source_facts: bool = False
+    require_current_period_end_date: bool = False
 
     def output_limit(self, config):
         return self.max_output_rows if self.max_output_rows is not None else config.max_output_rows

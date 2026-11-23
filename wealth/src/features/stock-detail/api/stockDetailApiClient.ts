@@ -1,5 +1,5 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
-import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto } from "./stockDetailApiTypes";
+import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockKlinePeriod } from "./stockDetailApiTypes";
 
 export interface StockDetailFetchOptions {
   signal?: AbortSignal;
@@ -52,7 +52,7 @@ export async function fetchStockDetailPageInit(
 export async function fetchStockDetailKline(
   params: {
     tsCode: string;
-    period?: "day";
+    period?: StockKlinePeriod;
     adjustment?: "forward";
     tradeDate?: string;
     startDate?: string;

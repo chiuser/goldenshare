@@ -20,6 +20,7 @@ from src.biz.schemas.wealth.market.stock_detail import (
     LocalStockDetailPageInitResponseDto,
     StockDetailKlineResponseDto,
     StockDetailPageInitResponseDto,
+    StockDetailPeriodKlineResponseDto,
 )
 from src.biz.api.wealth.market.stock_detail_dependencies import (
     StockDailyKlineBackend, get_stock_daily_kline_backend,
@@ -28,7 +29,17 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts imp
 from src.foundation.clients.reference_data import ReferenceDataReadError
 
 
+def _stock_period_capabilities(request: Request):
+    runtime = getattr(request.app.state, "technical_indicator_runtime", None)
+    if runtime is None:
+        return ()
+    config = runtime.config
+    return tuple(period for period in ("week", "month")
+                 if "qfq" in config.enabled_adjustments(config.market_dataset_id("stock", period)))
+
+
 def get_stock_detail_page_init(
+    request: Request,
     ts_code: str = Query(alias="tsCode"),
     trade_date: date | None = Query(default=None, alias="tradeDate"),
     debug: int = Query(default=0, ge=0, le=1),
@@ -36,7 +47,7 @@ def get_stock_detail_page_init(
     session: Session = Depends(get_db_session),
 ) -> StockDetailPageInitResponseDto:
     try:
-        return StockDetailQueryService().build_page_init(
+        return StockDetailQueryService(period_capabilities=_stock_period_capabilities(request)).build_page_init(
             session,
             ts_code=ts_code.strip().upper(),
             trade_date=trade_date,
@@ -56,7 +67,8 @@ def get_local_stock_detail_page_init(
     _user: AuthenticatedUser | None = Depends(require_quote_access),
 ) -> LocalStockDetailPageInitResponseDto:
     try:
-        return StockDetailQueryService(request.app.state.reference_data).build_local_page_init(
+        return StockDetailQueryService(request.app.state.reference_data,
+                                       period_capabilities=_stock_period_capabilities(request)).build_local_page_init(
             ts_code=ts_code.strip().upper(), trade_date=trade_date, debug=bool(debug),
         )
     except StockDetailNotFoundError as exc:
@@ -77,14 +89,14 @@ async def get_stock_detail_kline(
     trade_date: date | None = Query(default=None, alias="tradeDate"),
     start_date: date | None = Query(default=None, alias="startDate"),
     end_date: date | None = Query(default=None, alias="endDate"),
-    limit: int = Query(default=500),
+    limit: int | None = Query(default=None),
     debug: int = Query(default=0, ge=0, le=1),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     backend: StockDailyKlineBackend = Depends(get_stock_daily_kline_backend),
 ) -> Response:
     return backend.response(StockDailyKlineRequest(
         ts_code.strip().upper(), period, adjustment, trade_date, start_date, end_date,
-        limit, bool(debug),
+        limit if limit is not None else (100 if period == "week" else 500), bool(debug),
     ), arrived_at=request.state.stock_daily_arrived_at)
 
 
@@ -98,7 +110,7 @@ def build_router(*, local: bool) -> APIRouter:
     router.add_api_route(
         "/kline", get_stock_detail_kline, methods=["GET"], response_class=JSONResponse,
         response_model=(LocalStockDetailFirstKlineResponseDto | LocalStockDetailPagedKlineResponseDto
-                        | StockDetailKlineResponseDto
-                        if local else StockDetailKlineResponseDto),
+                        | StockDetailKlineResponseDto | StockDetailPeriodKlineResponseDto
+                        if local else StockDetailKlineResponseDto | StockDetailPeriodKlineResponseDto),
     )
     return router

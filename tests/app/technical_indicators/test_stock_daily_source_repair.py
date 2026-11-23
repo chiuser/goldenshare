@@ -1,8 +1,10 @@
 """Exercise the stock route and kernel against isolated formal-layout Lake inputs."""
 
 from contextlib import asynccontextmanager, contextmanager
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from types import SimpleNamespace
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -89,8 +91,8 @@ def source_client(tmp_path, monkeypatch):
     original_calculate = TechnicalIndicatorService.calculate_with_source
     calculations = []
 
-    def calculate(service, request):
-        calculated = original_calculate(service, request)
+    def calculate(service, request, **kwargs):
+        calculated = original_calculate(service, request, **kwargs)
         if calculated.result is not None:
             calculations.append(calculated.result)
         return calculated
@@ -120,6 +122,61 @@ def source_client(tmp_path, monkeypatch):
             yield client
 
     return SimpleNamespace(client_for=client_for, calculations=calculations, root=root)
+
+
+def test_period_route_uses_page_anchor_and_actual_coverage(source_client, monkeypatch):
+    fields = ("open_qfq", "high_qfq", "low_qfq", "close_qfq")
+    schema = pa.schema([
+        ("ts_code", pa.string()), ("trade_date", pa.string()), ("end_date", pa.string()),
+        *((name, pa.decimal128(18, 4)) for name in fields),
+        ("vol", pa.decimal128(20, 4)), ("amount", pa.decimal128(20, 4)), ("pct_chg", pa.decimal128(10, 4)),
+    ])
+    bars = (
+        ("stock_weekly/week_end=2026-01-23", "20260123", "20260123"),
+        ("stock_weekly/week_end=2026-01-30", "20260130", "20260203"),
+        ("stock_weekly/week_end=2026-02-06", "20260206", "20260202"),
+        ("stock_monthly/month=2026-01", "20260131", "20260203"),
+        ("stock_monthly/month=2026-02", "20260228", "20260202"),
+    )
+    for part, label, coverage in bars:
+        write_table(source_client.root, f"silver/quote/{part}/part-000.parquet", [dict(
+            ts_code=CODE, trade_date=label, end_date=coverage, **dict.fromkeys(fields, Decimal("20.00")),
+            vol=Decimal("100.00"), amount=Decimal("1000.00"), pct_chg=Decimal("1.50"),
+        )], schema)
+    suspension = pa.schema([("ts_code", pa.string()), ("trade_date", pa.date32()),
+                            ("suspend_type", pa.string()), ("suspend_timing", pa.string())])
+    suspension_path = "silver/quote/stock_suspend_daily/trade_date=2026-02-03/part-000.parquet"
+    write_table(source_client.root, suspension_path, [], suspension)
+    zone = ZoneInfo("Asia/Shanghai")
+    module = "src.biz.queries.wealth.market.context.market_page_context_query._now_cn"
+    monkeypatch.setattr(module, lambda: datetime(2026, 2, 3, 19, 59, tzinfo=zone))
+
+    with source_client.client_for() as client:
+        init = client.get(INIT_PATH, params={"tsCode": CODE}).json()
+        assert init["chartDefaults"]["availablePeriods"] == ["day", "week", "month"]
+        assert init["pageContext"]["tradeDate"] == "2026-02-02"
+        recent = client.get(PATH, params={"tsCode": CODE, "period": "week", "limit": 1}).json()
+        assert recent["dataStatus"]["status"] == "READY"
+        assert recent["bars"][0]["tradeDate"] == "2026-02-02"
+        assert recent["bars"][0]["changePct"] == 1.5 and recent["bars"][0]["vol"] == 100.0
+        assert recent["bars"][0]["amplitude"] is None and recent["bars"][0]["turnoverRate"] is None
+        assert recent["meta"]["nextEndDate"] == "2026-01-30"
+        earlier = client.get(PATH, params={"tsCode": CODE, "period": "week", "limit": 1,
+                                          "tradeDate": "2026-02-02", "endDate": recent["meta"]["nextEndDate"]}).json()
+        assert earlier["pageContext"]["tradeDate"] == "2026-02-02"
+        assert earlier["bars"][0]["tradeDate"] == "2026-01-30"
+        assert earlier["meta"]["nextEndDate"] == "2026-01-23"
+
+        monkeypatch.setattr(module, lambda: datetime(2026, 2, 3, 20, tzinfo=zone))
+        month = client.get(PATH, params={"tsCode": CODE, "period": "month"}).json()
+        assert [bar["tradeDate"] for bar in month["bars"]] == ["2026-01-31", "2026-02-02"]
+        assert month["dataStatus"]["status"] == "DELAYED"
+        assert month["meta"]["nextEndDate"] is None
+        write_table(source_client.root, suspension_path, [dict(ts_code=CODE, trade_date=OTHER_DAY,
+                    suspend_type="S", suspend_timing=None)], suspension)
+        month = client.get(PATH, params={"tsCode": CODE, "period": "month"}).json()
+        assert month["dataStatus"]["status"] == "READY"
+        assert month["dataStatus"]["expectedTradeDate"] == "2026-02-02"
 
 
 def request(client, **params):
@@ -155,6 +212,7 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
     assert {item["$ref"].rsplit("/", 1)[-1] for item in
             schema["responses"]["200"]["content"]["application/json"]["schema"]["anyOf"]} == {
         "LocalStockDetailFirstKlineResponseDto", "LocalStockDetailPagedKlineResponseDto", "StockDetailKlineResponseDto",
+        "StockDetailPeriodKlineResponseDto",
     }
     payload = response.json()
     check_values(payload, DAYS[-2:])

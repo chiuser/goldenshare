@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session, aliased
 
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.clients.reference_data import ReferenceData, local_reference_data
+from src.foundation.clients.technical_indicator_index_period import period_bounds
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -102,6 +103,41 @@ class MarketPageContextQuery:
         ).all()
         context = self._context_from_row(rows[0], "CN_A", requested_trade_date, local_now)
         return context, tuple((row.window_date, True, row.window_prev) for row in rows if row.window_date is not None)
+
+    def resolve_sse_period_context(
+        self, session, *, period, requested_trade_date, reference_data=None, timeout_seconds=None,
+    ) -> tuple[MarketPageContext, tuple[CalendarRow, ...]]:
+        now = _now_cn()
+        reference = reference_data or local_reference_data(session)
+        if reference is not None:
+            reader = reference.calendar
+            if requested_trade_date is not None:
+                start, _ = period_bounds(requested_trade_date, period)
+                calendar = reader.range_rows(exchange="SSE", start=start, end=requested_trade_date,
+                                             timeout_seconds=timeout_seconds)
+            else:
+                # A month has at most 31 days. One more open day lets the anchor move before today's close.
+                calendar = reader.context_rows(exchange="SSE", end=now.date(), recent_open_days=32,
+                                               timeout_seconds=timeout_seconds)
+            rows = tuple((row.trade_date, row.is_open, row.pretrade_date) for row in calendar)
+            context = self.resolve_local_context(None, market="CN_A", requested_trade_date=requested_trade_date,
+                                                 now=now, calendar_rows=rows)
+            start, _ = period_bounds(context.trade_date, period)
+            return context, tuple(row for row in rows if start <= row[0] <= context.trade_date)
+        anchor = self._context_statement(requested_trade_date, now).cte("stock_period_anchor")
+        rows = session.execute(
+            select(*anchor.c, TradeCalendar.trade_date.label("period_date"), TradeCalendar.is_open,
+                   TradeCalendar.pretrade_date)
+            .select_from(anchor.outerjoin(TradeCalendar, and_(
+                TradeCalendar.exchange == "SSE",
+                TradeCalendar.trade_date.between(func.date_trunc(period, anchor.c.resolved_trade_date),
+                                                   anchor.c.resolved_trade_date),
+            )))
+            .order_by(TradeCalendar.trade_date)
+        ).all()
+        context = self._context_from_row(rows[0], "CN_A", requested_trade_date, now)
+        return context, tuple((row.period_date, row.is_open, row.pretrade_date)
+                              for row in rows if row.period_date is not None)
 
     @staticmethod
     def load_sse_preceding_dates(session: Session, *, before: date, start: date, limit: int) -> tuple[date, ...]:

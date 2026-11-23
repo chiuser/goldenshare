@@ -360,6 +360,16 @@ class LakeTechnicalIndicatorPriceSource:
             if not full_day_suspension((kind, timing) for _, kind, timing in records):
                 yield day
 
+    def stock_period_suspensions(self, ts_code, days, *, control, read_context):
+        root = self._root()
+        suspended = set()
+        for day in days:
+            records = self._fact_rows(root, "stock_suspend_daily", ("trade_date", "suspend_type", "suspend_timing"),
+                                      [("ts_code", "=", ts_code)], control, read_context, day=day)
+            if full_day_suspension((kind, timing) for stamp, kind, timing in records if stamp == day):
+                suspended.add(day)
+        return suspended
+
     def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
         name = _table_name(table_name)
         if not description.converted:

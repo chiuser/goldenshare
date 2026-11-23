@@ -41,6 +41,24 @@ def _calculation_key(calculation_id, parameters):
     return calculation_id, tuple(sorted(dict(parameters).items()))
 
 
+def build_kline_factors(fields, fixed_fields, index):
+    return StockKlineFactorDto(
+        ma=StockMovingAverageDto(**{
+            f"ma{period}": to_float(fields[("ma", (("period", period),))]["value"][index])
+            for period in (5, 10, 20, 30, 60, 90, 250)
+        }),
+        boll=StockBollDto(**{name: to_float(fixed_fields["boll"][name][index])
+                           for name in ("upper", "middle", "lower")}),
+        macd=StockMacdDto(
+            dif=to_float(fixed_fields["macd"]["dif"][index]),
+            dea=to_float(fixed_fields["macd"]["dea"][index]),
+            macd=to_float(fixed_fields["macd"]["hist"][index]),
+        ),
+        kdj=StockKdjDto(**{name: to_float(fixed_fields["kdj"][name][index])
+                         for name in ("k", "d", "j")}),
+    )
+
+
 class StockDailyKlineService:
     def __init__(self, reference_data: ReferenceData | None = None) -> None:
         self._query = StockDetailQueryService(reference_data)
@@ -147,21 +165,7 @@ class StockDailyKlineService:
             fixed_fields = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
             nine_turn = fixed_fields.get("nineturn")
             for index, row in enumerate(source.bars):
-                factors = StockKlineFactorDto(
-                    ma=StockMovingAverageDto(**{
-                        f"ma{period}": to_float(fields[("ma", (("period", period),))]["value"][index])
-                        for period in (5, 10, 20, 30, 60, 90, 250)
-                    }),
-                    boll=StockBollDto(**{name: to_float(fixed_fields["boll"][name][index])
-                                       for name in ("upper", "middle", "lower")}),
-                    macd=StockMacdDto(
-                        dif=to_float(fixed_fields["macd"]["dif"][index]),
-                        dea=to_float(fixed_fields["macd"]["dea"][index]),
-                        macd=to_float(fixed_fields["macd"]["hist"][index]),
-                    ),
-                    kdj=StockKdjDto(**{name: to_float(fixed_fields["kdj"][name][index])
-                                     for name in ("k", "d", "j")}),
-                )
+                factors = build_kline_factors(fields, fixed_fields, index)
                 price = fixed_fields["price"]
                 volume, amount = price["volume"][index], price["amount"][index]
                 row = replace(row, **{name + "_qfq": price[name][index] for name in ("open", "high", "low", "close")},

@@ -82,12 +82,18 @@ class TechnicalIndicatorService:
             request, output_rows=output_rows, warmup_error_budget=warmup_error_budget,
         )[0]
 
-    def calculate_with_source(self, request) -> CalculationWithSource:
+    def calculate_with_source(
+        self, request, *, output_rows=None, warmup_error_budget=None, require_current_period_end_date=False,
+    ) -> CalculationWithSource:
         """Return the calculation and the source facts selected by the same read."""
-        return self._calculate_request(request, include_source_facts=True)
+        return self._calculate_request(
+            request, output_rows=output_rows, warmup_error_budget=warmup_error_budget,
+            include_source_facts=True, require_current_period_end_date=require_current_period_end_date,
+        )
 
     def _calculate_request(
         self, request, *, output_rows=None, warmup_error_budget=None, include_source_facts=False,
+        require_current_period_end_date=False,
     ):
         control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
         prepared = None
@@ -105,7 +111,8 @@ class TechnicalIndicatorService:
                     raise RequestInvalidError("Unknown recursive indicator warmup precision")
                 prepared = replace(prepared, warmup_error_budget=warmup_error_budget)
             if include_source_facts:
-                prepared = replace(prepared, include_source_facts=True)
+                prepared = replace(prepared, include_source_facts=True,
+                                   require_current_period_end_date=require_current_period_end_date)
             return self._calculate_library(prepared, control=control)
         finally:
             prepared = None

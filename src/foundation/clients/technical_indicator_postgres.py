@@ -239,6 +239,17 @@ class PostgresTechnicalIndicatorPriceSource:
             if day not in suspended:
                 yield day
 
+    def stock_period_suspensions(self, ts_code, days, *, control, session):
+        if not days:
+            return set()
+        target = self._config.resolve_dataset_location("stock_suspend_daily")
+        rows = _query(session.connection(), control, f"""
+            SELECT trade_date, suspend_type, suspend_timing FROM {_relation(target)}
+            WHERE ts_code = %s AND trade_date BETWEEN %s AND %s ORDER BY trade_date
+        """, (ts_code, days[0], days[-1]))
+        return {day for day, records in groupby(rows, key=itemgetter(0))
+                if full_day_suspension((kind, timing) for _, kind, timing in records)}
+
     def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
         connection = self._connection(read_context, executor.control)
         relation = _relation(self._config.resolve_dataset_location("stock_adj_factor"))

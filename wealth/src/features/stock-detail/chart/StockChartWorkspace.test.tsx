@@ -143,6 +143,23 @@ describe("StockChartWorkspace shared adapter", () => {
     expect(props.onAction).not.toHaveBeenCalled();
   });
 
+  it.each(["week", "month"] as const)("uses the same dates and omits daily-only tooltip fields for %s", (period) => {
+    const candles = makeCandles(2);
+    render(<StockChartWorkspace
+      candles={candles} indicatorTabs={indicatorTabs} indicatorControls={defaultIndicatorControls}
+      nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")}
+      onNineTurnRetry={vi.fn()} onAction={vi.fn()} onTrendSelect={vi.fn()}
+      supportsTrendChannel={false} trend={null} tsCode="000001.SZ" period={period} tradeDate="2026-11-23"
+    />);
+    const bar = candles[1]!;
+    act(() => chartMock.charts[0]!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: bar.time }));
+    const tooltip = within(document.querySelector<HTMLElement>(".detail-chart-tooltip")!);
+    expect(tooltip.getByText(bar.fullDate.replaceAll("-", ""))).toBeInTheDocument();
+    expect(tooltip.getByText("成交量")).toBeInTheDocument();
+    expect(tooltip.queryByText("振幅")).not.toBeInTheDocument();
+    expect(tooltip.queryByText("换手率")).not.toBeInTheDocument();
+  });
+
   it("preserves the stock four-pane, 120-bar, overlay and tooltip behavior", () => {
     const candles = makeCandles(300);
     const onAction = vi.fn();

@@ -2,6 +2,8 @@
 
 > 2026-11-04数量合同修订：股票日线 `/api/v1/wealth/market/stock-detail/kline` 默认 `limit=500`，合法范围 `1～500`；超限沿原参数错误 HTTP 400、`code=400001`，不截断、不拆多次计算。现页面显式传300仍合法，本轮不改页面、请求时机或其他接口。其余技术指标内核与后续产品工作的状态以[股票日线专项LLD](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html)为准。
 
+> 2026-11-24｜股票前复权周、月线已接入股票详情并完成验收。接口增量合同见[§3.2.1](#stock-period-contract)，其余内容记录日线的实施口径。
+
 > 用途：把股票详情页真实 API 接入需求转成可实施的前后端工程方案。
 > 阶段：编码前。  
 > 产物性质：实现设计基线。
@@ -140,14 +142,14 @@ wealth/src/
 2. 不 `select *`。
 3. 查询必须命中 `ts_code, trade_date` 索引。
 
-### 3.2 `GET /api/v1/wealth/market/stock-detail/kline`
+### 3.2 `GET /api/v1/wealth/market/stock-detail/kline` 日线
 
 参数：
 
 | 参数 | 必填 | 类型 | 说明 |
 |---|---|---|---|
 | `tsCode` | 是 | string | 股票代码。 |
-| `period` | 否 | string | 首期只允许 `day`。 |
+| `period` | 否 | string | 日线使用 `day`，省略时默认 `day`。 |
 | `adjustment` | 否 | string | 首期只允许 `forward`。 |
 | `startDate` | 否 | date | 起始日期。 |
 | `endDate` | 否 | date | 截止日期。 |
@@ -179,6 +181,31 @@ wealth/src/
 2. 最大不超过 500 根；超限返回原参数错误，不截断为500根。
 3. 只查询页面首期所需字段。
 4. 不查询分钟线、不查询板块、不查询资金。
+
+<a id="stock-period-contract"></a>
+
+#### 3.2.1 股票前复权周线、月线
+
+DG 和 Prod 使用同一套接口字段。`/page-init` 按当前环境的算子能力在 `chartDefaults.availablePeriods` 和 `capabilities.nineTurnPeriods` 追加 `week`、`month`，默认仍展示日线。已启用周月线时 `supportsWeeklyMonthly` 为 `true`。
+
+| 操作 | `/kline` 参数 | 回包 |
+| --- | --- | --- |
+| 打开周线 | `period=week`、`adjustment=forward`，以 `pageContext.tradeDate` 同作 `tradeDate` 和 `endDate`。`limit` 默认 100，合法范围 1～100。 | 最多请求根数，`meta.nextEndDate` 给出更早一批的截止日。 |
+| 周线左拖 | 原 `tradeDate` 和 `limit`，把上次的 `meta.nextEndDate` 带作 `endDate`。 | 更早的一批，历史到头时 `meta.nextEndDate` 为 `null`。 |
+| 打开月线 | `period=month`、`adjustment=forward`，以页面日期作 `tradeDate` 和 `endDate`，省略 `limit`。 | 截至该月的全部可用成品，受算子现有输出上限约束，`meta.nextEndDate` 为 `null`。 |
+
+直接请求省略日期时沿用现有 20:00 规则，周月线页面使用初始化日期或后端给出的续页截止日。周月响应沿用 `pageContext`、`stockRef`、`bars`、`meta` 和 `dataStatus`，同批返回 `nineTurnMarkers`。每根 `bars[].tradeDate` 同时用于横轴、指标和提示框，九转标记用相同日期。`amplitude`、`turnoverRate` 首期返回 `null`，周月线提示框省略两项。首屏数据延迟时，保留可用数据并用 `dataStatus.note` 提示；续页沿用首屏提示。阶段三详细状态、字段和测试见[股票周月线 LLD](../../../../docs/architecture/technical-indicator-stock-period-low-level-design-v1.md#stock-period-page)。
+
+按 [Wealth 交付清单 §2.18](../../system/module-delivery-checklist-v1.md)核对八项原则。
+
+1. DG 与 Prod 分别使用已发布的股票前复权周月线成品，算子每次读取的成品同时供行情、指标、九转和提示框使用。
+2. 复用 `/kline`，周月回包合同和日期规则固定后接入前端。
+3. 周线首期 100 根配置和 `0.00001` 预热精度独立传入，同一环境的首批与续页使用同一组指标和配置。
+4. 日线缺省 500 根，周线缺省 100 根，月线一次返回可用历史。页面锚沿用 20:00 规则。
+5. 算子按截止周期从新到旧选出一页，按时间升序交付。续页以算子给出的截止日取数，页面按原顺序追加。
+6. 周线最多用 `100 + 359` 根计算，月线按实际成品根数。接口与浏览器分开记录耗时和实际读取，使用[专项 LLD 的预算](../../../../docs/architecture/technical-indicator-stock-period-low-level-design-v1.md#stock-period-performance)。
+7. 正常、延迟和空结果由接口提供状态，失败沿用已有错误和重试流程。调试信息来自同次执行。
+8. 用真实接口和页面验收日期、指标、九转、切换周期、左拖与延迟恢复，并回归股票日线和分钟线。
 
 ---
 

@@ -19,6 +19,7 @@ class _PreparedCalculation:
     max_output_rows: int | None = None
     warmup_error_budget: float = INITIALIZATION_ERROR_BUDGET
     include_source_facts: bool = False
+    require_current_period_end_date: bool = False
 
 
 class CalculationRequestParser:
@@ -36,9 +37,11 @@ class CalculationRequestParser:
         if normalized.latest_rows is not None:
             if normalized.latest_rows > self._config.max_output_rows:
                 raise ResourceLimitError("Target positions exceed max_output_rows")
-            if target.backend != "dg" or target.dataset_id not in (
+            local_recent = target.backend == "dg" and target.dataset_id in (
                 "stock_daily", "index_daily", "index_weekly", "index_monthly",
-            ):
+            )
+            stock_recent = target.dataset_id == "stock_weekly" and normalized.adjustment == "qfq"
+            if not (local_recent or stock_recent):
                 raise SourceUnsupportedError("Reading by row count is only enabled for selected DG market datasets")
         return _PreparedCalculation(normalized, plan, target)
 
@@ -61,4 +64,5 @@ def _build_read_requirement(
         max_output_rows=prepared.max_output_rows,
         latest_rows=request.latest_rows,
         include_source_facts=prepared.include_source_facts,
+        require_current_period_end_date=prepared.require_current_period_end_date,
     )

@@ -2,6 +2,7 @@ import type { MarketDirection } from "../../../shared/model/market";
 import type { NineTurnMarkerDto, NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 
 export type StockMinuteFrequency = 1 | 5 | 15 | 30 | 60 | 90 | 120;
+export type StockKlinePeriod = "day" | "week" | "month";
 
 export interface StockDetailPageContextDto {
   market: "CN_A";
@@ -48,7 +49,7 @@ export interface StockChartDefaultsDto {
   defaultPeriod: "day";
   defaultAdjustment: "forward";
   sourceAdjustment: "qfq";
-  availablePeriods: ["day"];
+  availablePeriods: StockKlinePeriod[];
   availableAdjustments: ["forward"];
   availableMainOverlays: Array<"MA" | "BOLL" | "TREND_CHANNEL">;
   availableIndicatorTabs: Array<"VOL" | "amount" | "MA" | "MACD" | "KDJ" | "BOLL">;
@@ -58,7 +59,7 @@ export interface StockDetailCapabilitiesDto {
   supportsRealtime: boolean;
   supportsMinute: boolean;
   minuteFrequencies?: StockMinuteFrequency[];
-  nineTurnPeriods: NineTurnPeriod[];
+  nineTurnPeriods: Array<NineTurnPeriod | "week" | "month">;
   supportsNineTurn: boolean;
   supportsTrendChannel: boolean;
   supportsWeeklyMonthly: boolean;
@@ -138,7 +139,7 @@ export interface StockDetailKlineResponseDto {
     tsCode: string;
     name?: string | null;
   };
-  period: "day";
+  period: StockKlinePeriod;
   adjustment: "forward";
   sourceAdjustment: "qfq";
   bars: StockKlineBarDto[];

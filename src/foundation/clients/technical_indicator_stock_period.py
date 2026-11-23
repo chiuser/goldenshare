@@ -5,7 +5,9 @@ from datetime import date, timedelta
 
 from goldenshare_technical_indicators.contracts import PeriodBarMetadata
 from goldenshare_technical_indicators.errors import ResourceLimitError, SourceContractError, SourceUnsupportedError
-from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceBatch, SourceDescription
+from goldenshare_technical_indicators.sources.contracts import (
+    PriceReadSelection, SourceBatch, SourceDescription, SourceReadFacts,
+)
 
 from .technical_indicator_index_period import period_bounds, preceding_limit
 
@@ -44,28 +46,54 @@ class StockPeriodInput:
     positions: tuple[date, ...]
 
 
+def _bar_metadata(period, row):
+    change = row["pct_chg"]
+    return PeriodBarMetadata(period_bounds(row["trade_date"], period)[0], row["end_date"],
+                             None if change is None else float(change))
+
+
 def describe_stock_period(requirement, context, read_rows):
-    """Read disjoint target and prehistory windows, each in descending order."""
+    """Select the page and its preceding candles without rereading source records."""
     period = requirement.period
     physical, standard = stock_period_projection(requirement)
     origin = FIRST_STOCK_WEEK if period == "week" else date.min
-    start = max(origin, period_bounds(requirement.start, period)[0])
-    end = period_bounds(requirement.end, period)[1]
+    start = origin if requirement.start is None else max(origin, period_bounds(requirement.start, period)[0])
+    cutoff_period, end = period_bounds(requirement.end, period)
     limit = requirement.output_limit(context.config)
-    targets = read_rows(start, end, limit + 1, (*physical, *STOCK_PERIOD_PAGE_FIELDS)) if start <= end else []
-    context.record_locator_rows(len(targets))
-    if len(targets) > limit:
+    recent = requirement.latest_rows
+    check_coverage = requirement.require_current_period_end_date
+    candidate_limit = limit + 1 if recent is None else recent + int(check_coverage)
+    candidates = read_rows(start, end, candidate_limit, (*physical, *STOCK_PERIOD_PAGE_FIELDS)) if start <= end else []
+    context.record_locator_rows(len(candidates))
+    exhausted = len(candidates) < candidate_limit
+    if recent is None and len(candidates) > limit:
         raise ResourceLimitError("Target positions exceed max_output_rows")
+    current = None
+    if check_coverage and candidates and period_bounds(candidates[0]["trade_date"], period)[0] == cutoff_period:
+        current = _bar_metadata(period, candidates[0])
+        if current.end_date is None:
+            candidates.pop(0)
+    targets = candidates if recent is None else candidates[:recent]
     selection = PriceReadSelection(None, None, None, None, 0, 0, True, ())
     metadata = ()
+    cursor = None
     if targets:
         wanted, needs_origin = preceding_limit(context.config, requirement, len(targets))
-        previous = []
-        if start > origin and (wanted or needs_origin):
-            previous = read_rows(origin, start - timedelta(days=1), wanted + int(needs_origin), physical)
-        context.record_locator_rows(len(previous))
-        if len(previous) > wanted:
+        previous = [] if recent is None else candidates[recent:]
+        before = start
+        if recent is not None and not exhausted:
+            before = period_bounds(candidates[-1]["trade_date"], period)[0]
+        cursor_needed = recent is not None and requirement.include_source_facts and not previous and before > start
+        remaining = max(wanted + int(needs_origin) - len(previous), int(cursor_needed))
+        if before > origin and remaining:
+            extra = read_rows(origin, before - timedelta(days=1), remaining, physical)
+            context.record_locator_rows(len(extra))
+            previous.extend(extra)
+        if previous and recent is not None and previous[0]["trade_date"] >= start:
+            cursor = previous[0]["trade_date"]
+        if len(previous) > wanted and needs_origin:
             raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
+        previous = previous[:wanted]
         rows = (*reversed(previous), *reversed(targets))
         positions = tuple(period_bounds(row["trade_date"], period)[0] for row in rows)
         if any(left >= right for left, right in zip(positions, positions[1:])):
@@ -73,12 +101,10 @@ def describe_stock_period(requirement, context, read_rows):
         preceding = len(previous)
         selection = PriceReadSelection(
             positions[preceding], positions[-1], positions[0], positions[-1], len(targets), preceding,
-            positions[0] == origin or needs_origin or (wanted > 0 and preceding < wanted), (),
+            before == origin or positions[0] == origin or needs_origin or (wanted > 0 and preceding < wanted), (),
         )
         context.source_state = StockPeriodInput(rows, positions)
-        metadata = tuple(PeriodBarMetadata(position, row["end_date"],
-                                           None if row["pct_chg"] is None else float(row["pct_chg"]))
-                         for position, row in zip(positions[preceding:], reversed(targets), strict=True))
+        metadata = tuple(_bar_metadata(period, row) for row in reversed(targets))
     return SourceDescription(
         source_id=requirement.target.dataset_id, contract_version="1", input_adjustment="qfq",
         basis_rule=None, basis_date=None, basis_value=None, price_unit="CNY", volume_unit="lot",
@@ -86,6 +112,7 @@ def describe_stock_period(requirement, context, read_rows):
         history_origin_rule="earliest_available_formal_partition", available_through=None,
         supports_partial_period=True, supported_adjustment_paths=(("qfq", "qfq"),), converted=False,
         selection=selection, source_projection=physical, standard_projection=standard, period_bars=metadata,
+        source_facts=SourceReadFacts(previous_target_date=cursor, current_period_bar=current),
     )
 
 

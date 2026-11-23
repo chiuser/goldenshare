@@ -68,7 +68,7 @@ class StockChartDefaultsDto(BaseModel):
     defaultPeriod: Literal["day"] = "day"
     defaultAdjustment: Literal["forward"] = "forward"
     sourceAdjustment: Literal["qfq"] = "qfq"
-    availablePeriods: list[Literal["day"]] = Field(default_factory=lambda: ["day"])
+    availablePeriods: list[Literal["day", "week", "month"]] = Field(default_factory=lambda: ["day"])
     availableAdjustments: list[Literal["forward"]] = Field(default_factory=lambda: ["forward"])
     availableMainOverlays: list[Literal["MA", "BOLL", "TREND_CHANNEL"]] = Field(
         default_factory=lambda: ["MA", "BOLL"]
@@ -95,7 +95,7 @@ class StockDetailCapabilitiesDto(BaseModel):
     minuteFrequencies: list[Literal[1, 5, 15, 30, 60, 90, 120]] = Field(default_factory=list)
     supportsNineTurn: bool = False
     supportsTrendChannel: bool = False
-    nineTurnPeriods: list[Literal["day", "30", "60", "90", "120"]] = Field(
+    nineTurnPeriods: list[Literal["day", "week", "month", "30", "60", "90", "120"]] = Field(
         default_factory=list
     )
     supportsWeeklyMonthly: bool = False
@@ -231,3 +231,9 @@ class LocalStockDetailPagedKlineResponseDto(StockDetailKlineResponseDto):
 
 class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDto):
     quote: StockQuoteSnapshotDto | None
+
+
+class StockDetailPeriodKlineResponseDto(StockDetailKlineResponseDto):
+    period: Literal["week", "month"]
+    meta: LocalStockKlineMetaDto
+    nineTurnMarkers: list[NineTurnMarkerDto]

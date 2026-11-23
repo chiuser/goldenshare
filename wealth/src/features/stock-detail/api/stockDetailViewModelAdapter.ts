@@ -7,12 +7,14 @@ import { getStockDetailViewModel } from "./stockDetailMockAdapter";
 import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockQuoteSnapshotDto } from "./stockDetailApiTypes";
 import { minuteFrequencyFromPeriodKey } from "./stockMinuteViewModelAdapter";
 
-export function buildStockDailyNineTurnLayer(markers: readonly NineTurnMarkerDto[]): NineTurnLayerViewModel {
+export function buildStockDailyNineTurnLayer(
+  markers: readonly NineTurnMarkerDto[], period: "day" | "week" | "month" = "day",
+): NineTurnLayerViewModel {
   return {
     markers,
     phase: markers.length ? "READY" : "EMPTY",
     message: markers.length ? null : "当前窗口暂无九转标记",
-    period: "day",
+    period,
     data: null,
     errorCode: null,
     canRetry: false,
@@ -33,6 +35,14 @@ function resolveDirection(quote: StockQuoteSnapshotDto) {
 }
 
 export function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockCandlePoint {
+  return mapCandlePoint(bar, false);
+}
+
+export function toStockPeriodCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]): StockCandlePoint {
+  return mapCandlePoint(bar, true);
+}
+
+function mapCandlePoint(bar: StockDetailKlineResponseDto["bars"][number], period: boolean): StockCandlePoint {
   return {
     time: bar.tradeDate,
     fullDate: bar.tradeDate,
@@ -40,13 +50,13 @@ export function toCandlePoint(bar: StockDetailKlineResponseDto["bars"][number]):
     high: valueOrZero(bar.high),
     low: valueOrZero(bar.low),
     close: valueOrZero(bar.close),
-    preClose: valueOrZero(bar.preClose),
+    preClose: period ? finiteOrNull(bar.preClose) : valueOrZero(bar.preClose),
     changePct: valueOrZero(bar.changePct),
-    amplitude: valueOrZero(bar.amplitude),
+    amplitude: period ? finiteOrNull(bar.amplitude) : valueOrZero(bar.amplitude),
     volume: valueOrZero(bar.vol),
     volumeDisplay: bar.volDisplay,
     amount: valueOrZero(bar.amount),
-    turnoverRate: valueOrZero(bar.turnoverRate),
+    turnoverRate: period ? finiteOrNull(bar.turnoverRate) : valueOrZero(bar.turnoverRate),
     volumeRatio: valueOrZero(bar.volumeRatio),
     ma5: finiteOrNull(bar.factors.ma.ma5),
     ma10: finiteOrNull(bar.factors.ma.ma10),

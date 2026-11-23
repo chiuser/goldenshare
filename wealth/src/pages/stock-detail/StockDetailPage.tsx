@@ -16,6 +16,7 @@ import { buildStockDailyNineTurnLayer, buildStockDetailViewModel } from "../../f
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
 import { useStockDailyHistory, type StockDailyHistorySeed } from "../../features/stock-detail/controller/useStockDailyHistory";
+import { useStockPeriodKline } from "../../features/stock-detail/controller/useStockPeriodKline";
 import { StockBreadcrumbActionBar } from "../../features/stock-detail/layout/StockBreadcrumbActionBar";
 import { StockChartToolbar } from "../../features/stock-detail/layout/StockChartToolbar";
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
@@ -78,6 +79,9 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
   const errorMessage = currentLoad?.errorMessage ?? "";
   const tickers = useMajorIndexTickers(activePageInit?.pageContext.tradeDate, activePageInit !== null);
   const [activePeriod, setActivePeriod] = useState<StockPeriodKey>("day");
+  const stockPeriod = activePeriod === "week" || activePeriod === "month" ? activePeriod : null;
+  const periodKline = useStockPeriodKline(tsCode, stockPeriod, activePageInit?.pageContext.tradeDate, debug);
+  const periodData = periodKline.data;
   const [minuteChart, setMinuteChart] = useState<StockMinuteChartViewModel | null>(null);
   const [minuteLoadState, setMinuteLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [minuteError, setMinuteError] = useState("");
@@ -98,17 +102,17 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
     endDate: activePageInit?.pageContext.tradeDate ?? null,
     load: loadStockNineTurnSeries,
     subjectType: "stock",
-    supportedPeriods: activePageInit?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
+    supportedPeriods: activePageInit?.capabilities.nineTurnPeriods.filter(isStockNineTurnPeriod) ?? EMPTY_NINE_TURN_PERIODS,
     supportsNineTurn: loadState === "ready" && viewModel !== null && (activePageInit?.capabilities.supportsNineTurn ?? false),
     tsCode,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
   const dailyHistory = useStockDailyHistory(currentLoad?.historySeed ?? null, activePeriod === "day");
   const nineTurnCapabilities = activePageInit?.capabilities;
+  const displayNineTurnPeriod = stockPeriod ?? activeNineTurnPeriod;
   const nineTurnControl = useNineTurnDisplayControl(tsCode,
-    activeNineTurnPeriod !== null && isStockNineTurnPeriod(activeNineTurnPeriod)
-      && nineTurnCapabilities?.supportsNineTurn === true
-      && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
+    displayNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
+      && nineTurnCapabilities.nineTurnPeriods.includes(displayNineTurnPeriod));
   const dailyNineTurnLayer = activeNineTurnPeriod === "day" ? currentLoad?.dailyNineTurnLayer : undefined;
   const nineTurnLayer = dailyNineTurnLayer ?? nineTurnRegistry.stateFor(activeNineTurnPeriod ?? "day");
 
@@ -185,6 +189,10 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
 
   async function handlePeriodChange(period: StockPeriodKey) {
     setActivePeriod(period);
+    if (period === "week" || period === "month") {
+      minuteControllerRef.current?.abort();
+      return;
+    }
     if (period === "day") {
       minuteControllerRef.current?.abort();
       setMinuteChart(null);
@@ -308,6 +316,35 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
             trend={trendChannel.data}
             tsCode={viewModel.stock.tsCode}
           />
+        ) : stockPeriod ? (
+          periodData?.dataStatus && periodData.candles.length > 0 ? (
+            <StockChartWorkspace
+              candles={periodData.candles}
+              indicatorControls={indicatorControls}
+              indicatorTabs={viewModel.indicatorTabs}
+              nineTurnControl={nineTurnControl}
+              nineTurnLayer={buildStockDailyNineTurnLayer(periodData.markers, stockPeriod)}
+              onNineTurnRetry={periodKline.retry}
+              onAction={showToast}
+              onTrendSelect={() => undefined}
+              supportsTrendChannel={false}
+              trend={null}
+              tsCode={viewModel.stock.tsCode}
+              period={stockPeriod}
+              tradeDate={activePageInit.pageContext.tradeDate}
+              periodNote={periodData.dataStatus.status === "DELAYED" ? periodData.dataStatus.note : null}
+              periodHistory={stockPeriod === "week" ? {
+                phase: periodData.phase, onViewport: periodKline.onViewport, retry: periodKline.retry,
+              } : undefined}
+            />
+          ) : (
+            <section className="stock-detail-state-panel" role="status">
+              <div className="state-title">{periodData?.dataStatus
+                ? periodData.dataStatus.note ?? "暂无行情信息"
+                : periodData?.error ?? "正在加载周期行情"}</div>
+              {periodData?.phase === "error" ? <button type="button" onClick={periodKline.retry}>重试</button> : null}
+            </section>
+          )
         ) : (
           <StockMinuteChartWorkspace
             data={minuteChart}
@@ -339,7 +376,7 @@ function nineTurnPeriodFromStockPeriod(period: StockPeriodKey): NineTurnPeriod |
 }
 
 function isStockNineTurnPeriod(
-  period: NineTurnPeriod,
+  period: NineTurnPeriod | "week" | "month",
 ): period is Extract<NineTurnPeriod, "day" | "30" | "60" | "90" | "120"> {
   return period === "day" || period === "30" || period === "60" || period === "90" || period === "120";
 }
