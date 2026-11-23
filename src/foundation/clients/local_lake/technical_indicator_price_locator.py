@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from bisect import bisect_left
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time
 from pathlib import Path
 from types import MappingProxyType
@@ -17,11 +17,13 @@ from goldenshare_technical_indicators.errors import (
     TechnicalIndicatorError,
 )
 from goldenshare_technical_indicators.sources.contracts import (
-    PriceReadSelection, SourceDescription, SourceReadFacts, TargetBarFacts,
+    CalendarDayFacts, PriceReadSelection, SourceDescription, SourceReadFacts, TargetBarFacts,
 )
 from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
-from ..technical_indicator_stock_daily import daily_adjustment_paths, daily_price_projection
+from ..technical_indicator_stock_daily import (
+    daily_adjustment_paths, daily_price_projection, dg_index_daily_origin, scheduled_open_days,
+)
 from ..technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
 from ..technical_indicator_index_period import (
     INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, check_index_period_cutoff, check_period_key,
@@ -601,8 +603,6 @@ class LakePriceLocator:
                                      path=path, row_groups=selected_groups, file_version=version)
 
     def _read_recent_daily_batch(self, paths, columns):
-        from duckdb import Error, OutOfMemoryException
-
         for path in paths:
             self.control.check_active()
             self.source._safe_path(self._root, path)
@@ -614,21 +614,66 @@ class LakePriceLocator:
             ORDER BY trade_date DESC
             LIMIT ?
         """
+        rows = self._read_rows(
+            sql, (list(map(str, paths)), self.requirement.ts_code, len(paths)),
+            error_message="The daily price batch could not be read",
+        )
+        self.context.record_locator_rows(len(rows))
+        return rows
+
+    def _read_rows(self, sql, bindings, *, error_message):
+        from duckdb import Error, OutOfMemoryException
+
+        self.control.check_active()
         try:
-            rows = self.executor.connection.execute(
-                sql, (list(map(str, paths)), self.requirement.ts_code, len(paths)),
-            ).fetchall()
+            rows = self.executor.connection.execute(sql, bindings).fetchall()
         except OutOfMemoryException as exc:
             self.control.check_active()
             raise ResourceLimitError("DuckDB query memory limit was exceeded") from exc
         except Error as exc:
             self.control.check_active()
-            raise SourceReadError("The daily price batch could not be read") from exc
+            raise SourceReadError(error_message) from exc
         finally:
             self.control._note_sql_returned()
         self.control.check_active()
-        self.context.record_locator_rows(len(rows))
         return rows
+
+    def _read_recent_index_calendar(self, selection, previous_target_date):
+        """Validate the dates actually read and return the same calendar for the response."""
+        request = self.requirement
+        origin = dg_index_daily_origin(request.ts_code)
+        target_start = max(origin, request.start or origin)
+        check_start = selection.read_start or target_start
+        if selection.target_rows and selection.reached_source_origin:
+            check_start = origin
+        elif selection.target_rows < request.latest_rows:
+            check_start = min(check_start, target_start)
+        if previous_target_date is not None:
+            check_start = min(check_start, previous_target_date)
+
+        calendar = self.context.config.resolve_dataset_location("trade_calendar")
+        path = self.source._safe_path(self._root, Path(calendar.location["path_template"]))
+        self.context.record_file(path, path.stat().st_size)
+        rows = self._read_rows(
+            """SELECT trade_date, is_open, pretrade_date
+               FROM read_parquet(?, hive_partitioning=false)
+               WHERE exchange = ? AND trade_date BETWEEN ? AND ?
+               ORDER BY trade_date""",
+            (str(path), "SSE", min(check_start, request.end), request.end),
+            error_message="The index daily trading calendar could not be read",
+        )
+        if check_start <= request.end:
+            actual = tuple(day for batch in (self.context.source_state or ())
+                           for day in batch.column("trade_date").to_pylist())
+            if previous_target_date is not None and previous_target_date < selection.read_start:
+                actual = (previous_target_date, *actual)
+            # Beyond the published calendar, the page uses its last known open date.
+            expected = tuple(scheduled_open_days(
+                ((day, is_open) for day, is_open, _ in rows), check_start, rows[-1][0],
+            )) if rows else ()
+            if expected != actual:
+                raise SourceReadError("读取数据失败", detail="数据缺失")
+        return tuple(CalendarDayFacts(*row) for row in rows)
 
     def _select_recent_daily(self, paths, *, price_projection):
         request = self.requirement
@@ -727,6 +772,9 @@ class LakePriceLocator:
                 # ts_code is only a filter. All requested price columns come from this query.
                 price_projection = price_projection[1:]
                 selection, source_facts = self._select_recent_daily(paths, price_projection=price_projection)
+                if request.target.dataset_id == "index_daily":
+                    calendar_days = self._read_recent_index_calendar(selection, source_facts.previous_target_date)
+                    source_facts = replace(source_facts, calendar_days=calendar_days)
                 paths = ()
             else:
                 if not stock_daily:

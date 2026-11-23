@@ -1,6 +1,6 @@
 # 技术指标算子库读取优化方案 v1
 
-**2026-11-23｜阶段 1 已实现并复核。** 本专项减少已接算子库链路的重复读取。本地股票日线已经由算子库按截止日和根数取数，实测见[阶段 1 复核记录](technical-indicator-read-optimization-low-level-design-v1.md#stage-1-read-acceptance)。其余链路按下表分阶段推进。基线参考[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
+**2026-11-23｜阶段 1、2 已实现并复核。** 本专项减少已接算子库链路的重复读取。本地股票和指数日线已经由算子库按截止日和根数取数，见[股票日线复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-1-read-acceptance)和[指数日线复核](technical-indicator-read-optimization-low-level-design-v1.md#stage-2-read-acceptance)。其余链路按下表分阶段推进。基线参考[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
 
 ## 1. 范围
 

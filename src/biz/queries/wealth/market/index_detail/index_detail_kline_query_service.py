@@ -35,6 +35,7 @@ from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeR
 from src.foundation.clients.technical_indicator_stock_daily import dg_index_daily_origin
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from goldenshare_technical_indicators.contracts import CalculationResult
+from goldenshare_technical_indicators.sources.contracts import CalculationWithSource
 
 
 _BASE_REQUIRED_FIELDS = ("open", "high", "low", "close", "pre_close", "change", "pct_change", "vol", "amount")
@@ -74,6 +75,7 @@ _SSE_FACTOR_FIELDS = (
 SSE_DAILY_AUX_FIELDS = ("vol", "amount", "pre_close", "change_amount", "pct_chg")
 PriceRows = list[dict[str, Any]]
 CalculateDailyFactors = Callable[[tuple[date, ...]], tuple[CalculationResult, int, tuple]]
+CalculateRecentDaily = Callable[[date, date, int], CalculationWithSource]
 
 
 def apply_calculated_kline_factors(ts_code, rows, calculations):
@@ -125,9 +127,9 @@ class IndexDetailKlineQueryService:
         end_date: date | None,
         limit: int,
         calculate: CalculateDailyFactors | None = None,
+        calculate_recent: CalculateRecentDaily | None = None,
         source_origin: date | None = None,
         check_active: Callable[[], None] | None = None,
-        load_daily_fields=None,
     ) -> tuple[IndexDetailKlineResponseDto, int | None]:
         if period != "day":
             raise IndexDetailRequestError("指数详情只支持 period=day")
@@ -137,14 +139,17 @@ class IndexDetailKlineQueryService:
             raise IndexDetailRequestError("startDate 不能晚于 endDate")
 
         self._universe_service.require_supported(ts_code)
+        if calculate_recent is not None:
+            return self._build_recent_daily_kline(
+                ts_code=ts_code, start_date=start_date, end_date=end_date, limit=limit,
+                calculate=calculate_recent, check_active=check_active,
+            )
         if calculate is not None:
-            if self._daily_lake is not None:
-                source_origin = dg_index_daily_origin(ts_code)
             assert source_origin is not None and check_active is not None
             return self._build_calculated_daily_kline(
                 session, ts_code=ts_code, start_date=start_date, end_date=end_date,
                 limit=limit, source_origin=source_origin,
-                calculate=calculate, check_active=check_active, load_daily_fields=load_daily_fields,
+                calculate=calculate, check_active=check_active,
             )
         daily_lake = None if ts_code == "899050.BJ" else self._daily_lake
         history_before = None
@@ -228,46 +233,79 @@ class IndexDetailKlineQueryService:
             dataStatus=data_status,
         ), missing_count
 
-    def _build_calculated_daily_kline(
-        self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
-        limit: int, source_origin: date, calculate: CalculateDailyFactors,
-        check_active: Callable[[], None], load_daily_fields,
+    def _build_recent_daily_kline(
+        self, *, ts_code: str, start_date: date | None, end_date: date | None, limit: int,
+        calculate: CalculateRecentDaily, check_active: Callable[[], None],
     ) -> tuple[IndexDetailKlineResponseDto, int | None]:
-        lower = max(source_origin, start_date or source_origin)
+        lower = dg_index_daily_origin(ts_code)
+        if start_date is not None:
+            lower = max(lower, start_date)
         check_active()
-        if self._daily_lake is not None:
-            identity_row = self._daily_lake.index_identity(ts_code)
-            check_active()
-            now = datetime.now(ZoneInfo("Asia/Shanghai"))
-            calendar = self._daily_lake.calendar_rows(
-                end=end_date or now.date(),
-                start=min(lower, end_date) if end_date is not None else None,
-                recent_open_days=(None if end_date < lower else limit) if end_date is not None else limit + 1,
+        identity = self._build_identity_or_raise(self._daily_lake.index_identity(ts_code), ts_code=ts_code)
+        check_active()
+        now = datetime.now(ZoneInfo("Asia/Shanghai"))
+        context = None
+        if end_date is None:
+            context = self._context_query.resolve_local_context(
+                self._daily_lake, market="CN_A", requested_trade_date=None, now=now,
             )
-            check_active()
+            query_end = context.trade_date
+        else:
+            query_end = end_date
+        rows, missing_count, next_end = [], None, None
+        if query_end < lower:
+            if context is None:
+                calendar = self._daily_lake.calendar_rows(start=query_end, end=query_end)
+        else:
+            calculated = calculate(query_end, lower, limit)
+            facts = calculated.source_facts
+            if context is None:
+                calendar = tuple((day.trade_date, day.is_open, day.pretrade_date) for day in facts.calendar_days)
+            result = calculated.result
+            if result is not None:
+                dates = tuple(bar.trade_date for bar in facts.target_bars)
+                if dates != result.times or len(dates) != result.range.count:
+                    raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
+                *indicators, price = result.calculations
+                values = dict(price.fields)
+                for index, bar in enumerate(facts.target_bars):
+                    vol, amount = values["volume"][index], values["amount"][index]
+                    rows.append({
+                        "trade_date": bar.trade_date,
+                        **{name: values[name][index] for name in ("open", "high", "low", "close")},
+                        "pre_close": bar.pre_close, "change": bar.change_amount, "pct_change": bar.pct_chg,
+                        "vol": None if vol is None else vol / 100,
+                        "amount": None if amount is None else amount / 1000,
+                    })
+                apply_calculated_kline_factors(ts_code, rows, indicators)
+                missing_count = count_calculated_kline_missing(rows, calculated.selection.preceding_rows)
+                next_end = facts.previous_target_date
+        if context is None:
             context = self._context_query.resolve_local_context(
                 self._daily_lake, market="CN_A", requested_trade_date=end_date, now=now, calendar_rows=calendar,
             )
-            expected_end = context.trade_date if context.is_trading_day else context.prev_trade_date
-            window = tuple(row for row in calendar if row[1] and expected_end is not None
-                           and lower <= row[0] <= expected_end)[-limit:]
-        else:
-            identity_row = self._query.load_identity(session, ts_code=ts_code)
-            context, window = self._context_query.resolve_sse_kline_context(
-                session, requested_trade_date=end_date, start=lower, limit=limit,
-            )
-            expected_end = context.trade_date if context.is_trading_day else context.prev_trade_date
+        check_active()
+        return self._calculated_daily_response(context, identity, rows, missing_count, start_date, limit, next_end)
+
+    def _build_calculated_daily_kline(
+        self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
+        limit: int, source_origin: date, calculate: CalculateDailyFactors,
+        check_active: Callable[[], None],
+    ) -> tuple[IndexDetailKlineResponseDto, int | None]:
+        lower = max(source_origin, start_date or source_origin)
+        check_active()
+        identity_row = self._query.load_identity(session, ts_code=ts_code)
+        context, window = self._context_query.resolve_sse_kline_context(
+            session, requested_trade_date=end_date, start=lower, limit=limit,
+        )
         identity = self._build_identity_or_raise(identity_row, ts_code=ts_code)
-        query_end = context.trade_date
         dates = tuple(row[0] for row in window)
         rows, missing_count = [], None
         if dates:
             result, preceding_rows, target_ohlc = calculate(dates)
             if result.times != dates or target_ohlc is None or len(target_ohlc) != len(dates):
                 raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
-            aux = self._read_sse_auxiliary(session, ts_code, dates) if load_daily_fields is None else load_daily_fields(
-                ts_code, dates,
-            )
+            aux = self._read_sse_auxiliary(session, ts_code, dates)
             if tuple(aux) != dates:
                 raise IndexDetailQueryError(f"{ts_code} 读取数据失败：数据缺失")
             for day, (open_price, high, low, close) in zip(dates, target_ohlc, strict=True):
@@ -282,11 +320,16 @@ class IndexDetailKlineQueryService:
             apply_calculated_kline_factors(ts_code, rows, result.calculations)
             missing_count = count_calculated_kline_missing(rows, preceding_rows)
         next_end = window[0][2] if len(window) == limit else None
-        cursor_lower = lower if self._daily_lake is not None else start_date
-        if next_end is not None and cursor_lower is not None and next_end < cursor_lower:
+        if next_end is not None and start_date is not None and next_end < start_date:
             next_end = None
+        return self._calculated_daily_response(context, identity, rows, missing_count, start_date, limit, next_end)
+
+    def _calculated_daily_response(self, context, identity, rows, missing_count, start_date, limit, next_end):
+        query_end = context.trade_date
+        expected_end = query_end if context.is_trading_day else context.prev_trade_date
         data_status = self._status_resolver.resolve(
-            expected_trade_date=expected_end or query_end, observed_trade_date=dates[-1] if dates else None,
+            expected_trade_date=expected_end or query_end,
+            observed_trade_date=rows[-1]["trade_date"] if rows else None,
             empty=not rows, partial=bool(missing_count),
         )
         return IndexDetailKlineResponseDto(

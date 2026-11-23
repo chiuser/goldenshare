@@ -1,6 +1,6 @@
 # 技术指标算子库读取优化 LLD v1
 
-**2026-11-23｜阶段 1 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。阶段 1 的实现与验收见[复核记录](#stage-1-read-acceptance)，后续阶段为开发设计。
+**2026-11-23｜阶段 1、2 已实现并复核。** 本文落实[读取优化方案](technical-indicator-read-optimization-plan-v1.md)。设计所用代码基线为 `dev-interface` 的 `52d0bc207`。已实施部分见[阶段 1 复核](#stage-1-read-acceptance)和[阶段 2 复核](#stage-2-read-acceptance)，后续阶段为开发设计。
 
 ## 1. 交付边界
 
@@ -39,7 +39,7 @@ class CalculationRequest:
 
 ### 2.2 本次行情如何交给业务
 
-以下内部结果定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。阶段 1 实现股票日线用到的目标行情字段与续页日期，日历和指数周月线字段在对应阶段引入。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
+以下内部结果定义在 `sources/contracts.py`。这些字段供应用装配和业务使用，HTTP 继续通过现有 DTO 输出。阶段 1 实现股票日线用到的目标行情字段与续页日期，阶段 2 增加指数日线的日历记录。指数周月线字段在阶段 3 引入。股票已有的 `PeriodBarMetadata` 继续由原专项使用。
 
 ~~~python
 @dataclass(frozen=True, slots=True)
@@ -135,7 +135,7 @@ LIMIT ?
 ## 4. 阶段 2　本地指数日线
 
 1. [run_index_daily_kline](../../src/app/dependencies/index_daily_technical_indicators.py#L29) 的 DG 分支提供 `calculate(end, start, limit)` 回调，让业务直接传标的和范围。保持 `dg_index_daily_origin()` 作为目标返回下界，包括科创 50 的起点规则。调用 `calculate_with_source`，指标清单增加现有 `price`，其余沿用 `SSE_DAILY_CALCULATIONS`。投影沿用 §3.2，成交量额从同次 `price` 输出恢复为接口单位。移除 DG 分支的 `collect_target_ohlc` 私有收集及 `load_dg_fields()` 二次行情读取。`apply_calculated_kline_factors()` 只接原指标，`price` 单独组装。
-2. [IndexDetailKlineQueryService._build_calculated_daily_kline](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L231) 的 DG 分支用行情结果日期组页，结束按交易日历窗口选 `limit` 根和用日历生成游标的旧读法。首批截止来自 `asOfTradeDate`，续页截止来自前批 `nextEndDate`，`meta.endDate` 对应调用方的截止日。前端普通和调试入口继续使用原调用。`/page-init` 继续掌握整页的行情日期和更新状态，盘口、估值、换手率和成分涨跌统计仍按其日 K 日期查询。
+2. [IndexDetailKlineQueryService._build_recent_daily_kline](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L236) 用算子库返回的实际日期组页和生成游标。首批截止来自 `asOfTradeDate`，续页截止来自前批 `nextEndDate`，`meta.endDate` 对应调用方的截止日。前端普通和调试入口继续使用原调用。`/page-init` 继续掌握整页的行情日期和更新状态，盘口、估值、换手率和成分涨跌统计仍按其日 K 日期查询。
 3. **现有历史完整性和页面上下文。** 指数的应有日线缺失仍报错。已有日历校验保留在指数读数流程，由读取结果决定有效校验的起点。对显式截止日，在已知行情和预热范围后用同一次有界日历读取核对已选行情并返回组装上下文所需字段。起点取本次预热和目标最早需校验日；历史不足时覆盖目标下界至请求截止日；已读到更早的实际续页日期时核对其与本批的衔接。供业务上下文使用的上一开市日可由首行的 `pretrade_date` 提供。对原有日期范围衔接误差使用现有 `scheduled_open_days()`，避免无依据推断缺口。将行序列与日历中相应开市日对比，在该次读数后一次完成。已达到 N 根时，从实际读取的最早校验日向后比对。目标不足 N 时，按目标下界检查应有目标，避免把漏行情当成合法短页。应有开市日却没有任何目标行情也走 `ID_QUERY_FAILED`。保留一次该校验读数，移除业务用日历先选整页的重复读取。
 
 ~~~sql
@@ -147,7 +147,7 @@ ORDER BY trade_date
 ~~~
 
 4. 业务调用 [resolve_local_context()](../../src/biz/queries/wealth/market/context/market_page_context_query.py#L224) 时传已取得的日历记录和当次 `now`。常规首屏与续页以给定日期组装 `pageContext`，本批状态仍能报告空页或部分指标缺失。历史日期查询早于源起点的空页只取上下文所需日期事实。直接请求省略截止日时，先用现有短窗口日历规则解析一次默认日期，后续以该日期作为读取上界。直接请求休市日，仍以该日生成 `meta.endDate`，使用上一开市日给出现有状态日期。持久化字段没有对应行情时沿用旧错误分类。正常页面调用不产生重新判断全页应更新到哪天的逻辑。
-5. 界面沿用现有参数和 DTO。阶段验收核对周日直接请求时 `meta.endDate` 为周日，最近开市日行情齐备时返回 `READY`。历史漏行情、缺收盘价的错误处理沿用 [已有指数日线回归](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)。
+5. 界面沿用现有参数和 DTO。[DG 读取器](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L641) 在返回选页结果之前校验日历，覆盖当期应有行情却全部读不到的情况。阶段验收核对周日直接请求时 `meta.endDate` 为周日，最近开市日行情齐备时返回 `READY`。历史漏行情、缺收盘价的错误处理沿用 [已有指数日线回归](../../tests/app/technical_indicators/test_index_daily_kline_integration.py)。
 
 ## 5. 阶段 3　本地指数周线、月线
 
@@ -280,3 +280,23 @@ LIMIT %s
 - 用隔离样本在完成第一批的一文件一行后取消，约 0.7 毫秒释放资源。以相同参数重新读取约 20 毫秒，取得两根目标与一根预热。
 - 阶段相关后端回归共 234 项通过，包括股票日线首屏、翻页、到头、空页、取消，以及指数日线、指数 5 分钟、周月线和隔离 PostgreSQL 的既有用例。补充真实空页断言后，97 项相关用例复跑通过。前端图表和续页的 12 项既有用例通过。页面验收覆盖隔离应用的 HTTP 回包和前端测试。全目录试跑另有旧测试引用未导出的 `CalculationInstance`，旧股票路由测试有三项在原版本同样失败。
 - CodeGraph 复查了计算指令到 DG 读取会话、本地股票日线到业务组装和路由，以及前端续页消费者。实际变更限定在阶段 1 的共用指令和本地股票日线接线，后续范围通过原调用链的回归检查。
+
+<a id="stage-2-read-acceptance"></a>
+
+## 9. 阶段 2 实施与复核
+
+2026-11-23 在同机隔离 HTTP 应用中，用正式 DG 文件对照优化前后的指数日 K。以 2026-11-20 为首屏截止日，每版对同样四只指数各请求一次首屏与续页，系统文件缓存未清空。每页用时是本次样本的实测值。
+
+| 指数 | 首屏根数 | 续页根数 | 首屏优化前 → 后 | 续页优化前 → 后 |
+| --- | ---: | ---: | ---: | ---: |
+| 上证综指 | 500 | 500 | 2.94 → 0.81 秒 | 2.58 → 0.50 秒 |
+| 深证成指 | 500 | 500 | 2.70 → 0.38 秒 | 2.67 → 0.35 秒 |
+| 北证 50 | 500 | 450 | 2.30 → 0.33 秒 | 1.37 → 0.21 秒 |
+| 中证 A500 | 500 | 23 | 1.51 → 0.25 秒 | 0.14 → 0.07 秒 |
+
+- 各指数的日期、四价、成交量、指标及空值位置、分页状态和游标一致。北证 50 与中证 A500 的续页到各自历史起点并返回空游标。另测 2026-11-22 周日调试请求，保留周日请求截止日，预期与实际行情均到 11 月 20 日，返回 `READY`。
+- 两次运行的生成时间戳各自生成。金额从算子标准单位元换回接口单位千元时，5 条记录有浮点末位差异，最大约 0.00012 元。其余回包字段逐项相同。
+- 实测显式日 K 请求每次执行一次日历 SQL，用于检查行情日期和组装页面状态。行情执行一到两条批量 SQL，按实际日期取得目标和预热；同一请求内的行情查询路径无重叠，计算直接消费已读行情。业务的日历选页、辅助行情二次读取及逐文件重新打开行情流均为零次。
+- 上证综指与深证成指每页提交 1,000 个不同日线文件给行情 SQL。北证 50 首屏与续页分别为 950、450 个，中证 A500 为 523、23 个。上述数量是查询路径及对应行情行数，未测操作系统打开文件的次数。整轮隔离应用进程峰值约 446 → 458 MiB，含 Web、Arrow、Python 和 DuckDB。
+- 隔离样本读取 3 根行情和 4 条日历记录后取消，约 0.9 毫秒释放资源。用相同参数重试约 13 毫秒，返回两根目标，使用一根预热。
+- 259 项相关后端回归通过，涵盖空页、覆盖期内缺行情、缺收盘、部分缺失、默认日期、真实数据源接入，以及股票、指数周月线、指数分钟线和隔离 PostgreSQL 的既有用例。27 项前端控制器、分页请求及字段映射测试通过。CodeGraph 核对了普通与调试入口、算子库读数、回包组装和前端续页消费者。范围限定为阶段 2 的本地指数日 K。

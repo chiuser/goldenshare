@@ -435,7 +435,7 @@ class _LakePriceStream:
         self._pending_batch = self._current_path = None
         self._exhausted = self._closed = self._failed = False
         self._delivered = 0
-        if requirement.target.dataset_id == "stock_daily":
+        if requirement.target.dataset_id == "stock_daily" or requirement.latest_rows is not None:
             pa, _, _, _ = _arrow()
             batches = read_context.source_state
             self._reader = pa.RecordBatchReader.from_batches(batches[0].schema, batches)

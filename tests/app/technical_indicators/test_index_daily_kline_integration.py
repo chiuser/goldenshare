@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import date
+from datetime import date, datetime
 from functools import partial
 
 from fastapi import FastAPI
@@ -15,7 +15,9 @@ from src.app.exceptions.web import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
 from src.biz.api.wealth.market.index_detail import build_router
 from src.biz.api.wealth.market.index_detail_debug import build_router as build_debug_router
+from src.biz.queries.wealth.market.index_detail import index_detail_kline_query_service
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.config.settings import Settings
 
 
@@ -113,8 +115,26 @@ def dg_client(tmp_path, monkeypatch):
         yield client, partitions, reads, encoded, calculated
 
 
-def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
+def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client, monkeypatch):
     client, _, reads, encoded, calculated = dg_client
+    read_batch = LakePriceLocator._read_recent_daily_batch
+    read_calendar = LakePriceLocator._read_recent_index_calendar
+    price_paths, calendars = [], []
+
+    def record_batch(locator, paths, columns):
+        price_paths.extend(paths)
+        return read_batch(locator, paths, columns)
+
+    def record_calendar(locator, selection, previous_target_date):
+        calendars.append((selection.target_start, locator.requirement.end))
+        return read_calendar(locator, selection, previous_target_date)
+
+    def reject_calendar_preselection(*args, **kwargs):
+        pytest.fail("Explicit local daily requests use the calendar already read with the bars")
+
+    monkeypatch.setattr(LakePriceLocator, "_read_recent_daily_batch", record_batch)
+    monkeypatch.setattr(LakePriceLocator, "_read_recent_index_calendar", record_calendar)
+    monkeypatch.setattr(IndexDailyLakeReader, "calendar_rows", reject_calendar_preselection)
     params = {"tsCode": " 000001.sh ", "endDate": str(MON), "limit": 1}
     response = client.get(PATH.replace("/kline", "/debug/kline"), params=params)
     assert response.status_code == 200, response.text
@@ -126,8 +146,9 @@ def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
     assert body["bars"][0]["amount"] == 1000.0
     assert body["bars"][0]["factors"]["macd"]["dif"] > 0
     assert body["debugInfo"]["modules"][0]["rowCount"] == 1
-    assert [days for days, _ in reads] == [(MON,)]
-    assert reads[0][1] == ("vol", "amount", "pre_close", "change_amount", "pct_chg")
+    assert not reads
+    assert calendars == [(MON, MON)]
+    assert sorted(p.parent.name for p in price_paths) == [f"trade_date={day}" for day in (ORIGIN, THU, FRI, MON)]
     assert len(encoded) == len(calculated) == 1
 
     response = client.get(PATH.replace("/kline", "/debug/kline"), params={**params, "endDate": body["meta"]["nextEndDate"]})
@@ -143,6 +164,8 @@ def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
     assert body["dataStatus"]["status"] == "READY"
     assert body["dataStatus"]["expectedTradeDate"] == body["dataStatus"]["observedTradeDate"] == str(FRI)
     assert body["debugInfo"]["modules"][0]["expectedTradeDate"] == str(FRI)
+    assert calendars == [(MON, MON), (FRI, FRI), (FRI, SUN)]
+    assert not reads
 
 
 def test_sse_kline_origin_short_page_and_empty_page(dg_client):
@@ -158,14 +181,15 @@ def test_sse_kline_origin_short_page_and_empty_page(dg_client):
         assert set(bar["factors"]["ma"].values()) == {None}
         assert set(bar["factors"]["boll"].values()) == {None}
     assert body["bars"][0]["factors"]["macd"] == {"dif": 0, "dea": 0, "macd": 0}
-    assert [days for days, _ in reads] == [(ORIGIN, THU, FRI)]
+    assert not reads
 
     response = client.get(PATH, params={"tsCode": CODE, "endDate": str(BEFORE_ORIGIN)})
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["bars"] == [] and body["dataStatus"]["status"] == "EMPTY"
     assert body["meta"]["nextEndDate"] is None
-    assert len(reads) == len(calculated) == 1
+    assert not reads
+    assert len(calculated) == 1
     assert len(encoded) == 2
 
 
@@ -184,6 +208,45 @@ def test_sse_kline_rejects_missing_bar_or_close(dg_client, tmp_path, missing_fil
     assert "request_id" in body
     assert not reads and not encoded
     assert len(calculated) == 1
+
+
+def test_empty_read_on_an_open_day_within_coverage_is_a_query_error(dg_client):
+    client, partitions, reads, encoded, _ = dg_client
+    partitions[MON].unlink()
+    response = client.get(PATH, params={"tsCode": CODE, "startDate": str(MON), "endDate": str(MON)})
+    assert response.status_code == 500
+    assert response.json()["code"] == "ID_QUERY_FAILED"
+    assert not reads and not encoded
+
+
+def test_default_end_date_keeps_the_previous_open_date_before_the_switch(dg_client, monkeypatch):
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2000, 1, 10, 19, tzinfo=tz)
+
+    monkeypatch.setattr(index_detail_kline_query_service, "datetime", FixedDateTime)
+    client, _, reads, _, _ = dg_client
+    response = client.get(PATH, params={"tsCode": CODE, "limit": 1})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["pageContext"]["source"] == "default"
+    assert body["meta"]["endDate"] == body["bars"][0]["tradeDate"] == str(FRI)
+    assert body["meta"]["nextEndDate"] == str(THU)
+    assert not reads
+
+
+def test_missing_amount_keeps_the_bar_and_marks_its_page_partial(dg_client, tmp_path):
+    client, _, reads, _, _ = dg_client
+    write_partition(tmp_path, FRI, close=12.0, amount=None)
+    response = client.get(PATH, params={"tsCode": CODE, "endDate": str(FRI), "limit": 1})
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["dataStatus"]["status"] == "PARTIAL"
+    assert body["bars"][0]["amount"] is None
+    assert body["bars"][0]["close"] == 12.0
+    assert body["meta"]["nextEndDate"] == str(THU)
+    assert not reads
 
 
 def test_a500_kline_paginates_and_stops_at_its_verified_origin(dg_client, tmp_path):
@@ -219,7 +282,7 @@ def test_a500_kline_paginates_and_stops_at_its_verified_origin(dg_client, tmp_pa
     assert empty.json()["meta"]["nextEndDate"] is None
     assert empty.json()["bars"] == []
     assert empty.json()["debugInfo"]["exceptions"][0]["message"] == "指数日线无可用数据"
-    assert [days for days, _ in reads] == [(A500_SECOND, A500_THIRD), (A500_ORIGIN,)]
+    assert not reads
     assert len(calculated) == 2
     assert len(encoded) == 3
 

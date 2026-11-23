@@ -9,7 +9,7 @@ from fastapi import Request
 from src.app.dependencies.stock_daily_technical_indicators import open_stock_daily_read_session
 from src.app.runtime.technical_indicators.execution import _execute
 from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
-    SSE_DAILY_AUX_FIELDS, SSE_DAILY_CALCULATIONS, IndexDetailKlineQueryService,
+    SSE_DAILY_CALCULATIONS, IndexDetailKlineQueryService,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError, IndexDetailRequestError
 from src.db import get_session_factory
@@ -20,10 +20,10 @@ from goldenshare_technical_indicators.errors import (
 )
 from goldenshare_technical_indicators.output.encoding import encode_response_utf8
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
-from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
 _PROD_SOURCE_ORIGIN = date(2010, 1, 4)
+_DG_CALCULATIONS = (*SSE_DAILY_CALCULATIONS, {"calculation_id": "price", "parameters": {}})
 
 
 async def run_index_daily_kline(
@@ -45,18 +45,22 @@ async def run_index_daily_kline(
                         limit=limit)
 
     def work(params, control) -> bytes:
-        def calculate(dates):
-            timezone = ZoneInfo("Asia/Shanghai")
+        timezone = ZoneInfo("Asia/Shanghai")
+        service = TechnicalIndicatorService(
+            source=runtime.source, registry=runtime.registry, config=runtime.config, control=control,
+        )
+
+        def calculate(start, end, *, latest_rows=None):
             calculation = CalculationRequest(
                 security_type="index", ts_code=ts_code, period="day", adjustment="none",
-                calculations=SSE_DAILY_CALCULATIONS,
-                start=datetime.combine(dates[0], time.min, timezone),
-                end=datetime.combine(dates[-1], time.min, timezone),
-            )
-            service = TechnicalIndicatorService(
-                source=runtime.source, registry=runtime.registry, config=runtime.config, control=control,
+                calculations=_DG_CALCULATIONS if latest_rows is not None else SSE_DAILY_CALCULATIONS,
+                start=datetime.combine(start, time.min, timezone),
+                end=datetime.combine(end, time.min, timezone),
+                latest_rows=latest_rows,
             )
             try:
+                if latest_rows is not None:
+                    return service.calculate_with_source(calculation)
                 prepared = service._prepare_calculation(calculation)
                 return service._calculate_library(prepared, control=control, collect_target_ohlc=True)
             except SourceReadError:
@@ -65,18 +69,13 @@ async def run_index_daily_kline(
                 control.check_active()
                 raise IndexDetailQueryError(f"{ts_code} 日线指标计算失败") from exc
 
-        def load_dg_fields(code, dates):
-            return runtime.source.daily_rows(
-                "index_daily", code, dates, SSE_DAILY_AUX_FIELDS,
-                control=control, read_context=SourceReadContext(runtime.config),
-            )
-
         query = IndexDetailKlineQueryService(daily_lake=daily_lake)
-        options = dict(
-            params, calculate=calculate, source_origin=None if use_dg else _PROD_SOURCE_ORIGIN,
-            check_active=control.check_active,
-            load_daily_fields=load_dg_fields if use_dg else None,
-        )
+        options = dict(params, check_active=control.check_active)
+        if use_dg:
+            options["calculate_recent"] = lambda end, start, limit: calculate(start, end, latest_rows=limit)
+        else:
+            options["calculate"] = lambda dates: calculate(dates[0], dates[-1])
+            options["source_origin"] = _PROD_SOURCE_ORIGIN
 
         def build(session):
             if project is None:

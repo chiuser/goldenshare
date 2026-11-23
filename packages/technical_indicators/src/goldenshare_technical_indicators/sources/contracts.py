@@ -57,9 +57,17 @@ class TargetBarFacts:
 
 
 @dataclass(frozen=True, slots=True)
+class CalendarDayFacts:
+    trade_date: date
+    is_open: bool
+    pretrade_date: date | None
+
+
+@dataclass(frozen=True, slots=True)
 class SourceReadFacts:
     target_bars: tuple[TargetBarFacts, ...] = ()
     previous_target_date: date | None = None
+    calendar_days: tuple[CalendarDayFacts, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

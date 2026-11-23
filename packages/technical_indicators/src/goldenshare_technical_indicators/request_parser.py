@@ -36,8 +36,8 @@ class CalculationRequestParser:
         if normalized.latest_rows is not None:
             if normalized.latest_rows > self._config.max_output_rows:
                 raise ResourceLimitError("Target positions exceed max_output_rows")
-            if (target.backend, target.dataset_id) != ("dg", "stock_daily"):
-                raise SourceUnsupportedError("Reading by row count is only enabled for DG stock daily bars")
+            if target.backend != "dg" or target.dataset_id not in ("stock_daily", "index_daily"):
+                raise SourceUnsupportedError("Reading by row count is only enabled for DG stock and index daily bars")
         return _PreparedCalculation(normalized, plan, target)
 
 
