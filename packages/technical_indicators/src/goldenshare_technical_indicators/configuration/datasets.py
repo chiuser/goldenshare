@@ -57,6 +57,18 @@ MARKET_DATASETS = {
     ("index", "month"): "index_monthly",
 }
 
+DG_RECENT_INDEX_MINUTE_DATASETS = {
+    f"{frequency}m": f"major_index_mins_{frequency}m" for frequency in (1, 5, 15, 30, 60)
+}
+for _period, _dataset in DG_RECENT_INDEX_MINUTE_DATASETS.items():
+    DATASET_LOCATIONS[_dataset] = {
+        "dg": {
+            "relative_path": "gold/quote/major_index_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
+            "partitions": {"freq": int(_period.removesuffix("m"))},
+        },
+        "prod_pg": None,
+    }
+
 for _frequency in (1, 5, 15, 30, 60, 90, 120):
     _period = f"{_frequency}m"
     _stock_id = f"stock_mins_{_period}"

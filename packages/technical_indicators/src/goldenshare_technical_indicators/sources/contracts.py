@@ -71,6 +71,8 @@ class SourceReadFacts:
     first_available_period: date | None = None
     latest_available_date: date | None = None
     current_period_bar: PeriodBarMetadata | None = None
+    has_more: bool = False
+    target_exchanges: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)

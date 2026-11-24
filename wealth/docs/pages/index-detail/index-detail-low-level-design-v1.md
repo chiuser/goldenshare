@@ -2109,3 +2109,131 @@ Prod 新接口续页读取当页500根耗时0.113秒。查询更早的500根预�
 
 - **交互与来源。** 四只指数拖动续页前后，同一画布和屏幕上三个固定位置的日期均保持一致，右侧盘口保持首屏值。北证 50 和中证 A500 到起点后继续拖动，均未再发出日 K 或九转请求。上证综指首屏、续页各请求一次趋势通道，其他三只均为零。浏览器发出 8 次日 K 和 8 次九转，读取 3,473 根目标日 K，日线技术因子访问为零。原上证趋势通道沿用其 PostgreSQL 读取。浏览器控制台无错误。
 - **回归。** 前端 190 个文件、1,644 项通过，类型检查和构建通过。覆盖 10 只指数的续页与九转独立重试、Prod 旧回包、页尾停止、错指数响应及切换指数时丢弃旧请求。此次验收使用临时服务，现行部署版本另行切换。[前端回归](../../../src/features/index-detail/controller/useIndexDetailController.test.tsx)
+
+<a id="index-minute-kernel-integration-lld"></a>
+
+## 29. 本地 DG 指数分钟线接入算子库（2026-11-24）
+
+本节对应[原方案新增 §16](index-detail-implementation-design-v1.md#index-minute-kernel-integration-plan)。现行合同及历史验收见 §16 和[分钟 API 合同](index-detail-minutes-api-contract-v1.md)。指数详情分钟路由自首次实现仅本地装配，现有回归覆盖 Prod 路由缺席。Prod 的独立 5 分钟算子保留现有范围。本期实施范围是本地 DG 的五个直接读取周期、90／120 分钟合成、两条分钟接口接入。 [路由回归](../../../../tests/web/test_index_detail_minutes_api.py#L291)
+
+### 29.1 代码现状与拟议落点
+
+| 环节 | 当前实现 | 拟议变更 |
+| --- | --- | --- |
+| Web 入口 | [路由装配](../../../../src/app/api/v1/router.py#L176)只在本地能力满足时挂载 `/minutes`、`/minute-indicators`。两条接口分别查 DG 成品。 | 在 [指数分钟 API](../../../../src/biz/api/wealth/market/index_detail_minutes.py#L43) 保留请求解析、鉴权和错误映射，通过本地应用装配取得算子服务。 |
+| 按截止时间取最近 N 根与回包 | [IndexDetailMinutesQueryService](../../../../src/biz/queries/wealth/market/index_detail_minutes/index_detail_minutes_query_service.py#L33)校验页面指数名单，并组装 bars、items、状态与大小门禁。现行 reader 按时间取最近一批。 | 业务层将请求中的日期或游标转换为截止时间，把截止时间和返回根数交给算子库。算子库自行决定实际读取的文件和根数，交付每根行情的时间及结果。业务层直接组装响应，无需先查行情日期或预先计算取数区间。 |
+| 算子启用 | [运行配置](../../../../src/app/runtime/technical_indicators/composition.py#L34)和[分钟源校验](../../../../src/foundation/clients/technical_indicator_index_minutes.py#L20)只接受已核验标的的 5 分钟不复权。`latest_rows` 尚未对指数分钟开放。 | 以现有详情名单和 DG 来源为依据启用本地七频。已有近 N 根选择扩展到 DG 指数分钟。算子层接收真实时间边界和根数，HTTP 游标由业务层处理。现用 5 分钟区间指令随变更回归。 [请求解析](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/request_parser.py#L29) |
+| DG 直接读取 | 独立 5 分钟算子查通用 `gold/quote/index_mins`，详情七频查 `gold/quote/major_index_mins` 和 `gold/indicator/major_index_mins_technical`。 | 第一阶段接入 1、5、15、30、60 分钟的正式 `major_index_mins` Gold 行情。沿用 [DG 定位器](../../../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L800) 已有的整批文件查询方式，复用算子输入批处理。既有 5 分钟区间指令保持原来源。 |
+| DG 合成 | 现行详情直接读 Gold 90／120 分钟成品。DG 生成该成品时分别读 Silver 30／60 分钟。 | 第二阶段在算子库的 DG 行情读取路径复用同样的来源和窗口，按实读记录形成行情。第三阶段再接两条详情接口。 |
+
+### 29.2 第一阶段：五个直读周期按截止时间取最近 N 根
+
+在 `configuration/datasets.py` 的位置目录定义指数分钟按根数专用的 DG 数据集，键用 `major_index_mins_{period}`，其中 `period` 为 `1m` 等周期。`trade_date` 由读取模块枚举。仅由本地指数分钟按根数入口解析该键，复用 `KernelConfig.resolve_dataset_location`，现有 `MARKET_DATASETS` 对区间请求的选择照旧。Prod 位置为空。第一阶段配置 Gold 五频，第二阶段补 Silver 两频，均为 `adjustment=none`。 [现有位置配置](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py) · [配置解析](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/settings.py#L164)
+
+| 目标周期 | DG 数据集目录 | 相对文件路径 |
+| --- | --- | --- |
+| 1、5、15、30、60 分钟 | `gold/quote/major_index_mins` | `freq={freq}/trade_date={trade_date}/part-000.parquet`，`freq` 取对应的周期整数 |
+| 90 分钟 | `silver/quote/major_index_mins` | `freq=30min/trade_date={trade_date}/part-000.parquet` |
+| 120 分钟 | `silver/quote/major_index_mins` | `freq=60min/trade_date={trade_date}/part-000.parquet` |
+
+1. **时间。** 上海时区对外输出 `+08:00`。1 分钟保留现有独立 `09:30`。5、15、30、60、90、120 分钟的首根窗口分别结束于 `09:35`、`09:45`、`10:00`、`10:30`、`11:00`、`11:30`，完整交易日末根为 `15:00`。五个直接读取周期沿用成品时间，90／120 分钟按 §29.3 形成。 [七频接口时段合同](index-detail-minutes-api-contract-v1.md#1-边界)
+2. **量额。** 算子库输出股、元。DG 正式分钟行情的成交量按 §29.2.1 在同一条批量查询中换算。
+3. **指标。** 参数沿用 MA(5/10/20/30/60/90/250)、BOLL(20,2)、MACD(12,26,9)、KDJ(9,3,3)。同一指标请求的所有算子共用这次取到的行情，由现有预热规则确定所需历史。用有界样本对照历史起点的空值和首屏、续页的数值，重点对照 MACD／KDJ 初始化。保留现有 `paramsKey` 对应的参数组合，只有核对算法口径一致后才沿用 `indicatorVersion`。发现图上可见差异时记录样本、差值及原因，验收前确认处理方式。累计根数字段见 §29.4。 [现有指标字段](../../../../src/foundation/clients/local_lake/major_index_mins_contract.py#L51) · [成品指标计算](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py#L399)
+
+**七频使用同一种取数请求。** 业务传 `ts_code`、`period`、`adjustment=none`、带上海时区的截止时间、`latest_rows` 和指标清单。首屏用 `endDate` 当天最后一微秒作为含边界的截止。续页用游标时间减一微秒，等价于现行微秒精度下严格早于上一批首根。省略 `endDate` 时，由本地指数分钟按根数入口在列出候选分区时用最新可用分区日期补齐截止，复用同一份分区列表。显式 `startDate` 的当日零点是本页目标下界，预热可读取更早行情。Parquet 的 `trade_time` 比较使用上海本地时间，回包恢复 `+08:00`。现有 5 分钟区间调用继续用起止时间。 [现有请求解析](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/request_parser.py#L36) · [现有续页时间条件](../../../../src/foundation/clients/local_lake/major_index_mins_reader.py#L483)
+
+**一次执行覆盖整批文件。** 从截止日向前枚举该周期已有的日期分区。按还需要的目标、预热和探测根数，参考现有完整日根数估计首批文件数。估算式为待取根数除以每个完整交易日的目标根数，再向上取整。直接周期的完整日根数为 241、48、16、8、4，分别对应 1、5、15、30、60 分钟。合成周期按每天 3 根和 2 根估算。这些数字只用于分批，遇到不足按实读结果继续查更早文件。每批一次绑定文件列表、指数代码、截止时间和本批最多需要的根数。直接周期的取数 SQL 如下。 [根数依据](../../../../src/foundation/clients/local_lake/major_index_mins_contract.py#L11)
+
+```sql
+SELECT CAST(trade_time AS DATE) AS trade_date, trade_time,
+       open, high, low, close,
+       CASE WHEN ends_with(ts_code, '.SH')
+                 AND CAST(trade_time AS DATE) >= DATE '2026-11-10'
+            THEN vol * 100 ELSE vol END AS volume,
+       amount, exchange
+FROM read_parquet(?, hive_partitioning = false)
+WHERE ts_code = ? AND trade_time <= ?
+ORDER BY trade_time DESC
+LIMIT ?
+```
+
+- `LIMIT` 作用于过滤后的行情记录。它限制查询交付给读取模块的行数，DuckDB 仍按查询计划访问这批 Parquet 文件。业务层提交一次计算请求，读取模块每批执行一次 SQL，批内共同排序。无需逐日跑 SQL、先查日历确定有哪些行情日期，或另发一条行情查询来数根数。
+- 从倒序结果取所需的目标根数，额外一根满足 `startDate` 才说明有下一页。较早的行同时可供预热。一个批次应读至尚缺的目标根数加上预热与分页探测两者所需根数的较大值，读过的目标、预热和探测行均在本次请求内复用。只有仍缺目标或可用历史时才取下一批未读文件。跨过目标下界后只为已有目标补所需预热。复用现有 `preceding_limit` 的预热与源起点判断及 `SourceReadContext` 的输入根数和文件预算。源历史不足时返回实际取得的目标，并按现有指标规则输出空值或初始化结果。最后按时间升序交给算子和业务层。 [预热预算](../../../../src/foundation/clients/technical_indicator_index_period.py#L64) · [读取预算](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/read_context.py#L61)
+- 读取结果沿用 `PriceReadSelection` 和 `CalculationWithSource`，分钟请求在 `SourceReadFacts` 交付 `has_more` 及行情 DTO 所需的 `exchange`。查询行情使用现有 `price` 算子交付四价、成交量和成交额。指标请求使用同样的行情时间，复用通用计算和输出模块。 [读取与结果对象](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/contracts.py#L67) · [行情算子](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/price.py#L13)
+
+<a id="index-minute-kernel-volume"></a>
+
+#### 29.2.1 成交量单位证据和兼容规则（2026-11-24）
+
+来源文档声明 `idx_mins.vol` 为股、`amount` 为元。用指数普通日线的成交量（手）对照正式 DG Raw 5 分钟文件，以下每组含 49 条分钟记录。 [分钟来源字段](../../../../docs/sources/tushare/指数专题/0419_股票历史分钟行情.md#输出参数) · [日线对照单位](../../../../docs/sources/tushare/指数专题/0095_指数日线行情.md#输出参数)
+
+| 日期 | 上证综指 Raw 分钟成交量合计 | 上证综指日线成交量（手） | 上证综指分钟合计 / 日线手数 | 深证成指分钟合计 / 日线手数 |
+| --- | ---: | ---: | ---: | ---: |
+| 2026-11-09 | 42,772,225,700 | 427,722,257 | 100 | 100 |
+| 2026-11-10 | 404,865,177 | 404,865,177 | 1 | 100 |
+
+两份 Raw 文件都能与各自的发布记录按 SHA-256 对上，记录中的写入代码指纹相同，且各记录了 10 次取源请求。现行 Raw 通过 Tushare SDK 调用 `idx_mins`，把返回的 `vol` 按类型入表。Silver 保留量额数值，Gold 按窗口求和。单位差异在保存下来的 Raw 已可观测，Gold 五频均可看到同样差异。两日样本仅供定位。 [Raw 取源](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_raw_writer.py#L199) · [Raw 字段落表](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_raw_writer.py#L295) · [Silver 字段投影](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_silver_writer.py#L119) · [Gold 窗口求和](../../../../lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_bars.py#L380)
+
+**Prod 对照。** 只读查询 `core_serving.index_minute_bar` 和 `core_serving.index_daily_serving`，覆盖上证综指、深证成指在 2026-11-09、11-10、11-17 的 1、5、15、30、60 分钟，共 30 组。上证匹配日线手数的倍率依次为 100、1、1，深证三天均为 100。两只指数的分钟成交额均为元。Prod 分钟视图直接投影 `raw_tushare.index_mins`，入库转换保留量额数值。既有 Prod 独立 5 分钟算子按代码固定换算，查询上证综指 11-09 时会将股数再乘 100。这是审计发现，Prod 既有入口的改动单列。 [Prod 入库转换](../../../../src/foundation/ingestion/row_transforms.py#L1030) · [既有 5 分钟规则](../../../../src/foundation/clients/technical_indicator_index_minutes.py#L9)
+
+**阶段 1 实施规则。** 采用 DG 新读取路径兼容。以 2026-11-10 为沪市单位分界，这是目前相邻交易日样本给出的实施边界。仅用于正式 DG 主要指数 Gold 直读五频。沪市指数在该日前按原值交付，该日及以后乘 100，深市指数按原值交付。成交额按元原样交付。历史深证成指、创业板指分钟和日线的合计差异已有记录，倍数不固定，分钟值沿用源声明的单位。
+
+按 §29.2 的成交量投影使用每根行情自己的交易日。读取结果在 `SourceDescription` 标记 `volume_unit="share"` 和 `amount_unit="CNY"`，输入会话据此使用倍率 1。查询阶段只读取已选分钟文件，兼容无需联查日线或增加 SQL。第二阶段的 Silver 30／60 分钟先以同一边界核对源样本，再在合成读取内复用换算。 [算子输入量额处理](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/session.py#L128)
+
+**验收。** 用跨越 11-09／11-10 的正式 DG 样本验证沪市同一请求内按每根的日期换算，深市以对应两天作为对照。逐根核对成交量和成交额。现行 5 分钟区间指令继续按原合同回归。阶段 1 实现证据见 §29.2.3。
+
+<a id="index-minute-kernel-stage-1"></a>
+
+#### 29.2.2 阶段 1 开发落点与开工核验
+
+1. **请求。** 本地指数分钟按根数入口 `TechnicalIndicatorService.calculate_index_minutes_recent(request, output_limit=...)` 接收带时区的截止时间和 `latest_rows`。在 `CalculationRequestParser` 中按 DG、指数、不复权、按根数及已启用周期解析 `major_index_mins_{period}`。使用此前约定的本地分钟请求上限，写入 `_PreparedCalculation.max_output_rows`，由 `_build_read_requirement` 原样向下传递。内部接线沿用现有 `MAX_INDEX_MINUTE_LIMIT`，无需新增 HTTP 参数或全局配置，也无需依赖 Web 模块。阶段 1 验证本地分钟按根数的 501 根请求有效，其他通用入口和既有 5 分钟区间继续执行原各自上限与来源。 [请求解析与读取指令](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/request_parser.py#L30) · [既有分钟上限](../../../../src/foundation/clients/local_lake/major_index_mins_contract.py#L33)
+2. **读取和交付。** 在 `LakePriceLocator.describe()` 的分钟分支按数据集区分新旧读取。新路径在请求现有 DuckDB 连接上批量读文件，按指标所需字段投影，分钟输入至少交付 `trade_date`、`trade_time` 两个时间字段。所选目标和预热按时间升序保存在 `SourceReadContext.retained_price_batches`，由 `_LakePriceStream` 直接消费。成交量已在该 SQL 投影过，交给算子后沿用标准单位。无目标行情时按现有带来源结果的空结果合同交付。 [分钟数据定位](../../../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L945) · [已读批次交付](../../../../src/foundation/clients/local_lake/technical_indicator_price_source.py#L435) · [分钟输入字段](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/session.py#L40)
+3. **预算和验收。** 沿用 `batch_rows`、输入行数、文件数、内存和取消预算。60 分钟每个完整交易日 4 根，只取 500 根行情并探测下一根时，首批估算为 `ceil(501 / 4) = 126` 个日期分区。计算指标时将预热计入待取根数。验证预热留在算子内部、指标结果与目标时间对齐、无重复读取。只读失败时按原参数重试，验收记录首轮和重试的文件数、读取 SQL 次数、目标／预热根数及耗时。 [现有读数和内存预算](../../../../src/foundation/config/settings.py#L88)
+
+**开工核验通过。** 已核对正式 DG Gold 五频的时间、四价、量额和交易所字段，以及上证综指 2026-11-16、17 的行情和现有指标成品时间键。在 2026-11-09、11-10，用上证综指和深证成指验证五频共 10 个有界请求。每次一条 SQL 读取同频两份正式 Parquet，以 11-10 第一根为截止，取得该根、11-09 最后一根及一根更早的探测行情。沪市目标的成交量分别采用 100 和 1 倍，深市均为 1 倍。既有 5 分钟和请求解析的 20 项回归通过。新入口的计算及性能留在阶段 1 实现后验收。90／120 分钟合成和 Web 接口切换分别归后续阶段。
+
+<a id="index-minute-kernel-stage-1-acceptance"></a>
+
+#### 29.2.3 阶段 1 独立审计（2026-11-24）
+
+- **范围。** CodeGraph 核对请求入口、数据集解析、DG 定位器和算子输入流。五频使用独立 DG 位置，既有 5 分钟区间仍解析原位置。兼容只在新路径的成交量投影中执行，复用已读的目标和预热行。阶段 1 的改动覆盖算子入口、DG 读取和本地运行装配。两条 HTTP 路由的现有测试通过。 [算子入口](../../../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L94) · [DG 读取](../../../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L802) · [阶段 1 测试](../../../../tests/foundation/technical_indicators/test_index_minutes_recent.py)
+- **真实样本。** 通过实际算子入口读上证综指，截至 2026-11-10 15:00。独立读正式 Gold 行情逐根核对时间、四价、成交量、成交额和交易所。与另行读取的正式指标成品按分钟时间对齐，比较 MA、BOLL、MACD、KDJ 全部输出列，最大绝对差约为 `1e-11`。首轮与同参数复跑结果一致，每次只执行一条 Parquet 读取 SQL，文件列表无重复。耗时是本机算子样本，HTTP 性能在阶段 3 验收。
+
+| 周期 | 目标根数 | 预热根数 | 每次读取文件数 | 每次行情 SQL 数 | 首轮 / 复跑（毫秒） |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 1 分钟 | 500 | 500 | 5 | 1 | 308.0 / 94.9 |
+| 5 分钟 | 501 | 500 | 21 | 1 | 119.1 / 99.1 |
+| 15 分钟 | 500 | 500 | 63 | 1 | 187.4 / 106.8 |
+| 30 分钟 | 500 | 500 | 125 | 1 | 155.1 / 140.9 |
+| 60 分钟 | 500 | 500 | 250 | 1 | 260.8 / 130.4 |
+
+- **取消与重试。** 深证成指 60 分钟，截至 2026-11-10 10:30 请求 5 根，实际读取完第一批 2 个文件后触发取消，约 1.0 毫秒释放资源。同参重试读 3 个文件，返回 5 根目标和 1 根供内部预热的行情，耗时 54.8 毫秒。短页、目标下界、可续取判断和第二阶段周期隔离均有定向测试。
+- **回归。** 定向回归覆盖新入口、请求解析、既有 5 分钟、周月线、股票日线、输出、本地 API 和依赖边界，共 335 项通过，其中需要本机临时 PostgreSQL 的用例在隔离实例完成。另尝试全目录回归，16 个既有测试模块仍导入当前版本已经移除的 `CalculationInstance`，在收集阶段失败。
+
+<a id="index-minute-kernel-aggregation"></a>
+
+### 29.3 第二阶段　90／120 分钟合成
+
+**实际规则。** `gold_major_index_mins` 生成时从 `silver/quote/major_index_mins/freq={30min|60min}/trade_date={trade_date}/part-000.parquet` 读取，按下表的交易日内窗口聚合。`09:30` 只参与当日第一根。2026-11-17 上证综指只读样本中，9 条 Silver 30 分钟合成的 3 根、5 条 Silver 60 分钟合成的 2 根，均与 Gold 的时间、四价和量额相符。 [生成入口](../../../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_gold.py#L87) · [现行窗口定义](../../../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L96) · [行情聚合 SQL](../../../../lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_bars.py#L344)
+
+| 目标周期 | 基础频率 | 目标时刻 | 普通行情时刻 | 竞价时刻 |
+| --- | --- | --- | --- | --- |
+| 90 分钟 | 30 分钟 | 11:00 | 10:00、10:30、11:00 | 09:30 |
+| 90 分钟 | 30 分钟 | 14:00 | 11:30、13:30、14:00 | |
+| 90 分钟 | 30 分钟 | 15:00 | 14:30、15:00 | |
+| 120 分钟 | 60 分钟 | 11:30 | 10:30、11:30 | 09:30 |
+| 120 分钟 | 60 分钟 | 15:00 | 14:00、15:00 | |
+
+1. 用同标的、同交易日的实际行情按表归入窗口。开盘取第一条普通行情的开盘，收盘取最后一条普通行情的收盘，最高和最低取窗口内的最高值和最低值，量额分别求和。首个窗口如读到竞价，开盘改用竞价收盘，最高和最低把该竞价价纳入比较，量额把竞价记录一并求和。
+2. 读取结果直接用于合成。有普通行情的窗口按已读记录计算，输出使用表中的目标时刻。无普通行情的窗口省略。Gold 生产时要求点数齐全的 `HAVING` 条件及完整性检查留在生产环节。算子请求无需逐窗点数校验、额外扫描、补点或重读。
+3. 根据目标周期选择 30 或 60 分钟数据集，把本批路径列表一次传给 DuckDB。**同一条 SQL 完成读取、合成和限量。** 用 `VALUES` 表达上表中基础时刻到目标时刻的映射和是否为竞价。Silver 文件用 `CAST(trade_time AS DATE)` 取得交易日，以 `CAST(trade_time AS TIME)` 联结窗口。按指数、交易日、交易所及目标时刻分组，以 `arg_min(open, trade_time)`、`arg_max(close, trade_time)` 取首尾普通行情，按上面公式处理竞价、最高最低和量额。聚合后用交易日加目标时刻生成 `trade_time`，应用含边界的截止、倒序和 `LIMIT`。只保留有普通行情的窗口，筛选和限量作用于合成结果。较早的合成结果可做预热或分页探测，仍有缺口再查更早一批文件。
+4. `latest_rows=N` 表示本次最多返回 N 根合成行情。指标计算所需的前置根数由算子按现有预热规则决定。分页只额外探测一根符合目标日期下界的行情，该根如果也落在预热范围就复用。取够目标、探测和所需预热，或到达源起点后停止。最后按时间升序交付目标行情和指标。复用上述纯窗口和聚合规则，Web 运行依赖仍在 Foundation 与算子库。
+5. 例如取截至 11 月 17 日当天的最近 4 根 90 分钟 K 线。用上证综指 2026-11-16、17 两份正式 Silver 30 分钟文件做只读验证，单条 SQL 查出的倒序前 5 根依次为 17 日 15:00、14:00、11:00 和 16 日 15:00、14:00。前 4 根是本页目标，第 5 根用于确定有下一页，也可作为 MA(2) 的一根预热。120 分钟每个完整交易日出 2 根，同样需要 4 根目标和 1 根探测时，首批预计取 3 个日期分区，在同一条 SQL 中合成和取最近 5 根。验收记录实际查询次数。
+6. 验收用完整交易日对照 Gold 成品，再用一个缺少普通行情点的受控样本验证按实读合成。记录基础读取行数和合成根数。运行时以既有读数预算执行，取消后按同参数重试。
+
+### 29.4 第三阶段　接口接入与验收
+
+- **接口组装。** `IndexDetailMinutesQueryService` 沿用现有游标解码和请求绑定，传实际时间边界给算子。用本页第一根的时间生成下一页游标，探测行只用于判断是否有下一页。由实际返回的首尾时间和数量组装 `meta`、`dataStatus`；沿用北证 50 空态、名单校验、延迟、错误码和响应体积检查。指标失败时行情接口仍独立可用。 [当前分页读取](../../../../src/foundation/clients/local_lake/major_index_mins_reader.py#L265) · [异常与体积门禁](index-detail-minutes-api-contract-v1.md#4-异常)
+- **根数预算。** HTTP 将校验过的根数交给 §29.2.2 的本地分钟入口，一次请求发起一次算子计算。HTTP 默认 500 根，允许到 10,000 根，5 MB 门禁优先。正式验收要求固定窗口 5,000 根能正常续页。若实测与现行合同冲突，先记录数据、瓶颈和调整选项，再确认 API 变更。 [原分钟分页门禁](index-detail-minutes-api-contract-v1.md#6-m5-b-正式验收与切换边界)
+- **回包待确认。** `observationCount` 是现有 DG 指数分钟技术指标成品的历史累计根数。现有前端用时间键显示指标，并消费 `paramsKey`、`indicatorVersion`，图表不使用累计根数。算子请求和结果无需该编号。建议从详情回包移除，批准后同步 API 合同、DTO、前端类型和合同测试。DG 成品的原字段继续供原有数据检查使用，XXM 研究继续读取该成品。第一、二阶段均可独立验收，详情回包字段在第三阶段切换前确认。 [现有 DTO](../../../../src/biz/schemas/wealth/market/index_detail_minutes.py#L76) · [成品检查](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py#L735) · [XXM 分钟读取](../../../../src/biz/queries/wealth/market/index_detail_xxm/source.py#L252)
+- **分阶段验收。** 第一阶段核对五个直接周期的真实 DG 时间键、四价、量额和指标，验证截止、目标根数和已有 5 分钟区间行为。第二阶段按 §29.3 对照合成结果、跨日窗口以及每批一次 SQL。第三阶段验证七频首屏、续页、历史到头、北证 50 空态、指标失败时行情独立可用、500 根默认请求、5,000 根续页和超 5 MB 拒绝，回归 Prod 路由边界。用代表请求对照查询次数、文件数、基础／目标／预热根数、内存、体积和响应时间，沿用 1.5 秒 P95 目标和 5 秒硬门禁。失败或取消释放本次 DuckDB 资源，同参数重试重新读取，记录耗时及资源释放。 [七频接口测试](../../../../tests/web/test_index_detail_minutes_api.py) · [既有 5 分钟算子测试](../../../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py)

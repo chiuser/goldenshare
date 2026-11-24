@@ -91,15 +91,26 @@ class TechnicalIndicatorService:
             include_source_facts=True, require_current_period_end_date=require_current_period_end_date,
         )
 
+    def calculate_index_minutes_recent(self, request, *, output_limit: int) -> CalculationWithSource:
+        """Use the local index-minute limit supplied by the trusted application caller."""
+        if type(output_limit) is not int or output_limit <= 0:
+            raise RequestInvalidError("The index-minute output limit must be a positive integer")
+        return self._calculate_request(
+            request, include_source_facts=True, index_minute_output_limit=output_limit,
+        )
+
     def _calculate_request(
         self, request, *, output_rows=None, warmup_error_budget=None, include_source_facts=False,
-        require_current_period_end_date=False,
+        require_current_period_end_date=False, index_minute_output_limit=None,
     ):
         control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
         prepared = None
         try:
             control.check_active()
-            prepared = self._prepare_calculation(request)
+            if index_minute_output_limit is None:
+                prepared = self._prepare_calculation(request)
+            else:
+                prepared = self.parser.parse(request, index_minute_output_limit=index_minute_output_limit)
             if output_rows is not None:
                 if type(output_rows) is not int or output_rows not in (100, 500):
                     raise RequestInvalidError("output_rows must select 100 or 500")

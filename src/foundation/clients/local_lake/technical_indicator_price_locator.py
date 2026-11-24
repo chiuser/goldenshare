@@ -11,6 +11,7 @@ from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
 from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.configuration.datasets import DG_RECENT_INDEX_MINUTE_DATASETS
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError,
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
@@ -31,6 +32,7 @@ from ..technical_indicator_index_period import (
     preceding_limit, require_index_period,
 )
 from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, describe_stock_period, require_stock_period
+from .major_index_mins_contract import EXPECTED_BARS_PER_SESSION
 from .technical_indicator_contracts import DAILY_SCHEMA, PERIOD_SCHEMA
 from .technical_indicator_price_source import _arrow, _file_version, _matches_type, _stock_batches
 
@@ -797,6 +799,116 @@ class LakePriceLocator:
             source_projection=price_projection, standard_projection=standard,
         )
 
+    def _describe_recent_index_minutes(self):
+        request = self.requirement
+        self._root = self.source._root()
+        paths = self.source._partition_paths(self._root, request, self.control)
+        _, standard = index_minute_projection(request.history.fields)
+        columns = tuple(name for name, _ in standard)
+        volume_sql = """CASE WHEN ends_with(ts_code, '.SH') AND CAST(trade_time AS DATE) >= DATE '2026-11-10'
+                            THEN vol * 100 ELSE vol END AS volume"""
+        projection = ", ".join(
+            "CAST(trade_time AS DATE) AS trade_date" if name == "trade_date"
+            else volume_sql if name == "volume" else name
+            for name in columns
+        )
+        standard = tuple(
+            (name, 'CAST(b."volume" AS DOUBLE)' if name == "volume" else expression)
+            for name, expression in standard
+        )
+        selection, facts = self._select_recent_index_minutes(paths, columns, projection)
+        return SourceDescription(
+            source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
+            basis_rule=None, basis_date=None, basis_value=None,
+            price_unit="index_point", volume_unit="share", amount_unit="CNY", timezone="Asia/Shanghai",
+            period_label_rule="trade_time", history_origin_rule="earliest_available_formal_partition",
+            available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "none"),),
+            converted=False, selection=selection, source_projection=columns,
+            standard_projection=standard, source_facts=facts,
+        )
+
+    def _select_recent_index_minutes(self, paths, columns, projection):
+        request, config = self.requirement, self.context.config
+        pa, _, _, _ = _arrow()
+        start = request.start.replace(tzinfo=None) if request.start is not None else None
+        cutoff = request.end.replace(tzinfo=None)
+        daily_rows = EXPECTED_BARS_PER_SESSION[int(request.period.removesuffix("m"))]
+        sql = f"""
+            SELECT {projection}, exchange
+            FROM read_parquet(?, hive_partitioning=false)
+            WHERE ts_code = ? AND trade_time <= ?
+            ORDER BY trade_time DESC
+            LIMIT ?
+        """
+        remaining_files = len(paths)
+        targets = history = 0
+        target_start = target_end = read_start = None
+        exchanges, batches = [], []
+        has_more = crossed_start = omitted_older_rows = False
+        while remaining_files:
+            if not targets and start is not None and paths[remaining_files - 1].parent.name < f"trade_date={start.date()}":
+                break
+            history_limit, needs_origin = preceding_limit(config, request, targets)
+            wanted_targets = 0 if crossed_start else request.latest_rows - targets
+            probe = not has_more and not crossed_start
+            wanted = wanted_targets + max(history_limit - history + int(needs_origin), int(probe))
+            if not wanted:
+                break
+            limit = min(wanted, config.max_input_rows - targets - history + 1)
+            file_count = min((limit + daily_rows - 1) // daily_rows, request.batch_rows)
+            first = max(0, remaining_files - file_count)
+            batch_paths = paths[first:remaining_files]
+            remaining_files = first
+            for path in batch_paths:
+                self.control.check_active()
+                self.source._safe_path(self._root, path)
+                self.context.record_file(path, path.stat().st_size)
+            rows = self._read_rows(
+                sql, (list(map(str, batch_paths)), request.ts_code, cutoff, limit),
+                error_message="The DG index minute batch could not be read", as_arrow=True,
+            )
+            self.context.record_locator_rows(rows.num_rows)
+            if not rows.num_rows:
+                continue
+
+            stamps = rows["trade_time"].to_pylist()
+            eligible = len(stamps) if start is None else sum(stamp >= start for stamp in stamps)
+            new_targets = min(wanted_targets, eligible)
+            crossed_start = crossed_start or eligible < len(stamps)
+            has_more = has_more or eligible > new_targets
+            if new_targets:
+                target_end = target_end or stamps[0]
+                target_start = stamps[new_targets - 1]
+                targets += new_targets
+                exchanges.extend(rows["exchange"].slice(0, new_targets).to_pylist())
+            if not targets:
+                break
+
+            history_limit, needs_origin = preceding_limit(config, request, targets)
+            available = len(stamps) - new_targets
+            keep_history = min(available, history_limit - history)
+            if needs_origin and available > keep_history:
+                raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
+            history += keep_history
+            keep = new_targets + keep_history
+            omitted_older_rows = omitted_older_rows or keep < len(stamps) or len(stamps) == limit
+            if keep:
+                read_start = stamps[keep - 1]
+                order = pa.array(range(keep - 1, -1, -1), type=pa.int32())
+                batches.append(rows.select(columns).take(order).to_batches(max_chunksize=request.batch_rows))
+
+        reached_origin = not remaining_files and not omitted_older_rows
+        if not targets:
+            return PriceReadSelection(None, None, None, None, 0, 0, reached_origin, ()), SourceReadFacts()
+        self.context.retained_price_batches = tuple(batch for group in reversed(batches) for batch in group)
+        return (
+            PriceReadSelection(
+                self._position(target_start), self._position(target_end),
+                self._position(read_start), self._position(target_end), targets, history, reached_origin, (),
+            ),
+            SourceReadFacts(has_more=has_more, target_exchanges=tuple(reversed(exchanges))),
+        )
+
     def _read_recent_daily_batch(self, paths, columns):
         for path in paths:
             self.control.check_active()
@@ -956,6 +1068,8 @@ class LakePriceLocator:
                     return self._describe_recent_index_period()
                 return self._describe_index_period()
             if request.period.endswith("m"):
+                if request.target.dataset_id in DG_RECENT_INDEX_MINUTE_DATASETS.values():
+                    return self._describe_recent_index_minutes()
                 return self._describe_index_minutes()
             adjustments = daily_adjustment_paths(request, "dg")
             self.control.check_active()
