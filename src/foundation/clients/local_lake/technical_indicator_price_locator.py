@@ -25,7 +25,9 @@ from goldenshare_technical_indicators.time_range import check_period_cutoff, ran
 from ..technical_indicator_stock_daily import (
     daily_adjustment_paths, daily_price_projection, dg_index_daily_origin, scheduled_open_days,
 )
-from ..technical_indicator_index_minutes import index_minute_projection, index_minute_volume_unit
+from ..technical_indicator_index_minutes import (
+    dg_recent_index_minute_sql, index_minute_projection, index_minute_volume_unit,
+)
 from ..technical_indicator_index_period import (
     INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, check_index_period_cutoff, check_period_key,
     describe_index_period, index_period_projection, period_bounds, period_request_start,
@@ -805,18 +807,12 @@ class LakePriceLocator:
         paths = self.source._partition_paths(self._root, request, self.control)
         _, standard = index_minute_projection(request.history.fields)
         columns = tuple(name for name, _ in standard)
-        volume_sql = """CASE WHEN ends_with(ts_code, '.SH') AND CAST(trade_time AS DATE) >= DATE '2026-11-10'
-                            THEN vol * 100 ELSE vol END AS volume"""
-        projection = ", ".join(
-            "CAST(trade_time AS DATE) AS trade_date" if name == "trade_date"
-            else volume_sql if name == "volume" else name
-            for name in columns
-        )
         standard = tuple(
             (name, 'CAST(b."volume" AS DOUBLE)' if name == "volume" else expression)
             for name, expression in standard
         )
-        selection, facts = self._select_recent_index_minutes(paths, columns, projection)
+        sql = dg_recent_index_minute_sql(request.period, columns)
+        selection, facts = self._select_recent_index_minutes(paths, columns, sql)
         return SourceDescription(
             source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
             basis_rule=None, basis_date=None, basis_value=None,
@@ -827,19 +823,12 @@ class LakePriceLocator:
             standard_projection=standard, source_facts=facts,
         )
 
-    def _select_recent_index_minutes(self, paths, columns, projection):
+    def _select_recent_index_minutes(self, paths, columns, sql):
         request, config = self.requirement, self.context.config
         pa, _, _, _ = _arrow()
         start = request.start.replace(tzinfo=None) if request.start is not None else None
         cutoff = request.end.replace(tzinfo=None)
         daily_rows = EXPECTED_BARS_PER_SESSION[int(request.period.removesuffix("m"))]
-        sql = f"""
-            SELECT {projection}, exchange
-            FROM read_parquet(?, hive_partitioning=false)
-            WHERE ts_code = ? AND trade_time <= ?
-            ORDER BY trade_time DESC
-            LIMIT ?
-        """
         remaining_files = len(paths)
         targets = history = 0
         target_start = target_end = read_start = None

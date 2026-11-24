@@ -1,4 +1,4 @@
-"""Physical and standard field contracts for verified index five-minute bars."""
+"""Source projections for the index minute reading contracts."""
 
 from goldenshare_technical_indicators.errors import SourceUnsupportedError
 
@@ -15,6 +15,22 @@ INDEX_MINUTE_VOLUME_UNITS = {
     "399006.SZ": "share",
     "399106.SZ": "share",
 }
+
+# Canonical Gold windows in cn_a_derived_minute_bars.py, also used for on-demand DG aggregation.
+_INDEX_MINUTE_WINDOWS = {
+    "90m": (
+        ("11:00:00", ("09:30:00", "10:00:00", "10:30:00", "11:00:00")),
+        ("14:00:00", ("11:30:00", "13:30:00", "14:00:00")),
+        ("15:00:00", ("14:30:00", "15:00:00")),
+    ),
+    "120m": (
+        ("11:30:00", ("09:30:00", "10:30:00", "11:30:00")),
+        ("15:00:00", ("14:00:00", "15:00:00")),
+    ),
+}
+
+_DG_RECENT_MINUTE_VOLUME = """CASE WHEN ends_with(ts_code, '.SH') AND CAST(trade_time AS DATE) >= DATE '2026-11-10'
+                                 THEN vol * 100 ELSE vol END"""
 
 
 def index_minute_volume_unit(requirement, backend):
@@ -37,3 +53,53 @@ def index_minute_projection(fields):
             *((field, f'CAST(b."{column}" AS DOUBLE)') for column, field in price_columns),
         ),
     )
+
+
+def dg_recent_index_minute_sql(period, columns):
+    """One read for the selected files, returning business bars in descending order."""
+    windows = _INDEX_MINUTE_WINDOWS.get(period)
+    if windows is None:
+        expressions = {"trade_date": "CAST(trade_time AS DATE)", "volume": _DG_RECENT_MINUTE_VOLUME}
+        projection = ", ".join(f"{expressions[name]} AS {name}" if name in expressions else name for name in columns)
+        return f"""
+            SELECT {projection}, exchange
+            FROM read_parquet(?, hive_partitioning=false)
+            WHERE ts_code = ? AND trade_time <= ?
+            ORDER BY trade_time DESC
+            LIMIT ?
+        """
+
+    values = ", ".join(
+        f"(TIME '{source}', TIME '{target}', {'TRUE' if source == '09:30:00' else 'FALSE'})"
+        for target, sources in windows for source in sources
+    )
+    auction_close = "max(close) FILTER (WHERE auction)"
+    regular_open = "arg_min(open, trade_time) FILTER (WHERE NOT auction)"
+    regular_high = "max(high) FILTER (WHERE NOT auction)"
+    regular_low = "min(low) FILTER (WHERE NOT auction)"
+    expressions = {
+        "trade_date": "CAST(trade_time AS DATE)",
+        "trade_time": "CAST(trade_time AS DATE) + target_time",
+        "open": f"coalesce({auction_close}, {regular_open})",
+        "high": f"greatest({regular_high}, {auction_close})",
+        "low": f"least({regular_low}, {auction_close})",
+        "close": "arg_max(close, trade_time) FILTER (WHERE NOT auction)",
+        "volume": f"sum({_DG_RECENT_MINUTE_VOLUME})",
+        "amount": "sum(amount)",
+    }
+    projection = ", ".join(f"{expressions[name]} AS {name}" for name in columns)
+    return f"""
+        WITH windows(source_time, target_time, auction) AS (VALUES {values}),
+        bars AS (
+            SELECT {projection}, exchange
+            FROM read_parquet(?, hive_partitioning=false)
+            JOIN windows ON CAST(trade_time AS TIME) = source_time
+            WHERE ts_code = ?
+            GROUP BY ts_code, CAST(trade_time AS DATE), target_time, exchange
+            HAVING count(*) FILTER (WHERE NOT auction) > 0
+        )
+        SELECT * FROM bars
+        WHERE trade_time <= ?
+        ORDER BY trade_time DESC
+        LIMIT ?
+    """

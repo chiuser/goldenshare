@@ -764,7 +764,7 @@ Prod 曾验收独立的指数 5 分钟算子，从 PostgreSQL 查行情后计算
 | 2. 单独落地 90／120 分钟合成 | 在算子库读取阶段分别用 DG Silver 30／60 分钟合成 90／120 分钟。按合成后的根数取最近 N 根并准备预热，再计算指标。 | 与现有 Gold 成品对照首根竞价、跨午休窗口和收盘，验证按实读行情合成及跨日取最近 N 根。 |
 | 3. 本地两条接口切换 | 七频通过算子验收且回包字段确认后，将两条本地接口切到算子输出。 | 用真实接口核对首屏、续页、历史到头、北证 50 空态、指标失败时行情可用及现行分页性能。 |
 
-**阶段 1 已完成算子库实现和独立审计。** 正式 DG 五频样本逐根对上 K 线、量额和指标，代表窗口每次只执行一条 Parquet 读取 SQL。90／120 分钟合成和本地两条接口切换分别在阶段 2、3 进行。 [阶段 1 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-1-acceptance)
+**阶段 1、2 已完成算子库实现和独立审计。** 正式 DG 五个直读周期逐根核对了 K 线、量额和指标。90／120 分钟分别从 Silver 30／60 分钟合成，结果与既有 Gold 成品对照通过。两阶段的代表窗口均只执行一条 Parquet 读取 SQL。本地两条接口的切换安排在阶段 3。 [阶段 1 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-1-acceptance) · [阶段 2 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-2-acceptance)
 
 代码接线、合成时段和验收落点见 [LLD §29](index-detail-low-level-design-v1.md#index-minute-kernel-integration-lld)。
 

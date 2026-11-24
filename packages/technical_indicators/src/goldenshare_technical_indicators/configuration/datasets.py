@@ -58,13 +58,16 @@ MARKET_DATASETS = {
 }
 
 DG_RECENT_INDEX_MINUTE_DATASETS = {
-    f"{frequency}m": f"major_index_mins_{frequency}m" for frequency in (1, 5, 15, 30, 60)
+    f"{frequency}m": f"major_index_mins_{frequency}m" for frequency in (1, 5, 15, 30, 60, 90, 120)
 }
+_DERIVED_INDEX_MINUTE_BASE_FREQUENCIES = {"90m": "30min", "120m": "60min"}
 for _period, _dataset in DG_RECENT_INDEX_MINUTE_DATASETS.items():
+    _base_frequency = _DERIVED_INDEX_MINUTE_BASE_FREQUENCIES.get(_period)
+    _layer = "silver" if _base_frequency is not None else "gold"
     DATASET_LOCATIONS[_dataset] = {
         "dg": {
-            "relative_path": "gold/quote/major_index_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
-            "partitions": {"freq": int(_period.removesuffix("m"))},
+            "relative_path": f"{_layer}/quote/major_index_mins/freq={{freq}}/trade_date={{trade_date}}/part-000.parquet",
+            "partitions": {"freq": _base_frequency if _base_frequency is not None else int(_period.removesuffix("m"))},
         },
         "prod_pg": None,
     }

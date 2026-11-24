@@ -143,8 +143,82 @@ def test_recent_minute_limit_and_dataset_are_scoped_to_dg(tmp_path):
             replace(request, latest_rows=MAX_INDEX_MINUTE_LIMIT + 1), output_limit=MAX_INDEX_MINUTE_LIMIT,
         )
     with pytest.raises(SourceUnsupportedError):
-        service.calculate_index_minutes_recent(replace(request, period="90m"), output_limit=MAX_INDEX_MINUTE_LIMIT)
-    with pytest.raises(SourceUnsupportedError):
         _service(tmp_path, "prod").calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
     legacy = service.parser.parse(replace(request, start=end, latest_rows=None))
     assert legacy.target.dataset_id == "index_mins_5m"
+
+
+def _write_silver_minutes(root, freq, day, slots):
+    # Silver has VARCHAR freq and derives trade_date from the local trade_time.
+    path = root / f"silver/quote/major_index_mins/freq={freq}min/trade_date=2026-11-{day:02}/part-000.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    schema = pa.schema([
+        ("ts_code", pa.string()), ("freq", pa.string()), ("trade_time", pa.timestamp("us")),
+        *((field, pa.float64()) for field in ("open", "high", "low", "close", "vol", "amount")),
+        ("exchange", pa.string()), ("vwap", pa.float64()),
+    ])
+    pq.write_table(pa.Table.from_pylist([
+        dict(ts_code="000001.SH", freq=f"{freq}min", trade_time=_minute(day, h, m).replace(tzinfo=None),
+             open=price, high=99 if (h, m) == (9, 30) else price + 3,
+             low=1 if (h, m) == (9, 30) else price - 2,
+             close=price + 1, vol=10, amount=100, exchange="XSHG", vwap=None)
+        for h, m, price in slots
+    ], schema=schema), path)
+    return path
+
+
+@pytest.mark.parametrize(("freq", "base", "slot_count", "current_slots"), (
+    (90, 30, 4, ((11, 0), (14, 0), (15, 0))),
+    (120, 60, 3, ((11, 30), (15, 0))),
+))
+def test_derived_minutes_reuse_selection_and_convert_once(
+    tmp_path, monkeypatch, freq, base, slot_count, current_slots,
+):
+    prices = ((9, 30, 9), (10, 30, 25), (11, 30, 40), (14, 0, 55), (15, 0, 65))
+    if base == 30:
+        prices += ((10, 0, 20), (11, 0, 31), (13, 30, 50), (14, 30, 60))
+    previous = _write_silver_minutes(tmp_path, base, 9, prices)
+    current = _write_silver_minutes(tmp_path, base, 10, prices)
+    reads = []
+    read = LakePriceLocator._read_rows
+
+    def record(locator, sql, bindings, **kwargs):
+        if "read_parquet" in sql:
+            reads.append(bindings[0])
+        return read(locator, sql, bindings, **kwargs)
+
+    monkeypatch.setattr(LakePriceLocator, "_read_rows", record)
+    request = _request(freq, _minute(10, 15, 0), count=len(current_slots) + 1)
+    result = _service(tmp_path).calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
+    assert reads == [[str(previous), str(current)]]
+    assert result.result.times == (_minute(9, 15, 0), *(_minute(10, h, m) for h, m in current_slots))
+    assert result.selection.preceding_rows == 1 and result.source_facts.has_more
+    assert result.source_facts.target_exchanges == ("XSHG",) * len(result.result.times)
+    fields = dict(result.result.calculations[0].fields)
+    assert fields["volume"][:2] == (20, slot_count * 1000)
+    assert fields["amount"][:2] == (200, slot_count * 100)
+    assert fields["open"][1] == fields["low"][1] == 10
+    assert fields["high"][1] == (34 if freq == 90 else 43)
+    morning_close = 32 if freq == 90 else 41
+    assert fields["close"][1] == morning_close
+    assert dict(result.result.calculations[1].fields)["value"][1] == (66 + morning_close) / 2
+
+
+@pytest.mark.parametrize(("freq", "base", "morning"), ((90, 30, (11, 0)), (120, 60, (11, 30))))
+def test_derived_minutes_use_available_rows_of_completed_windows(tmp_path, freq, base, morning):
+    _write_silver_minutes(tmp_path, base, 9, ((9, 30, 9),))
+    _write_silver_minutes(tmp_path, base, 10, ((10, 30, 25), (14, 0, 55)))
+    service = _service(tmp_path)
+    request = _request(freq, _minute(10, 13, 40))
+    page = service.calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
+    assert page.result.times == (_minute(10, *morning),)
+    assert dict(page.result.calculations[0].fields) == {
+        "open": (25,), "high": (28,), "low": (23,), "close": (26,), "volume": (1000,), "amount": (100,),
+    }
+    assert page.selection.preceding_rows == 0 and not page.source_facts.has_more
+    empty = service.calculate_index_minutes_recent(
+        replace(request, end=_minute(10, 10, 45)), output_limit=MAX_INDEX_MINUTE_LIMIT,
+    )
+    assert empty.result is None
+    with pytest.raises(SourceUnsupportedError):
+        _service(tmp_path, "prod").calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
