@@ -105,6 +105,7 @@ docs/
 - [股票周线、月线接入技术指标算子库 LLD v1（DG／Prod 读数及验收、详情设计）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-stock-period-low-level-design-v1.md)
 - [九转算子及本地股票详情接入方案 v1（本地股票日线九转已切换）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-nine-turn-plan-v1.md)
 - [九转算子及本地股票详情接入 LLD v1（计算、日 K 回包和前端验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md)
+- [本地后端股票与指数技术指标来源（HTML）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-local-backend-source-audit-v1.html)
 - [计算算子共享包落地方案 v1（0.1.0 已完成迁移及本地验收）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-plan-v1.md)
 - [计算算子共享包 LLD v1（源码迁移、独立安装和行为对照）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-low-level-design-v1.md)
 - [技术指标计算内核前端接入要求 v1（HTML；后续1000根分页、提前500根加载、取消与空结果；当前内核外部约束，页面未实施）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-frontend-integration-requirements-v1.html)
