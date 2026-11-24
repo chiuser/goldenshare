@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
 from src.biz.schemas.wealth.market.index_detail_minutes import (
@@ -22,7 +21,6 @@ from src.biz.services.wealth.market.index_detail_minutes.index_minute_response_p
 from src.foundation.clients.local_lake.major_index_mins_reader import (
     IndexMinuteReadPage,
     IndexMinuteReadRequest,
-    MajorIndexMinsLakeReader,
 )
 
 
@@ -30,15 +28,19 @@ SHANGHAI = ZoneInfo("Asia/Shanghai")
 KNOWN_UNSUPPORTED_MINUTE_CODES = frozenset({"899050.BJ"})
 
 
+class IndexMinutePageReader(Protocol):
+    def read_bars(self, request: IndexMinuteReadRequest) -> IndexMinuteReadPage: ...
+    def read_indicators(self, request: IndexMinuteReadRequest) -> IndexMinuteReadPage: ...
+
+
 class IndexDetailMinutesQueryService:
     def __init__(
         self,
-        lake_root: Path,
+        reader: IndexMinutePageReader,
         *,
-        reader: MajorIndexMinsLakeReader | None = None,
         universe_service: IndexDetailUniverseService | None = None,
     ) -> None:
-        self._reader = reader or MajorIndexMinsLakeReader(lake_root)
+        self._reader = reader
         self._universe = universe_service or IndexDetailUniverseService()
 
     def read_bars(
@@ -54,7 +56,7 @@ class IndexDetailMinutesQueryService:
         normalized_code = ts_code.strip().upper()
         self._universe.require_supported(normalized_code)
         if normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES:
-            page = _empty_page()
+            page = empty_index_minute_page()
             response = IndexMinutesResponseDto(
                 tsCode=normalized_code,
                 freq=freq,
@@ -112,7 +114,7 @@ class IndexDetailMinutesQueryService:
         normalized_code = ts_code.strip().upper()
         self._universe.require_supported(normalized_code)
         if normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES:
-            page = _empty_page()
+            page = empty_index_minute_page()
         else:
             page = self._reader.read_indicators(
                 IndexMinuteReadRequest(
@@ -182,7 +184,6 @@ class IndexDetailMinutesQueryService:
             kdjK=row["kdj_k"],
             kdjD=row["kdj_d"],
             kdjJ=row["kdj_j"],
-            observationCount=row["observation_count"],
             paramsKey=row["params_key"],
             indicatorVersion=row["indicator_version"],
         )
@@ -194,7 +195,7 @@ def _as_shanghai_datetime(value: datetime) -> datetime:
     return value.replace(tzinfo=SHANGHAI)
 
 
-def _empty_page() -> IndexMinuteReadPage:
+def empty_index_minute_page() -> IndexMinuteReadPage:
     return IndexMinuteReadPage(
         rows=(),
         count=0,

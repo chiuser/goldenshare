@@ -101,7 +101,7 @@ class MajorIndexMinsLakeReader:
     def history_source_signature(
         self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset
     ) -> tuple[tuple[Any, ...], ...]:
-        normalized, _ = _normalize_request(request, dataset=dataset)
+        normalized, _ = normalize_index_minute_read_request(request, dataset=dataset)
         if normalized.cursor is not None:
             raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
         file_stats: dict[Path, os.stat_result] = {}
@@ -169,7 +169,7 @@ class MajorIndexMinsLakeReader:
         time_window: tuple[datetime, datetime] | None = None,
     ) -> IndexMinuteReadPage:
         started = time.perf_counter()
-        normalized, _ = _normalize_request(request, dataset=dataset)
+        normalized, _ = normalize_index_minute_read_request(request, dataset=dataset)
         columns = _history_columns(dataset, value_columns)
         if normalized.cursor is not None:
             raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
@@ -226,7 +226,7 @@ class MajorIndexMinsLakeReader:
         dataset: IndexMinuteDataset,
     ) -> IndexMinuteReadPage:
         started = time.perf_counter()
-        normalized, decoded_cursor = _normalize_request(request, dataset=dataset)
+        normalized, decoded_cursor = normalize_index_minute_read_request(request, dataset=dataset)
         partitions = _enumerate_partitions(
             self._lake_root,
             dataset=dataset,
@@ -281,7 +281,7 @@ class MajorIndexMinsLakeReader:
         next_cursor = None
         if has_more and page_rows:
             first = page_rows[0]
-            next_cursor = _encode_cursor(
+            next_cursor = encode_index_minute_cursor(
                 dataset=dataset,
                 request=normalized,
                 before_trade_date=first["trade_date"],
@@ -301,7 +301,7 @@ class MajorIndexMinsLakeReader:
         )
 
 
-def _normalize_request(
+def normalize_index_minute_read_request(
     request: IndexMinuteReadRequest,
     *,
     dataset: IndexMinuteDataset,
@@ -568,7 +568,7 @@ def _validate_target_rows(
     return rows
 
 
-def _encode_cursor(
+def encode_index_minute_cursor(
     *,
     dataset: IndexMinuteDataset,
     request: IndexMinuteReadRequest,

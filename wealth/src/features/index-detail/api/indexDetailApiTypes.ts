@@ -201,7 +201,6 @@ export interface IndexMinuteIndicatorDto {
   kdjK: number | null;
   kdjD: number | null;
   kdjJ: number | null;
-  observationCount: number;
   paramsKey: string;
   indicatorVersion: number;
 }

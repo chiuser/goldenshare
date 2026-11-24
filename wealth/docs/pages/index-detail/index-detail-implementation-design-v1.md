@@ -754,7 +754,7 @@ Prod 曾验收独立的指数 5 分钟算子，从 PostgreSQL 查行情后计算
 - **1、5、15、30、60 分钟。** 按根数的本地指数分钟读取使用详情现用的 `gold/quote/major_index_mins` 行情，在接入时对照时间、四价、量额和历史边界。已验收的独立 5 分钟区间指令继续使用各环境原有来源。 [现行 DG 数据源](../../../../src/foundation/clients/local_lake/major_index_mins_contract.py#L84) · [5 分钟读数验收](../../../../docs/architecture/technical-indicator-read-optimization-low-level-design-v1.md#stage-4-read-acceptance)
 - **量额。** 算子库统一返回成交量股、成交额元。DG 和 Prod 的样本均出现沪市指数分钟成交量单位变化。按已确认的兼容方向，在本期 DG 行情读取时按每根行情的交易日换算。同一批行情可以跨单位变化日期，换算在同一条读取 SQL 内完成。 [样本与兼容规则](index-detail-low-level-design-v1.md#index-minute-kernel-volume)
 - **90、120 分钟。** 分别读取 DG 正式 `silver/quote/major_index_mins` 的 30、60 分钟。按截止时间从近到远批量读日期分区，每批按既有窗口聚合，再按合成后的时间和根数选取。`latest_rows` 数的是合成后的 K 线，预热也按合成后的根数算。取够目标、分页探测和必要预热后停止，历史不足则交付实际根数。对读到的行情直接合成。Gold 生产时的完整性审计和窗口点数检查留在数据生产环节。 [Gold 生成的起始数据](../../../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_gold.py#L87) · [读取步骤和例子](index-detail-low-level-design-v1.md#index-minute-kernel-aggregation)
-- **接口。** 沿用两个 URL、参数、状态、分页和前端调用流程。首屏默认 500 根，续页沿用游标，现有请求上限和回包体积限制继续适用。`/minutes` 返回行情，`/minute-indicators` 返回算子计算的指标。相同标的、频率和窗口得到相同目标时间键，指标使用这批行情及其所需预热。指标请求失败时，`/minutes` 仍可独立返回行情。回包的历史累计根数字段待 §16.4 确认。 [现有分钟 API 合同](index-detail-minutes-api-contract-v1.md)
+- **接口。** 沿用两个 URL、参数、状态、分页和前端调用流程。首屏默认 500 根，续页沿用游标，现有请求上限和回包体积限制继续适用。`/minutes` 返回行情，`/minute-indicators` 返回算子计算的指标，并按 §16.4 移除历史累计根数字段。相同标的、频率和窗口得到相同目标时间键，指标使用这批行情及其所需预热。指标请求失败时，`/minutes` 仍可独立返回行情。 [现有分钟 API 合同](index-detail-minutes-api-contract-v1.md)
 
 ### 16.3 推进与验收
 
@@ -762,12 +762,14 @@ Prod 曾验收独立的指数 5 分钟算子，从 PostgreSQL 查行情后计算
 | --- | --- | --- |
 | 1. 接入五个直接读取周期 | 落地按截止时间和根数读取 DG 的 1、5、15、30、60 分钟行情，每批一条 SQL。接入成交量兼容和指标计算。 | 用有界样本核对同批跨 2026-11-09／11-10 的成交量、指标和预热，回归已验收的 5 分钟区间指令。先在算子库内验收。 |
 | 2. 单独落地 90／120 分钟合成 | 在算子库读取阶段分别用 DG Silver 30／60 分钟合成 90／120 分钟。按合成后的根数取最近 N 根并准备预热，再计算指标。 | 与现有 Gold 成品对照首根竞价、跨午休窗口和收盘，验证按实读行情合成及跨日取最近 N 根。 |
-| 3. 本地两条接口切换 | 七频通过算子验收且回包字段确认后，将两条本地接口切到算子输出。 | 用真实接口核对首屏、续页、历史到头、北证 50 空态、指标失败时行情可用及现行分页性能。 |
+| 3. 本地两条接口切换 | 将两条本地接口切到已验收的七频算子输出，从指标回包移除 `observationCount`，同步 API 合同和前端类型。 | 用真实接口核对首屏、续页、历史到头、北证 50 空态、指标失败时行情可用及现行分页性能，并核对新回包字段。 |
 
-**阶段 1、2 已完成算子库实现和独立审计。** 正式 DG 五个直读周期逐根核对了 K 线、量额和指标。90／120 分钟分别从 Silver 30／60 分钟合成，结果与既有 Gold 成品对照通过。两阶段的代表窗口均只执行一条 Parquet 读取 SQL。本地两条接口的切换安排在阶段 3。 [阶段 1 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-1-acceptance) · [阶段 2 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-2-acceptance)
+**阶段 1、2 已完成算子库实现和独立审计。** 正式 DG 五个直读周期逐根核对了 K 线、量额和指标。90／120 分钟分别从 Silver 30／60 分钟合成，结果与既有 Gold 成品对照通过。两阶段的代表窗口均只执行一条 Parquet 读取 SQL。 [阶段 1 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-1-acceptance) · [阶段 2 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-2-acceptance)
 
 代码接线、合成时段和验收落点见 [LLD §29](index-detail-low-level-design-v1.md#index-minute-kernel-integration-lld)。
 
-### 16.4 第三阶段前确认回包字段
+**阶段 3 已通过本地接口独立验收。** 两条接口均接入算子库。正式 DG 验收覆盖七频的 500 根首屏和旧游标续页，并通过 5,000 根指标续页和 5 MB 限制。 [阶段 3 审计](index-detail-low-level-design-v1.md#index-minute-kernel-stage-3-acceptance)
 
-`/minute-indicators` 现有必填字段 `observationCount` 表示当前这根 K 线是同一指数、同一周期自历史起点以来的第几根。例如，本次返回 500 根，如果之前已有 1,000 根，本批第一根标为 1,001，最后一根标为 1,500。前端图表没有使用这个字段。截止时间、所需根数和预热所覆盖的历史无法得出这个累计值。建议从回包移除该字段，批准后同步 API 合同和消费者类型。如果保留，须先确定累计值来源。第一、二阶段的行情读取和指标计算与这个字段无关。 [现有 DTO](../../../../src/biz/schemas/wealth/market/index_detail_minutes.py#L76) · [成品累计逻辑](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py#L454)
+### 16.4 第三阶段回包规则
+
+阶段 3 从本地 `/minute-indicators` 每条指标记录中移除 `observationCount`。前端继续用 `tradeTime` 对齐行情和指标，使用原有 `paramsKey`、`indicatorVersion`。算子库按截止时间和返回根数取行情，预热由指标决定。DG 指数分钟技术指标成品中的 `observation_count` 继续供 DG 原有数据检查使用，XXM 研究沿用现有成品来源。 [实施与验收](index-detail-low-level-design-v1.md#index-minute-kernel-stage-3) · [DG 成品检查](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py#L735)

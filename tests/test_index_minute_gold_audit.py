@@ -127,7 +127,7 @@ def test_maximum_response_acceptance_treats_5mb_rejection_as_expected(
     )
     monkeypatch.setattr(
         "src.scripts.audit_index_minute_gold.IndexDetailMinutesQueryService",
-        lambda _lake_root: service,
+        lambda _reader: service,
     )
 
     result = _maximum_response_acceptance(
@@ -151,7 +151,7 @@ def test_maximum_response_acceptance_rejects_unrelated_request_error(
     service = _FakeIndicatorService(reject_maximum_with="cursor 不合法。")
     monkeypatch.setattr(
         "src.scripts.audit_index_minute_gold.IndexDetailMinutesQueryService",
-        lambda _lake_root: service,
+        lambda _reader: service,
     )
 
     result = _maximum_response_acceptance(

@@ -101,7 +101,6 @@ function makeIndicators(bars: IndexMinuteBarDto[]): IndexMinuteIndicatorDto[] {
     kdjK: index < 8 ? null : 50 + index,
     kdjD: index < 8 ? null : 45 + index,
     kdjJ: index < 8 ? null : 60 + index,
-    observationCount: index + 1,
     paramsKey: PARAMS_KEY,
     indicatorVersion: 1,
   }));

@@ -187,12 +187,13 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
 
     index_capability = resolve_index_minute_capability(get_settings())
     if index_capability.enabled:
+        from src.app.dependencies.index_minute_technical_indicators import run_index_minute_page
         from src.biz.api.wealth.market import (
             index_detail_minutes,
             index_turnover_insight,
         )
 
-        target_router.include_router(index_detail_minutes.router)
+        target_router.include_router(index_detail_minutes.build_router(run_page=run_index_minute_page))
         target_router.include_router(index_turnover_insight.router)
 
     index_nine_turn_capability = resolve_index_nine_turn_minute_capability(

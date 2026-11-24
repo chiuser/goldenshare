@@ -799,7 +799,6 @@ function makeMinuteIndicatorResponse(freq: number, tsCode = "000001.SH") {
       ma5: 10 + index, ma10: null, ma20: null, ma30: null, ma60: null, ma90: null, ma250: null,
       bollMiddle: null, bollUpper: null, bollLower: null,
       macdDif: .1, macdDea: .05, macd: .1, kdjK: 50, kdjD: 45, kdjJ: 60,
-      observationCount: index + 1,
       paramsKey: "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
       indicatorVersion: 1,
     })),

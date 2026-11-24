@@ -1,19 +1,19 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 2026-11-04：§8为已实施的本地r4分钟识别配套摘要，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准，完成证据见其§20.7—20.8、§21.14.14及§22.16.6。本次只修正文书状态；§1—7的七频分钟行情/指标合同和1.1.0不变，不将七频或10000行情上限套到识别。
+> 2026-11-04：§8为已实施的本地r4分钟识别配套摘要，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准，完成证据见其§20.7—20.8、§21.14.14及§22.16.6。§1—7的七频和10000行情上限不适用于识别。
 
-> 版本：`1.1.0`
-> 状态：指数分钟交付已完成。P10 业务读取已切换并验收；bars 只读正式 Gold canonical bars，indicators 只读正式 Gold technical；没有 Silver、旧 Lake、staging 或 Mock fallback。七频合同、全历史对齐、性能、分页、局部状态、浏览器和生产隔离门禁均已闭环。切换与历史重建证据见 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
+> 版本：`1.2.0`
+> 本地分钟行情和指标均由算子库返回。历史 Gold 切换证据保留在 §6。算子库接入见 [LLD §29.4](index-detail-low-level-design-v1.md#index-minute-kernel-stage-3)。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
 
 1. 本合同只在 `APP_ENV in {dev, local}`、本地分钟开关开启、正式 Lake 根可读且 DuckDB 可用时挂载；prod/staging 不挂载，访问返回 404。
-2. bars 唯一读取 `/Volumes/datasource/data_lake/gold/quote/major_index_mins`；indicators 唯一读取正式 Gold `major_index_mins_technical`，不读取 Silver、state、旧 Lake 或 staging，也不保留 fallback。
-3. Gold 1m 可返回 09:30；Gold 5m/15m/30m/60m/90m/120m 禁止返回独立 09:30，首根时间分别为 09:35/09:45/10:00/10:30/11:00/11:30。
+2. 两个接口都将频率、截止时间和目标根数交给算子库。1／5／15／30／60 分钟读 DG 指数 Gold 标准 K 线 `gold/quote/major_index_mins`。90／120 分钟分别读 DG 指数 Silver 30／60 分钟行情，由算子库按交易时段合成。指标从相同口径的 K 线计算。
+3. 1 分钟可返回 09:30。其他六频完整交易日的第一根分别为 09:35／09:45／10:00／10:30／11:00／11:30。
 4. bars 与 indicators 必须按完整 `tradeTime` 集合严格相等；不允许后端或前端自行补 bar、删 bar 或按数组位置对齐。
 5. 七频均不得返回 `15:01-15:30`；完整交易日最后一根必须精确为 15:00，技术指标同样截止 15:00。
-6. `899050.BJ` 属于页面十指数名单，但不在 Gold 源覆盖中；分钟 bars 返回 `EMPTY + IM_SOURCE_NOT_READY`。
+6. `899050.BJ` 属于页面十指数名单，是已知无分钟覆盖的指数。两个接口均返回 `EMPTY + IM_SOURCE_NOT_READY`。
 7. Lake 中存在但不属于页面十指数名单的代码，例如 `000680.SH`，返回 `ID_NOT_FOUND`。
 8. M5-A 前端开发态指标 Mock 不是 HTTP 接口返回值；M5-B 已删除 Mock provider、标识和专属测试，不保留双源兼容或错误 fallback。
 
@@ -33,7 +33,7 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 | `tsCode` | string | 是 | trim + upper；必须属于 `majorIndices/CN_A` 十指数名单 |
 | `freq` | integer | 是 | 只允许 `1/5/15/30/60/90/120` |
 | `startDate` | `YYYY-MM-DD` | 否 | 不得晚于 `endDate` |
-| `endDate` | `YYYY-MM-DD` | 否 | 页面默认使用当前日线观测日 `asOfTradeDate`，保持分钟图表与右栏日频快照的时间边界一致 |
+| `endDate` | `YYYY-MM-DD` | 否 | 页面默认传当前日线观测日 `asOfTradeDate`，包含当天。省略时由算子库读取最新可用行情 |
 | `limit` | integer | 否 | 默认 500，范围 `1..10000` |
 | `cursor` | string | 否 | v1 URL-safe base64；绑定 dataset/code/freq/start/end/before time |
 
@@ -95,6 +95,8 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 }
 ```
 
+`vol` 的单位是股，`amount` 的单位是元。
+
 不返回 `preClose/change/changePct/amplitude/turnoverRate/vwap`，前端不得自行伪造日线字段。
 
 ### 3.3 Indicators
@@ -125,7 +127,6 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
       "kdjK": 62.0,
       "kdjD": 57.0,
       "kdjJ": 72.0,
-      "observationCount": 120,
       "paramsKey": "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3",
       "indicatorVersion": 1
     }
@@ -135,28 +136,30 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 }
 ```
 
-MA/BOLL warm-up 不足时保持 null；MACD/KDJ 由 Gold 合同负责，不由 BFF 重新计算。
+MA／BOLL 预热不足时返回 null。MA、BOLL、MACD 和 KDJ 均由算子库计算。`paramsKey` 和 `indicatorVersion` 仍标识原有参数与版本。
 
 ## 4. 异常
 
 | HTTP | code | 语义 |
 |---:|---|---|
-| 400 | `ID_REQUEST_INVALID` | 参数、limit、文件数量上界或 cursor 不合法 |
+| 400 | `ID_REQUEST_INVALID` | 参数、limit 或 cursor 不合法，或响应体超过 5 MB |
 | 404 | `ID_NOT_FOUND` | 非页面十指数名单 |
 | 500 | `IM_SOURCE_CONTRACT_INVALID` | 路径、Parquet schema、身份、日期、时间键或版本不符合合同 |
-| 500 | `IM_QUERY_FAILED` | DuckDB、文件 IO、查询或结果校验失败 |
+| 500 | `IM_QUERY_FAILED` | 查询、资源限制或结果校验失败 |
 
 401/403 沿用认证层。响应体超过 5MB 按 `ID_REQUEST_INVALID` 拒绝，调用方必须降低 limit 或使用 cursor。
 
 ## 5. M5-A Mock 退场与 M5-B 真实 provider 边界
 
 1. M5-A 曾由 Vite 开发态 Mock 输入真实 bars，生成 `indicatorVersion=0` 的可见模拟指标；该实现只作为 Gold 落地前的阶段性开发能力。
-2. M5-B 只调用本合同 `/minute-indicators`，以 `tradeTime` 与同窗口 bars 一一对齐；`paramsKey/indicatorVersion` 直接消费 Gold DTO，不在前端重算或改写。
+2. M5-B 只调用本合同 `/minute-indicators`，以 `tradeTime` 与同窗口 bars 一一对齐。阶段 3 切换后，前端继续按同一合同消费 `paramsKey` 和 `indicatorVersion`。
 3. bars 与 indicators 使用相同 `tsCode/freq/startDate/endDate/limit`，但请求生命周期相互隔离：bars 失败时分钟图表 ERROR；bars READY 且 indicators 失败、为空、身份错配或时间键不完整时，保留 K 线并将技术图层标为 PARTIAL。
 4. indicators 失败不得清空 bars，不得回退 Mock，也不得用旧频率、旧指数或缓存中的其他指标补齐。
 5. M5-B 已删除 Mock provider、`模拟指标` 标识及其专属测试；内部 ViewModel 只允许 `indicatorSource="gold"|"unavailable"`。
 
 ## 6. M5-B 正式验收与切换边界
+
+本节记录上一版 Gold 上线验收。当前接口计算及验收以 LLD §29.4 为准。
 
 1. Dagster Definitions 已能发现七频率 14 个 Gold 资产及 70 个 blocking checks：技术指标 42 个、状态 28 个。该项已经完成，不再与物理数据就绪状态绑定。
 2. Web Reader 与 Orchestrator 的冻结合同必须由静态门禁逐项比较七频率、23 个技术指标列名与类型、`params_key` 和 `indicator_version`；测试只能读取 Orchestrator 源文件，不得让生产 Web 运行时 import Dagster 项目。
@@ -194,6 +197,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| 1.2.0 | 2026-11-24 | 本地七频行情和指标接入算子库，保留 v1 游标，移除指标回包的 `observationCount` | Codex |
 | 1.1.0 | 2026-08-14 | 完成 P10：bars 从历史 Silver 合同切换到正式 Gold canonical bars，无 fallback；同步七频时间键和本地业务读取验收口径 | Codex |
 | 1.0.4 | 2026-08-13 | 完成真实 Gold provider、bars-only Partial、Mock 清零和浏览器验收；以 4,277×7 分区最终重跑更新全历史、性能、10000 拒绝与 5000 正常分页证据 | Codex |
 | 1.0.3 | 2026-08-13 | 回填正式 Gold 全历史覆盖、对齐和性能证据；澄清 10000 参数上限与 5MB 优先门禁，冻结 10000 拒绝语义 + 5000 正常分页验收；定义真实 provider、bars-only PARTIAL 和 Mock 彻底退场边界 | Codex |

@@ -18,6 +18,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
 from src.biz.services.wealth.market.index_detail_minutes.index_minute_response_policy import (
     MAX_INDEX_MINUTE_RESPONSE_BYTES,
 )
+from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
 from src.foundation.clients.local_lake.major_index_mins_contract import (
     FORMAL_LAKE_ROOT,
     GOLD_INDICATOR_COLUMN_SPECS,
@@ -366,7 +367,7 @@ def _performance_matrix(
     frequencies: Sequence[int],
     runs: int,
 ) -> dict[str, Any]:
-    service = IndexDetailMinutesQueryService(lake_root)
+    service = IndexDetailMinutesQueryService(MajorIndexMinsLakeReader(lake_root))
     frequency_results: list[dict[str, Any]] = []
     overall_status = READY
     for freq in frequencies:
@@ -457,7 +458,7 @@ def _maximum_response_acceptance(
     ts_code: str,
     freq: int,
 ) -> dict[str, Any]:
-    service = IndexDetailMinutesQueryService(lake_root)
+    service = IndexDetailMinutesQueryService(MajorIndexMinsLakeReader(lake_root))
     maximum_started = time.perf_counter()
     maximum_result: dict[str, Any]
     try:

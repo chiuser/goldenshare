@@ -73,7 +73,6 @@ class IndexMinuteIndicatorDto(BaseModel):
     kdjK: float | None
     kdjD: float | None
     kdjJ: float | None
-    observationCount: int
     paramsKey: str
     indicatorVersion: int
 

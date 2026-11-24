@@ -187,7 +187,6 @@ function makeIndicatorsResponse(freq: IndexDetailMinuteFrequency, empty = false)
     kdjK: 50,
     kdjD: 45,
     kdjJ: 60,
-    observationCount: index + 1,
     paramsKey: PARAMS_KEY,
     indicatorVersion: 1,
   }));

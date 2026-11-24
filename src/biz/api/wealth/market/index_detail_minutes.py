@@ -2,17 +2,16 @@ from __future__ import annotations
 
 # FastAPI dependency declarations intentionally use Query/Depends in signatures.
 # ruff: noqa: B008
+from collections.abc import Awaitable, Callable
 from datetime import date
 import re
+from time import monotonic
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from src.app.auth.dependencies import require_quote_access
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
-from src.biz.queries.wealth.market.index_detail_minutes.index_detail_minutes_query_service import (
-    IndexDetailMinutesQueryService,
-)
 from src.biz.schemas.wealth.market.index_detail_minutes import (
     IndexMinuteIndicatorsResponseDto,
     IndexMinutesResponseDto,
@@ -28,81 +27,75 @@ from src.foundation.clients.local_lake.major_index_mins_reader import (
     IndexMinuteRequestError,
     IndexMinuteSourceContractError,
 )
-from src.foundation.config.local_minute_capability import (
-    LocalMinuteCapabilityError,
-    resolve_index_minute_capability,
-)
-from src.foundation.config.settings import get_settings
+from src.foundation.config.local_minute_capability import LocalMinuteCapabilityError
 
 
-router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 _ISO_DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 _ALLOWED_QUERY_PARAMS = {"tsCode", "freq", "startDate", "endDate", "limit", "cursor"}
 
 
-def _service() -> IndexDetailMinutesQueryService:
-    capability = resolve_index_minute_capability(get_settings())
-    if not capability.enabled or capability.lake_root is None:
-        raise WebAppError(
-            status_code=503,
-            code=capability.reason_code or "SM_LOCAL_LAKE_NOT_CONFIGURED",
-            message="本地指数分钟数据能力未启用。",
-        )
-    return IndexDetailMinutesQueryService(capability.lake_root)
+def build_router(*, run_page: Callable[..., Awaitable[Response]]) -> APIRouter:
+    router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 
+    @router.get("/minutes", response_model=IndexMinutesResponseDto)
+    async def get_index_minute_bars(
+        request: Request,
+        ts_code: str | None = Query(default=None, alias="tsCode"),
+        freq: str | None = Query(default=None),
+        start_date: str | None = Query(default=None, alias="startDate"),
+        end_date: str | None = Query(default=None, alias="endDate"),
+        limit: str | None = Query(default=None),
+        cursor: str | None = Query(default=None),
+        _user: AuthenticatedUser | None = Depends(require_quote_access),
+    ) -> Response:
+        arrived_at = monotonic()
+        try:
+            _validate_query_shape(request)
+            return await run_page(
+                request,
+                dataset="bars",
+                arrived_at=arrived_at,
+                ts_code=_normalize_supported_code(ts_code),
+                freq=_parse_freq(freq),
+                start_date=_parse_date(start_date, field_name="startDate"),
+                end_date=_parse_date(end_date, field_name="endDate"),
+                limit=_parse_limit(limit),
+                cursor=_parse_cursor(cursor),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_http_error(exc)
+            raise AssertionError("unreachable")
 
-@router.get("/minutes", response_model=IndexMinutesResponseDto)
-def get_index_minute_bars(
-    request: Request,
-    ts_code: str | None = Query(default=None, alias="tsCode"),
-    freq: str | None = Query(default=None),
-    start_date: str | None = Query(default=None, alias="startDate"),
-    end_date: str | None = Query(default=None, alias="endDate"),
-    limit: str | None = Query(default=None),
-    cursor: str | None = Query(default=None),
-    _user: AuthenticatedUser | None = Depends(require_quote_access),
-) -> IndexMinutesResponseDto:
-    try:
-        _validate_query_shape(request)
-        normalized_code = _normalize_supported_code(ts_code)
-        return _service().read_bars(
-            ts_code=normalized_code,
-            freq=_parse_freq(freq),
-            start_date=_parse_date(start_date, field_name="startDate"),
-            end_date=_parse_date(end_date, field_name="endDate"),
-            limit=_parse_limit(limit),
-            cursor=_parse_cursor(cursor),
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_http_error(exc)
-        raise AssertionError("unreachable")
+    @router.get("/minute-indicators", response_model=IndexMinuteIndicatorsResponseDto)
+    async def get_index_minute_indicators(
+        request: Request,
+        ts_code: str | None = Query(default=None, alias="tsCode"),
+        freq: str | None = Query(default=None),
+        start_date: str | None = Query(default=None, alias="startDate"),
+        end_date: str | None = Query(default=None, alias="endDate"),
+        limit: str | None = Query(default=None),
+        cursor: str | None = Query(default=None),
+        _user: AuthenticatedUser | None = Depends(require_quote_access),
+    ) -> Response:
+        arrived_at = monotonic()
+        try:
+            _validate_query_shape(request)
+            return await run_page(
+                request,
+                dataset="indicators",
+                arrived_at=arrived_at,
+                ts_code=_normalize_supported_code(ts_code),
+                freq=_parse_freq(freq),
+                start_date=_parse_date(start_date, field_name="startDate"),
+                end_date=_parse_date(end_date, field_name="endDate"),
+                limit=_parse_limit(limit),
+                cursor=_parse_cursor(cursor),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_http_error(exc)
+            raise AssertionError("unreachable")
 
-
-@router.get("/minute-indicators", response_model=IndexMinuteIndicatorsResponseDto)
-def get_index_minute_indicators(
-    request: Request,
-    ts_code: str | None = Query(default=None, alias="tsCode"),
-    freq: str | None = Query(default=None),
-    start_date: str | None = Query(default=None, alias="startDate"),
-    end_date: str | None = Query(default=None, alias="endDate"),
-    limit: str | None = Query(default=None),
-    cursor: str | None = Query(default=None),
-    _user: AuthenticatedUser | None = Depends(require_quote_access),
-) -> IndexMinuteIndicatorsResponseDto:
-    try:
-        _validate_query_shape(request)
-        normalized_code = _normalize_supported_code(ts_code)
-        return _service().read_indicators(
-            ts_code=normalized_code,
-            freq=_parse_freq(freq),
-            start_date=_parse_date(start_date, field_name="startDate"),
-            end_date=_parse_date(end_date, field_name="endDate"),
-            limit=_parse_limit(limit),
-            cursor=_parse_cursor(cursor),
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_http_error(exc)
-        raise AssertionError("unreachable")
+    return router
 
 
 def _validate_query_shape(request: Request) -> None:

@@ -1043,7 +1043,7 @@ def test_p4_batch2_cursor_binding_and_exact_boundary(tmp_path, monkeypatch, micr
     cases = 'CASE close '+ ' '.join(f"WHEN {close} THEN TIMESTAMP '2026-08-11 {stamp}'" for close,stamp in zip((10.2,10.4,10.6),time_values))+' END'
     _batch2_rewrite(path,f'SELECT * REPLACE ({cases} AS trade_time) FROM read_parquet(?, hive_partitioning=false)')
     request = IndexMinuteReadRequest('000001.SH',5,None,None,2,None)
-    token = module._encode_cursor(dataset='bars',request=request,before_trade_date=date(2026,8,11),
+    token = module.encode_index_minute_cursor(dataset='bars',request=request,before_trade_date=date(2026,8,11),
         before_trade_time=datetime.fromisoformat('2026-08-11 '+time_values[1]))
     real_connect, observed = duckdb.connect, []
     class Observed:
