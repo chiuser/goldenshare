@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-> 2026-11-25 历史重刷现行方案见 [§16](#adj-factor-history-refresh-plan-20261125)。范围从 2014 年首个交易日起，按源修正已有因子值，同时补齐已确认因旧规则缺失的退市前 Silver 复权因子。离线入口待开发。
+> 2026-11-25 历史重刷现行方案见 [§16](#adj-factor-history-refresh-plan-20261125)。范围从 2014 年首个交易日起，按源修正已有因子值，同时补齐已确认因旧规则缺失的退市前 Silver 复权因子。离线入口已实现并通过三日隔离验收，正式重刷待授权。
 
 > 2026-10-29 专项已完成。九个旧日仅补 301139.SZ 的九条记录，28 日 Silver 更新为 5,580 行，10 次原作业成功、40 项原检查通过。§15 和[修复 LLD §25](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-retired-retention-20261028)保留该批次及随后分钟链收尾证据。
 
@@ -634,7 +634,7 @@ CodeGraph已使用`status`、`explore`、`impact`、`callers`核对共享SQL及r
 
 <a id="adj-factor-history-refresh-plan-20261125"></a>
 
-## 16. 股票复权因子历史重刷方案（2026-11-25，口径已确认，入口待开发）
+## 16. 股票复权因子历史重刷方案（2026-11-25，隔离验收通过）
 
 ### 16.1 范围和数据处理口径
 
@@ -654,7 +654,7 @@ CodeGraph已使用`status`、`explore`、`impact`、`callers`核对共享SQL及r
 
 此前对 202 只股票只读对账，确认 2,743 个日期存在因子差异，占本次 3,134 个目标交易日的 87.5%。复权因子按日期存放，全市场对账能够在同一次逐日取数中找出应改值、应补齐和待审计的记录。两层各 3,134 份文件，现有合计约 225.85 MiB。首遍至少 3,134 次源请求。耗时、空间、续跑及事件量见 [LLD §26.5](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-existing-keys-cost-20261125)。
 
-现行 Raw 日更会直接写目标，Silver 历史补缺入口会拒绝已有值不同的记录。新增人工历史修订入口，复用现有分页、生命周期筛选、候选校验、逐文件替换和恢复。此入口承担本方案的历史改值与已确认的 Silver 回补。入口、候选、发布及验收详见 [LLD §26](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-history-refresh-lld-20261125)。
+现行 Raw 日更会直接写目标，Silver 历史补缺入口会拒绝已有值不同的记录。已实现人工历史修订入口，复用现有分页、生命周期筛选、候选校验和文件身份及回执能力。此入口承担本方案的历史改值与已确认的 Silver 回补。入口、候选、发布及验收详见 [LLD §26](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-history-refresh-lld-20261125)。
 
 ### 16.3 执行顺序和验收
 
@@ -666,3 +666,5 @@ CodeGraph已使用`status`、`explore`、`impact`、`callers`核对共享SQL及r
 ### 16.4 样本证据
 
 复用 13 个交易日已取得的源数据，逐键识别出符合上述条件的 Silver 缺口 **1,883 条，涉及 11 个交易日、257 只股票**。其中 2014-01-02 有 217 条，例如 `600832.SH` 的 Silver 缺口应补最新值 `17.1552`。同日 Tushare 未返回 `000751.SZ`，继续保留 Silver 的原值 `3.371`。样本候选通过适用的必需覆盖和 Raw 一致性核对。全区间实际补齐量和其余待审量由全市场逐日对账确定。[核对结果及旧记录来源](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-existing-keys-sample-20261125)
+
+新增离线入口已在三个真实交易日副本上完成逐日准备、正式格式候选校验、隔离文件替换和读回。故障模拟覆盖准备中断、Raw 替换后回执缺失和成功后的重复提交。该次验收只读取六个指定交易日因子文件及必要的日历和生命周期，复用已保存的三个源响应。[隔离结果和 16:00 窗口判断](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-history-refresh-isolated-20261125)

@@ -1,6 +1,6 @@
 # 25股修复LLD v1：R3/R4/R5完成记录
 
-> 2026-11-25 [§26](#adj-factor-history-refresh-lld-20261125)为现行股票复权因子历史重刷 LLD，已同步 2014 年起全市场对账、已有值修正和退市前 Silver 缺口补齐规则。对应[资产设计 §16](dagster-adj-factor-asset-design.md#adj-factor-history-refresh-plan-20261125)。原 25 股专项和 §25 的执行记录供追溯。
+> 2026-11-25 [§26](#adj-factor-history-refresh-lld-20261125)为现行股票复权因子历史重刷 LLD，已同步 2014 年起全市场对账、已有值修正和退市前 Silver 缺口补齐规则。对应[资产设计 §16](dagster-adj-factor-asset-design.md#adj-factor-history-refresh-plan-20261125)。§26.10 记录新入口的隔离验收。原 25 股专项和 §25 的执行记录供追溯。
 
 > 2026-11-01附件精简：本页所引恢复过程附件已按管理员指令删除，相关链接转到对应README的清理说明；原数量、操作和历史结论保留，旧裸路径不表示文件仍存在。
 
@@ -1259,13 +1259,13 @@ CodeGraph已使用status/explore/impact/callers并在修改后sync，覆盖共�
 
 <a id="adj-factor-history-refresh-lld-20261125"></a>
 
-## 26. 股票复权因子历史重刷 LLD（2026-11-25，口径已确认，入口待开发）
+## 26. 股票复权因子历史重刷 LLD（2026-11-25，隔离验收通过）
 
 ### 26.1 范围、入口和授权
 
 按 [资产设计 §16](dagster-adj-factor-asset-design.md#adj-factor-history-refresh-plan-20261125) 对账 `2014-01-02` 至 `2026-11-24` 全市场 DG Raw 股票复权因子 `raw_tushare_adj_factor` 和 Silver 股票复权因子 `silver_adj_factor`。按同日实际源值修正已有键，按管理员确认的条件补齐退市以前缺失的 Silver 键，保留源端少返回的旧记录。其余源端独有键保留逐键证据，审计确认后再处理。
 
-拟在 `defs/bootstrap/adj_factor_history_refresh_cli.py` 提供人工维护入口，由 `adj_factor_history_refresh.py` 编排 `prepare`、`publish` 和按需执行的 `register-events`。准备参数为显式起止日期和执行标识，后续动作及续跑使用同一标识、检查点和封存结果。路径取 `defs/paths.py` 定义的正式湖与正式 staging。全量明细读取、正式发布、确有需要的 DG 事件登记分别按获准范围执行。日更、显式旧日补缺及下游作业继续使用各自现行入口。
+人工维护入口为 `defs/bootstrap/adj_factor_history_refresh_cli.py`。`adj_factor_history_refresh.py` 编排 `prepare` 和 `publish`，`adj_factor_history_refresh_events.py` 只在显式选择 `register-events` 时加载。准备参数为显式起止日期和执行标识，后续动作及续跑使用同一标识、检查点和封存结果。路径取 `defs/paths.py` 定义的正式湖与正式 staging。全量明细读取、正式发布、确有需要的 DG 事件登记分别按获准范围执行。日更、显式旧日补缺及下游作业继续使用各自现行入口。
 
 ### 26.2 现行依据及复用范围
 
@@ -1380,3 +1380,25 @@ CodeGraph已使用status/explore/impact/callers并在修改后sync，覆盖共�
 直接补齐的 1,883 条分布在 11 个日期、257 只股票。逐条核实同日 Tushare 和旧 Raw 均有值、旧 Silver 缺失，日期全部早于各股退市日，且各股在 2026-10-28 前已经退市。13 日候选验证 Raw 键集合未增减、Silver 仅增加判定集合，必需覆盖及适用的同日 Raw 一致性通过。2014-01-02 的 217 条中，`600832.SH` 补入 `17.1552`，`000751.SZ` 保留原值 `3.371`。11 月 24 日两层均同值。样本量仅反映这些日期。
 
 此前只读对账确认 202 只股票有 216,437 条已有因子与源值不同，涉及 2,743 日。另有 240,431 条旧 Raw 键早于现行生命周期表记录的上市日，Tushare 本次未返回，按本方案保留旧值并记录。全区间完整对账和正式发布待执行。需要新版 DG 证据的范围另按 §26.4 核定。
+
+
+<a id="adj-factor-history-refresh-isolated-20261125"></a>
+
+### 26.10 离线入口实现及隔离验收（2026-11-25）
+
+在 orchestrator 项目内使用 `.venv/bin/python3 -B -m orchestrator.defs.bootstrap.adj_factor_history_refresh_cli`。`prepare` 接受 `--operation-id`、`--start-date`、`--end-date`，`publish` 使用原 `--operation-id`。两者支持显式的 `--lake-root` 和 `--staging-root`。隔离准备需要 `--registered-days-file` 和 `--source-snapshot-dir`，正式路径拒绝这两种样本输入。手工事件阶段需要 `--event-scope`，内容为 `items` 对象列表，每项指定 `layer` 和 `day`。Silver 使用已核实的 `lifecycle_materialization_id`。Raw 同值时还需指定核实后的 `raw_materialization_id`，Raw 已变更时绑定该次离线刷新已登记的 Raw。
+
+每个执行目录包含 `plan.json`、逐日准备检查点和 `sealed.json`。候选、源响应、差异 Parquet 和输入身份按日期保存，候选验证通过才进入发布。文件阶段通过逐层回执和最终 `published.json` 交付。已替换的目标可用封存摘要识别并重新读回，已有通过回执的目标核对身份后复用。
+
+| 隔离范围 | 实际结果 |
+| --- | --- |
+| 2014-01-02 | Raw 改 2,212 条、保留少返回 12 条，Silver 改 2,012 条、补齐 217 条、保留少返回 1 条。读回 `600832.SH` 为 17.1552、`000751.SZ` 为 3.371 |
+| 2026-11-23 | Raw 与 Silver 各改 4,720 条。两层读回 `920662.BJ` 均为 1.064 |
+| 2026-11-24 | 两层内容同值，跳过替换，文件身份不变 |
+| 准备中断及续跑 | 第一天写好检查点后中断。续跑原样复用该检查点，只加载后二日保存的源响应。第一天核对及续跑启动合计 0.009 秒 |
+| 发布中断及续跑 | 2014-01-02 Raw 替换并读回后、通过回执落盘前中断。续跑从目标摘要识别并核验该文件，Raw 的文件身份不变，然后完成 Silver 和后二日。续跑发布及读回 0.052 秒。成功后用同标识重放 0.012 秒。另在 11 月 23 日样本中强制退出发布进程，使用同标识从新 CLI 进程续跑，Raw 文件身份保持，Silver 读回通过 |
+| 文件和数据边界 | 三个交易日、六份复权因子文件，副本在 `/private/tmp`。准备了四份需提升的候选，共 94,399 字节。发布后执行目录剩余证据共 1,131,929 字节。验证复用源响应，新增源请求 0，正式湖、正式 staging 及正式 DG 事件写入 0 |
+
+共 71 项定向测试及 16 个子测试通过，包括源端空整日、错日期、重复键、无效值、页未结束、少返回保留、源端独有进入待审、只补 Silver、不符截止规则、候选被改及替换后回执恢复。事件测试仅用临时 Dagster 实例，验证文件发布默认零事件，以及显式事件登记可以续跑且 Check 指向对应物化。Ruff 语法门禁及本次文件规则检查已通过。
+
+纯取数延用 §26.5 的 232–520 秒条件估算。样本中准备第一日含启动约 0.101 秒，实际替换和读回单日最慢的 2014 年样本含故障及恢复约 0.031 秒。按这两个样本值乘 3,134 个日期，本地过程参考量级约 414 秒。与纯取数合计约 **11–16 分钟**，假设每日一页、源端无额外等待、正式盘吞吐量与隔离盘接近。该值用于维护窗口判断。正式取数持续配额、实际变动文件数、外置盘写入及读回吞吐量以正式阶段实测为准。维护窗口不足时停在候选阶段并保留检查点。正式读取和文件发布仍按分阶段授权，按需事件另行核定。
