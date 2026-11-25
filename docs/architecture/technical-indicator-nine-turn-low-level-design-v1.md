@@ -2,6 +2,10 @@
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
+§1–10 记录日线九转的首期范围、代码和验收。其他股票周期见[股票周月线 LLD](technical-indicator-stock-period-low-level-design-v1.md#stock-period-nine-turn)和[股票分钟线 LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
+
+2026-11-25｜[本地指数日线与分钟九转实施设计](#local-index-nine-turn-lld)待开发。
+
 ## 1. 现状和改动边界
 
 本专项开始前，本地股票详情先取 `/kline`，再在首批和每次续页请求 `/nine-turn`。后者用股票日 K 日期匹配 PostgreSQL `core_serving.equity_qfq_nineturn_daily` 的预计算结果。DG 原始九转算法保留连续计数，页面组装只生成 1–9 标记。原有 `/kline` 已一次计算日 K 和各个日线指标，输入会话统一准备复权收盘价。[日线九转取数](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L57) · [本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [首批及续页调用方](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L94)
@@ -34,7 +38,7 @@ DEFINITION = CalculationDefinition(
 )
 ```
 
-调用方在现有 `CalculationRequest.calculations` 放入 `{"calculation_id": "nineturn", "parameters": {}}`。返回的 `times` 与两个计数数组逐项对齐。收集器用 `DOUBLE` 输出，实际计数始终取整数值 0–13。注册说明按周期与当前运行环境已启用来源取交集，因此当前配置下可用于股票原价日线、股票前复权日线和指数原价日线。分钟、周线和月线由现有周期校验拒绝。固定比较间隔和计数上限不作为参数开放。[注册能力查询](../../packages/technical_indicators/src/goldenshare_technical_indicators/discovery/catalog.py#L32) · [已启用来源](../../src/app/runtime/technical_indicators/composition.py#L34) · [周期和参数校验](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/dependencies.py#L41)
+调用方在现有 `CalculationRequest.calculations` 放入 `{"calculation_id": "nineturn", "parameters": {}}`。返回的 `times` 与两个计数数组逐项对齐。收集器用 `DOUBLE` 输出，实际计数始终取整数值 0–13。注册说明按周期与运行环境已启用来源取交集，日线首期配置可用于股票原价日线、股票前复权日线和指数原价日线。日线首期的周期校验拒绝分钟、周线和月线。固定比较间隔和计数上限不作为参数开放。[注册能力查询](../../packages/technical_indicators/src/goldenshare_technical_indicators/discovery/catalog.py#L32) · [已启用来源](../../src/app/runtime/technical_indicators/composition.py#L34) · [周期和参数校验](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/dependencies.py#L41)
 
 ### 2.2 类、状态和 SQL
 
@@ -185,3 +189,40 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 | 九转显示与请求 | 两批的标记逐日对应各自的 K 线。九转开关隐藏和恢复绘制，打开首屏、向左翻页和切换九转共触发两次 `/kline`，独立 `/nine-turn` 请求为零。切换后浏览器验收无脚本和控制台错误。 |
 
 首次浏览器探测在切换 Wealth 前收到过一次日 K HTTP 500，响应无具体原因。随后直接请求首批和续页均返回 200，使用新前端复验两批也均返回 200。股票详情来源主表已按切换后的实际行为更新。[本地股票日线九转字段](../../wealth/docs/pages/stock-detail/stock-detail-field-source-audit-v1.html#local-daily-nine-turn)
+
+
+<a id="local-index-nine-turn-lld"></a>
+
+## 11. 本地指数日线和分钟线九转
+
+2026-11-25｜待开发。对应[方案 §5](technical-indicator-nine-turn-plan-v1.md#local-index-nine-turn-plan)。本节沿用 §2 的计算、预热和结果合同，补齐本地指数的接入。现行指数日 K、分钟取数及分页的实现与实测见[指数详情 LLD §28–29](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
+
+### 11.1 阶段 1｜为本地指数分钟启用九转算子
+
+- [九转定义](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/nine_turn.py)继续使用 `NineTurnCalculation`。为 DG 运行时的定义追加 `("index", "<频率>m", "none")`，频率为 5、15、30、60、90、120。保留既有日线及股票组合。`index` 的 1 分钟、周线和月线继续按现有不支持规则处理。
+- 在[内置注册装配](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/__init__.py)给 `create_builtin_registry` 增加可选关键字 `enable_index_minute_nine_turn: bool = False`。启用时只替换九转定义的 `additional_sources`，共用原工厂、版本、参数和 SQL。[运行时装配](../../src/app/runtime/technical_indicators/composition.py)按现有 `config.data_location == "dg"` 传入。这样 Prod 既有 5 分钟来源不会因共用注册表获得新的九转能力。默认注册行为、通用请求字段和环境设置照旧。
+- 日线复用 `index_daily` 的 `silver/index_daily` 普通日线。分钟调用现有 `TechnicalIndicatorService.calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)`，按 `DG_RECENT_INDEX_MINUTE_DATASETS` 解析。5、15、30、60 分钟都是正式 DG `gold/quote/major_index_mins` 的同频不复权行情。90／120 分钟分别取 `silver/quote/major_index_mins` 的 `30min`／`60min` 分区，沿用现有 SQL 合成后才向算子交付。 [数据集位置](../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py) · [分钟读取及合成 SQL](../../src/foundation/clients/technical_indicator_index_minutes.py)
+- 业务传 `security_type="index"`、指数代码、周期、`adjustment="none"`、现有时间上下界和 `latest_rows=limit`，计算项为 `{"calculation_id": "nineturn", "parameters": {}}`。截止时间使用上海时区。用现有读取模块按行情时间、根数和历史需求批量读文件。九转与同次请求中的其他算子共用这批行情。单独计算最多额外需要 16 根目标周期 K 线；同批计算取已有指标各自预热需求的最大值。90／120 分钟的 16 根指合成后的根数。已有读数、合成、单位换算、预热规则和 `nineturn_batch.sql` 均直接复用。
+
+### 11.2 阶段 2｜日 K 回包带九转
+
+1. **后端。** [`run_index_daily_kline`](../../src/app/dependencies/index_daily_technical_indicators.py)只在 DG 的 `_DG_CALCULATIONS` 增加九转。[日 K 查询服务](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py)的 `_build_recent_daily_kline` 从结果按 `calculation_id` 取 `price`、`nineturn`，以余下原计算实例调用 `apply_calculated_kline_factors`。该校验按原清单执行。以已核对的 `result.times` 对齐两列计数和 `target_bars`，按 §3.1 校验并转成整数，调用 `build_nine_turn_marker(trade_date=day, trade_time=None, ...)`。每个日期最多一枚标记。指标和九转都随这一次计算返回，目标为空沿用原日 K 空页流程。
+2. **HTTP。** 在[普通日 K DTO](../../src/biz/schemas/wealth/market/index_detail.py)增加 `LocalIndexDetailDailyKlineResponseDto(IndexDetailKlineResponseDto)`，字段 `nineTurnMarkers: list[NineTurnMarkerDto]` 必有，合法空页或没有 1–9 标记时为 `[]`。在[调试 DTO](../../src/biz/schemas/wealth/market/index_detail_debug.py)及[`kline_response`](../../src/biz/queries/wealth/market/index_detail/debug_response.py)增加相应的本地日线投影，声明同一字段并保留诊断内容。普通、调试的本地路由各声明对应 DTO，Prod 和周月线继续用原类型。请求 `GET /index-detail/kline` 仍用原来的 `tsCode, period=day, startDate, endDate, limit`，首屏和向左翻页显式传 `limit=500`。返回现有 `meta.nextEndDate`。本地九转计算或结果错误走原日 K 错误，续页失败保留已显示行情并重试原截止日。独立日线 `/nine-turn` 继续服务 Prod 和现有接口调用。
+3. **前端。** 在[`indexDetailApiTypes.ts`](../../wealth/src/features/index-detail/api/indexDetailApiTypes.ts)声明本地日 K 字段；共用调用侧用回包中的数组识别内嵌九转，`[]` 同样识别成功，Prod 回包走原独立查询。[`useIndexDetailController`](../../wealth/src/features/index-detail/controller/useIndexDetailController.ts)保存首批，[`useIndexDailyHistory`](../../wealth/src/features/index-detail/controller/useIndexDailyHistory.ts)随每批日 K 保存标记，按现有历史页显示时机接到图上。首屏已有该字段时，续页也须包含数组，失败时游标保留。[`IndexDetailPageView`](../../wealth/src/pages/index-detail/IndexDetailPageView.tsx)以本地回包给日线图和技术面摘要提供标记，本地成功链路跳过 `ensure("day")` 和续页九转独立请求。摘要显示首批最后一根 K 线对应的标记；当天没有标记时显示空，向左翻页不回写摘要。复用既有图层开关及时间位置，无需前端计算计数。
+
+### 11.3 阶段 3｜分钟行情带九转，技术面也从算子取
+
+1. **共用读取。** [`IndexMinuteCalculationReader`](../../src/biz/queries/wealth/market/index_detail_minutes/index_minute_calculation_reader.py)给 `read_bars(request)` 的计算清单按现有六档追加 `nineturn`，复用 `price` 的时间轴，`_result_columns` 增加两列计数。提供同类的 `read_nine_turn(request)` 供摘要查询，只提交九转计算项。两者使用同一个按根数及时间边界的读取过程。保留 `read_indicators(request)` 与现有独立常用指标的加载及失败行为。对 `899050.BJ` 沿用现有分钟空结果分支，在调用读取器前返回。[原分钟查询服务](../../src/biz/queries/wealth/market/index_detail_minutes/index_detail_minutes_query_service.py)
+2. **同批组装。** `IndexMinutesResponseDto` 增加必有的 `nineTurn: NineTurnSeriesDto | None`。5、15、30、60、90、120 分钟时，[分钟查询服务](../../src/biz/queries/wealth/market/index_detail_minutes/index_detail_minutes_query_service.py)从同批返回行组装 `nineTurn`。沿用[共享组装函数](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py) `build_nine_turn_response` 和现有股票分钟的组装方式。每根的键为 `tradeDate, tradeTime`，分钟时间带 `+08:00`。有行情时 `sourceRowCount == matchedRowCount == count`、`missingRowCount=0`，零计数也算匹配。合法空页是九转 `EMPTY`。1 分钟为 `nineTurn: null`。图表九转异常沿用 `/minutes` 的读取／计算错误，对同一窗口重试。常用指标请求失败时，已返回的 K 线和九转可继续显示。
+3. **独立摘要接口。** 在 [App 分钟装配](../../src/app/dependencies/index_minute_technical_indicators.py)把 `/minute-nine-turn` 接到同一算子运行时和 `IndexMinuteCalculationReader.read_nine_turn`。[API 路由](../../src/biz/api/wealth/market/index_detail_minute_nine_turn.py)参照现有股票分钟九转的异步装配，沿用鉴权、七个请求字段、`NineTurnSeriesDto` 及已发布的 `NT_*` 错误码。[查询服务](../../src/biz/queries/wealth/market/index_minute_nine_turn/index_minute_nine_turn_query_service.py)复用上一项的分钟结果组装。省略截止日时仍读取最新已发布行情，并按原独立接口规则用本地当天生成九转状态。诊断只打印实际行情来源、文件数和耗时。运行链改为依赖现有指数分钟行情就绪条件，[路由注册](../../src/app/api/v1/router.py)与 [page-init 能力](../../src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py)共用该条件。移除生产代码对 DG 主要指数分钟九转成品目录的就绪判断和读取器装配，复用现有环境配置。保留已开放的指数及周期范围。
+4. **请求与游标。** `/minutes` 和 `/minute-nine-turn` 都沿用 `tsCode, freq, startDate, endDate, limit, cursor`，独立九转继续允许 `debug`。默认 500 根、参数上限 10,000。行情顶层游标仍为现有 bars v1；独立九转和同批 `nineTurn.meta` 使用 [原九转游标编解码](../../src/foundation/clients/local_lake/nine_turn_minute_contract.py)及 `dataset="index_minute_nine_turn"`。沿用 `tsCode/freq/startDate/endDate` 绑定，算子结束时间取原截止与游标首根之前 1 微秒的较早值。下一页游标来自内核 `has_more` 和实际返回首根。页面继续在已取的分钟范围内移动；游标兼容在接口层验收。
+5. **页面调用。** [`useIndexMinuteSeries`](../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts)把 `/minutes` 内的九转随当前指数、周期、日期一同缓存，再由 `adaptNineTurnSeries` 交给分钟图。[`IndexDetailPageView`](../../wealth/src/pages/index-detail/IndexDetailPageView.tsx)打开当前图时只用这份九转，原分钟图重试按该窗口重新发 `/minutes`。技术面打开后，已取到的当前窗口复用行情回包，技术面里尚未加载的其他周期才使用独立接口。周期切换时仍按现有请求取消及身份判断丢弃迟到响应。摘要保持原有周期列表和「末根没有标记显示空」规则。1 分钟沿用无九转开关，北证 50 分钟沿用空态。普通页和使用同一个页面视图的本地调试入口一同回归。
+
+### 11.4 资源、验收和切换
+
+- **读取与性能。** 复用 [设置中的算子预算](../../src/foundation/config/settings.py)和各接口的限制。日线一批一次行情计算；分钟行情及九转一次，独立常用指标仍为原请求。按当前行情 SQL 一批传入一组文件，九转只在内存中的已有行情上运行。原既定 1.5 秒 P95 目标、5 秒硬门禁和每个分钟响应 5,000,000 字节上限继续用于验收。按同一标的和日期测首轮及取消后的同参重试，记录文件数、读取 SQL 数、目标与实际预热根数、响应体和耗时。验证原分钟合同的首批及续页各 5,000 根代表窗口，超 5 MB 走原 HTTP 400；实际回包大小待开发后测量。[已有指数分钟合同与性能依据](../../wealth/docs/pages/index-detail/index-detail-minutes-api-contract-v1.md#6-m5-b-正式验收与切换边界)
+- **恢复。** 请求失败或取消沿用算子会话资源清理，重试重新计算原窗口。首屏及摘要的日期锚保持 `page-init` 回包值，日线续页和独立分钟九转拿各自游标。前后端按阶段同次切换、回退同批部署版本。实现前把批准后的回包字段及其范围同步到现有指数日线、分钟 API 合同，切换后再更新总审计 HTML 的实际数据来源。
+- **阶段 1。** 在 [九转计算测试](../../tests/foundation/technical_indicators/test_nine_turn_calculation.py)和 [指数分钟读取测试](../../tests/foundation/technical_indicators/test_index_minutes_recent.py)增补定向用例。用可手算序列验证 1–9、10–13、换向、等价归零和首根预热；以实际 DG 同一标的有界窗口对照六档单算与同行情合算。核对合成周期按合成后收盘比较。另验收 1 分钟以及 Prod 注册仍拒绝新的指数分钟九转组合。
+- **阶段 2。** 回归 [本地指数日 K HTTP](../../tests/web/test_wealth_index_detail_dg_kline.py)、[独立日线九转](../../tests/web/test_wealth_index_nine_turn_api.py)和 [指数详情页面](../../wealth/src/pages/index-detail/IndexDetailPage.test.tsx)。用上证综指、深证成指、北证 50、中证 A500 覆盖全页及短页。实际请求首屏和上一页，按日期与独立读到的旧标记对照，复核边界差异、无标记与空页。浏览器向左翻页和打开技术面时，确认本地日线独立请求为零，原日期、光标和趋势通道行为正常。
+- **阶段 3。** 回归 [分钟 HTTP](../../tests/web/test_index_detail_minutes_api.py)、[独立分钟九转](../../tests/web/test_wealth_index_minute_nine_turn_api.py)和 [分钟图控制](../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.test.tsx)。用上证综指或深证成指的有界真实窗口逐档验收六频，以 90／120 分钟核对时间键、旧游标续页和合成后的收盘价。对照旧标记时若来源收盘价或时间键不同，用本次实际 K 线独立复算该处并记录原因。浏览器确认当前图表与摘要共用一次九转结果，未加载周期的摘要从独立接口拿到算子结果，1 分钟无九转、北证 50 分钟为空，常用指标失败时行情和九转还可显示。通过隔离数据或读数追踪验证两个新路径都无需读取 DG 主要指数分钟九转成品。复验 Prod 分钟路由仍未开放。
+- **验收后盘点。** 用实际浏览器网络和接口调用确认本地指数详情依赖退出。保留旧独立日线接口的 Prod 消费和DG 生成、同步等外部依赖的审计记录。旧数据源的对照限代表性指数、周期和窗口，不做全量扫描。
