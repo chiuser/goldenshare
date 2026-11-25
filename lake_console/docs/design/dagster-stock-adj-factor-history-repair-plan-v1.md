@@ -257,3 +257,21 @@ R5通过条件：原31资产各有且仅有一条匹配本run和内容的完成�
 2026-10-18 09:14:51完成31条登记，新增31、复用0；按31个实际ID统一读回，集合、partition=None、完整内容/token均一致。本run的reports/r5-registration.json标记complete/completed=31；原R4 checkpoint仍保持其历史终态。DG页面已抽看gold_stock_daily_qfq的Observed记录，明确显示替换1,372个文件、无需修改11个文件，Show JSON可查看原run/hash、范围和证据引用。未补普通物化/check，也未触发下游。
 
 对账、31项实际ID和隔离证据见LLD §24.10及/private/tmp/dg_r5_implementation_20261018/acceptance.md、result.csv、result.json。本专项R3/R4/R5和第7步均已完成；工具清退结果见LLD §23.7。本节保留R5登记时的范围及证据。
+
+## 11. 2026-11-25：关闭复权因子下游 sensor
+
+**目标与授权。** 管理员要求“梳理一下DG上，与复权因子有关的下游，将sensor都关闭”。本步只关闭已核实的下游自动触发，不重新执行因子历史修复，也不改计算、源请求或数据文件。完整清单、执行方式和实际结果归原 LLD §27。
+
+**已核实范围。** 正式 DG `http://127.0.0.1:3000/graphql` 当前版本 1.13.26，code location 为 `orchestrator`，repository 为 `__repository__`；监听进程的 `DAGSTER_HOME` 已读回为 `/Users/congming/.goldenshare/dagster_home`。已有 187 个资产、129 个 sensor。先沿资产依赖图追溯股票和基金复权因子，再补查任务代码中的因子变化读取和 run-status 绑定，避免漏掉资产图未声明的历史修复任务。
+
+下游共 20 个 sensor：股票技术面因子 2 个、股票日线前复权 2 个、股票日线前复权九转及 Prod 发布 2 个、股票日线趋势通道 3 个、股票分钟前复权 2 个、股票分钟前复权 MACD/KDJ 2 个、股票分钟前复权九转 1 个、股票周/月复权及历史维护 6 个。数量来自 LLD §27 的逐项名单，不是按名字中含 factor 批量关闭。19 个为 RUNNING；股票周期 Silver 退市清理 sensor 原本为 STOPPED，保持关闭。
+
+**操作及边界。** 复用 Dagster 原生 `stopSensor(id: ...)`，sensor ID 来自正式实例已有记录，按名单逐个停止并读回；只改变 19 个 sensor 的持久化启停状态。4 个复权因子自身 Raw/Silver sensor 保持原状；共享交易日注册、普通日线/分钟线、指数、ETF 非复权任务、资金流和综合审计不关闭。ETF 复权因子在已加载资产图中没有额外计算下游，本步不据此关闭其本身或无关 ETF 任务。
+
+不改 Python、Definitions、默认状态、cursor、事件、动态分区、并发配置或服务；不重载代码位置，不触发、取消或补跑任何 job。本步预检最多读取 100 条活动/排队任务元数据，实际返回 4 条且均不属于目标任务。停止 sensor 不等于停止已运行或已排队的 job，也不承诺中断正在结束的 tick。
+
+**失败、中断和恢复。** 每个 STOPPED 读回就是该 sensor 的完成依据；中断后先读回，只继续仍未关闭的目标，不盲目重复调用，不自动恢复已关闭项。失败时保留已完成状态和错误，停止后续写入并报告。未来恢复须由管理员另行授权，只恢复本次原为 RUNNING 的 19 项，不能把原本已关闭的退市清理 sensor 一并开启。
+
+**性能与验收。** Lake 文件、Tushare 和 Prod DB 读取/写入均为 0；不运行 readiness、sensor evaluation 或资产检查。原生停止请求为 19 次，原 STOPPED 项不写；最后批量读回全部 129 个 sensor，要求目标 20 个全部 STOPPED，剩余 109 个启停状态不变。耗时以实际执行记录为准，不增加超时、内存或数据扫描门槛。临时编排和响应只放 `/private/tmp/dg-adj-downstream-sensors-20261125`，有效结果归入 LLD 后清理；本轮不提交或部署。
+
+**正式完成。** 北京时间 2026-11-25 19:00:01.264435–19:00:01.775843，顺序停止及批量读回合计实测 0.511 秒。19 项 RUNNING 均成功关闭，原 STOPPED 的退市清理项保持，20 项全部 STOPPED；其余 109 项启停状态无变化，4 个复权因子自身 sensor 仍 RUNNING。最终读回没有目标任务运行中或排队；未取消其他任务。完整下游、原状态和恢复口径见 LLD §27，停止后不自动恢复。本节只记录 sensor 开关操作完成，不表示相关数据集已重新更新或完整性通过。

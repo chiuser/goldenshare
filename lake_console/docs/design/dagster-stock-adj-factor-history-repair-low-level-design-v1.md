@@ -1444,3 +1444,104 @@ CodeGraph已使用status/explore/impact/callers并在修改后sync，覆盖共�
 **正式验收。** 北京时间 2026-11-25 14:52:46 至 14:53:23，`publish` 实测 36.57 秒，3,134 日全部完成，阻塞日期 0，Raw、Silver 各替换 3,133 份。2026-11-24 两层文件通过同值读回。专项补齐的六个键全部保留，两层与已核定源值一致。2015-05-20 读回 Raw 2,745 行、Silver 2,714 行。2026-02-03 读回 Raw 和 Silver 各 5,478 行。
 
 两日候选修正依据和封存摘要保存在原执行目录的 `reviewed-keys-amendment.json`，正式读回结果位于同目录的 `published.json` 与逐层发布回执。此次新增源请求、DG 事件写入和下游触发均为 0。
+
+## 27. 2026-11-25：复权因子下游 sensor 关闭执行
+
+### 27.1 目标、依据和范围
+
+管理员本轮明确授权梳理并关闭 DG 中复权因子相关下游 sensor。只操作现有 sensor 的启停开关，不修改数据或源码，不取消在途任务。原方案 §11 承接本步；§26 的因子历史发布结果保留，不因暂停下游重新执行或撤回。
+
+通过正式 GraphQL 读取 187 个已加载资产的 `assetKey/dependencyKeys/jobNames` 和 129 个 sensor 的 `name/id/targets/sensorState`。核对当前源码、run-status 绑定和 CodeGraph 的 `load_factor_changed_codes` 调用方，确认股票周期历史修复虽然没有作为普通资产声明依赖，仍会读取相邻两日 `silver_adj_factor`。正式版本 1.13.26，位置 `orchestrator`，仓库 `__repository__`，3000 端口监听进程的 `DAGSTER_HOME` 为 `/Users/congming/.goldenshare/dagster_home`。
+
+### 27.2 精确关闭名单及原状态
+
+| 业务范围 | sensor | 原状态 |
+| --- | --- | --- |
+| 股票技术面因子更新 | `raw_tushare_stk_factor_pro_update_job_sensor` | RUNNING |
+| 股票技术面因子专属交易日注册 | `stock_factor_pro_trade_day_sensor` | RUNNING |
+| 股票日线前复权更新 | `gold_stock_daily_qfq_update_job_sensor` | RUNNING |
+| 股票日线前复权历史修复 | `gold_stock_daily_qfq_factor_repair_job_sensor` | RUNNING |
+| 股票日线前复权九转 | `gold_stock_daily_qfq_nineturn_update_job_sensor` | RUNNING |
+| 股票日线前复权九转 Prod 发布 | `prod_core_stock_daily_qfq_nineturn_sync_job_sensor` | RUNNING |
+| 股票日线趋势通道更新 | `gold_stock_daily_trend_channel_update_job_sensor` | RUNNING |
+| 股票日线趋势通道历史修复 | `gold_stock_daily_trend_channel_repair_job_sensor` | RUNNING |
+| 股票日线趋势通道专属交易日注册 | `stock_daily_trend_channel_trade_day_sensor` | RUNNING |
+| 股票分钟前复权更新 | `stock_mins_qfq_daily_sensor` | RUNNING |
+| 股票分钟前复权历史修复 | `stock_mins_qfq_factor_repair_sensor` | RUNNING |
+| 股票分钟前复权 MACD/KDJ 更新 | `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` | RUNNING |
+| 股票分钟前复权 MACD/KDJ 历史修复 | `gold_stk_mins_qfq_macd_kdj_repair_job_sensor` | RUNNING |
+| 股票分钟前复权九转 | `gold_stk_mins_qfq_nineturn_update_job_sensor` | RUNNING |
+| 股票周线复权 Raw 更新 | `raw_stock_weekly_update_job_sensor` | RUNNING |
+| 股票月线复权 Raw 更新 | `raw_stock_monthly_update_job_sensor` | RUNNING |
+| 股票周线复权 Silver 更新 | `silver_stock_weekly_update_job_sensor` | RUNNING |
+| 股票月线复权 Silver 更新 | `silver_stock_monthly_update_job_sensor` | RUNNING |
+| 股票周/月复权 Raw 历史修复 | `raw_stock_period_history_repair_job_sensor` | RUNNING |
+| 股票周/月复权 Silver 退市历史清理 | `silver_stock_period_retirement_cleanup_job_sensor` | STOPPED |
+
+20 = 2 + 2 + 2 + 3 + 2 + 2 + 1 + 6。关闭运行中的 19 项；最后一项原本停止，不调用写入接口。两个专属分区注册 sensor 一并关闭；共享的股票、分钟线和 ETF 交易日注册保留，以免阻断其他数据集。
+
+股票技术面因子 `stk_factor_pro` 的 Raw 资产直接声明 `raw_tushare_adj_factor`，并沿同一个任务发布 Silver；日线和分钟前复权读 `silver_adj_factor`，其后的九转、MACD/KDJ、趋势通道及发布属于间接下游。股票周/月线当期直接取源端复权行情，Silver 消费对应 Raw；历史修复使用本机因子变化名单，退市清理消费 Silver 完成记录。因此将周期复权这组的当期、历史、发布和清理 sensor 一并列入，避免遗漏同一组输出的自动入口。
+
+### 27.3 保持原状及排除项
+
+以下 4 项是复权因子自身的取数/标准化，不在本轮“下游”关闭范围，预检均 RUNNING：
+
+- `raw_adj_factor_update_job_sensor`
+- `silver_adj_factor_update_job_sensor`
+- `raw_fund_adj_update_job_sensor`
+- `silver_etf_adj_factor_update_job_sensor`
+
+当前已加载图中 `silver_etf_adj_factor` 没有进一步的计算下游。普通股票日线、原始/未复权分钟线、指数周/月线、指数技术因子、原始股票九转、ETF 其他数据集、市场宽度、涨跌幅分布、资金流和综合审计保持。没有仅凭“技术因子”或“复权”字样扩大到所有指数或 ETF 任务。
+
+停用是 Dagster DB 中的 sensor 状态变更，不是修改代码里的 `default_status`，也不是修改 Prod Ops 的调度。已提交的业务数据保持，关闭 sensor 不取消已有 job；已在执行的 tick 可能完成收尾，不能把开关关闭表述为没有任何在途动作。
+
+### 27.4 执行方法、失败和恢复
+
+官方传感器文档说明 UI/GraphQL 可以覆盖默认启停状态：[官方 API 文档](https://dagster.io/docs/api/dagster/schedules-sensors)。Context7 本次查询失败，改以官方文档和本机已安装的 GraphQL 定义核对；`dg api sensor --help` 表明该 CLI 面向 Dagster Plus，且只有读取命令，本地 OSS 关闭复用正式 GraphQL。
+
+本机已读 `dagster_graphql/schema/sensors.py::GrapheneStopSensorMutation` 与 `implementation/fetch_sensors.py::stop_sensor`，原生接口使用已有 sensor 的复合 ID，调用 `instance.stop_sensor`。执行命令的工作目录固定为 `/Users/congming/github/goldenshare/lake_console/orchestrator`；目标正式实例是上述 `DAGSTER_HOME`，不新建或初始化实例。
+
+临时入口：`.venv/bin/python -B /private/tmp/dg-adj-downstream-sensors-20261125/pause_sensors.py`。脚本只编排现有 `curl` 对本机 GraphQL 的请求，状态写入固定为下列 mutation，不增加自身状态表或重试。目标 ID、名称、旧状态和 job 绑定从 `targets.json` 取得；启动时重新读取当前名单和状态，身份不匹配即停。先关闭计算末端/发布和修复，再关闭上游计算及专属注册，避免关闭期间父任务完成继续触发子任务。
+
+```graphql
+mutation Stop($id: String!) {
+  stopSensor(id: $id) {
+    __typename
+    ... on StopSensorMutationResult {
+      instigationState { id name status repositoryName repositoryLocationName }
+    }
+    ... on PythonError { message }
+    ... on UnauthorizedError { message }
+  }
+}
+```
+
+每项返回必须是正确位置/仓库、正确名称和 ID，且状态为 STOPPED，随后保存该次响应。出现 HTTP、GraphQL 或身份问题立即停止后续写入；保留已停状态，不为补齐结果切换到 SQL 直写、重启 daemon 或改 Definitions。中断续做先批量读回，原 STOPPED 不操作，已成功停止的不重复写，仅对尚为 RUNNING 的原目标调用一次。未来恢复需重新授权，并按原状态只对 19 项使用原生 `startSensor(sensorSelector: ...)`；不能自动开启原已停的清理项。
+
+读取 sensor 元数据及最多 100 条活动任务元数据，不读取事件历史、业务数据或行情文件。预检活动任务实际返回 4 条：3 个无关排队任务、1 个无关运行中任务；本轮目标任务的运行中/排队数量为 0。不取消它们，不改全局队列或并发。
+
+### 27.5 预算和验收标准
+
+只对 19 个运行中目标各发 1 次原生停止 mutation；原 STOPPED 项写入为 0。最后通过 1 次批量状态查询读回所有 129 个 sensor，对照目标 20 个全部 STOPPED、其余 109 个启停状态不变。正式状态预检和最终读回均只访问已有实例元数据，不执行 sensor 函数、源探测、readiness、job 或检查。不得把正在运行 sensor 的 cursor 自然推进误判为本次改写；本步不发 cursor 更新请求。
+
+Lake 文件、Tushare、Prod DB、动态分区和 Dagster event 写入均为 0；不改 service 或代码位置。19 次状态写入只涉及 sensor 开关，耗时及返回状态按实际记录验收，不预设无依据的性能保证。临时脚本、输入和响应位于 `/private/tmp`；正式结果在 §27.6 回填后删除无用临时文件。本轮不运行测试、不安装依赖、不提交或部署；验收依真实开关读回而不是隔离测试模拟。
+
+### 27.6 正式结果
+
+执行前范围、API、身份及恢复方式已审计，管理员的本轮关闭指令覆盖上述精确下游范围。北京时间 2026-11-25 19:00:01.264435 开始，19:00:01.775843 完成，包含停止前重新读取状态、19 次原生停止及最后批量读回，实测 0.511 秒。
+
+| 验收项 | 真实结果 |
+| --- | --- |
+| 目标名单 | §27.2 的 20 个名称和复合 ID 均在正式位置匹配；job 绑定与预检一致 |
+| 本次状态写入 | 19 次 `stopSensor` 均返回 `StopSensorMutationResult`，位置、仓库、sensor ID/名称和 STOPPED 状态正确 |
+| 原已停项 | `silver_stock_period_retirement_cleanup_job_sensor` 不发 mutation，保持 STOPPED |
+| 最终目标状态 | 20 个目标全部 STOPPED |
+| 其他 sensor | 对 129 个 sensor 全量启停元数据逐项比较，剩余 109 个状态变化为 0 |
+| 复权因子本身 | §27.3 的 4 个 Raw/Silver sensor 保持 RUNNING |
+| 在途目标任务 | 最后按目标 job 名称筛选活动/排队记录，匹配 0 条；查询未达到 100 条边界 |
+| 任务及数据写入 | 未触发、取消或补跑 job；未执行 sensor evaluation、readiness、资产检查、动态分区或 Dagster event 写入；未读取或写入 Lake 行情、Tushare 或 Prod DB |
+| 代码与服务 | 无 Python/Definitions/default_status/cursor/并发配置变更；没有重载、重启、提交或部署 |
+
+本轮实际本机 GraphQL 请求为 4 次只读元数据查询和 19 次停止 mutation。原始回执在临时目录完成逐项检查；全部有效名称、原状态、完成时间、恢复条件及数量已归入本节，临时编排脚本、响应及文件副本随后清理，不另建重复的过程报告。
+
+本次只确认自动入口已停止，不以 STOPPED 证明业务数据正确、历史重刷完成或晚间数据已齐备。未来如需恢复，先核对当前代码和任务安排，再由管理员明确授权开启原 RUNNING 的 19 项；已停的退市清理项继续按其独立审批边界处理。
