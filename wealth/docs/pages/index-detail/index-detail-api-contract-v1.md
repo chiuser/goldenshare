@@ -1,5 +1,7 @@
 # 指数详情页正式 API / DTO 合同 v1
 
+> 2026-11-25 后续合同已确认、尚未实施：趋势通道专项第三阶段仅为上证已接入算子库的日 K 回包新增四轨，并同步普通/debug、OpenAPI 和页面类型。详见[§5.9](#index-trend-channel-operator-api)。运行中旧独立通道合同保留至对应环境切换；本文其他历史版本与验收不因本次设计而变为已实施。
+
 > 2026-11-25。合同 `1.6.0` 为本地指数日 K 九转，实施见 [九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。日线的普通、核验回包适用 §5.7，独立日线查询适用 §5.8。
 
 > 2026-11-22。本地全部支持指数的日 K 首屏与向左翻页已验收，每批最多 500 根。见[日 K 合同 §5.7](#local-index-daily-kline-api)和[浏览器验收记录](index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)。
@@ -424,6 +426,34 @@ interface LocalIndexDetailDailyKlineResponseDto extends IndexDetailKlineResponse
 
 - 本地 `local/dev` 用 DG 交易日历选出日期，按同一普通指数日线起点、`startDate`、`endDate` 与 `cursor` 限定范围，逐日核对 DG 普通指数日线。最多读取 `limit+1` 个应有日期，用额外一根判断是否还有下一页。Prod 继续由 `core_serving.index_factor_pro` 提供选页日期。
 - DG 应有的日线缺失，返回 HTTP 500 / `NT_QUERY_FAILED`。目标行情存在时，九转零计数算命中，部分九转结果缺失返回 200 / `PARTIAL` 并保留已有标记，全部缺失沿用 `EMPTY`。早于历史起点的空页照常成功。
+
+<a id="index-trend-channel-operator-api"></a>
+### 5.9 上证趋势通道随日 K 返回（第三阶段后续合同，未实施）
+
+适用 `000001.SH + day`、每批 1–500 根的现有日 K 算子路径，包括省略周期/根数后按原默认进入该路径的请求。普通 `GET /api/v1/wealth/market/index-detail/kline` 与对应 `/debug/kline` 沿原鉴权和日期参数。页面首批和续页均显式传 500，使用原 `meta.nextEndDate`；DG、Prod 各自已有的游标和历史下界保持。Prod 大于 500 根的旧分支、本次之外的指数及周期、旧独立通道端点均保持原合同，不添加空通道字段。
+
+目标成功页每根 `bars[].factors` 在原 MA/BOLL/MACD/KDJ 外增加必有对象：
+
+```ts
+interface IndexTrendChannelFactorsDto {
+  shortUpper: number; // 最高价的25周期EMA，指数点。
+  shortLower: number; // 最低价的25周期EMA，指数点。
+  longUpper: number;  // 最高价的90周期EMA，指数点。
+  longLower: number;  // 最低价的90周期EMA，指数点。
+}
+// 目标上证日线bar的factors.trendChannel为此类型，四字段均必有且有限。
+```
+
+四轨由算子库同次请求计算，与本批行情按日期对应，预热不返回。固定前置 500 根，合法历史不足据实初始化；每轨绝对误差不超过 0.01 点，不以显示舍入替代误差验收。没有位置、方向、组合状态、说明空串或 JSON 说明字段。
+
+后端使用明确的 `IndexSseDailyKlineFactorsDto`、`IndexSseDailyKlineBarDto`、`IndexDetailSseDailyKlineResponseDto` 及 `LocalIndexDetailSseDailyKlineResponseDto`，debug 有对应两种专用响应；嵌套字段声明和前端类型必须完整保留四轨。详细定义、函数和消费者见[专项 LLD §4.3.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#432-上证日线接入计算与组装)。
+
+- 普通/debug 四轨、行情、日期、游标完全一致，只保留原诊断差异，debug 不另算一次。本地仍必有 `nineTurnMarkers`，Prod 不新增此字段；其他指数及周月线回包保持原样。
+- 合法空页 `bars=[]`，游标按原规则结束；没有 bar 时不造空通道对象。合法短历史不因不足 500 根而被拒绝。非空目标页缺轨、错位或非有限值按日 K 原计算失败合同返回，不能用 null、PARTIAL 或旧通道补齐。
+- 页面首批和续页只用本批四轨，开关不取数；失败保留原画面和游标、重试原截止日。技术面摘要用首批最后一根，历史翻页不改摘要。
+- 上述切换完成后，§1、§5.7 中“直接消费旧通道、单独加载”的说明只适用于切换前；页面不再请求 `/api/v1/quote/detail/trend-channel`。旧端点本身留至阶段四消费者审计，不在本步改造成代理或改其上限。
+
+本节是管理员已确认的目标合同，无待定字段；接口、OpenAPI、前端和测试同一步迁移，当前运行实现尚未切换。
 
 ## 6. `GET /weights`
 

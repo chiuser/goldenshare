@@ -193,6 +193,8 @@ PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
 
 本阶段包含两个依次验收的步骤，四个总阶段不重新编号。先完成管理员指定的组装架构修改，再接入上证；不将该重构提前到阶段二，也不推迟到旧业务清理阶段。
 
+**2026-11-25 设计补齐。** 本节将管理员确认的职责划分落实到两个步骤的函数、类型、调用方、前端交接及验收，不再把这些工程细节留作“开工前定稿”。阶段二股票接入验收是本阶段的执行前置条件：阶段三使用其日线类型、通道 build 和接口基线，不能把阶段二尚未实施说成阶段三还缺业务决定。本轮只更新设计，不开始业务开发、发包或部署。
+
 #### 4.3.1 公共组装与每指标独立函数
 
 当前 `build_kline_factors()` 位于日线服务，但同时被股票日线与周月线 `assemble()` 调用。它是固定 MA/BOLL/MACD/KDJ 映射，不是指标算法，也不是所有算子的自动处理器。目标是公共映射只维护一份，各业务显式选择自己的指标，不在公共函数中累积 `day/week/month` 判断。
@@ -216,17 +218,126 @@ PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
 
 本次公共映射范围是已核实的股票日/周/月调用方；不要求指数业务依赖股票私有 DTO，也不为追求统一重写未涉及的业务。该步骤不改变阶段二已经发布的字段合同、不增加算法或来源；上证的新增组装继续位于指数业务路径。
 
+各函数的输入交接固定如下：`index_stock_calculation_results(result.calculations)` 每请求调用一次，返回以 `stock_calculation_key(id, parameters)` 为键、以字段名到原数值元组的映射为值的索引。MA build 接收该索引和当前根下标，按原七个周期分别取值；BOLL/MACD/KDJ/趋势通道 build 接收本指标已验证的字段映射和下标。`build_stock_common_factors()` 接收请求索引和下标，调用四个公共 build，返回键为 `ma/boll/macd/kdj` 的对象映射。各业务 `assemble()` 先复用公共组合，再处理自己的内容；日线显式调用通道 build，价格、九转、日期和游标仍由原步骤处理。输入已经过原合同检查，每个 build 不重复校验、不另算指标。
+
+```mermaid
+flowchart TD
+    A[业务后端指定本次计算清单] --> B[算子库返回 CalculationResult]
+    B --> C[index_stock_calculation_results]
+    C --> D[build_stock_common_factors]
+    D --> E[MA / BOLL / MACD / KDJ 各自的 build]
+    C --> F[日线 assemble 调用 build_stock_trend_channel_factors]
+    E --> G[日线 assemble 合成日线响应]
+    F --> G
+    E --> H[周月线 assemble 合成原响应]
+```
+
 重构前保存独立字面金样本及当前日/周/月 JSON 基线，重构后逐项验证相同输入下的字段、数值、日期、空值、游标与错误行为一致。新增 `tests/test_stock_kline_factor_mapping.py` 验证每个指标 build 的独立字段映射，包含不同 MA 周期不可混用、公共指标只维护一处、日线有通道而周月线不计算/不输出通道；再跑阶段二后端/页面及新增周月线服务回归。不得从待测 builder 生成 expected，或为通过测试修改已有正确字段和行为。
 
 改动只有请求内结果读取和对象组装，不新增源读取、复权、SQL计算、状态持久化或重试；沿原请求预算，计入重构后的组装、错误清理、取消、重试和最后回归开销。记录前后源行/文件及计算次数一致，实测总请求费用；没有未测依据的新性能阈值。实现、接口与原方案对账后，独立审计该步骤，再进入上证接入。
 
-#### 4.3.2 上证日线接入
+#### 4.3.2 上证日线接入：计算与组装
 
-1. 在上证日线请求的既有计算清单加入趋势通道；本地和生产继续使用各自现有的日 K 装配、来源与计算调用。共享清单也被其他指数使用时，仅对 `000001.SH` 的目标请求加项，其他指数保持原清单。`apply_calculated_kline_factors()` 的实例数和字段映射必须依据实际请求清单校准，不能只加指令而保留旧固定数量。
-2. 在现有指数结果映射和 `IndexKlineFactorsDto` 日线回包中按与股票相同的四轨含义组装，随后交给原有图层；明确日线 DTO、类型、构造和消费点，避免影响其他指数、周月线和股票 DTO。开工前沿当前指数链路复审，不因股票组装整理已通过就跳过。
-3. 每批最多 500 根，按上证各环境原有游标、历史下界和失败重试续页。`useIndexDetailController` 与 `useIndexDailyHistory` 改用日 K 回包中的四轨，停止 `fetchTrendChannel()` 的独立请求；不新增分页体系。
-4. 上证四轨使用算子库结果，`QuoteTrendChannelQueryService`、`TrendChannelCalculator` 和旧通道缓存退出页面调用链；失败不回退旧链路。指数基础行情继续使用。
-5. 回归首批、续页、切日期、开关、错误重试、既有指标和图形，并以旧计算器和旧独立请求被调用即失败的用例验证迁移。按原请求预算记录源读取、组装编码、取消清理、完整重试和最后验收；不因本次接入扩大单次返回量或读取全历史。
+本步骤只给 `000001.SH + day` 已接入算子库的日 K 请求增加四轨。本地与 Prod 页面均沿现有每批 500 根和 `meta.nextEndDate` 翻页；**上证 Prod 原来已有日 K 游标，不能套用股票 Prod 不翻页的情况。** 其他指数、指数周月线、分钟线、顶底识别及波段接口不新增通道。基础指数日线行情继续使用，旧独立通道接口留至阶段四清理。
+
+**计算指令与结果分组。** 当前 `SSE_DAILY_CALCULATIONS` 的七个 MA 加 BOLL/MACD/KDJ，不仅供指数日线使用，也被 `index_period_technical_indicators.py` 的周月线调用；`apply_calculated_kline_factors()` 同样被日线和周月线查询调用。本步骤保留这份公共清单与公共映射的现有输入，不向其中直接塞入通道。
+
+在 `index_detail_kline_query_service.py` 增加 `index_daily_calculations(ts_code, *, include_price_and_nine_turn)`：先返回原清单，本地加原有 price、nineturn，最后仅对上证日线追加 `trend_channel`、空参数。App 日线装配及相应 query 的完整结果检查都使用这个函数，不复制另一份期望清单；原实例相对顺序保留。App 移除静态 `_DG_CALCULATIONS` 的使用，本地显式传 `include_price_and_nine_turn=True`，Prod 为 False。周月线继续原公共清单，不调用该日线函数。
+
+`_build_recent_daily_kline()` 先验证实际返回的实例与本次请求一致，再分出 price、nineturn 和上证趋势通道；仅将原十个公共指标交给 `apply_calculated_kline_factors()`。`_build_calculated_daily_kline()` 同样先检查完整结果，再分出通道、交公共指标给原映射。沿原日期/根数对应检查，趋势通道按算子定义检查空参数、版本 `1.0.0`、四字段、根数和有限数值；不修改共享结果协议，也不把缺轨当正常 PARTIAL。空目标无计算结果时仍返回合法空页。公共映射继续核对自己实际接收的十个实例，不能让它接收十一项却仍核对十项，也不能用“忽略未知项”吞掉错误。
+
+**环境与调用不变。** `index_detail.py:query_kline_response()` 沿原分支调用 `run_index_daily_kline()`。DG 使用现有 `end/latest_rows` 和 `calculate_with_source()`；Prod 先按原交易日窗口选择目标日期，再沿当前 `_prepare_calculation/_calculate_library` 范围计算并收集同批 OHLC，保留现有辅助行情查询。保留各自历史下界，不强制改 Prod 为按根数来源。通道在同一请求中与公共指标共享行情，历史需求取最大值，不能再请求旧通道接口、旧缓存或全历史计算器。
+
+**字段与类型。** 上证目标响应的每根 K 线必有 `factors.trendChannel`，四字段是有限数值，单位为指数点，不强制舍入：
+
+| 算子字段 | JSON 字段 | 含义 |
+| --- | --- | --- |
+| `short_upper` | `shortUpper` | 最高价的 25 周期 EMA |
+| `short_lower` | `shortLower` | 最低价的 25 周期 EMA |
+| `long_upper` | `longUpper` | 最高价的 90 周期 EMA |
+| `long_lower` | `longLower` | 最低价的 90 周期 EMA |
+
+在 `src/biz/schemas/wealth/market/index_detail.py` 增加以下类型；原公共 factor/bar/response 不加可空通道，其他指数及周月线 JSON 字段集合不变。
+
+| 类型 | 具体约定 |
+| --- | --- |
+| `IndexTrendChannelFactorsDto` | 上表四个必有数值，无状态、说明或 JSON 文本。 |
+| `IndexSseDailyKlineFactorsDto` | 复用 `IndexKlineFactorsDto` 的四组公共指标，增加必有 `trendChannel`。 |
+| `IndexSseDailyKlineBarDto` | 复用原行情字段，将 `factors` 明确标注为上述上证类型。 |
+| `IndexDetailSseDailyKlineResponseDto` | Prod 目标响应，明确 `period=day`、上述 `bars` 类型和原 `IndexDetailSseKlineMetaDto`；不添加九转字段。 |
+| `LocalIndexDetailSseDailyKlineResponseDto` | 保留原本地日线类型的必有 `nineTurnMarkers`，明确覆盖 `bars` 为上述类型。 |
+| `IndexDetailSseDailyKlineDebugResponseDto` / `LocalIndexDetailSseDailyKlineDebugResponseDto` | 在 debug schema 中分别保留相应普通响应的完整 bars、meta 和本地九转，`debugInfo` 为原诊断类型。 |
+
+原 `index_detail_field_mapper.py` 内的公共映射拆为 `build_index_ma_factors/build_index_boll_factors/build_index_macd_factors/build_index_kdj_factors`，由 `build_index_common_factors(row)` 返回四组对象的命名映射；不改变源列、正常空值和 hist 到 macd 的原映射。新增 `build_index_trend_channel_factors(fields, index)` 只做四轨映射。现有 `build_kline_bar()` 与新增 `build_index_sse_daily_kline_bar(row, trend_factors)` 共用从原函数提取的 `build_index_kline_bar_fields(row)` 和公共指标组合，分别构造原 bar 和上证 bar。行情和公共指标映射各维护一份，公共 build 不判断周期/代码，不导入股票 DTO；本次只拆直接受影响的组装，不重写其他指数业务。
+
+`_calculated_daily_response()` 的上证日线分支按目标下标调用通道 build、上证 bar build，选择本地/Prod 响应；其他指数仍用原 bar 和响应。首批、续页都经过这里，只有当前请求的一次组装。类型覆盖必须到 factor、bar、普通/本地 response 和 debug response 每一层，不能把子类对象塞进仍标注为公共基类的字段而丢失四轨。
+
+`index_detail.py`、`index_detail_debug.py` 的响应声明，`debug_response.kline_response()` 的投影类型选择及 `add_openapi_responses()` 同步迁移。debug 使用当前 `project` 回调，不另算一次；普通与 debug 的行情、四轨、游标及本地九转一致，只保留原诊断差异。Prod 大于 500 根的旧请求仍沿原分支，不在本次新增算子支持，也不补空通道冒充目标响应；页面始终显式请求 500 根。旧独立通道端点的 2,000 根上限留至阶段四引用审计，本次不改其合同。
+
+#### 4.3.3 上证前端首批、续页及图层交接
+
+`indexDetailApiTypes.ts` 增加与上述上证日线 factor/bar 对应的类型，普通与 debug 消费者同步使用；保留其他指数及周月线原类型。`fetchIndexDetailKline()` 沿原 URL、参数和调度，目标日线类型明确包含四轨，不通过字段碰巧存在与否选择新旧来源。
+
+在 `indexDetailViewModelAdapter.ts` 新增 `buildIndexDailyTrendChannelPoints(response)`：对目标上证日线逐根读取 `tradeDate/close/factors.trendChannel`，映射为已有 `TrendChannelPoint`。每根都有四轨，日期和该根行情对应；缺轨、非有限值等按本批合同错误失败，不沿旧 adapter 丢点后显示一部分，也不前端计算 EMA。其他指数返回空通道点数组，不增加请求。
+
+| 位置 | 修改及交接 |
+| --- | --- |
+| `useIndexDetailController` | 首批日 K 及四轨全部转换成功后，同一次状态提交保存 `dailyTrendPoints`、viewModel、九转和 historySeed。删除独立通道 AbortController、`requestTrend/commitTrendSuccess/commitTrendFailure/retryTrend`，不再因该独立请求制造页面 PARTIAL。 |
+| `IndexDailyHistorySeed` / `HistoryPage` | seed 保存首批通道点；每页必有 `trendPoints` 数组，上证来自本批四轨，其他指数为 `[]`。删除旧 `trend` 异步加载状态。 |
+| `useIndexDailyHistory.loadPage()` | 先完成原游标核对、K 线、九转和通道点转换，成功后一起更新页数组与 `nextEndDate`。失败保留原图和游标，使用原截止日重试；不得先推进游标再发现缺轨。 |
+| 历史缓存与展示 | 保留现有预取阈值、缓存页和显示页规则。用户拖回近期时，回包暂存；再次拖入历史范围时，该页 K 线与通道点一并展示。切证券/日期、离开日线沿原取消和所有者检查丢弃迟到回包，不重置缩放、位置或用户叠加选择。 |
+| `IndexChartWorkspace` | 改接 `initialTrendPoints`，与历史可见页点合并后交原 `buildTrendChannelLines/TrendChannelPanePrimitive`。删除独立 `trendPhase` 依赖；开关只切绘制，保持原默认叠加及逐日收盘相对下轨的着色。 |
+| `IndexDetailPageView`、`IndexInfoRail`、`IndexTechnicalTab` | 传递首批 `dailyTrendPoints`；技术面四轨摘要只取首批最后一根日 K，历史翻页不改变摘要。删除 `onTrendRetry` 及通道专用加载/失败展示，沿日 K 原页面状态；切周月或分钟仍保留原右栏日线语义。 |
+| 既有九转 | DG 首批/续页继续内联九转，Prod 继续原独立九转。历史异步图层的加载、失败与重试只保留仍需它的九转，不因删除通道分支删掉九转逻辑。 |
+
+页面链不再引用 `fetchTrendChannel()`、旧通道 adapter、`QuoteTrendChannelQueryService`、`TrendChannelCalculator` 或旧缓存。阶段三移除已迁移页面中的调用、状态和专用重试；阶段四才按全部引用删除无消费者的模块、路由、schema 和专用测试，不恢复兼容分支。page-init 的支持范围仍只有上证日线；其他业务来源和能力不扩大。
+
+```mermaid
+sequenceDiagram
+    participant P as 首批controller或历史loadPage
+    participant A as 原index-detail/kline接口
+    participant W as run_index_daily_kline
+    participant Q as IndexDetailKlineQueryService
+    participant L as 算子库与本环境行情来源
+    P->>A: 上证day、endDate、limit=500
+    A->>W: query_kline_response
+    W->>Q: build_kline或query_kline加debug投影
+    alt 本地DG
+        Q->>L: calculate_recent回调到calculate_with_source
+    else Prod
+        Q->>Q: 原交易日窗口选择
+        Q->>L: calculate回调到原范围计算
+    end
+    L-->>Q: 本批行情、公共指标与趋势通道
+    Q->>Q: 公共映射、通道build、对应日线类型
+    Q-->>W: 同批bars、四轨、原游标及本地九转
+    W-->>P: 原编码与HTTP返回
+    P->>P: 全部转换成功后保存该批及游标
+    Note over P,L: 首批与续页各计算自己的目标批次；开关及缓存内拖动不增加请求
+```
+
+#### 4.3.4 预算、恢复和测试验收
+
+纯股票组装整理沿 §4.3.1，不新增计算或源读取。上证 DG 原有 `7 MA + BOLL + MACD + KDJ + price + nineturn = 12` 项，加通道为 13；Prod 原有 `7 MA + BOLL + MACD + KDJ = 10` 项，加通道为 11。其他指数和周月线项数不变，不提高现有实例上限 16。数字依据是当前 App 清单和 `src/foundation/config/settings.py`。
+
+通道申报 500 根，整次仍按 `R+W` 交付行情，`W=max(本次各算子实际历史需求)`；只有其他指标历史需求均不超过 500 时，R=500 才是 1,000 根计算输入。不是物理文件量，不按各指标叠加。请求中断后按同一截止日完整重试，不持久化跨请求 EMA。正常首批、续页，再以首批相同截止日取消并完整重试，这组验收按 `2×(R首批+W首批)+(R续页+W续页)+C取消已交付` 分别记账；独立参考与回归测试另外计量，不能说整个验收只有这些读量。
+
+沿实际生效配置；当前 Settings 默认 SQL 内存 128 MiB、请求内存 256 MiB、总目标 8,000 ms，其中清理保留 2,000 ms。这是已有预算，不是新接入的实测保证，不调整环境值。开发后记录定位、源行/文件、SQL 处理、组装编码、总请求、取消到资源归还、完整重试和最后验收成本。连接、算子清理及 HTTP 失败继续沿原 `_execute` 和释放流程，清理失败不能报告成功，不新增自动重试或全历史回退。
+
+| 硬口径 | 代码及合同落点 | 必要验收 |
+| --- | --- | --- |
+| 公共映射单处维护、每指标独立 build | 股票 mapper 及日/周/月 assemble；指数 mapper 的公共与通道 build | 新增 `tests/test_stock_kline_factor_mapping.py` 和 `tests/test_index_trend_channel_mapping.py`。字面金样本验证字段、MA 参数及 hist 映射，expected 不调用待测 build；同输入下改前/改后日周月 JSON、日期、空值和错误行为一致。 |
+| 只给上证日线追加通道 | 日线清单、App、query 完整结果检查；原公共清单/周月线保持 | `tests/app/technical_indicators/test_index_daily_kline_integration.py`、`tests/integration/test_index_period_derived_from_daily.py`、`tests/web/test_wealth_index_detail_weekly_monthly_api.py`；其他指数和周月线不请求/不输出通道，原实例顺序保留；重复、缺项、错参数和错版本反例失败。 |
+| 普通/debug 都完整返回四轨 | schema、mapper、debug 投影、路由及 OpenAPI | 上述 App 测试及 `tests/web/test_wealth_index_detail_api.py`、`tests/web/test_wealth_index_detail_dg_kline.py`、`tests/test_index_detail_field_mapper.py`；真实序列化、HTTP JSON、OpenAPI 均声明四个必有数字；普通/debug 日期、数值、游标及本地九转一致，其他响应不增加 null 字段；空页成功。 |
+| 首批/续页和摘要只用当批结果 | adapter、controller、history、PageView、chart、sidebar | `indexDetailViewModelAdapter.test.ts`、`useIndexDetailController.test.tsx`、`indexDailyHistoryRequests.test.tsx`、`IndexChartWorkspace.test.tsx`、`IndexDetailPage.test.tsx`、`IndexTechnicalTab.test.tsx`；覆盖先翻页后开通道、反复开关、缓存回包暂存、切日期/指数/周期、迟到回包丢弃、摘要不被历史页改写。 |
+| 失败不推进游标、不回退旧链 | 日 K 失败及取消，通道旧调用退出 | 缺轨或错误页后保持原图、原游标并重试原截止日；旧请求、计算器和缓存被调用即失败。九转合法空标记、MA/BOLL 正常历史不足的 null 不误拦；Prod 九转原重试保留。 |
+| 500 根预热、每轨误差 ≤0.01 | 共享算子及 §3、§7、§9 的独立参考 | 固定上证样本复用来源和 SHA，参考从样本首根计算，被测从目标前 500 根初始化，逐轨最大误差比较；同起点分批一致性另验，不把固定样本起点冒充全部历史。 |
+
+后端分别装配 DG 与 Prod 隔离应用，不能以 DG 成功代替 Prod 合同。真实只读验证限定 `000001.SH` 的首批和下一批，各最多 500 根，优先复用固定样本截止 2026-08-07；实际覆盖按当次来源核验，不覆盖时记录原因后选已覆盖窗口，不回填数据或跨环境取数。记录代码版本、参数、返回日期、数值与费用，不全市场或全历史读取。沿 §3.4 源码启动，受保护 D3 与无关正式 PG 测试不整组运行。
+
+前端执行 typecheck、上述相关测试及 build，产物和日志放工程外临时目录。浏览器核对首批/续页网络、四轨与图形颜色、开关和失败重试；没有旧通道请求，仍需的其他业务请求保持。旧性能记录只作基线，接入后费用必须实际记录。
+
+本轮设计核对使用 CodeGraph `codegraph_explore`，并核验 App、日线/周月线 query、schema、API、OpenAPI、controller/history/chart/sidebar、相关测试及配置。共享常量和跨语言消费者以实际 import、构造和调用补齐，不能把 CodeGraph 返回“无调用方”当作可删除依据。设计无新增待拍板业务项；阶段二验收及该步现状复核是执行前置，股票组装审计通过后才进入上证步骤。部署、正式写入另按原阶段授权。
 
 ### 4.4 新旧接口和数据集的具体处理
 

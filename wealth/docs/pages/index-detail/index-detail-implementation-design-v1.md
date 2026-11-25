@@ -1,5 +1,7 @@
 # 指数详情页技术实施方案 v1
 
+> 2026-11-25 趋势通道后续设计已补齐、尚未实施：按管理员确认，在趋势通道专项第三阶段先整理股票逐指标公共组装，再接入上证。上证四轨改随现有日 K 返回，普通/debug 消费者同步，页面停止旧 Quote 通道请求；DG/Prod 各保留原游标、来源和九转方式。本文旧通道调用、独立加载及局部重试记录仅描述切换前实现。具体实施见[本文后续设计](#index-trend-channel-operator-design)和[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。
+
 > 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
 
 > 状态：指数详情开发与生产验收已完成。M1～M5-B、P10、共享图表、九转 S7/M5/M6-A～M6-D 和日线最终数据/性能门禁均已闭环；bars 与 indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。
@@ -773,3 +775,16 @@ Prod 曾验收独立的指数 5 分钟算子，从 PostgreSQL 查行情后计算
 ### 16.4 第三阶段回包规则
 
 阶段 3 从本地 `/minute-indicators` 每条指标记录中移除 `observationCount`。前端继续用 `tradeTime` 对齐行情和指标，使用原有 `paramsKey`、`indicatorVersion`。算子库按截止时间和返回根数取行情，预热由指标决定。DG 指数分钟技术指标成品中的 `observation_count` 继续供 DG 原有数据检查使用，XXM 研究沿用现有成品来源。 [实施与验收](index-detail-low-level-design-v1.md#index-minute-kernel-stage-3) · [DG 成品检查](../../../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py#L735)
+
+<a id="index-trend-channel-operator-design"></a>
+## 17. 趋势通道算子接入的第三阶段设计（2026-11-25，未实施）
+
+目标是让上证页面使用算子库完整计算的四轨，同时保留公共指标复用和原画法。本节是后续批准设计，覆盖前文旧通道请求及局部重试的目标行为，不改写历史实现与验收结论；阶段一算子已完成，阶段二股票接入验收后才进入第三阶段。
+
+1. 业务后端指定算子清单，算子库返回通用 `CalculationResult`。每个指标有独立、明确的 build，公共组合复用，业务显式组合专属结果，不用笼统 special 函数、不复制公共映射、不把周期判断堆进公共函数。先整理股票日/周/月映射并审计；指数采用自己的类型与组装，不导入股票 DTO。
+2. 上证日线保留 `index-detail/kline` 及 debug 入口，在日线清单中追加通道。周月线使用的公共清单及映射不加通道，其他指数和周期不新增字段。四轨随 `bars[].factors.trendChannel` 返回，字段为 `shortUpper/shortLower/longUpper/longLower` 四个必有数值；后端明确 factor/bar/response 类型，普通、debug、OpenAPI 和前端一起迁移。
+3. DG 沿现有 `end/latest_rows` 读取及本批九转，Prod 沿原目标日期范围计算及原独立九转；上证两端均保留原 `nextEndDate`、每批 500 根和历史下界。固定预热 500 根、每轨绝对误差不超过 0.01 点，其他指标需求仍取最大值，不逐指标查源。
+4. 首批 controller 和历史 `loadPage()` 都从各自日 K 响应转换通道点，完整转换后才保存批次和游标。历史页失败保持原图和游标，原截止日重试。图层、技术面直接使用已保存四轨，开关只控制绘制；摘要固定为首批最后一根日 K，历史页不改摘要。
+5. 移除页面的旧通道请求、独立加载、专用重试及由它制造的 PARTIAL。九转、权重、分钟、识别等原行为保持；通道绘制、逐日颜色、预取、缓存和图表位置保持。页面退出旧调用与第四阶段删除无消费者旧模块分开，不清理基础指数行情。
+
+具体函数、类型、完整消费者、失败/取消、性能预算与逐项验收以[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)为实施依据；[原页面 LLD 后续设计](index-detail-low-level-design-v1.md#index-trend-channel-operator-lld)记录页面交接，[API 后续合同](index-detail-api-contract-v1.md#index-trend-channel-operator-api)记录字段范围。没有新增待管理员拍板项。本次仅补设计，未改变运行中 API 或页面，也不自动执行部署。

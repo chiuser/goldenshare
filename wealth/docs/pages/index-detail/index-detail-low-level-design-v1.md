@@ -1,5 +1,7 @@
 # 指数详情页低层设计（LLD）v1
 
+> 2026-11-25 趋势通道专项第三阶段设计已补齐、未实施：四轨随上证日 K 返回，旧独立通道加载与专用重试退出页面。逐指标公共组装、明确类型、普通/debug/OpenAPI、首批/续页/摘要交接、预算及验收见[本文 §30](#index-trend-channel-operator-lld)及[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。下文旧 `page-init -> kline -> trend` 等内容保留切换前语义，不作为新接入要求。
+
 > 2026-11-22 本地需求已验收并收尾。[全部支持指数的日线计算和向左翻页见 §28](#local-index-daily-library-expansion-lld)。§27 保留上证日线先行接入和当时的验收事实。
 
 > 2026-11-05 后续设计：[上证日线接入与普通日线500根请求见 §27](#sse-daily-kline-integration)。前文的旧请求量及验收记录保留为当时事实，普通日线后续实现以 §27 为准。
@@ -2284,3 +2286,37 @@ LIMIT ?
 1 分钟行情 SQL 返回 501 根，第 501 根只用于判断还有历史。120 分钟指标续页在同日剩余根数不足时用了两批文件，各执行一次 SQL。旧读取对照完成时进程峰值为 452 MiB，整个验收结束时累计峰值为 714 MiB。峰值包含两版读取、七频和大回包测试，不能当作单请求内存增量。
 
 后端定向回归 251 项通过，前端指数分钟相关测试 60 项通过，TypeScript 类型检查通过。
+
+<a id="index-trend-channel-operator-lld"></a>
+## 30. 趋势通道第三阶段接入（2026-11-25 设计，未实施）
+
+### 30.1 范围、前置与职责
+
+先完成阶段二股票日线接入验收；第三阶段先按管理员指定整理逐指标公共组装，并独立审计，再接上证。计算选择属于业务后端，算子库返回通用结果，build 只读结果并映射字段，各业务自己的组装步骤选择公共与专属指标。既有无关指标、周期、来源和页面行为保持，禁止在公共组装中累积周期分支、复制公共映射或造兼容链。
+
+上证步骤限 `000001.SH + day` 当前算子路径；其他指数和周月线仍用原公共清单与映射。DG 使用 `calculate_with_source()`，Prod 沿原窗口选择和范围计算；两端都有原日 K 游标，保留每批 500 根、历史下界及各自九转。入口 `query_kline_response()`、App `run_index_daily_kline()`、日线 query 的 recent/range 两分支及 `_calculated_daily_response()` 是首批和续页共用路径。
+
+### 30.2 后端与字段
+
+完整函数、类型及逐字段表以[专项 LLD §4.3.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#432-上证日线接入计算与组装)为唯一详细定义：日线 `index_daily_calculations()` 追加通道，query 检查完整结果后将公共指标与通道分开；公共映射继续只接收原指标。指数每指标 build 和公共组合留在自身 mapper，独立通道 build 将四轨映射为 `factors.trendChannel`，不依赖股票 DTO、不自行计算 EMA。
+
+`IndexTrendChannelFactorsDto` 必有 `shortUpper/shortLower/longUpper/longLower`，上证专属 factor、bar、Prod/本地 response 及 debug response 显式使用完整类型；不能只加字段而丢在父类型序列化中。普通/debug 的四轨、日期、游标及本地九转一致，debug 沿原 project 回调，不重复计算。`debug_response.kline_response()` 先识别上证本地及 Prod 类型，再按其他旧类型投影；路由声明及 `add_openapi_responses()` 同步。空页仍合法，其他指数和周月线不补 null 通道，旧 Prod 大于 500 根分支和独立端点不在本步改造范围。
+
+### 30.3 前端逐步交接
+
+| 位置 | 本步修改与验收 |
+| --- | --- |
+| `indexDetailApiTypes.ts`、`indexDetailApiClient.ts` | 明确目标上证日线类型；保留原 URL、参数、调度和其他类型，不按回包猜新旧来源。 |
+| `indexDetailViewModelAdapter.ts:buildIndexDailyTrendChannelPoints()` | 用同根日期、收盘和四轨生成现有 `TrendChannelPoint`；目标响应缺轨则整批失败，不丢点拼部分结果，不算 EMA。 |
+| `useIndexDetailController` | 首批保存 `dailyTrendPoints` 与 history seed；删除独立通道请求、AbortController、提交状态和 `retryTrend`，沿日 K 的成功/空态/失败。 |
+| `useIndexDailyHistory` | `HistoryPage.trendPoints` 与本页 K 线一起缓存/显示；所有转换成功后一起更新游标，失败重试原截止日。通道不再是异步图层；保留仍需独立九转的层状态及重试。 |
+| `IndexChartWorkspace` | 首批 `initialTrendPoints` 加历史可见点交原几何及 primitive，开关不取数。保持默认叠加、逐日颜色、预取阈值、缓存页展示、缩放和位置。 |
+| `IndexDetailPageView`、`IndexInfoRail`、`IndexTechnicalTab` | 传首批点，摘要只取首批最后一根。移除专用通道加载、失败重试和相应 props；历史翻页不改右栏，切周期仍保留日线摘要语义。 |
+
+切证券/日期、离开日线按原取消与所有者检查处理迟到回包；回包期间拖回近期先缓存，重新拖入历史范围时 K 线与四轨同时显示。失败不清掉已加载图表、不推进游标、不回退 Quote 通道。阶段三停止页面旧调用和状态，第四阶段才按引用删除无消费者路由、模块和专用测试。
+
+### 30.4 预算、测试及开工条件
+
+沿[专项 LLD §4.3.4](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#434-预算恢复和测试验收)的计算项数、实际历史需求、现有配置预算和测试矩阵执行，不套用旧全历史通道耗时，不抬高限制。测试覆盖普通/debug 序列化与 OpenAPI、上证首批/续页、非目标指数/周期保持、DG 内联九转和 Prod 原九转、缓存展示、取消、失败重试及旧通道零调用。真实核验限单指数有界窗口，记录正常、清理、完整重试和最终验收费用；隔离合同通过不替代真实接口与浏览器验收。
+
+本节设计已补齐，无新增业务拍板项。当前阶段二未验收只构成执行顺序前置，不能当作第三阶段还缺方案。开发前按现状核对阶段二产物，先完成股票组装回归和审计，再进入上证；本次不编码、不发包、不部署、不写正式数据。
