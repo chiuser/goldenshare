@@ -36,7 +36,7 @@
 
 进度含代码、名称（可取得时）、频率、窗口及当前 unit/累计行数。逐 unit 提交保护已提交事实，但不能据此宣称已有退出后的精准续跑。整段多年窗口仍可能产生大 unit；大范围执行必须按[执行计划与长任务基线](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)另行评估内存、分页、事务和恢复，不因文档精简放宽门禁。
 
-## 4. 现行 Prod 九列物理表与视图
+## 4. 现行 Prod 物理表与视图
 
 [Raw 模型](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_stk_mins.py)对应唯一物理表 `raw_tushare.stk_mins`：
 
@@ -47,20 +47,21 @@
 | `trade_time` | TIMESTAMP WITHOUT TIME ZONE，必填 |
 | `open/close/high/low` | REAL，可空；入库前保留两位小数 |
 | `vol` | BIGINT，可空；股数，非整数拒绝，避免大 bar 超过 INTEGER 上限 |
-| `amount` | REAL，可空；元 |
+| `amount` | REAL，可空，单位元；保留历史记录已存的金额，新版 upsert 写入 NULL。 |
+| `amount_precise` | NUMERIC，可空、无默认值，单位元；新版 upsert 保存 Tushare 精确成交额。 |
 
 主键 `(ts_code,freq,trade_time)`；按 trade_time RANGE 月分区，保留 default 分区。瘦身结构不附加普通 BTree 索引，不保存 `trade_date/session_tag/api_name/fetched_at/raw_payload`。不要重放历史空表 drop/recreate。
 
-`core_serving.equity_minute_bar` 是现有普通只读 View，投影九列并派生 `trade_date` 和常量来源 `tushare`，不是第二份表或物化视图。Definition 的写入目标仍是 Raw。查询按 `trade_time >= D AND trade_time < D+1` 过滤，不在 WHERE 对时间列做日期转换以致影响分区裁剪。
+`core_serving.equity_minute_bar` 是只读普通视图，保留 11 个字段。视图的 `amount` 使用 `COALESCE(amount_precise, amount::double precision::numeric)`，类型为 `NUMERIC`。视图从时间派生 `trade_date`，来源为常量 `tushare`。Definition 的写入目标仍是原表。按 `trade_time >= D AND trade_time < D+1` 查询可用月分区裁剪。
 
-[成交额快照消费者](/Users/congming/github/goldenshare/src/biz/services/wealth/market/turnover/turnover_snapshot_materialize_service.py)仍直接读取 RawStkMins；“推荐通过 View 查询”不代表全部消费者已迁到 View，不能据此删除 Raw 模型或改变九列合同。
+[成交额快照](/Users/congming/github/goldenshare/src/biz/services/wealth/market/turnover/turnover_snapshot_materialize_service.py)直接读原表，并用同一金额表达式计算总额和各时点金额。DG 从原表读取时也用同一规则选值，并以 `DOUBLE` 输出 `amount`。
 
 ## 5. 质量与验收
 
 - 必填身份为 `ts_code/freq/trade_time`；时间无法解析、频率非法、价格/数量转换失败或时间不在 09:30–11:30、13:00–15:00 时拒绝该行。
 - 当前策略是 `record_rejections`，不是 ETF 分钟的“任一 rejection 使 unit 失败”。验收必须解释 rejection 的 reason 和样本。
 - 同一过滤范围核验主键、频率、时段及 Raw/View 一致；不能用表非空、单日有行或最大时间替代分钟完整性。
-- 经独立授权的真实冒烟先限单代码、单日、单频率，核对源行数、归一化、写入、拒绝和任务进度；本轮未执行。
+- 阶段 2 已按一条历史主键核对 Prod 原表、视图和 DG。首批精确成交额按单股、单日、单频率验收，并查阅既有任务状态。 [实施 LLD](stk-mins-amount-precision-low-level-design-v1.md)
 
 当前回归入口：[resolver](/Users/congming/github/goldenshare/tests/test_dataset_action_resolver.py)的 stk_mins 用例、[source client](/Users/congming/github/goldenshare/tests/test_dataset_source_client.py)、[row transforms](/Users/congming/github/goldenshare/src/foundation/ingestion/row_transforms.py)及对应归一化测试。不要再使用旧说明中不存在的测试路径或“两时段 unit”预期。
 
@@ -72,7 +73,7 @@
 
 ## 7. 成交额精度改造的实施合同
 
-阶段 1 开发和隔离验收已完成。第 4 节记录生产切换前的 Prod 结构，切换以[方案](stk-mins-amount-precision-plan-v1.md)及[实施 LLD](stk-mins-amount-precision-low-level-design-v1.md)为准。
+2026-11-25 完成 Prod 和 DG 切换并恢复股票分钟自动任务。第 4 节记录切换后的结构，具体证据见[方案](stk-mins-amount-precision-plan-v1.md)及[实施 LLD](stk-mins-amount-precision-low-level-design-v1.md)。
 
 | 开发模板检查项 | 本次核定 |
 | --- | --- |
@@ -80,4 +81,4 @@
 | Definition 与合同消费者 | 身份、存储目标、执行计划、动作和目录契约继续引用现有 Definition。手动、计划和重试复用股票分钟专用 worker。取数、写入、查询视图、快照命令、DG 以及间接 API 消费清单见 LLD §3。 |
 | 源字段到存储 | HTTP 响应 `amount` 保留十进制。原表增加可空且无默认值的 `amount_precise NUMERIC`。新版写两列时将旧列设为 `NULL`，现存旧行留在 `amount REAL`。视图、聚合和 DG 输出继续使用 `amount`，金额选择依 LLD §2–§3。股票代码、时间、频率、四价和成交量继续用 §4 的字段合同。 |
 | 批量、事务与状态 | 每页上限 8,000 行，现有并发 2，每 unit 内累积页面。提交依旧以 unit 为边界，幂等键为 `(ts_code,freq,trade_time)`。保留进度里的股票、频率、窗口、完成 unit、累计行数和 TaskRun 终态。取消仍用现有检查点。进程重启后用已有 Ops 重试入口重放范围，已提交的主键用于幂等重放。DAO 批次上限受绑定列数量及有效配置共同约束，详见 LLD §4。 |
-| 开发和部署验证 | 阶段 1 在隔离 PostgreSQL、DuckDB 和固定源样本验证了新旧值、冲突更新、快照及跨库导出，证据见 LLD §8。生产抽样与日常同步按 LLD §6 区分，禁止全量审计、扫描及回刷。 |
+| 开发和部署验证 | 阶段 1 隔离验证和阶段 2 生产切换证据见 LLD §8、§9。首批正式数据按 LLD §6.3 验收，禁止全量审计、扫描及回刷。 |
