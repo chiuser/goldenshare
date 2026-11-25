@@ -149,6 +149,8 @@ docs/
 - [Ops 实时流配置中心：配置、发布与生效（已合并 M1–M8 有效清单与原型要求；历史验收单列）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.md)
 - [ETF 异动监控重入方案（已合并撤销 LLD；保留现行监控/归档，不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
+- [每日收盘后维护临时移除股票技术面因子方案 v1（待审阅；只移除工作流步骤，未开发、未部署）](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)
+- [每日收盘后维护临时移除股票技术面因子 LLD v1（待审阅；目标 27 步、测试、停止与恢复边界）](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-low-level-design-v1.md)
 - [审查中心使用与查询说明（指数激活池、板块口径与审计导航）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [审查中心功能审计（2026-10-26：页面、API、数据检查范围、自动补齐边界与测试证据）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-capability-audit-20261026.md)
 - [Tushare 数据集审计与公共事实模型（HTML，2026-10-30：91 个数据集的方法参数、公共日期和每日股票交易事实、生成复用与审计组合）](/Users/congming/github/goldenshare/docs/ops/prod-dataset-audit-classification-20261030.html)

@@ -1,6 +1,6 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-11-11（移除管理员确认未使用的指数扩展数据维护；非新增生产运行验收）
+> 更新时间：2026-11-25（核对每日盘后工作流当前 28 步，登记临时移除股票技术面因子的待实施方案；非生产运行验收）
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
@@ -92,6 +92,8 @@
 
 ## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
+2026-11-25：管理员明确要求临时从本工作流移除股票技术面因子 `stk_factor_pro`。本轮只编写[方案](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)与 [LLD](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-low-level-design-v1.md)，代码尚未修改，以下仍是当前 28 步。实施后才变为 27 步；股票复权因子 `adj_factor` 继续保留，股票技术面因子的独立维护入口不删除。
+
 - 描述：覆盖日线、集合竞价、历史基础列表、日指标、资金流、热榜、基金日线与新闻资讯的每日维护工作流。
 - 支持自动调度：是
 - 支持手动执行：是
@@ -129,11 +131,10 @@
 | 24 | `limit_step` | 连板梯队 | `limit_step.maintain` |
 | 25 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
 | 26 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
-| 27 | `anns_d` | 上市公司公告 | `anns_d.maintain` |
-| 28 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
-| 29 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
+| 27 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
+| 28 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
 
-当前为 29 步；`margin` 不在该工作流中，不代表其数据集或独立维护能力退场。
+当前为 28 步。原目录曾登记 29 步，本次据当前定义和 `test_announcements_use_standalone_maintenance_instead_of_workflows` 核实，上市公司公告 `anns_d` 已独立维护，故校准表格；这不是本次新增代码改动。`margin` 不在该工作流中，不代表其数据集或独立维护能力退场。
 
 ## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 
