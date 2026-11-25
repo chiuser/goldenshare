@@ -101,7 +101,7 @@ def source_client(tmp_path, monkeypatch):
     monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", calculate)
 
     @contextmanager
-    def client_for(env="local", *, source_root=root):
+    def client_for(env="local", *, source_root=root, raise_server_exceptions=True):
         @asynccontextmanager
         async def lifespan(app):
             settings = Settings(_env_file=None, APP_ENV=env, GOLDENSHARE_LAKE_ROOT=str(source_root))
@@ -118,7 +118,7 @@ def source_client(tmp_path, monkeypatch):
         app.dependency_overrides[require_quote_access] = lambda: None
         app.dependency_overrides[get_db_session] = reject_pg
         wiring.install_stock_daily_technical_indicators(app)
-        with TestClient(app) as client:
+        with TestClient(app, raise_server_exceptions=raise_server_exceptions) as client:
             yield client
 
     return SimpleNamespace(client_for=client_for, calculations=calculations, root=root)
@@ -190,6 +190,10 @@ def check_values(payload, days):
         assert (bar["open"], bar["high"], bar["low"], bar["close"], bar["vol"], bar["amount"]) == (10, 10, 10, 10, 100, 1000)
         assert bar["factors"]["macd"] == {"dif": 0, "dea": 0, "macd": 0}
         assert bar["factors"]["kdj"] == {"k": 50, "d": 50, "j": 50}
+        # The fixture producer writes constant 20, rebased by 1/2 at the page anchor.
+        assert bar["factors"]["trendChannel"] == pytest.approx({
+            "shortUpper": 10, "shortLower": 10, "longUpper": 10, "longLower": 10,
+        }, abs=0.01, rel=0)
 
 
 def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_client):
@@ -288,7 +292,8 @@ def test_local_first_page_and_continuation_get_markers_from_the_same_calculation
         (first, source_client.calculations[0], range(8, 13), range(5, 10)),
         (older, source_client.calculations[1], range(4, 8), range(1, 5)),
     ):
-        assert len(calculation.calculations) == 12 and calculation.calculations[-1].calculation_id == "nineturn"
+        assert len(calculation.calculations) == 13 and calculation.calculations[-2].calculation_id == "nineturn"
+        assert calculation.calculations[-1].calculation_id == "trend_channel"
         assert calculation.statistics.price_conversion_batches == 1
         assert payload["nineTurnMarkers"] == [
             {"tradeDate": DAYS[index].isoformat(), "tradeTime": None, "direction": "UP",
@@ -434,3 +439,42 @@ def test_invalid_latest_basis_is_rejected_outside_page_window(source_client, fac
         with pytest.raises(SourceContractError, match="adjustment factor basis"):
             request(client, limit=1)
     assert not source_client.calculations
+
+
+@pytest.mark.parametrize("failure", ["missing rail", "nonfinite rail"])
+def test_trend_contract_failure_releases_request_and_retries_without_old_source(source_client, monkeypatch, failure):
+    from dataclasses import replace
+    from src.foundation.clients.local_lake.stock_daily_trend_channel_reader import StockDailyTrendChannelLakeReader
+
+    def reject_old(*args, **kwargs):
+        pytest.fail("daily trend integration must never read old calculated channel files")
+
+    monkeypatch.setattr(StockDailyTrendChannelLakeReader, "read", reject_old)
+    calculate = TechnicalIndicatorService.calculate_with_source
+    broken = True
+
+    def result_with_invalid_rail(service, request, **kwargs):
+        calculated = calculate(service, request, **kwargs)
+        if not broken or calculated.result is None:
+            return calculated
+        result = calculated.result
+        channel = next(item for item in result.calculations if item.calculation_id == "trend_channel")
+        fields = channel.fields[:-1] if failure == "missing rail" else (
+            ("short_upper", (float("nan"),) * len(result.times)), *channel.fields[1:],
+        )
+        invalid = replace(channel, fields=fields)
+        return replace(calculated, result=replace(result, calculations=tuple(
+            invalid if item is channel else item for item in result.calculations
+        )))
+
+    monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", result_with_invalid_rail)
+    with source_client.client_for(raise_server_exceptions=False) as client:
+        args = {"tsCode": CODE, "tradeDate": str(OTHER_DAY), "endDate": str(OTHER_DAY), "limit": 2}
+        failed = client.get(PATH, params=args)
+        assert failed.status_code == 500, failed.text
+        assert not client.app.state.technical_indicator_runtime.admission.active_leases
+        broken = False
+        success = client.get(PATH, params=args)
+        assert success.status_code == 200, success.text
+        check_values(success.json(), DAYS[-2:])
+        assert not client.app.state.technical_indicator_runtime.admission.active_leases

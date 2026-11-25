@@ -1,6 +1,6 @@
 # 股票详情首屏与本地 DG 取数迁移 LLD v1
 
-**2026-11-25 后续趋势通道专项（尚未实施页面切换）。** 股票日线将由同一次算子库调用取得行情、原指标和四轨，并在 `/kline` 的每根日 K 中返回必有 `factors.trendChannel`。字段、日线/周月线类型隔离、原函数消费者和测试以[专项 LLD §4.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#42-阶段二股票日线)为准；本文件下方旧接口、独立图层与性能记录保留历史及当前未切换路径的语义，不表示新通道已接入。
+**2026-11-25 后续趋势通道专项（阶段二实现及技术验收完成，未部署）。** 阶段二实现由同一次算子库调用取得行情、原指标和四轨，并在 `/kline` 的每根日 K 中返回必有 `factors.trendChannel`。字段、日线/周月线类型隔离、原函数消费者和测试以[专项 LLD §4.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#42-阶段二股票日线)为准；本文件下方旧接口、独立图层与性能记录保留历史语义，不再作为新实现的取数要求。阶段二代码、隔离技术验收、正式 DG 有界及浏览器核验和对照审计见[专项 LLD §10](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)；常用服务、共享包和 Prod 未切换。
 
 阶段二的具体交接为：`StockDetailPage.loadStockDetail()` 由日 K 生成首批通道点并与 candles 一同保存；`useStockDailyHistory.loadPage()` 先完成 K 线、四轨和九转等转换，成功后才一起提交页数组及 `nextEndDate`，失败保留原图、原游标并重试原批。`StockChartWorkspace` 合并首批和历史页通道点，保留原画法/着色，开关只切绘制；移除新页面的 `useStockTrendChannel()` 调用和历史 `loadTrend/ensureTrend/retryTrend`、独立请求及其重试 UI。保留现有取消和迟到响应处理。
 

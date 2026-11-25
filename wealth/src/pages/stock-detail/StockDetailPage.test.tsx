@@ -152,6 +152,7 @@ describe("StockDetailPage", () => {
           turnoverRate: 1.1,
           volumeRatio: 1.0,
           factors: {
+            trendChannel: { shortUpper: 19.2, shortLower: 18.9, longUpper: 19.3, longLower: 18.8 },
             ma: { ma5: 18.4, ma10: 18.3, ma20: 18.2, ma30: 18.1, ma60: 18.0, ma90: 17.9, ma250: 17.8 },
             boll: { upper: 19.5, middle: 18.5, lower: 17.5 },
             macd: { dif: 0.1, dea: 0.2, macd: 0.3 },
@@ -172,6 +173,7 @@ describe("StockDetailPage", () => {
           turnoverRate: 1.23,
           volumeRatio: 1.11,
           factors: {
+            trendChannel: { shortUpper: 19.2, shortLower: 18.9, longUpper: 19.3, longLower: 18.8 },
             ma: { ma5: 19.0, ma10: 18.9, ma20: 18.8, ma30: 18.7, ma60: 18.6, ma90: 18.5, ma250: 18.4 },
             boll: { upper: 20.1, middle: 19.1, lower: 18.1 },
             macd: { dif: 0.11, dea: 0.22, macd: 0.33 },
@@ -788,29 +790,16 @@ describe("StockDetailPage", () => {
     expectAllOn();
   });
 
-  it("loads stock trend channel only after first selection and keeps the base chart alive", async () => {
+  it("uses daily response rails when toggled without sending a trend request", async () => {
     const fetchMock = mockStockDetailFetch({ supportsTrendChannel: true });
     render(<StockDetailPage tsCode="603806.SH" />);
-
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
-    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
-
-    await waitFor(() => {
-      const requests = fetchMock.mock.calls
-        .map(([input]) => String(input))
-        .filter((url) => url.includes("/trend-channel"));
-      expect(requests).toHaveLength(1);
-      expect(requests[0]).toContain("tsCode=603806.SH");
-      expect(requests[0]).toContain("endDate=2026-05-29");
-      expect(requests[0]).toContain("limit=500");
-    });
-    expect(await screen.findByText("短上:19.30")).toBeInTheDocument();
+    for (const label of ["趋势通道", "均线", "趋势通道"]) {
+      fireEvent.click(screen.getByRole("button", { name: label }));
+    }
+    expect(screen.getByText("短上:19.20")).toBeInTheDocument();
     expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "均线" }));
-    fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/trend-channel"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
   });
 
   it("does not expose or request stock trend channel when capability is false", async () => {
@@ -822,16 +811,13 @@ describe("StockDetailPage", () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
   });
 
-  it("keeps kline and other overlays available when trend channel fails", async () => {
-    mockStockDetailFetch({ failTrend: true, supportsTrendChannel: true });
+  it("does not depend on the old trend endpoint being available", async () => {
+    const fetchMock = mockStockDetailFetch({ failTrend: true, supportsTrendChannel: true });
     render(<StockDetailPage tsCode="603806.SH" />);
-
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
-    await waitFor(() => expect(screen.getByText("短上:--")).toBeInTheDocument());
-    expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "均线" }));
-    expect(screen.getAllByText("MA10:18.90").length).toBeGreaterThan(0);
+    expect(screen.getByText("短上:19.20")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
   });
 
   it.each([

@@ -13,7 +13,7 @@ def _item(calculation_id, **parameters):
     return MappingProxyType({"calculation_id": calculation_id, "parameters": MappingProxyType(parameters)})
 
 
-STOCK_DAILY_CALCULATIONS = (
+STOCK_COMMON_CALCULATIONS = (
     *(_item("ma", period=period) for period in (5, 10, 20, 30, 60, 90, 250)),
     _item("boll", period=20, multiplier=2),
     _item("macd", fast=12, slow=26, signal=9),
@@ -21,22 +21,30 @@ STOCK_DAILY_CALCULATIONS = (
     _item("price"),
 )
 _NINE_TURN_CALCULATION = _item("nineturn")
+_TREND_CHANNEL_CALCULATION = _item("trend_channel")
+STOCK_DAILY_CALCULATIONS = (*STOCK_COMMON_CALCULATIONS, _TREND_CHANNEL_CALCULATION)
 STOCK_DAILY_ALGORITHM_VERSIONS = MappingProxyType({
     "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
     "nineturn": "1.0.0",
+    "trend_channel": "1.0.0",
 })
 STOCK_DAILY_OUTPUT_FIELDS = MappingProxyType({
     "ma": ("value",), "boll": ("middle", "upper", "lower"),
     "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
     "price": ("open", "high", "low", "close", "volume", "amount"),
     "nineturn": ("up_count", "down_count"),
+    "trend_channel": ("short_upper", "short_lower", "long_upper", "long_lower"),
 })
 
 
-def stock_daily_calculations(*, include_nine_turn: bool):
+def stock_common_calculations(*, include_nine_turn: bool):
     if include_nine_turn:
-        return (*STOCK_DAILY_CALCULATIONS, _NINE_TURN_CALCULATION)
-    return STOCK_DAILY_CALCULATIONS
+        return (*STOCK_COMMON_CALCULATIONS, _NINE_TURN_CALCULATION)
+    return STOCK_COMMON_CALCULATIONS
+
+
+def stock_daily_calculations(*, include_nine_turn: bool):
+    return (*stock_common_calculations(include_nine_turn=include_nine_turn), _TREND_CHANNEL_CALCULATION)
 
 
 def validate_stock_daily_request(request: StockDailyKlineRequest) -> None:

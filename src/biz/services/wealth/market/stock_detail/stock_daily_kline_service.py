@@ -3,6 +3,7 @@
 from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import date
+from math import isfinite
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -12,7 +13,8 @@ from src.biz.schemas.wealth.market.stock_detail import (
     LocalStockDetailFirstKlineResponseDto, LocalStockDetailPagedKlineResponseDto, LocalStockKlineMetaDto,
     StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
     StockDetailStockRefDto, StockKdjDto, StockKlineFactorDto, StockKlineMetaDto,
-    StockMacdDto, StockMovingAverageDto,
+    StockDailyKlineBarDto, StockDailyKlineFactorDto, StockMacdDto, StockMovingAverageDto,
+    StockTrendChannelFactorsDto,
 )
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.reference_data import ReferenceData
@@ -56,6 +58,14 @@ def build_kline_factors(fields, fixed_fields, index):
         ),
         kdj=StockKdjDto(**{name: to_float(fixed_fields["kdj"][name][index])
                          for name in ("k", "d", "j")}),
+    )
+
+
+def build_stock_trend_channel_factors(results, index):
+    fields = results[("trend_channel", ())]
+    return StockTrendChannelFactorsDto(
+        shortUpper=fields["short_upper"][index], shortLower=fields["short_lower"][index],
+        longUpper=fields["long_upper"][index], longLower=fields["long_lower"][index],
     )
 
 
@@ -131,10 +141,14 @@ class StockDailyKlineService:
                 if len(values) != len(times):
                     raise _contract_error("value_count_mismatch", calculation_index=index,
                                           field=name, expected=len(times), actual=len(values))
-                if (item.calculation_id in ("macd", "kdj")
+                if (item.calculation_id in ("macd", "kdj", "trend_channel")
                         or item.calculation_id == "price" and name in ("open", "high", "low", "close")):
                     if any(value is None for value in values):
                         raise _contract_error("unexpected_null", calculation_index=index, field=name)
+                if item.calculation_id == "trend_channel" and any(
+                    type(value) not in (int, float) or not isfinite(value) for value in values
+                ):
+                    raise _contract_error("invalid_value", calculation_index=index, field=name)
                 if item.calculation_id == "nineturn" and any(
                     type(value) not in (int, float) or not 0 <= value <= 13 or value != int(value)
                     for value in values
@@ -171,7 +185,14 @@ class StockDailyKlineService:
                 row = replace(row, **{name + "_qfq": price[name][index] for name in ("open", "high", "low", "close")},
                               vol=None if volume is None else volume / 100,
                               amount=None if amount is None else amount / 1000)
-                bars.append(build_kline_bar(row, factors))
+                bar = build_kline_bar(row, factors)
+                bars.append(StockDailyKlineBarDto(
+                    **bar.model_dump(exclude={"factors"}),
+                    factors=StockDailyKlineFactorDto(
+                        ma=factors.ma, boll=factors.boll, macd=factors.macd, kdj=factors.kdj,
+                        trendChannel=build_stock_trend_channel_factors(fields, index),
+                    ),
+                ))
                 if nine_turn is not None:
                     marker = build_nine_turn_marker(
                         trade_date=row.trade_date, trade_time=None,

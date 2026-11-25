@@ -1,5 +1,5 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
-import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockKlinePeriod } from "./stockDetailApiTypes";
+import type { StockDetailDailyKlineResponseDto, StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockDetailPeriodKlineResponseDto, StockKlinePeriod } from "./stockDetailApiTypes";
 
 export interface StockDetailFetchOptions {
   signal?: AbortSignal;
@@ -49,18 +49,28 @@ export async function fetchStockDetailPageInit(
   return parseResponse<StockDetailPageInitResponseDto>(response);
 }
 
+type StockDetailKlineParams = {
+  tsCode: string;
+  period?: StockKlinePeriod;
+  adjustment?: "forward";
+  tradeDate?: string;
+  startDate?: string;
+  endDate?: string;
+  limit?: number;
+  debug?: 0 | 1;
+};
+
+export function fetchStockDetailKline(
+  params: StockDetailKlineParams & { period?: "day" }, options?: StockDetailFetchOptions,
+): Promise<StockDetailDailyKlineResponseDto>;
+export function fetchStockDetailKline(
+  params: StockDetailKlineParams & { period: "week" | "month" }, options?: StockDetailFetchOptions,
+): Promise<StockDetailPeriodKlineResponseDto>;
+export function fetchStockDetailKline(
+  params: StockDetailKlineParams, options?: StockDetailFetchOptions,
+): Promise<StockDetailKlineResponseDto>;
 export async function fetchStockDetailKline(
-  params: {
-    tsCode: string;
-    period?: StockKlinePeriod;
-    adjustment?: "forward";
-    tradeDate?: string;
-    startDate?: string;
-    endDate?: string;
-    limit?: number;
-    debug?: 0 | 1;
-  },
-  options: StockDetailFetchOptions = {},
+  params: StockDetailKlineParams, options: StockDetailFetchOptions = {},
 ): Promise<StockDetailKlineResponseDto> {
   const response = await wealthFetch(buildUrl("kline", params), {
     method: "GET",

@@ -9,6 +9,7 @@ from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.security_serving import Security
 from tests.stock_daily_kline_helpers import backend_for_client
 from tests.web.test_wealth_stock_detail_api import _ensure_stock_detail_tables, _seed_stock_detail_data
+from tests.web.test_wealth_stock_detail_api import app_client as app_client
 
 
 PATH = "/api/v1/wealth/market/stock-detail/kline"
@@ -44,14 +45,19 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
             assert response.headers["content-type"] == "application/json"
         assert len(calls) == 3
         for item in calls:
-            assert len(item.calculations) == 11
+            assert len(item.calculations) == 12
             assert sum(spec["calculation_id"] == "price" for spec in item.calculations) == 1
     operation = app_client.app.openapi()["paths"][PATH]["get"]
     params = {item["name"]: item["schema"] for item in operation["parameters"] if item["in"] == "query"}
     assert set(params) == {"tsCode", "period", "adjustment", "tradeDate", "startDate", "endDate", "limit", "debug"}
-    assert params["limit"]["default"] == 500 and params["period"]["default"] == "day"
+    # The shared day/week/month route has no static limit default; day resolves
+    # None to 500 in the route, already asserted by the real requests above.
+    assert params["limit"]["anyOf"] and params["period"]["default"] == "day"
     assert params["adjustment"]["default"] == "forward"
-    assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("/StockDetailKlineResponseDto")
+    outputs = operation["responses"]["200"]["content"]["application/json"]["schema"]["anyOf"]
+    assert {item["$ref"].rsplit("/", 1)[-1] for item in outputs} == {
+        "StockDetailKlineResponseDto", "StockDetailPeriodKlineResponseDto",
+    }
 
 
 def test_prewait_errors_unknown_and_empty(app_client, db_session, monkeypatch, record_property):
@@ -63,7 +69,7 @@ def test_prewait_errors_unknown_and_empty(app_client, db_session, monkeypatch, r
             admissions.append(control)
             return await original(control)
         monkeypatch.setattr(backend.runtime.admission, "acquire", acquire)
-        for changes in ({"period": "week"}, {"adjustment": "qfq"}, {"limit": 0}, {"limit": 501},
+        for changes in ({"period": "quarter"}, {"adjustment": "qfq"}, {"limit": 0}, {"limit": 501},
                         {"startDate": "2026-05-29", "endDate": "2026-05-28"}):
             response = app_client.get(PATH, params={"tsCode": "603806.SH", **changes})
             assert response.status_code == 400 and response.json()["code"] == "400001"

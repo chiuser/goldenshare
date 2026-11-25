@@ -132,17 +132,26 @@ export interface StockKlineBarDto {
   };
 }
 
-export interface StockDetailKlineResponseDto {
+export interface StockTrendChannelFactorsDto {
+  shortUpper: number;
+  shortLower: number;
+  longUpper: number;
+  longLower: number;
+}
+
+export interface StockDailyKlineBarDto extends StockKlineBarDto {
+  factors: StockKlineBarDto["factors"] & { trendChannel: StockTrendChannelFactorsDto };
+}
+
+interface StockDetailKlineFields {
   nineTurnMarkers?: NineTurnMarkerDto[];
   pageContext: StockDetailPageContextDto;
   stockRef: {
     tsCode: string;
     name?: string | null;
   };
-  period: StockKlinePeriod;
   adjustment: "forward";
   sourceAdjustment: "qfq";
-  bars: StockKlineBarDto[];
   quote?: StockQuoteSnapshotDto | null;
   meta: {
     count: number;
@@ -154,3 +163,15 @@ export interface StockDetailKlineResponseDto {
   dataStatus: StockDetailDataStatusDto;
   debugInfo?: unknown;
 }
+
+export interface StockDetailDailyKlineResponseDto extends StockDetailKlineFields {
+  period: "day";
+  bars: StockDailyKlineBarDto[];
+}
+
+export interface StockDetailPeriodKlineResponseDto extends StockDetailKlineFields {
+  period: "week" | "month";
+  bars: StockKlineBarDto[];
+}
+
+export type StockDetailKlineResponseDto = StockDetailDailyKlineResponseDto | StockDetailPeriodKlineResponseDto;

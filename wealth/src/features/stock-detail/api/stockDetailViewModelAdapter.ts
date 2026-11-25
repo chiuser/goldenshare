@@ -1,10 +1,11 @@
+import type { TrendChannelPoint } from "../../../shared/charts/trend-channel/trendChannelGeometry";
 import { directionFromNumber } from "../../../shared/lib/marketDirection";
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { STOCK_INDICATOR_TABS, STOCK_PERIOD_OPTIONS } from "../model/stockDetailConstants";
 import type { StockCandlePoint, StockDetailViewModel, StockPeriodKey } from "../model/stockDetailTypes";
 import { getStockDetailViewModel } from "./stockDetailMockAdapter";
-import type { StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockQuoteSnapshotDto } from "./stockDetailApiTypes";
+import type { StockDailyKlineBarDto, StockDetailKlineResponseDto, StockDetailPageInitResponseDto, StockQuoteSnapshotDto } from "./stockDetailApiTypes";
 import { minuteFrequencyFromPeriodKey } from "./stockMinuteViewModelAdapter";
 
 export function buildStockDailyNineTurnLayer(
@@ -19,6 +20,20 @@ export function buildStockDailyNineTurnLayer(
     errorCode: null,
     canRetry: false,
   };
+}
+
+export function buildStockDailyTrendChannelPoints(bars: readonly StockDailyKlineBarDto[]): TrendChannelPoint[] {
+  return bars.map((bar, index) => {
+    const channel = bar.factors.trendChannel;
+    if (!channel || !/^\d{4}-\d{2}-\d{2}$/.test(bar.tradeDate)
+      || (index > 0 && bar.tradeDate <= bars[index - 1]!.tradeDate)
+      || ![bar.close, channel.shortUpper, channel.shortLower, channel.longUpper, channel.longLower]
+        .every(value => typeof value === "number" && Number.isFinite(value))
+      || channel.shortUpper < channel.shortLower || channel.longUpper < channel.longLower) {
+      throw new Error("股票日线趋势通道结果与行情不一致");
+    }
+    return { time: bar.tradeDate, close: bar.close as number, ...channel };
+  });
 }
 
 function valueOrZero(value: number | null | undefined): number {

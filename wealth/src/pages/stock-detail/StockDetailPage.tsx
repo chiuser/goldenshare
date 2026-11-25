@@ -1,3 +1,4 @@
+import type { TrendChannelPoint } from "../../shared/charts/trend-channel/trendChannelGeometry";
 import { useEffect, useRef, useState } from "react";
 
 import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
@@ -13,7 +14,7 @@ import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/
 import { fetchStockMinuteChart } from "../../features/stock-detail/api/stockMinuteApiClient";
 import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
 import { useMajorIndexTickers } from "../../features/major-indices/model/useMajorIndexTickers";
-import { buildStockDailyNineTurnLayer, buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
+import { buildStockDailyNineTurnLayer, buildStockDailyTrendChannelPoints, buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
 import { useStockDailyHistory, type StockDailyHistorySeed } from "../../features/stock-detail/controller/useStockDailyHistory";
@@ -23,7 +24,6 @@ import { StockChartToolbar } from "../../features/stock-detail/layout/StockChart
 import { StockInfoRail } from "../../features/stock-detail/sidebar/StockInfoRail";
 import { StockDetailToast } from "../../features/stock-detail/ui/StockDetailToast";
 import { StockRuleEntry } from "../../features/trading-assistant/ui/StockRuleEntry";
-import { useStockTrendChannel } from "../../features/stock-detail/trend-channel/controller/useStockTrendChannel";
 import { useStockWatchlistGroups } from "../../features/watchlist/model/useStockWatchlistGroups";
 import {
   buildIndexDetailPath,
@@ -51,9 +51,11 @@ interface StockDetailLoad {
   viewModel?: StockDetailViewModel;
   historySeed?: StockDailyHistorySeed;
   dailyNineTurnLayer?: NineTurnLayerViewModel;
+  dailyTrendPoints?: readonly TrendChannelPoint[];
   errorMessage?: string;
 }
 
+const EMPTY_TREND_POINTS: readonly TrendChannelPoint[] = [];
 const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
 const DAILY_NINE_TURN_PERIODS: NineTurnPeriod[] = ["day"];
 const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
@@ -94,11 +96,6 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
   useEffect(() => setRuleEntry(null), [requestKey]);
   const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
-  const trendChannel = useStockTrendChannel({
-    enabled: loadState === "ready" && viewModel !== null && (activePageInit?.capabilities.supportsTrendChannel ?? false),
-    endDate: activePageInit?.pageContext.tradeDate ?? null,
-    tsCode,
-  });
   const nineTurnRegistry = useNineTurnSeriesRegistry({
     dailyLimit: DAILY_CHART_PAGE_SIZE,
     endDate: activePageInit?.pageContext.tradeDate ?? null,
@@ -166,13 +163,14 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
           setLoad({ requestKey, state: "empty", pageInit });
           return;
         }
+        const dailyTrendPoints = buildStockDailyTrendChannelPoints(kline.bars);
         const nextViewModel = buildStockDetailViewModel(pageInit, kline);
         const historySeed = local && kline.meta.nextEndDate ? {
           tsCode, tradeDate: anchor, nextEndDate: kline.meta.nextEndDate,
           candles: nextViewModel.chart.candles, debug,
         } : undefined;
         setActivePeriod(nextViewModel.activePeriod);
-        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel, historySeed, dailyNineTurnLayer });
+        setLoad({ requestKey, state: "ready", pageInit, viewModel: nextViewModel, historySeed, dailyNineTurnLayer, dailyTrendPoints });
       } catch (error) {
         if (!isCurrent()) return;
         setLoad({
@@ -308,12 +306,8 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
               if (!dailyNineTurnLayer) void nineTurnRegistry.retry("day");
             }}
             onAction={showToast}
-            onTrendSelect={() => {
-              trendChannel.ensure();
-              dailyHistory.ensureTrend();
-            }}
             supportsTrendChannel={activePageInit?.capabilities.supportsTrendChannel ?? false}
-            trend={trendChannel.data}
+            initialTrendPoints={load?.dailyTrendPoints ?? EMPTY_TREND_POINTS}
             tsCode={viewModel.stock.tsCode}
           />
         ) : stockPeriod ? (
@@ -326,9 +320,8 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
               nineTurnLayer={buildStockDailyNineTurnLayer(periodData.markers, stockPeriod)}
               onNineTurnRetry={periodKline.retry}
               onAction={showToast}
-              onTrendSelect={() => undefined}
               supportsTrendChannel={false}
-              trend={null}
+              initialTrendPoints={EMPTY_TREND_POINTS}
               tsCode={viewModel.stock.tsCode}
               period={stockPeriod}
               tradeDate={activePageInit.pageContext.tradeDate}

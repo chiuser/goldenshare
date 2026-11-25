@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { StockDetailKlineResponseDto, StockDetailProdPageInitResponseDto } from "./stockDetailApiTypes";
+import type { StockDetailDailyKlineResponseDto, StockDetailProdPageInitResponseDto } from "./stockDetailApiTypes";
 import { getStockDetailViewModel } from "./stockDetailMockAdapter";
-import { buildStockDetailViewModel } from "./stockDetailViewModelAdapter";
+import { buildStockDailyTrendChannelPoints, buildStockDetailViewModel } from "./stockDetailViewModelAdapter";
 
 describe("buildStockDetailViewModel", () => {
   it("keeps missing quote metrics distinct from zero", () => {
@@ -125,7 +125,7 @@ function makePageInit(): StockDetailProdPageInitResponseDto {
   };
 }
 
-function makeKline(): StockDetailKlineResponseDto {
+function makeKline(): StockDetailDailyKlineResponseDto {
   const pageContext = makePageInit().pageContext;
   return {
     pageContext,
@@ -161,6 +161,7 @@ function makeKline(): StockDetailKlineResponseDto {
         boll: { upper: null, middle: null, lower: null },
         macd: { dif: 0.1, dea: 0.2, macd: -0.2 },
         kdj: { k: 50, d: 45, j: 60 },
+        trendChannel: { shortUpper: 310, shortLower: 288, longUpper: 305, longLower: 290 },
       },
     }],
     meta: { count: 1, limit: 300, endDate: "2026-08-14" },
@@ -171,3 +172,22 @@ function makeKline(): StockDetailKlineResponseDto {
     },
   };
 }
+
+
+describe("daily trend response mapping", () => {
+  it("maps each rail and date from the returned K-line without computing an indicator", () => {
+    expect(buildStockDailyTrendChannelPoints(makeKline().bars)).toEqual([{
+      time: "2026-08-14", close: 300,
+      shortUpper: 310, shortLower: 288, longUpper: 305, longLower: 290,
+    }]);
+    expect(buildStockDailyTrendChannelPoints([])).toEqual([]);
+  });
+
+  it.each(["missing rail", "nonfinite", "wrong date"])("rejects %s before a page can be committed", failure => {
+    const response = makeKline();
+    if (failure === "missing rail") Object.assign(response.bars[0]!.factors.trendChannel, { shortLower: undefined });
+    if (failure === "nonfinite") response.bars[0]!.factors.trendChannel.longLower = Infinity;
+    if (failure === "wrong date") response.bars[0]!.tradeDate = "20260814";
+    expect(() => buildStockDailyTrendChannelPoints(response.bars)).toThrow("趋势通道");
+  });
+});

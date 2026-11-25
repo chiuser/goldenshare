@@ -16,7 +16,7 @@ from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import b
 from src.foundation.clients.technical_indicator_index_period import period_bounds
 from src.foundation.clients.technical_indicator_stock_daily import scheduled_stock_days
 
-from .stock_daily_kline_calculations import stock_daily_calculations
+from .stock_daily_kline_calculations import stock_common_calculations
 from .stock_daily_kline_contracts import StockDailyKlineRow
 from .stock_daily_kline_service import _calculation_key, build_kline_factors
 from .stock_detail_field_mapper import build_kline_bar, build_page_context
@@ -78,7 +78,7 @@ class StockPeriodKlineService:
             security_type="stock", ts_code=context.stock.tsCode, period=request.period, adjustment="qfq",
             end=datetime.combine(context.end, time.min, ZoneInfo("Asia/Shanghai")),
             latest_rows=request.limit if weekly else None,
-            calculations=stock_daily_calculations(include_nine_turn=True),
+            calculations=stock_common_calculations(include_nine_turn=True),
         ), output_rows=100 if weekly else None, warmup_error_budget=0.00001 if weekly else None,
             require_current_period_end_date=context.first_page)
 

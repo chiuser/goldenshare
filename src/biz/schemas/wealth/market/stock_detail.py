@@ -147,6 +147,19 @@ class StockKlineFactorDto(BaseModel):
     kdj: StockKdjDto
 
 
+class StockTrendChannelFactorsDto(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    shortUpper: float
+    shortLower: float
+    longUpper: float
+    longLower: float
+
+
+class StockDailyKlineFactorDto(StockKlineFactorDto):
+    trendChannel: StockTrendChannelFactorsDto
+
+
 class StockKlineBarDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -165,6 +178,10 @@ class StockKlineBarDto(BaseModel):
     turnoverRate: float | None = None
     volumeRatio: float | None = None
     factors: StockKlineFactorDto
+
+
+class StockDailyKlineBarDto(StockKlineBarDto):
+    factors: StockDailyKlineFactorDto
 
 
 class StockKlineMetaDto(BaseModel):
@@ -218,7 +235,7 @@ class StockDetailKlineResponseDto(BaseModel):
     period: Literal["day"]
     adjustment: Literal["forward"]
     sourceAdjustment: Literal["qfq"]
-    bars: list[StockKlineBarDto]
+    bars: list[StockDailyKlineBarDto]
     meta: StockKlineMetaDto
     dataStatus: StockDetailDataStatusDto
     debugInfo: StockDetailDebugInfoDto | None = None
@@ -235,5 +252,6 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 class StockDetailPeriodKlineResponseDto(StockDetailKlineResponseDto):
     period: Literal["week", "month"]
+    bars: list[StockKlineBarDto]
     meta: LocalStockKlineMetaDto
     nineTurnMarkers: list[NineTurnMarkerDto]

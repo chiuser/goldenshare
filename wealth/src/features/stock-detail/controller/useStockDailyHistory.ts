@@ -5,10 +5,8 @@ import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-w
 import type { TrendChannelPoint } from "../../../shared/charts/trend-channel/trendChannelGeometry";
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
-import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
+import { buildStockDailyTrendChannelPoints, toCandlePoint } from "../api/stockDetailViewModelAdapter";
 import type { StockCandlePoint } from "../model/stockDetailTypes";
-import { fetchStockTrendChannel } from "../trend-channel/api/stockTrendChannelApiClient";
-import { buildStockTrendChannelViewModel } from "../trend-channel/api/stockTrendChannelViewModelAdapter";
 
 export interface StockDailyHistorySeed {
   tsCode: string;
@@ -18,12 +16,11 @@ export interface StockDailyHistorySeed {
   debug?: 1;
 }
 
-type TrendLayer = { phase: "loading" | "error" } | { phase: "ready"; points: readonly TrendChannelPoint[] };
 interface HistoryPage {
   endDate: string;
   dates: ReadonlySet<string>;
   nineTurnMarkers: readonly NineTurnMarkerDto[];
-  trend?: TrendLayer;
+  trendPoints: readonly TrendChannelPoint[];
 }
 interface HistorySession {
   seed: StockDailyHistorySeed;
@@ -33,12 +30,11 @@ interface HistorySession {
   phase: "idle" | "loading" | "error";
   failedGesture?: symbol;
   signal?: AbortSignal;
-  trendSelected: boolean;
 }
 
 export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active: boolean) {
   const session = useMemo<HistorySession | null>(() => seed && active ? {
-    seed, candles: seed.candles, nextEndDate: seed.nextEndDate, pages: [], phase: "idle", trendSelected: false,
+    seed, candles: seed.candles, nextEndDate: seed.nextEndDate, pages: [], phase: "idle",
   } : null, [seed, active]);
   const [state, setState] = useState<{
     owner: HistorySession;
@@ -58,25 +54,6 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
   const publish = useCallback((owner: HistorySession) => {
     setState({ owner, candles: owner.candles, pages: [...owner.pages], phase: owner.phase });
   }, []);
-
-  const loadTrend = useCallback(async (owner: HistorySession, page: HistoryPage) => {
-    const signal = owner.signal;
-    const { tsCode } = owner.seed;
-    const state = page.trend;
-    if (!signal || signal.aborted || state?.phase === "loading" || state?.phase === "ready") return;
-    page.trend = { phase: "loading" };
-    publish(owner);
-    try {
-      const response = await fetchStockTrendChannel({ tsCode, endDate: page.endDate, limit: page.dates.size }, { signal });
-      if (signal.aborted) return;
-      const trend = buildStockTrendChannelViewModel(response);
-      page.trend = { phase: "ready", points: trend.points.filter(point => page.dates.has(point.time)) };
-    } catch {
-      if (signal.aborted) return;
-      page.trend = { phase: "error" };
-    }
-    publish(owner);
-  }, [publish]);
 
   const loadPage = useCallback(async (owner: HistorySession, gesture?: symbol) => {
     const { signal, nextEndDate: endDate, seed } = owner;
@@ -99,17 +76,16 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
           (next !== null && (typeof next !== "string" || !first || next >= first.tradeDate))) {
         throw new Error("股票日线分页信息与请求不一致");
       }
+      const candles = bars.map(toCandlePoint);
+      const trendPoints = buildStockDailyTrendChannelPoints(bars);
+      const page: HistoryPage | null = first && last ? {
+        endDate: last.tradeDate, dates: new Set(bars.map(bar => bar.tradeDate)), nineTurnMarkers, trendPoints,
+      } : null;
       owner.nextEndDate = next;
       owner.phase = "idle";
-      if (first && last) {
-        const page: HistoryPage = {
-          endDate: last.tradeDate,
-          dates: new Set(bars.map(bar => bar.tradeDate)),
-          nineTurnMarkers,
-        };
-        owner.candles = [...bars.map(toCandlePoint), ...owner.candles];
+      if (page) {
+        owner.candles = [...candles, ...owner.candles];
         owner.pages.unshift(page);
-        if (owner.trendSelected) void loadTrend(owner, page);
       }
     } catch {
       if (signal.aborted) return;
@@ -117,7 +93,7 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
       owner.failedGesture = gesture;
     }
     publish(owner);
-  }, [loadTrend, publish]);
+  }, [publish]);
 
   const onViewport = useCallback((viewport: DetailChartHistoryViewport) => {
     if (!session || viewport.firstDate !== session.candles[0]?.fullDate ||
@@ -127,22 +103,11 @@ export function useStockDailyHistory(seed: StockDailyHistorySeed | null, active:
     void loadPage(session, viewport.gesture);
   }, [loadPage, session]);
 
-  const ensureTrend = useCallback(() => {
-    if (!session || session.trendSelected) return;
-    session.trendSelected = true;
-    for (const page of session.pages) void loadTrend(session, page);
-  }, [loadTrend, session]);
-
-  const retryTrend = useCallback((page: HistoryPage) => {
-    if (session?.pages.includes(page)) void loadTrend(session, page);
-  }, [loadTrend, session]);
   const current = state?.owner === session ? state : null;
   return {
     active: session !== null,
     visible: current,
     onViewport,
-    ensureTrend,
-    retryTrend,
   };
 }
 

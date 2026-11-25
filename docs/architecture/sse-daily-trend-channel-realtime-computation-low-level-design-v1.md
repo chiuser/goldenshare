@@ -4,7 +4,7 @@
 最近代码审计：2026-09-10。
 2026-09-12 合并上位方案：决策与理由见 §11，未实施扩展见 §12–13；现行合同 §1–10 不变。[M4 历史验收](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)。
 
-**2026-11-25 新算子、分阶段接入与清理决定（阶段一已实现，业务接入未实施）。** 新算子只计算四条 25/90 周期 EMA 轨道，固定前置预热 500 根、返回根数另计，每轨绝对误差不超过 0.01。本期取消 JSON 说明字段，不返回说明空串。阶段一算子已实现并完成隔离验收和独立对照审计；股票和上证尚未接入，未发包或部署。后续沿现有算子接入与日 K 回包分别接入，每批最多 500 根，按原游标续页；不以直接替换本独立接口为前提。历史方向与组合状态不迁入，旧业务清理另列步骤。详见[专项方案](technical-indicator-trend-channel-plan-v1.md)和[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)。
+**2026-11-25 新算子、分阶段接入与清理决定（阶段一已完成，股票阶段二实现及技术验收完成，上证未接入）。** 新算子只计算四条 25/90 周期 EMA 轨道，固定前置预热 500 根、返回根数另计，每轨绝对误差不超过 0.01。本期取消 JSON 说明字段，不返回说明空串。阶段一算子已完成；股票阶段二已实现并完成隔离技术验收和对照审计，证据见[专项 LLD §10](technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)。上证尚未接入，未发包或部署。后续沿现有算子接入与日 K 回包分别接入，每批最多 500 根，按原游标续页；不以直接替换本独立接口为前提。历史方向与组合状态不迁入，旧业务清理另列步骤。详见[专项方案](technical-indicator-trend-channel-plan-v1.md)和[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)。
 
 上证接入阶段由现有日 K 流程调用算子库并返回四轨，页面停止本独立接口的首批与续页请求，原专用计算器和通道缓存退出该页面调用链；失败不回退旧计算。基础指数日线行情继续服务日 K 和新算子，不随旧通道业务删除。清理阶段在全部引用审计后删除无消费者的旧接口及专用计算、缓存、查询和前端请求代码；下文的现行 v1 合同仅适用于尚未退出的旧接口。
 

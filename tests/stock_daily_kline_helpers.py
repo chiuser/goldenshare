@@ -60,6 +60,7 @@ def result_for(ts_code, days, overrides=None):
         ("macd", "macd", "2.0.0", (("fast", 12), ("slow", 26), ("signal", 9)), ("dif", "dea", "hist")),
         ("kdj", "kdj", "2.0.0", (("window", 9), ("k_period", 3), ("d_period", 3)), ("k", "d", "j")),
         ("price", "price", "1.0.0", (), ("open", "high", "low", "close", "volume", "amount")),
+        ("trend_channel", "trend_channel", "1.0.0", (), ("short_upper", "short_lower", "long_upper", "long_lower")),
     )
     price = {"open": 10.0, "high": 11.0, "low": 9.0, "close": 10.0, "volume": 10000.0, "amount": 1000000.0}
     calculations = tuple(CalculationValues(kind, version, parameters, tuple(
@@ -127,7 +128,7 @@ def backend_for_client(client, monkeypatch, engine, record_property, *, override
             return result
 
         def calculate(service, request):
-            assert len(request.calculations) == 11
+            assert len(request.calculations) == 12
             assert threading.get_ident() != threading.main_thread().ident
             calls.append(request)
             days = tuple(day for day in available_days if request.start.date() <= day <= request.end.date())

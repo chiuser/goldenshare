@@ -33,6 +33,11 @@ const chartMock = vi.hoisted(() => {
       }),
     };
     const chart = {
+      // IChartApi.removeSeries is used by the existing history overlay update.
+      removeSeries: vi.fn((removed: Record<string, any>) => {
+        const index = series.indexOf(removed);
+        if (index >= 0) series.splice(index, 1);
+      }),
       addSeries: vi.fn(() => {
         const addedSeries = {
           applyOptions: vi.fn(),
@@ -107,7 +112,7 @@ describe("StockChartWorkspace shared adapter", () => {
     const props = {
       candles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
       nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
-      onTrendSelect: vi.fn(), supportsTrendChannel: true, trend: null, tsCode: "000001.SZ",
+      supportsTrendChannel: true, initialTrendPoints: [], tsCode: "000001.SZ",
     };
     const view = render(<StockChartWorkspace {...props} />);
     const header = within(screen.getByLabelText("K线主图"));
@@ -123,7 +128,6 @@ describe("StockChartWorkspace shared adapter", () => {
     expect(chartMock.charts.at(-4)!.series).toHaveLength(1);
     expect(header.queryAllByText(/^MA\d+:/)).toHaveLength(0);
     expect(header.queryByText(/UPPER:/)).not.toBeInTheDocument();
-    expect(props.onTrendSelect).not.toHaveBeenCalled();
     act(() => chartMock.charts.at(-4)!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time }));
     expect(header.queryAllByText(/^MA\d+:/)).toHaveLength(0);
 
@@ -148,8 +152,8 @@ describe("StockChartWorkspace shared adapter", () => {
     render(<StockChartWorkspace
       candles={candles} indicatorTabs={indicatorTabs} indicatorControls={defaultIndicatorControls}
       nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")}
-      onNineTurnRetry={vi.fn()} onAction={vi.fn()} onTrendSelect={vi.fn()}
-      supportsTrendChannel={false} trend={null} tsCode="000001.SZ" period={period} tradeDate="2026-11-23"
+      onNineTurnRetry={vi.fn()} onAction={vi.fn()}
+      supportsTrendChannel={false} initialTrendPoints={[]} tsCode="000001.SZ" period={period} tradeDate="2026-11-23"
     />);
     const bar = candles[1]!;
     act(() => chartMock.charts[0]!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: bar.time }));
@@ -173,9 +177,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={onAction}
-        onTrendSelect={vi.fn()}
+
         supportsTrendChannel={false}
-        trend={null}
+        initialTrendPoints={[]}
         tsCode="000001.SZ"
       />,
     );
@@ -236,9 +240,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
-        onTrendSelect={vi.fn()}
+
         supportsTrendChannel={false}
-        trend={null}
+        initialTrendPoints={[]}
         tsCode="000001.SZ"
       />,
     );
@@ -253,9 +257,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
-        onTrendSelect={vi.fn()}
+
         supportsTrendChannel={false}
-        trend={null}
+        initialTrendPoints={[]}
         tsCode="000001.SZ"
       />,
     );
@@ -268,7 +272,7 @@ describe("StockChartWorkspace shared adapter", () => {
     const props = {
       candles, indicatorTabs, indicatorControls: defaultIndicatorControls,
       nineTurnLayer: readyNineTurnLayer(candles.at(-1)!.fullDate), onNineTurnRetry: vi.fn(),
-      onAction: vi.fn(), onTrendSelect: vi.fn(), supportsTrendChannel: false, trend: null, tsCode: "000001.SZ",
+      onAction: vi.fn(), supportsTrendChannel: false, initialTrendPoints: [], tsCode: "000001.SZ",
     };
     const rendered = render(<StockChartWorkspace {...props} nineTurnControl={nineTurnControl} />);
     const host = screen.getByLabelText("K线主图").querySelector(".detail-chart-host");
@@ -296,17 +300,17 @@ describe("StockChartWorkspace shared adapter", () => {
     const older = candles[0]!.fullDate;
     const initialCandles = candles.slice(1);
     const seed = { tsCode: "000001.SZ", tradeDate: candles[2]!.fullDate, candles: initialCandles, nextEndDate: older };
-    const history = { active: true, visible: null, onViewport: vi.fn(), ensureTrend: vi.fn(), retryTrend: vi.fn() };
+    const history = { active: true, visible: null, onViewport: vi.fn() };
     const props = {
       candles: initialCandles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
       nineTurnLayer: buildStockDailyNineTurnLayer([]), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
-      onTrendSelect: vi.fn(), supportsTrendChannel: false, trend: null, tsCode: seed.tsCode,
+      supportsTrendChannel: false, initialTrendPoints: [], tsCode: seed.tsCode,
     };
     const view = render(<StockChartWorkspace {...props} history={history} />);
     expect(screen.getByText("当前窗口暂无九转标记")).toBeInTheDocument();
 
-    const pages = [{ endDate: older, dates: new Set([older]), nineTurnMarkers: readyNineTurnLayer(older).markers }];
-    const owner = { seed, candles, nextEndDate: null, pages, phase: "idle" as const, trendSelected: false };
+    const pages = [{ endDate: older, dates: new Set([older]), nineTurnMarkers: readyNineTurnLayer(older).markers, trendPoints: [] }];
+    const owner = { seed, candles, nextEndDate: null, pages, phase: "idle" as const };
     view.rerender(<StockChartWorkspace {...props} history={{ ...history, visible: { owner, candles, pages, phase: "idle" } }} />);
     expect(screen.queryByText("当前窗口暂无九转标记")).not.toBeInTheDocument();
     expect(chartMock.charts[0].series[0].attachPrimitive.mock.calls.some(
@@ -333,9 +337,9 @@ describe("StockChartWorkspace shared adapter", () => {
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
-        onTrendSelect={vi.fn()}
+
         supportsTrendChannel={false}
-        trend={null}
+        initialTrendPoints={[]}
         tsCode="688635.SH"
       />,
     );
@@ -429,3 +433,27 @@ function makeCandles(count: number): StockCandlePoint[] {
     };
   });
 }
+
+
+it("uses cached historical rails when the channel is selected after history is loaded", () => {
+  chartMock.reset();
+  const candles = makeCandles(3);
+  const older = candles[0]!.fullDate;
+  const initial = candles.slice(1);
+  const seed = { tsCode: "000001.SZ", tradeDate: candles[2]!.fullDate, candles: initial, nextEndDate: older };
+  const trendPoints = [{ time: older, close: candles[0]!.close,
+    shortUpper: 14.25, shortLower: 12.5, longUpper: 13.75, longLower: 11.25 }];
+  const pages = [{ endDate: older, dates: new Set([older]), nineTurnMarkers: [], trendPoints }];
+  const owner = { seed, candles, pages, nextEndDate: null, phase: "idle" as const };
+  const history = { active: true, onViewport: vi.fn(), visible: { owner, candles, pages, phase: "idle" as const } };
+  render(<StockChartWorkspace candles={initial} history={history} initialTrendPoints={[]}
+    indicatorTabs={indicatorTabs} indicatorControls={defaultIndicatorControls} nineTurnControl={nineTurnControl}
+    nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} onAction={vi.fn()}
+    supportsTrendChannel={true} tsCode={seed.tsCode} />);
+  fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
+  act(() => chartMock.charts.at(-4)!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: older }));
+  const header = within(screen.getByLabelText("K线主图"));
+  for (const text of ["短上:14.25", "短下:12.50", "长上:13.75", "长下:11.25"]) {
+    expect(header.getByText(text)).toBeInTheDocument();
+  }
+});

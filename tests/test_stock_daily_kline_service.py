@@ -52,19 +52,20 @@ def test_request_and_fixed_calculations():
         ("boll", "boll", {"period": 20, "multiplier": 2}),
         ("macd", "macd", {"fast": 12, "slow": 26, "signal": 9}),
         ("kdj", "kdj", {"window": 9, "k_period": 3, "d_period": 3}),
-        ("price", "price", {}),
+        ("price", "price", {}), ("trend_channel", "trend_channel", {}),
     )
     assert tuple((item["calculation_id"], dict(item["parameters"])) for item in STOCK_DAILY_CALCULATIONS
                  ) == tuple((kind, params) for _, kind, params in expected)
     assert dict(STOCK_DAILY_ALGORITHM_VERSIONS) == {
         "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
-        "nineturn": "1.0.0",
+        "nineturn": "1.0.0", "trend_channel": "1.0.0",
     }
     assert dict(STOCK_DAILY_OUTPUT_FIELDS) == {
         "ma": ("value",), "boll": ("middle", "upper", "lower"),
         "macd": ("dif", "dea", "hist"), "kdj": ("k", "d", "j"),
         "price": ("open", "high", "low", "close", "volume", "amount"),
         "nineturn": ("up_count", "down_count"),
+        "trend_channel": ("short_upper", "short_lower", "long_upper", "long_lower"),
     }
     registry = create_builtin_registry()
     for item in STOCK_DAILY_CALCULATIONS:
@@ -97,7 +98,8 @@ def test_request_and_fixed_calculations():
     )
     assert calculation.calculations == STOCK_DAILY_CALCULATIONS
     local = build_calculation_request(source, include_nine_turn=True)
-    assert local.calculations == (*STOCK_DAILY_CALCULATIONS, {"calculation_id": "nineturn", "parameters": {}})
+    assert local.calculations == (*STOCK_DAILY_CALCULATIONS[:-1],
+                                  {"calculation_id": "nineturn", "parameters": {}}, STOCK_DAILY_CALCULATIONS[-1])
     assert source.request.limit == 300 and source.query_end_date == date(2026, 1, 9)
     assert build_calculation_request(_source(())) is None
 
@@ -202,7 +204,7 @@ def test_result_contract_errors():
     calculations = result.calculations
     missing_field = replace(calculations[-1], fields=calculations[-1].fields[:-1])
     wrong_version = replace(calculations[-1], algorithm_version="other")
-    missing_value = replace(calculations[-1], fields=(("open", (None, 10.0)),) + calculations[-1].fields[1:])
+    missing_value = replace(calculations[-1], fields=(("short_upper", (None, 10.0)),) + calculations[-1].fields[1:])
     for broken, reason in (
         (replace(result, times=result.times[:-1]), "time_mismatch"),
         (replace(result, calculations=calculations[:-1] + (missing_field,)), "fields_mismatch"),
@@ -260,3 +262,57 @@ def test_local_nine_turn_rejects_invalid_results(fields, reason):
     with pytest.raises(OutputContractError) as error:
         StockDailyKlineService().assemble(source, broken, paginated=True, source_tables=())
     assert error.value.reason == reason
+
+
+@pytest.mark.parametrize("value", [None, float("nan"), float("inf"), True])
+def test_trend_channel_rejects_invalid_rails(value):
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from goldenshare_technical_indicators.errors import OutputContractError
+    from tests.stock_daily_kline_helpers import result_for
+
+    source = _source((_row(date(2026, 1, 5)),))
+    result = result_for(source.ts_code, (date(2026, 1, 5),), {("trend_channel", "long_upper"): value})
+    with pytest.raises(OutputContractError):
+        StockDailyKlineService().assemble(source, result, source_tables=())
+
+
+def test_daily_trend_mapping_keeps_all_four_distinct_values_and_schema():
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from src.biz.schemas.wealth.market.stock_detail import StockDetailKlineResponseDto, StockDetailPeriodKlineResponseDto
+    from tests.stock_daily_kline_helpers import result_for
+
+    source = _source((_row(date(2026, 1, 5)),))
+    # Independent mapping literals, not indicator arithmetic or a builder-derived expected.
+    rails = {"short_upper": 11.25, "short_lower": 9.5, "long_upper": 10.75, "long_lower": 9.25}
+    result = result_for(source.ts_code, (date(2026, 1, 5),), {("trend_channel", k): v for k, v in rails.items()})
+    payload = StockDailyKlineService().assemble(source, result, source_tables=()).model_dump(mode="json")
+    assert payload["bars"][0]["factors"]["trendChannel"] == {
+        "shortUpper": 11.25, "shortLower": 9.5, "longUpper": 10.75, "longLower": 9.25,
+    }
+    schema = StockDetailKlineResponseDto.model_json_schema()
+    assert "trendChannel" in schema["$defs"]["StockDailyKlineFactorDto"]["required"]
+    assert schema["$defs"]["StockTrendChannelFactorsDto"]["required"] == [
+        "shortUpper", "shortLower", "longUpper", "longLower",
+    ]
+    period_schema = StockDetailPeriodKlineResponseDto.model_json_schema()
+    assert "trendChannel" not in period_schema["$defs"]["StockKlineFactorDto"]["properties"]
+
+
+@pytest.mark.parametrize("mode", ["missing", "duplicate", "wrong parameters"])
+def test_daily_requires_exactly_one_parameterless_trend_result(mode):
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from goldenshare_technical_indicators.errors import OutputContractError
+    from tests.stock_daily_kline_helpers import result_for
+
+    source = _source((_row(date(2026, 1, 5)),))
+    result = result_for(source.ts_code, (date(2026, 1, 5),))
+    channel = result.calculations[-1]
+    if mode == "missing":
+        calculations = result.calculations[:-1]
+    elif mode == "duplicate":
+        calculations = (*result.calculations, channel)
+    else:
+        calculations = (*result.calculations[:-1], replace(channel, parameters=(("period", 25),)))
+    with pytest.raises(OutputContractError) as caught:
+        StockDailyKlineService().assemble(source, replace(result, calculations=calculations), source_tables=())
+    assert caught.value.reason == "instances_mismatch"

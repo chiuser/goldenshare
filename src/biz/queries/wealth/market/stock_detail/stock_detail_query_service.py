@@ -35,9 +35,6 @@ from src.foundation.config.local_minute_capability import (
     resolve_local_minute_capability,
 )
 from src.foundation.config.settings import get_settings
-from src.foundation.config.stock_daily_trend_channel_capability import (
-    resolve_stock_daily_trend_channel_capability,
-)
 from src.foundation.clients.local_lake.reference_data_reader import (
     STOCK_BASIC_LOCATION, TRADE_CALENDAR_LOCATION,
 )
@@ -124,25 +121,18 @@ class StockDetailQueryService:
 
     def _page_options(self) -> tuple[StockChartDefaultsDto, StockDetailCapabilitiesDto]:
         minute_capability = resolve_local_minute_capability(get_settings())
-        trend_channel_capability = resolve_stock_daily_trend_channel_capability(
-            get_settings()
-        )
 
         return (
             StockChartDefaultsDto(
                 availablePeriods=["day", *self._period_capabilities],
-                availableMainOverlays=(
-                    ["MA", "BOLL", "TREND_CHANNEL"]
-                    if trend_channel_capability.enabled
-                    else ["MA", "BOLL"]
-                )
+                availableMainOverlays=["MA", "BOLL", "TREND_CHANNEL"],
             ),
             StockDetailCapabilitiesDto(
                 userActions=StockDetailUserActionsDto(alert=True, tradePlan=True),
                 supportsMinute=minute_capability.enabled,
                 minuteFrequencies=list(SUPPORTED_MINUTE_FREQS) if minute_capability.enabled else [],
                 supportsNineTurn=True,
-                supportsTrendChannel=trend_channel_capability.enabled,
+                supportsTrendChannel=True,
                 supportsWeeklyMonthly=bool(self._period_capabilities),
                 nineTurnPeriods=["day", *self._period_capabilities,
                                  *(["30", "60", "90", "120"] if minute_capability.enabled else [])],

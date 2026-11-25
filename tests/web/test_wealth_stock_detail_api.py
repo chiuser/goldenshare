@@ -1,16 +1,36 @@
 from __future__ import annotations
 
 from datetime import date
-from pathlib import Path
+import pytest
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from src.app.auth.dependencies import require_quote_access
+from src.app.dependencies.db import get_db_session
+from src.app.exceptions import install_exception_handlers
+from src.app.web.middleware.access_log import AccessLogMiddleware
+from src.biz.api.wealth.market.stock_detail import build_router
 
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
-from src.foundation.config.stock_daily_trend_channel_capability import (
-    StockDailyTrendChannelCapability,
-)
+
+
+@pytest.fixture()
+def app_client(db_session):
+    # These tests exercise the Prod response contract with SQLite substitutions.
+    # The shared Web fixture selects the DG router, which requires a real Lake.
+    app = FastAPI()
+    app.state.reference_data = None
+    app.include_router(build_router(local=False), prefix="/api/v1")
+    app.dependency_overrides[get_db_session] = lambda: db_session
+    app.dependency_overrides[require_quote_access] = lambda: None
+    install_exception_handlers(app)
+    app.add_middleware(AccessLogMiddleware)
+    with TestClient(app) as client:
+        yield client
 
 
 def _ensure_stock_detail_tables(db_session) -> None:
@@ -114,7 +134,7 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
         params={"tsCode": "603806.SH", "tradeDate": "2026-05-29", "debug": 1},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["pageContext"]["tradeDate"] == "2026-05-29"
     assert payload["stock"]["tsCode"] == "603806.SH"
@@ -129,8 +149,8 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["chartDefaults"]["defaultAdjustment"] == "forward"
     assert payload["chartDefaults"]["sourceAdjustment"] == "qfq"
     assert payload["chartDefaults"]["availablePeriods"] == ["day"]
-    assert payload["chartDefaults"]["availableMainOverlays"] == ["MA", "BOLL"]
-    assert payload["capabilities"]["supportsTrendChannel"] is False
+    assert payload["chartDefaults"]["availableMainOverlays"] == ["MA", "BOLL", "TREND_CHANNEL"]
+    assert payload["capabilities"]["supportsTrendChannel"] is True
     assert payload["capabilities"]["userActions"] == {
         "watchlist": True, "alert": True, "tradePlan": True, "diagnosis": False,
     }
@@ -144,19 +164,22 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     ]
 
 
-def test_stock_detail_page_init_exposes_trend_overlay_only_from_capability(
+def test_stock_detail_page_init_exposes_trend_without_old_capability(
     app_client,
     db_session,
     monkeypatch,
 ) -> None:
     _seed_stock_detail_data(db_session)
+    def reject_old_capability(*args, **kwargs):
+        pytest.fail("page-init must not inspect the old trend-channel capability")
+
     monkeypatch.setattr(
         "src.biz.queries.wealth.market.stock_detail.stock_detail_query_service.resolve_stock_daily_trend_channel_capability",
-        lambda _settings: StockDailyTrendChannelCapability(
-            True,
-            Path("/Volumes/datasource/data_lake"),
-            None,
-        ),
+        reject_old_capability, raising=False,
+    )
+    monkeypatch.setattr(
+        "src.foundation.config.stock_daily_trend_channel_capability.resolve_stock_daily_trend_channel_capability",
+        reject_old_capability,
     )
 
     response = app_client.get(
@@ -164,7 +187,7 @@ def test_stock_detail_page_init_exposes_trend_overlay_only_from_capability(
         params={"tsCode": "603806.SH", "tradeDate": "2026-05-29"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["capabilities"]["supportsTrendChannel"] is True
     assert payload["chartDefaults"]["availableMainOverlays"] == [
@@ -190,7 +213,7 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
             params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-29"},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["period"] == "day"
     assert payload["adjustment"] == "forward"
@@ -230,7 +253,7 @@ def test_stock_detail_kline_preserves_unavailable_ma_as_null(app_client, db_sess
             params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-28"},
         )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["bars"][0]["factors"]["ma"]["ma250"] is None
 

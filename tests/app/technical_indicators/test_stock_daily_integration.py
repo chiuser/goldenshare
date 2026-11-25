@@ -53,7 +53,11 @@ def _literal_stock_results():
                           (("open", (10.0,)), ("high", (11.0,)), ("low", (9.0,)),
                            ("close", (10.0,)), ("volume", (None,)), ("amount", (None,)))),
     )
-    return replace(literal_result(), calculations=means + others)
+    trend = (CalculationValues("trend_channel", "1.0.0", (), (
+        ("short_upper", (11.0,)), ("short_lower", (9.0,)),
+        ("long_upper", (11.0,)), ("long_lower", (9.0,)),
+    )),)
+    return replace(literal_result(), calculations=means + others + trend)
 
 
 def test_single_work_and_existing_entries(monkeypatch, record_property):
@@ -83,7 +87,7 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
                 assert threading.get_ident() != main_thread
                 assert service.control is control is controls[-1]
                 assert prepared.request is request
-                assert len(prepared.request.calculations) == 11
+                assert len(prepared.request.calculations) == 12
                 calls.append(prepared.request)
                 if mode == "wrong_library_type":
                     value = _Payload(result="unsupported library result")
@@ -153,7 +157,7 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
                         5, 10, 20, 30, 60, 90, 250,
                     ]
                     assert [item["calculation_id"] for item in payload["calculations"][7:]] == [
-                        "boll", "macd", "kdj", "price",
+                        "boll", "macd", "kdj", "price", "trend_channel",
                     ]
                     assert payload["calculations"][8]["fields"]["hist"] == [0.0]
                 assert result is None and observers == ["started", "ended"]
@@ -461,15 +465,15 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
     monkeypatch.setattr(registry, "resolve", resolve_once)
     monkeypatch.setattr(CalculationDefinition, "validate_parameters", validate_once)
     backend = wiring.StockDailyKlineAppBackend(rt)
-    expected = ["ma"] * 7 + ["boll", "macd", "kdj", "price"]
-    assert resolved == [*expected, "nineturn"] and validated == []
+    expected = ["ma"] * 7 + ["boll", "macd", "kdj", "price", "trend_channel"]
+    assert resolved == [*expected[:-1], "nineturn", expected[-1]] and validated == []
     request = StockDailyKlineRequest("600000.SH", "day", "forward", None, None, None, 500, False)
     assert backend.validate_before_wait(request) is request
     assert backend.validate_before_wait(replace(request, limit=250)).limit == 250
     with pytest.raises(WebAppError) as caught:
         backend.validate_before_wait(replace(request, limit=0))
     assert caught.value.code == "400001"
-    assert resolved == [*expected, "nineturn"] and validated == []
+    assert resolved == [*expected[:-1], "nineturn", expected[-1]] and validated == []
 
     resolved.clear()
     wiring.StockDailyKlineAppBackend(SimpleNamespace(
@@ -483,7 +487,7 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
         security_type="stock", ts_code="600000.SH", period="day", adjustment="qfq",
         start=stamp, end=stamp, calculations=STOCK_DAILY_CALCULATIONS,
     ))
-    assert len(prepared.plan.instances) == 11
+    assert len(prepared.plan.instances) == 12
     assert validated == expected
 
     # Deliberately inconsistent definitions exercise the existing startup contract.

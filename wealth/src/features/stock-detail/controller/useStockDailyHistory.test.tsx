@@ -5,10 +5,9 @@ import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-w
 import { fetchStockNineTurnSeries } from "../../nine-turn/api/nineTurnApiClient";
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
-import type { StockDetailKlineResponseDto, StockKlineBarDto } from "../api/stockDetailApiTypes";
+import type { StockDetailDailyKlineResponseDto, StockDetailKlineResponseDto, StockDailyKlineBarDto } from "../api/stockDetailApiTypes";
 import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
 import { fetchStockTrendChannel } from "../trend-channel/api/stockTrendChannelApiClient";
-import type { StockTrendChannelResponseDto } from "../trend-channel/api/stockTrendChannelApiTypes";
 import { useStockDailyHistory } from "./useStockDailyHistory";
 
 vi.mock("../api/stockDetailApiClient");
@@ -23,10 +22,11 @@ const first = "2024-10-30";
 const marker: NineTurnMarkerDto =
   { tradeDate: start, tradeTime: null, direction: "UP", sequenceNumber: 1, completed: false };
 
-function bar(tradeDate: string): StockKlineBarDto {
+function bar(tradeDate: string): StockDailyKlineBarDto {
   return {
     tradeDate, open: 10, high: 11, low: 9, close: 10.5, volDisplay: "100",
-    factors: { ma: { ma5: 10 }, boll: {}, macd: {}, kdj: {} },
+    factors: { ma: { ma5: 10 }, boll: {}, macd: {}, kdj: {},
+      trendChannel: { shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 } },
   };
 }
 
@@ -35,7 +35,7 @@ const seed = {
   candles: [bar(first), bar(anchor)].map(toCandlePoint),
 };
 
-function kline(): StockDetailKlineResponseDto {
+function kline(): StockDetailDailyKlineResponseDto {
   return {
     pageContext: {
       tradeDate: end, market: "CN_A", isTradingDay: true, sessionStatus: "CLOSED",
@@ -48,21 +48,6 @@ function kline(): StockDetailKlineResponseDto {
   };
 }
 
-function trend(): StockTrendChannelResponseDto {
-  const band = { lower: 9, upper: 11, position: "INSIDE", state: "UP" } as const;
-  return {
-    stockRef: { tsCode: code }, period: "day", adjustment: "forward", sourceAdjustment: "qfq",
-    bars: ["2024-10-25", end].map(tradeDate => ({
-      tradeDate, open: 10, high: 11, low: 9, close: 10.5, shortChannel: band, longChannel: band, combinedState: "UP_UP",
-    })),
-    formula: {
-      key: "high-low-ema-hysteresis", version: "stock-daily-trend-channel-v1", shortPeriod: 25,
-      longPeriod: 90, seed: "first_observation", stateRule: "strict_close_breakout_inside_retention",
-    },
-    meta: { count: 2, limit: 2, endDate: end }, dataStatus: { status: "READY" },
-  };
-}
-
 function viewport(overrides: Partial<DetailChartHistoryViewport> = {}): DetailChartHistoryViewport {
   return { firstDate: first, leftDate: first, remaining: 1, direction: "history", beyondLeft: true,
     gesture: Symbol(), ...overrides };
@@ -71,11 +56,9 @@ function viewport(overrides: Partial<DetailChartHistoryViewport> = {}): DetailCh
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(fetchStockDetailKline).mockResolvedValue(kline());
-  vi.mocked(fetchStockTrendChannel).mockResolvedValue(trend());
 });
 
 it("prepends candles and nine-turn together, and retries trend separately", async () => {
-  vi.mocked(fetchStockTrendChannel).mockRejectedValueOnce(new Error("trend failed"));
   const { result } = renderHook(() => useStockDailyHistory(seed, true));
   act(() => {
     result.current.onViewport(viewport({ direction: "stationary" }));
@@ -93,24 +76,28 @@ it("prepends candles and nine-turn together, and retries trend separately", asyn
   expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
   expect(result.current.visible?.candles.map(candle => candle.fullDate)).toEqual([start, end, first, anchor]);
   expect(fetchStockTrendChannel).not.toHaveBeenCalled();
-  act(() => result.current.ensureTrend());
-  await waitFor(() => expect(result.current.visible?.pages[0]?.trend?.phase).toBe("error"));
-  act(() => result.current.retryTrend(result.current.visible!.pages[0]!));
-  await waitFor(() => expect(result.current.visible?.pages[0]?.trend).toEqual(
-    { phase: "ready", points: [expect.objectContaining({ time: end })] },
-  ));
-  expect(fetchStockTrendChannel).toHaveBeenCalledTimes(2);
-  expect(fetchStockTrendChannel).toHaveBeenLastCalledWith({ tsCode: code, endDate: end, limit: 2 }, expect.anything());
+  expect(result.current.visible?.pages[0]?.trendPoints).toEqual([
+    { time: start, close: 10.5, shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 },
+    { time: end, close: 10.5, shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 },
+  ]);
+  expect(fetchStockTrendChannel).not.toHaveBeenCalled();
   act(() => result.current.onViewport(viewport({ firstDate: start })));
   expect(fetchStockDetailKline).toHaveBeenCalledTimes(1);
   expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
 });
 
-it.each(["failed request", "missing nine-turn field"])("retries the same end date after a %s", async (failure) => {
+it.each(["failed request", "missing nine-turn field", "missing rail", "nonfinite rail", "wrong date"])("retries the same end date after a %s", async (failure) => {
   if (failure === "failed request") {
     vi.mocked(fetchStockDetailKline).mockRejectedValueOnce(new Error("kline failed"));
-  } else {
+  } else if (failure === "missing nine-turn field") {
     vi.mocked(fetchStockDetailKline).mockResolvedValueOnce({ ...kline(), nineTurnMarkers: undefined });
+  } else {
+    const invalid = kline();
+    // Deliberately invalid server input verifies that conversion fails before the cursor changes.
+    if (failure === "missing rail") Object.assign(invalid.bars[0]!.factors.trendChannel, { shortUpper: undefined });
+    if (failure === "nonfinite rail") invalid.bars[0]!.factors.trendChannel.longUpper = NaN;
+    if (failure === "wrong date") invalid.bars[0]!.tradeDate = "bad-date";
+    vi.mocked(fetchStockDetailKline).mockResolvedValueOnce(invalid);
   }
   const { result } = renderHook(() => useStockDailyHistory(seed, true));
   const gesture = viewport();

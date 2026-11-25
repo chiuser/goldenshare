@@ -2,7 +2,7 @@
 
 > 2026-11-19 · 待评审。本文记录已确认的业务口径和本期实施方案。接口变更、代码落点和阶段验收见 [实施 LLD](stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)。
 
-**2026-11-25 后续趋势通道专项（设计已补齐，业务未切换）。** 后续股票日线使用算子库计算的四轨，随同一次 `/kline` 返回；首批保存通道点，本地续页保存并合并每批通道点，开关只绘制，不再请求旧 `/trend-channel`。页面入口不依赖旧通道开关或目录。日线增加必有 `factors.trendChannel`，周月线字段和计算保持；本地沿原首批/游标续页，Prod 原加载与回包只增加四轨，不新增生产分页。该明确批准的日线增量不受本文原换源阶段“Prod 字段完全不变”的约束，其余 Prod 行为保留。组装架构按管理员指定在专项第三阶段整理为每指标独立 build、公共组合复用、各业务 `assemble()` 显式组合。具体阶段及验收见[专项方案](../../../../docs/architecture/technical-indicator-trend-channel-plan-v1.md)和[专项 LLD §4](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#4-阶段二三沿现有业务接法接入)，未据此开发、发包或部署。
+**2026-11-25 后续趋势通道专项（阶段二实现及技术验收完成，未部署）。** 后续股票日线使用算子库计算的四轨，随同一次 `/kline` 返回；首批保存通道点，本地续页保存并合并每批通道点，开关只绘制，不再请求旧 `/trend-channel`。页面入口不依赖旧通道开关或目录。日线增加必有 `factors.trendChannel`，周月线字段和计算保持；本地沿原首批/游标续页，Prod 原加载与回包只增加四轨，不新增生产分页。该明确批准的日线增量不受本文原换源阶段“Prod 字段完全不变”的约束，其余 Prod 行为保留。组装架构按管理员指定在专项第三阶段整理为每指标独立 build、公共组合复用、各业务 `assemble()` 显式组合。具体阶段及验收见[专项方案](../../../../docs/architecture/technical-indicator-trend-channel-plan-v1.md)和[专项 LLD §4](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#4-阶段二三沿现有业务接法接入)。阶段二代码、隔离技术验收、正式 DG 有界只读和浏览器对照已完成，详见[专项 LLD §10](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)；提交管理员 review，未发包或部署，不自动进入第三阶段。
 
 ## 1. 本期目标和范围
 
