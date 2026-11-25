@@ -668,3 +668,9 @@ CodeGraph已使用`status`、`explore`、`impact`、`callers`核对共享SQL及r
 复用 13 个交易日已取得的源数据，逐键识别出符合上述条件的 Silver 缺口 **1,883 条，涉及 11 个交易日、257 只股票**。其中 2014-01-02 有 217 条，例如 `600832.SH` 的 Silver 缺口应补最新值 `17.1552`。同日 Tushare 未返回 `000751.SZ`，继续保留 Silver 的原值 `3.371`。样本候选通过适用的必需覆盖和 Raw 一致性核对。全区间实际补齐量和其余待审量由全市场逐日对账确定。[核对结果及旧记录来源](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-existing-keys-sample-20261125)
 
 新增离线入口已在三个真实交易日副本上完成逐日准备、正式格式候选校验、隔离文件替换和读回。故障模拟覆盖准备中断、Raw 替换后回执缺失和成功后的重复提交。该次验收只读取六个指定交易日因子文件及必要的日历和生命周期，复用已保存的三个源响应。[隔离结果和 16:00 窗口判断](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-history-refresh-isolated-20261125)
+
+### 16.5 已审定的六项历史缺口
+
+全量准备完成后，六个待审的股票日期键均通过现行 Silver 筛选。单独处理这六个键，新增值使用已封存的同日 Tushare 响应，与补数后的同日 Raw 逐键一致。2026-02-03 的四个键先补 Raw 再补 Silver。管理员确认 2015-05-20 先修正两个既有 Raw 值，再补入同值的 Silver 记录。每个日期只处理明细清单中的键，沿用历史补齐、候选校验、原子替换和逐文件读回。两天的专项补数独立记录，旧全量清单保留作原对账证据，后续发布前重新准备受影响日期。[执行范围、明细及验收](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-reviewed-keys-20261125)
+
+北京时间 2026-11-25 14:33，专项补数已正式发布并读回。Raw 新增 4 条、改值 2 条，Silver 新增 6 条。四份正式文件均与审核过的候选摘要一致。全量准备清单保留原样，后续全量发布前需更新这两个交易日的候选及目标文件身份。
