@@ -346,7 +346,7 @@
             </tr>
             <tr>
               <th scope="row">3. 切换本地股票分钟线</th>
-              <td><span class="tag active">阶段 3 已通过隔离验收</span><br>本地七个周期都使用算子库，图表每个窗口请求一次。<br><a class="ref" href="#stock-active-minute-indicators">页面来源</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-phase-three-acceptance">阶段 3 验收</a></td>
+              <td><span class="tag active">本地开发入口已验收</span><br>本地七个周期都使用算子库，图表每个窗口请求一次。加载提示按所选周期显示。<br><a class="ref" href="#stock-active-minute-indicators">页面来源</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-phase-three-acceptance">阶段 3 验收</a></td>
               <td>基础五档读取 DG Silver 同频率不复权行情，90／120 分钟分别读取 Silver 30／60 分钟行情。按交易日复权，再计算指标。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a></td>
               <td>股票详情的三个接口已退出 Gold 成品读取。交易助手仍读 Gold 1 分钟行情，DG 指标和九转生成及检查仍按现行依赖运行。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37">交易助手读取</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">DG 指标依赖</a></td>
             </tr>
