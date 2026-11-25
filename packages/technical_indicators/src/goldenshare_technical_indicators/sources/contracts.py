@@ -107,6 +107,7 @@ class SourceDescription:
     standard_projection: tuple[tuple[str, str], ...] = ()
     period_bars: tuple[PeriodBarMetadata, ...] = ()
     source_facts: SourceReadFacts = SourceReadFacts()
+    delivered_adjustment: Adjustment | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "supported_adjustment_paths", tuple(tuple(item) for item in self.supported_adjustment_paths))

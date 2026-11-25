@@ -2,13 +2,14 @@
 
 from dataclasses import replace
 from datetime import date, datetime
-from math import isfinite
 from zoneinfo import ZoneInfo
 
 from ..calculation.calculation import SqlStep
 from ..errors import ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError, SourceUnsupportedError
 from .contracts import PriceBatch, SourceDescription
-from .price_adjustment import PriceAdjustmentCalculation, VALUE_FIELDS
+from .price_adjustment import (
+    PriceAdjustmentCalculation, VALUE_FIELDS, validate_adjustment_basis, validate_adjustment_factors,
+)
 
 _FIELD_ORDER = ("open", "high", "low", "close", "volume", "amount")
 _VOLUME_MULTIPLIERS = {"share": 1, "lot": 100}
@@ -79,13 +80,17 @@ class PriceInputSession:
                 )
                 self._next_expected_position = next(self._expected_positions, None)
             resolved = self.description
+            delivered_adjustment = resolved.delivered_adjustment
+            if delivered_adjustment is not None and delivered_adjustment != request.target_adjustment:
+                raise SourceContractError("The delivered adjustment differs from the requested adjustment")
             if path[0] != path[1]:
-                self._own_table("ti_anchor")
-                resolved = self.source.prepare_basis(self.executor, self.description, self.requirement,
-                    table_name="ti_anchor", read_context=self.read_context)
-                if (resolved.basis_date is None or resolved.basis_value is None
-                        or not isfinite(resolved.basis_value) or resolved.basis_value <= 0):
-                    raise SourceContractError("Converted daily prices require a finite positive adjustment factor basis")
+                if delivered_adjustment is None:
+                    self._own_table("ti_anchor")
+                    resolved = self.source.prepare_basis(self.executor, self.description, self.requirement,
+                        table_name="ti_anchor", read_context=self.read_context)
+                else:
+                    self.conversion_batches += 1
+                validate_adjustment_basis(resolved)
             self._stream = self.source.open(self.executor, resolved, request, read_context=self.read_context)
             self.executor.control.check_active()
             self._resolved = replace(resolved, volume_unit="share", amount_unit="CNY")
@@ -235,7 +240,8 @@ class PriceInputSession:
                 error.reason = "selection_count_mismatch"
                 error.expected_count, error.actual_count = expected, self._rows + new_rows
                 raise error
-            converted = self.description.input_adjustment != self.requirement.target_adjustment
+            delivered_adjustment = self.description.delivered_adjustment or self.description.input_adjustment
+            converted = delivered_adjustment != self.requirement.target_adjustment
             dates_sql = (", trade_dates := list(DISTINCT trade_date ORDER BY trade_date) "
                          "FILTER (WHERE trade_date IS NOT NULL)" if converted else "")
             checks = [
@@ -259,17 +265,7 @@ class PriceInputSession:
                 self._own_table("ti_day_factor")
                 self.source.prepare_factors(self.executor, self._resolved, self.requirement,
                     dates, table_name="ti_day_factor", read_context=self.read_context)
-                invalid_factor_date = self.executor.scalar("""
-                    SELECT prices.trade_date
-                    FROM (SELECT DISTINCT trade_date FROM ti_raw_new) AS prices
-                    LEFT JOIN ti_day_factor AS factor USING (trade_date)
-                    GROUP BY prices.trade_date
-                    HAVING count(*) <> 1 OR count(factor.adj_factor) <> 1
-                        OR NOT bool_and(isfinite(factor.adj_factor) AND factor.adj_factor > 0)
-                    ORDER BY prices.trade_date LIMIT 1
-                """)
-                if invalid_factor_date is not None:
-                    raise SourceContractError(f"Missing, duplicate or invalid adjustment factor for {invalid_factor_date}")
+                validate_adjustment_factors(self.executor, "ti_raw_new", "ti_day_factor")
                 step = PriceAdjustmentCalculation().build_sql("ti_raw_new", "ti_day_factor", "ti_anchor",
                     output_table="ti_price_new", fields=self.fields, time_fields=self.time_fields,
                     processed_rows=new_rows,

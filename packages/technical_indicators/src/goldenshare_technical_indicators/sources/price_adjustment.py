@@ -1,11 +1,34 @@
 """The shared price conversion formula, expressed only in DuckDB SQL."""
 
+from math import isfinite
+
 from ..calculation.calculation import SqlStep
-from ..errors import SourceUnsupportedError
+from ..errors import SourceContractError, SourceUnsupportedError
 
 PRICE_FIELDS = frozenset(("open", "high", "low", "close"))
 VALUE_FIELDS = PRICE_FIELDS | {"volume", "amount"}
 FORMULA_VERSION = "1.0.0"
+
+
+def validate_adjustment_basis(description) -> None:
+    if (description.basis_date is None or description.basis_value is None
+            or not isfinite(description.basis_value) or description.basis_value <= 0):
+        raise SourceContractError("Converted daily prices require a finite positive adjustment factor basis")
+
+
+def validate_adjustment_factors(executor, prices: str, factors: str) -> None:
+    """Validate factors already loaded for this request, using caller-owned tables."""
+    invalid_date = executor.scalar(f"""
+        SELECT prices.trade_date
+        FROM (SELECT DISTINCT trade_date FROM {prices}) AS prices
+        LEFT JOIN {factors} AS factor USING (trade_date)
+        GROUP BY prices.trade_date
+        HAVING count(*) <> 1 OR count(factor.adj_factor) <> 1
+            OR NOT bool_and(isfinite(factor.adj_factor) AND factor.adj_factor > 0)
+        ORDER BY prices.trade_date LIMIT 1
+    """)
+    if invalid_date is not None:
+        raise SourceContractError(f"Missing, duplicate or invalid adjustment factor for {invalid_date}")
 
 
 class PriceAdjustmentCalculation:

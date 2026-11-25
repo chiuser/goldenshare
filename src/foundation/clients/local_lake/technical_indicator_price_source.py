@@ -18,6 +18,7 @@ import sys
 
 from goldenshare_technical_indicators.calculation.calculation import SqlStep
 from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.configuration.datasets import DG_RECENT_STOCK_MINUTE_DATASETS
 from goldenshare_technical_indicators.errors import (
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
     TechnicalIndicatorError,
@@ -32,6 +33,7 @@ from ..technical_indicator_index_period import (
 from ..technical_indicator_stock_daily import (
     dg_index_daily_origin, full_day_suspension, scheduled_open_days, scheduled_stock_days,
 )
+from ..technical_indicator_stock_minutes import STOCK_MINUTE_HISTORY_START
 from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, StockPeriodStream
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA,
@@ -117,7 +119,10 @@ class LakeTechnicalIndicatorPriceSource:
 
     def _partition_paths(self, root, requirement, control):
         through = requirement.end.date() if requirement.period.endswith("m") else requirement.end
-        start = dg_index_daily_origin(requirement.ts_code) if requirement.target.dataset_id == "index_daily" else None
+        dataset_id = requirement.target.dataset_id
+        start = dg_index_daily_origin(requirement.ts_code) if dataset_id == "index_daily" else None
+        if dataset_id in DG_RECENT_STOCK_MINUTE_DATASETS.values():
+            start = STOCK_MINUTE_HISTORY_START
         return tuple(path for _, path in self._dated_partitions(root, requirement.target, through, control, start=start))
 
     def _dated_partitions(self, root, target, through, control, *, start=None):

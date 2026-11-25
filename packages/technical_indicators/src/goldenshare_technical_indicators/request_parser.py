@@ -7,7 +7,7 @@ from .calculation.history import HistoryRequirement, INITIALIZATION_ERROR_BUDGET
 from .calculation.registry import CalculationRegistry
 from .configuration.settings import KernelConfig
 from .contracts import CalculationRequest, normalize_request_and_validate_all_instances
-from .configuration.datasets import DG_RECENT_INDEX_MINUTE_DATASETS
+from .configuration.datasets import DG_RECENT_INDEX_MINUTE_DATASETS, DG_RECENT_STOCK_MINUTE_DATASETS
 from .errors import ResourceLimitError, SourceUnsupportedError
 from .sources.contracts import DatasetReadTarget, ReadRequirement
 
@@ -28,7 +28,10 @@ class CalculationRequestParser:
         self._config = config
         self._registry = registry
 
-    def parse(self, request: CalculationRequest, *, index_minute_output_limit: int | None = None) -> _PreparedCalculation:
+    def parse(
+        self, request: CalculationRequest, *, index_minute_output_limit: int | None = None,
+        stock_minute_output_limit: int | None = None,
+    ) -> _PreparedCalculation:
         normalized = normalize_request_and_validate_all_instances(request, self._config)
         plan = self._registry.expand_dependencies(normalized)
         if index_minute_output_limit is not None:
@@ -42,6 +45,18 @@ class CalculationRequestParser:
             return _PreparedCalculation(
                 normalized, plan, self._config.resolve_dataset_location(dataset_id),
                 max_output_rows=index_minute_output_limit,
+            )
+        if stock_minute_output_limit is not None:
+            dataset_id = DG_RECENT_STOCK_MINUTE_DATASETS.get(normalized.period)
+            if (self._config.data_location != "dg" or normalized.security_type != "stock"
+                    or dataset_id is None or normalized.adjustment != "qfq" or normalized.latest_rows is None
+                    or normalized.adjustment not in self._config.enabled_adjustments(dataset_id)):
+                raise SourceUnsupportedError("This request is not enabled for DG stock minutes by row count")
+            if normalized.latest_rows > stock_minute_output_limit:
+                raise ResourceLimitError("Target positions exceed max_output_rows")
+            return _PreparedCalculation(
+                normalized, plan, self._config.resolve_dataset_location(dataset_id),
+                max_output_rows=stock_minute_output_limit,
             )
         dataset_id = self._config.market_dataset_id(normalized.security_type, normalized.period)
         if normalized.adjustment not in self._config.enabled_adjustments(dataset_id):

@@ -72,6 +72,18 @@ for _period, _dataset in DG_RECENT_INDEX_MINUTE_DATASETS.items():
         "prod_pg": None,
     }
 
+DG_RECENT_STOCK_MINUTE_DATASETS = {
+    f"{frequency}m": f"dg_stock_mins_{frequency}m" for frequency in (1, 5, 15, 30, 60)
+}
+for _period, _dataset in DG_RECENT_STOCK_MINUTE_DATASETS.items():
+    DATASET_LOCATIONS[_dataset] = {
+        "dg": {
+            "relative_path": "silver/quote/stk_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
+            "partitions": {"freq": int(_period.removesuffix("m"))},
+        },
+        "prod_pg": None,
+    }
+
 for _frequency in (1, 5, 15, 30, 60, 90, 120):
     _period = f"{_frequency}m"
     _stock_id = f"stock_mins_{_period}"

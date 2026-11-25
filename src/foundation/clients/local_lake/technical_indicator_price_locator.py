@@ -11,7 +11,9 @@ from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
 from goldenshare_technical_indicators.calculation.calculation import SqlStep
-from goldenshare_technical_indicators.configuration.datasets import DG_RECENT_INDEX_MINUTE_DATASETS
+from goldenshare_technical_indicators.configuration.datasets import (
+    DG_RECENT_INDEX_MINUTE_DATASETS, DG_RECENT_STOCK_MINUTE_DATASETS,
+)
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError,
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
@@ -20,10 +22,13 @@ from goldenshare_technical_indicators.errors import (
 from goldenshare_technical_indicators.sources.contracts import (
     CalendarDayFacts, PriceReadSelection, SourceDescription, SourceReadFacts, TargetBarFacts,
 )
+from goldenshare_technical_indicators.sources.price_adjustment import (
+    validate_adjustment_basis, validate_adjustment_factors,
+)
 from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
 from ..technical_indicator_stock_daily import (
-    daily_adjustment_paths, daily_price_projection, dg_index_daily_origin, scheduled_open_days,
+    DAILY_PRICE_FIELDS, daily_adjustment_paths, daily_price_projection, dg_index_daily_origin, scheduled_open_days,
 )
 from ..technical_indicator_index_minutes import (
     dg_recent_index_minute_sql, index_minute_projection, index_minute_volume_unit,
@@ -32,6 +37,9 @@ from ..technical_indicator_index_period import (
     INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, check_index_period_cutoff, check_period_key,
     describe_index_period, index_period_projection, period_bounds, period_request_start,
     preceding_limit, require_index_period,
+)
+from ..technical_indicator_stock_minutes import (
+    STOCK_MINUTE_SELECTED_ROWS_SQL, adjusted_stock_minute_sql, stock_minute_selection_sql,
 )
 from ..technical_indicator_stock_period import STOCK_PERIOD_DATASETS, describe_stock_period, require_stock_period
 from .major_index_mins_contract import EXPECTED_BARS_PER_SESSION
@@ -812,7 +820,12 @@ class LakePriceLocator:
             for name, expression in standard
         )
         sql = dg_recent_index_minute_sql(request.period, columns)
-        selection, facts = self._select_recent_index_minutes(paths, columns, sql)
+        daily_rows = EXPECTED_BARS_PER_SESSION[int(request.period.removesuffix("m"))]
+        selection, facts, batches = self._select_recent_minutes(
+            paths, columns, sql, daily_rows=daily_rows,
+            error_message="The DG index minute batch could not be read",
+        )
+        self.context.retained_price_batches = batches if selection.target_rows else None
         return SourceDescription(
             source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
             basis_rule=None, basis_date=None, basis_value=None,
@@ -823,12 +836,82 @@ class LakePriceLocator:
             standard_projection=standard, source_facts=facts,
         )
 
-    def _select_recent_index_minutes(self, paths, columns, sql):
+    def _describe_recent_stock_minutes(self):
+        request = self.requirement
+        self._root = self.source._root()
+        paths = self.source._partition_paths(self._root, request, self.control)
+        frequency = int(request.period.removesuffix("m"))
+        sql, daily_rows = stock_minute_selection_sql(frequency)
+        selection, facts, batches = self._select_recent_minutes(
+            paths, ("trade_date", "trade_time", "exchange", "base_bars"), sql,
+            daily_rows=daily_rows, source_filters=(frequency,),
+            error_message="The DG stock minute batch could not be read",
+        )
+        columns = ("trade_date", "trade_time", *(field for field in DAILY_PRICE_FIELDS
+                                                if field in request.history.fields))
+        description = SourceDescription(
+            source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
+            basis_rule="latest_available_factor", basis_date=None, basis_value=None,
+            price_unit="CNY", volume_unit="share", amount_unit="CNY", timezone="Asia/Shanghai",
+            period_label_rule="trade_time", history_origin_rule="earliest_available_formal_partition",
+            available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "qfq"),),
+            converted=True, selection=selection, source_projection=columns,
+            standard_projection=tuple((column, f'b."{column}"') for column in columns),
+            source_facts=facts, delivered_adjustment="qfq",
+        )
+        if not selection.target_rows:
+            return description
+        factor_target = self.context.config.resolve_dataset_location("stock_adj_factor")
+        factor_paths = self.source._dated_partitions(self._root, factor_target, date.max, self.control)
+        description = replace(description, factor_paths=tuple(
+            (day, self.source._safe_path(self._root, path)) for day, path in factor_paths
+        ))
+        return self._adjust_recent_stock_minutes(description, batches, columns)
+
+    def _adjust_recent_stock_minutes(self, description, batches, columns):
+        pa, _, _, _ = _arrow()
+        request = self.requirement
+        windows = pa.Table.from_batches(batches)
+        trade_dates = tuple(sorted(windows["trade_date"].unique().to_pylist()))
+        registration = "ti_stock_minute_windows"
+        selected = "ti_stock_minute_selected_rows"
+        basis = "ti_stock_minute_basis"
+        factors = "ti_stock_minute_factors"
+        for name in (selected, basis, factors):
+            self.executor.declare_table(name)
+            self._tables.append(name)
+
+        self._registrations.append(registration)
+        self.executor.register_arrow(registration, windows)
+        stats = self.executor.execute(SqlStep(
+            "expand_stock_minute_windows", STOCK_MINUTE_SELECTED_ROWS_SQL, (), (registration,), (selected,),
+            windows.num_rows,
+        ))
+        self.executor.unregister_arrow(registration)
+        self._registrations.remove(registration)
+        self.context.record_price_rows(0, additional_source_rows=stats.output_rows - windows.num_rows)
+        description = self.source.prepare_basis(
+            self.executor, description, request, table_name=basis, read_context=self.context,
+        )
+        validate_adjustment_basis(description)
+        self.source.prepare_factors(
+            self.executor, description, request, trade_dates, table_name=factors, read_context=self.context,
+        )
+        validate_adjustment_factors(self.executor, selected, factors)
+        adjusted = self._read_rows(
+            adjusted_stock_minute_sql(columns), (),
+            error_message="The DG stock minute prices could not be converted and combined", as_arrow=True,
+        )
+        self.context.retained_price_batches = tuple(adjusted.to_batches(max_chunksize=request.batch_rows))
+        return description
+
+    def _select_recent_minutes(
+        self, paths, columns, sql, *, daily_rows, error_message, source_filters=(),
+    ):
         request, config = self.requirement, self.context.config
         pa, _, _, _ = _arrow()
         start = request.start.replace(tzinfo=None) if request.start is not None else None
         cutoff = request.end.replace(tzinfo=None)
-        daily_rows = EXPECTED_BARS_PER_SESSION[int(request.period.removesuffix("m"))]
         remaining_files = len(paths)
         targets = history = 0
         target_start = target_end = read_start = None
@@ -853,8 +936,8 @@ class LakePriceLocator:
                 self.source._safe_path(self._root, path)
                 self.context.record_file(path, path.stat().st_size)
             rows = self._read_rows(
-                sql, (list(map(str, batch_paths)), request.ts_code, cutoff, limit),
-                error_message="The DG index minute batch could not be read", as_arrow=True,
+                sql, (list(map(str, batch_paths)), request.ts_code, *source_filters, cutoff, limit),
+                error_message=error_message, as_arrow=True,
             )
             self.context.record_locator_rows(rows.num_rows)
             if not rows.num_rows:
@@ -888,14 +971,14 @@ class LakePriceLocator:
 
         reached_origin = not remaining_files and not omitted_older_rows
         if not targets:
-            return PriceReadSelection(None, None, None, None, 0, 0, reached_origin, ()), SourceReadFacts()
-        self.context.retained_price_batches = tuple(batch for group in reversed(batches) for batch in group)
+            return PriceReadSelection(None, None, None, None, 0, 0, reached_origin, ()), SourceReadFacts(), ()
         return (
             PriceReadSelection(
                 self._position(target_start), self._position(target_end),
                 self._position(read_start), self._position(target_end), targets, history, reached_origin, (),
             ),
             SourceReadFacts(has_more=has_more, target_exchanges=tuple(reversed(exchanges))),
+            tuple(batch for group in reversed(batches) for batch in group),
         )
 
     def _read_recent_daily_batch(self, paths, columns):
@@ -1059,6 +1142,8 @@ class LakePriceLocator:
             if request.period.endswith("m"):
                 if request.target.dataset_id in DG_RECENT_INDEX_MINUTE_DATASETS.values():
                     return self._describe_recent_index_minutes()
+                if request.target.dataset_id in DG_RECENT_STOCK_MINUTE_DATASETS.values():
+                    return self._describe_recent_stock_minutes()
                 return self._describe_index_minutes()
             adjustments = daily_adjustment_paths(request, "dg")
             self.control.check_active()
