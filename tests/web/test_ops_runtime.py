@@ -1065,6 +1065,250 @@ def test_scheduler_defaults_reference_data_refresh_workflow_to_snapshot_mode(db_
     assert task_run.request_payload_json["time_input"] == {"mode": "none"}
 
 
+# Literal workflow order from the approved LLD, not derived from the registry.
+REFERENCE_DATA_STEPS = (
+    "stock_basic", "namechange", "st", "bse_mapping", "stock_company",
+    "trade_cal", "etf_basic", "etf_index", "index_basic", "hk_basic",
+)
+
+
+def _reference_data_task(task_run_factory, *, trigger_source="manual"):
+    return task_run_factory(
+        task_type="workflow", resource_key=None, title="基础主数据刷新",
+        trigger_source=trigger_source, time_input_json={"mode": "none"},
+        request_payload_json={
+            "target_type": "workflow", "target_key": "reference_data_refresh",
+            "time_input": {"mode": "none"}, "filters": {},
+        },
+    )
+
+
+@pytest.mark.parametrize("trigger_source", ["manual", "scheduled", "retry"])
+def test_reference_data_workflow_continues_after_etf_write_error(
+    db_session, task_run_factory, monkeypatch, trigger_source,
+):
+    from src.foundation.ingestion.errors import IngestionWriteError
+
+    calls = []
+
+    def run(self, session, task_run, action_request, plan):
+        assert action_request.time_input.mode == "none" and action_request.filters == {}
+        calls.append(plan.dataset_key)
+        if plan.dataset_key == "etf_basic":
+            raise IngestionWriteError(StructuredError(
+                error_code="etf_basic_snapshot_invalid", error_type="write", phase="writer",
+                message="ETF Basic 交易所与代码后缀不一致", retryable=False,
+                unit_id="etf_basic:none:0",
+                details={"ts_code": "562430.SZ", "exchange": "SH", "expected_exchange": "SZ"},
+            ))
+        return 1, 1, 0, {}, {}, "success"
+
+    # Only the business boundary is replaced; resolver, dispatcher, worker and Ops storage are real.
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", run)
+    task = _reference_data_task(task_run_factory, trigger_source=trigger_source)
+    result = OperationsWorker().run_task_run(db_session, task.id)
+    nodes = list(db_session.scalars(select(TaskRunNode).where(
+        TaskRunNode.task_run_id == task.id,
+    ).order_by(TaskRunNode.sequence_no)))
+
+    assert calls == list(REFERENCE_DATA_STEPS)
+    assert [node.resource_key for node in nodes] == list(REFERENCE_DATA_STEPS)
+    assert [node.status for node in nodes] == ["success"] * 6 + ["failed"] + ["success"] * 3
+    assert all(node.time_input_json == {"mode": "none"} and node.ended_at is not None for node in nodes)
+    assert result.status == "partial_success" and result.status_reason_code == "workflow_step_failed"
+    assert (result.unit_total, result.unit_done, result.unit_failed, result.progress_percent) == (10, 9, 1, 100)
+    assert result.rows_saved == 9
+    issue = db_session.get(TaskRunIssue, result.primary_issue_id)
+    assert issue.node_id == nodes[6].id and nodes[6].issue_id == issue.id
+    assert issue.technical_message == "ETF Basic 交易所与代码后缀不一致"
+    assert issue.technical_payload_json["structured_error"] == {
+        "error_code": "etf_basic_snapshot_invalid", "error_type": "write", "phase": "writer",
+        "retryable": False,
+        "unit_id": "etf_basic:none:0",
+        "details": {"ts_code": "562430.SZ", "exchange": "SH", "expected_exchange": "SZ"},
+    }
+
+
+@pytest.mark.parametrize("failed_key", [
+    "stock_basic", "namechange", "st", "bse_mapping", "stock_company",
+    "trade_cal", "etf_index", "index_basic", "hk_basic",
+])
+def test_reference_data_workflow_other_errors_still_stop(
+    db_session, task_run_factory, monkeypatch, failed_key,
+):
+    calls = []
+
+    def run(self, session, task_run, action_request, plan):
+        calls.append(plan.dataset_key)
+        if plan.dataset_key == failed_key:
+            raise RuntimeError("ordinary failure in an unchanged step")
+        return 1, 1, 0, {}, {}, "success"
+
+    monkeypatch.setattr(TaskRunDispatcher, "_run_dataset_action_plan", run)
+    task = _reference_data_task(task_run_factory)
+    result = OperationsWorker().run_task_run(db_session, task.id)
+    failed_index = REFERENCE_DATA_STEPS.index(failed_key)
+    assert calls == list(REFERENCE_DATA_STEPS[:failed_index + 1])
+    nodes = list(db_session.scalars(select(TaskRunNode).where(
+        TaskRunNode.task_run_id == task.id,
+    ).order_by(TaskRunNode.sequence_no)))
+    assert [node.resource_key for node in nodes] == list(REFERENCE_DATA_STEPS[:failed_index + 1])
+    assert [node.status for node in nodes] == ["success"] * failed_index + ["failed"]
+    assert result.status == ("failed" if failed_index == 0 else "partial_success")
+    assert (result.unit_done, result.unit_failed) == (failed_index, 1)
+
+
+def _reference_etf_source_row(ts_code="562430.SZ"):
+    # 2026-11-25 bounded etf_basic response (task 21026); all 14 source fields.
+    return {
+        "ts_code": ts_code, "csname": "景顺长城中证电网设备主题ETF", "extname": None,
+        "cname": "景顺长城中证电网设备主题交易型开放式指数证券投资基金",
+        "index_code": None, "index_name": None, "setup_date": None, "list_date": None,
+        "list_status": "P", "exchange": "SH", "mgr_name": "景顺长城基金",
+        "custod_name": "国信证券股份有限公司", "mgt_fee": 0.5, "etf_type": "纯境内",
+    }
+
+
+def _prepare_reference_etf_source(db_session, monkeypatch, *, ts_code="562430.SZ", on_fetch=None):
+    from src.foundation.ingestion.source_client import DatasetSourceClient, SourceFetchResult
+    from src.foundation.models.core.etf_basic import EtfBasic
+    from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+
+    connection = db_session.connection().connection.driver_connection
+    connection.create_function("now", 0, lambda: datetime.now(timezone.utc).isoformat(sep=" "))
+    RawEtfBasic.__table__.create(db_session.get_bind(), checkfirst=True)
+    # Synthetic previously published row; identity checks do not depend on its name.
+    old = {**_reference_etf_source_row("510050.SH"), "csname": "测试旧快照",
+           "list_status": "L", "list_date": date(2024, 1, 2)}
+    db_session.add_all([RawEtfBasic(**old), EtfBasic(**old)])
+    db_session.commit()
+    calls = []
+
+    def fetch(self, *, definition, unit):
+        assert definition.dataset_key == "etf_basic", "no other source requests are allowed"
+        assert unit.request_params == {} and unit.page_limit == 5000
+        calls.append(definition.dataset_key)
+        if on_fetch is not None:
+            on_fetch()
+        return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0,
+                                 latency_ms=0, rows_raw=[_reference_etf_source_row(ts_code)])
+
+    monkeypatch.setattr(DatasetSourceClient, "fetch", fetch)
+    return calls
+
+
+@pytest.mark.parametrize("ts_code,expected_status", [
+    ("562430.SZ", "partial_success"), ("562430.SH", "success"),
+])
+def test_reference_data_workflow_real_etf_writer_boundary(
+    db_session, task_run_factory, monkeypatch, ts_code, expected_status,
+):
+    from src.foundation.models.core.etf_basic import EtfBasic
+    from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+
+    source_calls = _prepare_reference_etf_source(db_session, monkeypatch, ts_code=ts_code)
+    dispatcher = TaskRunDispatcher()
+    real_run = dispatcher._run_dataset_action_plan
+    calls = []
+
+    def run(session, task_run, action_request, plan):
+        calls.append(plan.dataset_key)
+        if plan.dataset_key == "etf_basic":
+            return real_run(session, task_run, action_request, plan)
+        return 1, 1, 0, {}, {}, "success"
+
+    monkeypatch.setattr(dispatcher, "_run_dataset_action_plan", run)
+    task = _reference_data_task(task_run_factory)
+    result = OperationsWorker(dispatcher).run_task_run(db_session, task.id)
+    assert calls == list(REFERENCE_DATA_STEPS) and source_calls == ["etf_basic"]
+    assert result.status == expected_status
+    assert (result.unit_total, result.unit_done, result.unit_failed) == (
+        (10, 9, 1) if expected_status == "partial_success" else (10, 10, 0)
+    )
+    for model in (RawEtfBasic, EtfBasic):
+        assert set(db_session.scalars(select(model.ts_code))) == (
+            {"510050.SH"} if expected_status == "partial_success" else {"562430.SH"}
+        )
+    node = db_session.scalar(select(TaskRunNode).where(
+        TaskRunNode.task_run_id == task.id, TaskRunNode.node_key == "etf_basic",
+    ))
+    assert node.status == ("failed" if expected_status == "partial_success" else "success")
+    if expected_status == "partial_success":
+        issue = db_session.get(TaskRunIssue, node.issue_id)
+        assert result.primary_issue_id == issue.id
+        assert issue.technical_payload_json["structured_error"]["error_code"] == "etf_basic_snapshot_invalid"
+        assert issue.technical_payload_json["structured_error"]["details"] == {
+            "ts_code": "562430.SZ", "exchange": "SH", "expected_exchange": "SZ",
+        }
+    else:
+        assert result.primary_issue_id is None
+        assert db_session.get(EtfBasic, "562430.SH").list_date is None
+        assert db_session.get(EtfBasic, "562430.SH").list_status == "P"
+
+
+def test_etf_basic_standalone_still_fails_with_real_snapshot_error(
+    db_session, task_run_factory, monkeypatch,
+):
+    from src.foundation.models.core.etf_basic import EtfBasic
+    from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+
+    source_calls = _prepare_reference_etf_source(db_session, monkeypatch)
+    task = task_run_factory(task_type="dataset_action", resource_key="etf_basic",
+                            time_input_json={"mode": "none"},
+                            request_payload_json={"time_input": {"mode": "none"}, "filters": {}})
+    result = OperationsWorker().run_task_run(db_session, task.id)
+    assert result.status == "failed" and source_calls == ["etf_basic"]
+    issue = db_session.get(TaskRunIssue, result.primary_issue_id)
+    assert issue.technical_payload_json["structured_error"]["error_code"] == "etf_basic_snapshot_invalid"
+    for model in (RawEtfBasic, EtfBasic):
+        assert set(db_session.scalars(select(model.ts_code))) == {"510050.SH"}
+
+
+def test_reference_data_workflow_cancel_during_etf_stops_source_and_writes(
+    db_session, task_run_factory, monkeypatch, mocker,
+):
+    from src.foundation.ingestion.run_errors import IngestionCanceledError
+    from src.foundation.ingestion.writer import DatasetWriter
+    from src.foundation.models.core.etf_basic import EtfBasic
+    from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
+    from src.ops.services.task_run_service import TaskRunCommandService
+
+    task = _reference_data_task(task_run_factory)
+
+    def cancel():
+        TaskRunCommandService().request_cancel(db_session, task_run_id=task.id, requested_by_user_id=1)
+        raise IngestionCanceledError("cancel during ETF source request")
+
+    source_calls = _prepare_reference_etf_source(db_session, monkeypatch, on_fetch=cancel)
+    writer = mocker.spy(DatasetWriter, "write")
+    dispatcher = TaskRunDispatcher()
+    real_run = dispatcher._run_dataset_action_plan
+    completed = []
+
+    def run(session, task_run, action_request, plan):
+        if plan.dataset_key in {"etf_basic", "etf_index", "index_basic", "hk_basic"}:
+            return real_run(session, task_run, action_request, plan)
+        completed.append(plan.dataset_key)
+        return 1, 1, 0, {}, {}, "success"
+
+    monkeypatch.setattr(dispatcher, "_run_dataset_action_plan", run)
+    result = OperationsWorker(dispatcher).run_task_run(db_session, task.id)
+    assert result.status == "canceled" and result.canceled_at is not None
+    assert completed == list(REFERENCE_DATA_STEPS[:6]) and source_calls == ["etf_basic"]
+    writer.assert_not_called()
+    assert result.rows_saved == 6
+    for model in (RawEtfBasic, EtfBasic):
+        assert set(db_session.scalars(select(model.ts_code))) == {"510050.SH"}
+    nodes = list(db_session.scalars(select(TaskRunNode).where(
+        TaskRunNode.task_run_id == task.id,
+    ).order_by(TaskRunNode.sequence_no)))
+    # Existing continue/error handling can create a failed next node before its cancel check.
+    # Assert the real persisted limitation; do not manufacture canceled nodes.
+    assert [node.resource_key for node in nodes] == list(REFERENCE_DATA_STEPS[:8])
+    assert [node.status for node in nodes] == ["success"] * 6 + ["failed", "failed"]
+    assert result.current_node_id == nodes[-1].id
+
+
 @pytest.mark.parametrize("trigger_source", ["manual", "scheduled", "retry"])
 def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step(
     db_session,

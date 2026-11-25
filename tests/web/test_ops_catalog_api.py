@@ -80,6 +80,14 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "end_date",
     ]
     assert workflows["reference_data_refresh"]["parameters"] == []
+    reference_steps = workflows["reference_data_refresh"]["steps"]
+    assert [step["dataset_key"] for step in reference_steps] == [
+        "stock_basic", "namechange", "st", "bse_mapping", "stock_company",
+        "trade_cal", "etf_basic", "etf_index", "index_basic", "hk_basic",
+    ]
+    assert all(set(step) == {
+        "step_key", "action_key", "display_name", "dataset_key", "depends_on", "default_params",
+    } for step in reference_steps)
     assert [param["key"] for param in workflows["index_kline_maintenance_pipeline"]["parameters"]] == [
         "start_date",
         "end_date",

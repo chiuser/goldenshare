@@ -1,6 +1,6 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-11-25（本地每日盘后工作流临时移除股票技术面因子，保留 27 步；未部署、非生产运行验收）
+> 更新时间：2026-11-25（本地每日盘后工作流临时移除股票技术面因子，保留 27 步；基础主数据刷新仅 ETF 基础信息失败后继续；本轮未部署、非生产运行验收）
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
@@ -74,6 +74,8 @@
 - 适用场景：主数据初始化、主数据质量巡检后的补刷。
 
 已确认：该工作流手动入口保持无日期表单，不继承 `trade_cal` 的单日/区间能力；交易日历按完整日历刷新，不隐含最近 30 天窗口。完整刷新仍需按实际请求量和写入体量评估运行成本。
+
+2026-11-25 本地已实现并审计：仅 ETF 基础信息步骤设置 `failure_policy_override=continue_on_error`，其他步骤及工作流默认 `fail_fast` 保持；完整目标与验证见[方案](/Users/congming/github/goldenshare/docs/ops/ops-reference-data-refresh-etf-basic-continue-plan-v1.md)和 [LLD](/Users/congming/github/goldenshare/docs/ops/ops-reference-data-refresh-etf-basic-continue-low-level-design-v1.md)。相关验证 41 项通过，尚未部署，不能据此认为 Prod 已支持继续。ETF 完整快照校验、原表保护和失败记录继续保留，仍为 10 步；仅 ETF 失败且其余成功时整体为 `partial_success`。
 
 步骤（顺序执行）：
 

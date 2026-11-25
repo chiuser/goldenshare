@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from src.foundation.datasets.models import DatasetDefinition, DatasetInputField, DatasetScheduleTimePolicy
@@ -417,7 +417,12 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("bse_mapping", "bse_mapping"),
             _dataset_workflow_step("stock_company", "stock_company"),
             _dataset_workflow_step("trade_cal", "trade_cal"),
-            _dataset_workflow_step("etf_basic", "etf_basic"),
+            # 保留失败记录并继续其余主数据；方案见
+            # docs/ops/ops-reference-data-refresh-etf-basic-continue-plan-v1.md。
+            replace(
+                _dataset_workflow_step("etf_basic", "etf_basic"),
+                failure_policy_override="continue_on_error",
+            ),
             _dataset_workflow_step("etf_index", "etf_index"),
             _dataset_workflow_step("index_basic", "index_basic"),
             _dataset_workflow_step("hk_basic", "hk_basic"),

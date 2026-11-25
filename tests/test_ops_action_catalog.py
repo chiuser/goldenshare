@@ -190,6 +190,16 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
     ]
     assert reference_data.workflow_profile == "point_incremental"
 
+    assert reference_data.failure_policy_default == "fail_fast"
+    assert [step.failure_policy_override for step in reference_data.steps] == [
+        None, None, None, None, None, None, "continue_on_error", None, None, None,
+    ]
+    for step in reference_data.steps:
+        assert step.action_key == f"{step.dataset_key}.maintain"
+        assert step.depends_on == ()
+        assert step.default_params == step.params_override == {}
+        assert step.max_retry_per_unit == 2
+
     assert [param.key for param in daily_market_close.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_market_close.workflow_profile == "point_incremental"
     assert [step.dataset_key for step in daily_market_close.steps] == [

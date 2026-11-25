@@ -275,6 +275,48 @@ def test_etf_basic_normalizer_rejects_duplicate_primary_key() -> None:
     )
 
 
+@pytest.mark.parametrize("ts_code", ["562430.SZ", "562430.SH"])
+def test_etf_basic_pending_source_sample_keeps_identity_validation(db_session, ts_code):
+    # 2026-11-25 bounded source response for task 21026; P/null dates are legal.
+    source_row = {
+        "ts_code": ts_code, "csname": "景顺长城中证电网设备主题ETF", "extname": None,
+        "cname": "景顺长城中证电网设备主题交易型开放式指数证券投资基金",
+        "index_code": None, "index_name": None, "setup_date": None, "list_date": None,
+        "list_status": "P", "exchange": "SH", "mgr_name": "景顺长城基金",
+        "custod_name": "国信证券股份有限公司", "mgt_fee": 0.5, "etf_type": "纯境内",
+    }
+    assert tuple(source_row) == ETF_BASIC_BUSINESS_FIELDS
+    _seed_old_snapshot(db_session)
+    before = {
+        model: list(db_session.execute(select(*(getattr(model, key) for key in ETF_BASIC_BUSINESS_FIELDS))))
+        for model in (RawEtfBasic, EtfBasic)
+    }
+    definition = get_dataset_definition("etf_basic")
+    normalized = DatasetNormalizer().normalize(definition=definition, fetch_result=SourceFetchResult(
+        unit_id="etf_basic:none:0", request_count=1, retry_count=0,
+        latency_ms=0, rows_raw=[source_row],
+    ))
+    assert normalized.rows_rejected == 0
+    writer = DatasetWriter(db_session)
+    if ts_code == "562430.SZ":
+        with pytest.raises(IngestionWriteError) as error:
+            writer.write(definition=definition, batch=normalized, plan_unit=_unit(), run_profile="snapshot_refresh")
+        assert error.value.structured_error.error_code == "etf_basic_snapshot_invalid"
+        assert error.value.structured_error.details == {
+            "ts_code": "562430.SZ", "exchange": "SH", "expected_exchange": "SZ",
+        }
+        db_session.rollback()
+        for model in (RawEtfBasic, EtfBasic):
+            assert list(db_session.execute(select(*(getattr(model, key) for key in ETF_BASIC_BUSINESS_FIELDS)))) == before[model]
+    else:
+        writer.write(definition=definition, batch=normalized, plan_unit=_unit(), run_profile="snapshot_refresh")
+        db_session.commit()
+        for model in (RawEtfBasic, EtfBasic):
+            assert _codes(db_session, model) == {"562430.SH"}
+            stored = db_session.get(model, "562430.SH")
+            assert (stored.exchange, stored.list_status, stored.setup_date, stored.list_date) == ("SH", "P", None, None)
+
+
 def test_etf_basic_writer_rebuilds_raw_and_exchange_serving_idempotently(
     db_session: Session,
 ) -> None:
