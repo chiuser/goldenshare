@@ -30,6 +30,7 @@ DEFINITION = CalculationDefinition(
     additional_sources=(
         ("stock", "week", "qfq"), ("stock", "month", "qfq"),
         ("stock", "30m", "qfq"), ("stock", "60m", "qfq"),
+        ("stock", "90m", "qfq"), ("stock", "120m", "qfq"),
     ),
 )
 

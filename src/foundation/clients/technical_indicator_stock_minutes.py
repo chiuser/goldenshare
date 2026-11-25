@@ -8,31 +8,39 @@ _STOCK_TRADING_SESSIONS = ((9 * 60 + 30, 11 * 60 + 30), (13 * 60, 15 * 60))
 _AUCTION_TIME = time(9, 30)
 
 
-def stock_minute_selection_sql(frequency: int) -> tuple[str, int]:
-    """Keep only complete windows and return their source rows with no price conversion."""
+def stock_minute_selection_sql(target_frequency: int, base_frequency: int) -> tuple[str, int]:
+    """Select complete DG windows with their underlying unadjusted bars."""
     regular_times = tuple(
         time(minute // 60, minute % 60)
         for start, end in _STOCK_TRADING_SESSIONS
-        for minute in range(start + frequency, end + 1, frequency)
+        for minute in range(start + base_frequency, end + 1, base_frequency)
     )
-    if frequency == 1:
+    if target_frequency == 1:
         regular_times = (_AUCTION_TIME, *regular_times)
-    rows = [
-        (clock, clock, False, int(frequency != 1 and clock == regular_times[0]))
-        for clock in regular_times
-    ]
-    if frequency != 1:
-        rows.append((_AUCTION_TIME, regular_times[0], True, 1))
+    # Group trading time across lunch. The last 90-minute window uses the two
+    # remaining 30-minute bars, and only the first window takes the auction.
+    bars_per_window = target_frequency // base_frequency
+    windows = tuple(
+        regular_times[offset:offset + bars_per_window]
+        for offset in range(0, len(regular_times), bars_per_window)
+    )
+    rows = []
+    for index, clocks in enumerate(windows):
+        includes_auction = target_frequency != 1 and index == 0
+        source_count = len(clocks) + int(includes_auction)
+        rows.extend((clock, clocks[-1], False, source_count) for clock in clocks)
+        if includes_auction:
+            rows.append((_AUCTION_TIME, clocks[-1], True, source_count))
     values = ", ".join(
-        f"(TIME '{source}', TIME '{target}', {auction}, {auction_count})"
-        for source, target, auction, auction_count in rows
+        f"(TIME '{source}', TIME '{target}', {auction}, {source_count})"
+        for source, target, auction, source_count in rows
     )
     return f"""
-        WITH window_map(source_clock, target_clock, is_auction, auction_count) AS (VALUES {values}),
+        WITH window_map(source_clock, target_clock, is_auction, source_count) AS (VALUES {values}),
         mapped AS (
             SELECT b.trade_date, b.trade_date + w.target_clock AS target_time,
                    b.trade_time, b.open, b.high, b.low, b.close, b.vol, b.amount, b.exchange,
-                   w.is_auction, w.auction_count
+                   w.is_auction, w.source_count
             FROM read_parquet(?, hive_partitioning=false) AS b
             JOIN window_map AS w ON CAST(b.trade_time AS TIME) = w.source_clock
             WHERE b.ts_code = ? AND b.freq = ?
@@ -44,11 +52,10 @@ def stock_minute_selection_sql(frequency: int) -> tuple[str, int]:
                ) ORDER BY trade_time) AS base_bars
         FROM mapped
         WHERE target_time <= ?
-        GROUP BY trade_date, target_time, exchange, auction_count
-        HAVING count(*) FILTER (WHERE NOT is_auction) = 1
-           AND count(*) FILTER (WHERE is_auction) = auction_count
+        GROUP BY trade_date, target_time, exchange, source_count
+        HAVING count(*) = source_count AND count(DISTINCT trade_time) = source_count
         ORDER BY target_time DESC LIMIT ?
-    """, len(regular_times)
+    """, len(windows)
 
 
 STOCK_MINUTE_SELECTED_ROWS_SQL = """

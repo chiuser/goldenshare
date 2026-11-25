@@ -1,6 +1,6 @@
 # 本地股票分钟线接入算子库方案 v1
 
-2026-11-25，阶段 1 的五个基础周期已实现并完成隔离验收。阶段 2 的 90／120 分钟合成待实施。依据[总审计表的股票分钟规划](technical-indicator-local-backend-source-audit-v1.html#migration-roadmap)和[现行股票分钟 API](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)。实现、SQL 和验收见 [LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
+2026-11-25，五个基础周期和 90／120 分钟合成均已实现并完成算子验收。本地接口和页面接入留在阶段 3。依据[总审计表的股票分钟规划](technical-indicator-local-backend-source-audit-v1.html#migration-roadmap)和[现行股票分钟 API](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)。实现、SQL 和验收见 [LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
 
 ## 1. 目标
 

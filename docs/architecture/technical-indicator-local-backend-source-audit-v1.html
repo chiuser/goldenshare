@@ -346,8 +346,8 @@
             </tr>
             <tr>
               <th scope="row">3. 切换本地股票分钟线</th>
-              <td><span class="tag prod">阶段 1 已隔离验收</span><br>股票分钟算子已支持五个基础周期。页面目前分别读取 DG 前复权分钟 K 线、MACD／KDJ 和九转成品。<br><a class="ref" href="#stock-active-minute-indicators">现有页面来源</a> · <a class="ref" href="../../src/app/runtime/technical_indicators/composition.py#L34">算子启用范围</a></td>
-              <td>基础五档已经按 DG Silver 同频率不复权行情和股票复权因子验收。阶段 2 用 Silver 30、60 分钟分别合成 90、120 分钟，阶段 3 切换本地接口和页面。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md">本期 LLD</a></td>
+              <td><span class="tag prod">阶段 2 已完成算子验收</span><br>股票分钟算子已支持七个周期。页面目前分别读取 DG 前复权分钟 K 线、MACD／KDJ 和九转成品。<br><a class="ref" href="#stock-active-minute-indicators">现有页面来源</a> · <a class="ref" href="../../src/app/runtime/technical_indicators/composition.py#L34">算子启用范围</a></td>
+              <td>基础五档读取 DG Silver 同频率不复权行情。90、120 分钟已验收，分别读取 Silver 30、60 分钟不复权行情，按交易日复权后合成。阶段 3 切换本地接口和页面。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md">本期 LLD</a></td>
               <td>对照跨除权日、首屏及续页的价格、指标和九转。按周期核对前复权行情、MACD／KDJ、九转成品及相关日终状态的剩余调用方。<br><a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">MACD／KDJ 依赖</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py#L356">九转依赖</a></td>
             </tr>
             <tr>

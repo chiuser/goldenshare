@@ -840,11 +840,13 @@ class LakePriceLocator:
         request = self.requirement
         self._root = self.source._root()
         paths = self.source._partition_paths(self._root, request, self.control)
-        frequency = int(request.period.removesuffix("m"))
-        sql, daily_rows = stock_minute_selection_sql(frequency)
+        target_frequency = int(request.period.removesuffix("m"))
+        location = self.context.config.dataset_locations[request.target.dataset_id]["dg"]
+        base_frequency = int(location["partitions"]["freq"])
+        sql, daily_rows = stock_minute_selection_sql(target_frequency, base_frequency)
         selection, facts, batches = self._select_recent_minutes(
             paths, ("trade_date", "trade_time", "exchange", "base_bars"), sql,
-            daily_rows=daily_rows, source_filters=(frequency,),
+            daily_rows=daily_rows, source_filters=(base_frequency,),
             error_message="The DG stock minute batch could not be read",
         )
         columns = ("trade_date", "trade_time", *(field for field in DAILY_PRICE_FIELDS

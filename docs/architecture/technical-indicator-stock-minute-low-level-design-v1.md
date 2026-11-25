@@ -1,6 +1,6 @@
 # 本地股票分钟线接入算子库 LLD v1
 
-2026-11-25，阶段 1 已按 30 分钟先验收、再扩展的顺序完成。基础周期读取 DG Silver 同频率不复权行情，接受历史成交额的小额舍入差异。验收见 §9。阶段 2 和阶段 3 待实施。单请求和整批错误行为见 §6。 [本期方案](technical-indicator-stock-minute-plan-v1.md)
+2026-11-25，阶段 1 已按 30 分钟先验收、再扩展的顺序完成。基础周期读取 DG Silver 同频率不复权行情，接受历史成交额的小额舍入差异。验收见 §9。阶段 2 的 90／120 分钟合成已完成，验收见 §10。本地接口和页面接入留在阶段 3。单请求和整批错误行为见 §6。 [本期方案](technical-indicator-stock-minute-plan-v1.md)
 
 ## 1. 现状和改动位置
 
@@ -99,16 +99,16 @@ def calculate_stock_minutes_recent(
 3. 候选保留窗口内原价基础行。若目标、预热或下一页探测不足，再读取更早的不重叠分区。选定后只保留目标和预热对应的原价基础行，以请求内 Arrow 交给复权。定位与实际计算共用这些行。
 4. 空档按实际有效窗口计数。无目标行情时返回空 `CalculationWithSource`，业务入口组装空窗状态。有效行情匹配不到复权因子时按源合同错误处理。
 
-SQL 形状如下。1 分钟的每个基础时点就是单个目标窗口，其中包括 09:30。5、15、30、60 分钟用同频率普通行情作为目标行，普通时点一一对应，09:30 只进入该周期第一根。90、120 分钟按 DG 现有窗口映射多根基础行情，09:30 同样只进入第一根。窗口有效性是 K 线形成条件，在此 SQL 内完成，业务请求无需再增设数据巡检。
+SQL 形状如下。1 分钟的每个基础时点就是单个目标窗口，其中包括 09:30。5、15、30、60 分钟用同频率普通行情作为目标行，普通时点一一对应，09:30 只进入该周期第一根。90、120 分钟按 DG 现有窗口映射多根基础行情，09:30 同样只进入第一根。同一个窗口的来源时点由映射表固定。要求总行数和不同来源时点数都等于映射表中的时点数，等价于每个时点恰好收到一行。这个条件在读取 SQL 内完成。
 
 ```sql
-WITH window_map(source_clock, target_clock, is_auction, regular_count, auction_count) AS (
+WITH window_map(source_clock, target_clock, is_auction, source_count) AS (
   VALUES /* 从现行 DG 时段表生成，时钟用 TIME 类型 */
 ),
 mapped AS (
   SELECT b.trade_date, b.trade_date + w.target_clock AS target_time,
          b.trade_time, b.open, b.high, b.low, b.close, b.vol, b.amount,
-         b.exchange, w.is_auction, w.regular_count, w.auction_count
+         b.exchange, w.is_auction, w.source_count
   FROM read_parquet(?, hive_partitioning=false) AS b
   JOIN window_map AS w ON CAST(b.trade_time AS TIME) = w.source_clock
   WHERE b.ts_code = ? AND b.freq = ?
@@ -120,11 +120,8 @@ SELECT trade_date, target_time, exchange,
        ) ORDER BY trade_time) AS base_bars
 FROM mapped
 WHERE target_time <= ?
-GROUP BY trade_date, target_time, exchange, regular_count, auction_count
-HAVING count(*) FILTER (WHERE NOT is_auction) = regular_count
-   AND count(DISTINCT trade_time) FILTER (WHERE NOT is_auction) = regular_count
-   AND count(*) FILTER (WHERE is_auction) = auction_count
-   AND count(DISTINCT trade_time) FILTER (WHERE is_auction) = auction_count
+GROUP BY trade_date, target_time, exchange, source_count
+HAVING count(*) = source_count AND count(DISTINCT trade_time) = source_count
 ORDER BY target_time DESC LIMIT ?;
 ```
 
@@ -299,3 +296,23 @@ class StockMinuteChartResponseDto(StockMinutesResponseDto):
 | 合同和回归 | 校准 LLD 的日线复权用例引用。测试覆盖已选交易日缺因子时报源合同错误、探测行无须读因子、目标下界与预热分开、同批只复权一次、专用上限及 DG 配置隔离。五频新用例、日线、周月线、指数分钟、请求解析和依赖边界共 85 项通过，其中 Prod 周月线在临时 PostgreSQL 验证。 |
 
 正式数据核验限贵州茅台及已列样本。没有执行全量行情扫描、写入或回刷。
+
+## 10. 阶段 2 独立验收记录
+
+2026-11-25。按 CodeGraph 和当前代码核对股票分钟算子入口、DG 读取、复权及 DG 成品生成规则。90 分钟读取 DG Silver 股票不复权 30 分钟行情，120 分钟读取 60 分钟行情。两档沿用一次复权、一次合成及 MACD、KDJ、九转计算。本地 Web 继续使用现有装配，Prod 使用现有数据位置。
+
+- **合成与指标。** 用贵州茅台 `600519.SH` 独立复算首批和续页，两档各 1,000 根。开高低收、成交量（股）、成交额（元）和九转计数逐根一致，MACD 和 KDJ 的最大绝对误差小于 `1e-8`。同股 2026-11-17 的 DG Gold 成品用 8.6463 作为复权基准，算子使用最新可用基准 8.6469（2026-11-24）。换算到同一基准后，90 分钟 11:00、14:00、15:00 和 120 分钟 11:30、15:00 的四价、量额、指标及九转 1–9 标记一致。
+- **截止和历史边界。** 同日以 13:59 请求 90 分钟、以 14:59 请求 120 分钟，且起点为当天，各只返回已完成的上午一根。以首批最早一根前 1 微秒为续页截止时间，90 分钟由 2026-03-13 14:00 接回当日 11:00，120 分钟由 2025-11-06 11:30 接回 11-05 15:00。对照 Silver 合成结果，两档均无重复或断根。截止 2014-01-06 时，最早均为 2014-01-02，分别返回 9、6 根，预热为 0 且无更早一页。
+- **取消和重试。** 在因子读完时发出取消，两档分别约 3.7、3.2 毫秒释放资源。原参数重试约 621、786 毫秒，均返回预期的上午一根。
+- **回归。** 股票分钟、指数分钟、股票日／周／月线、指令解析和依赖边界共 87 项通过。周月线的 Prod 分支使用临时本机 PostgreSQL 验证。
+
+贵州茅台每次请求返回 500 根并使用 500 根预热，实际读取和用时如下。每批行情只用一条 SQL，120 分钟续页截止在上午第一根之前，首批分区少一根用于预热，随后用一条 SQL 补读一个更早的分区。
+
+| 周期及请求 | 行情 SQL 次数 | 行情文件 | 股票复权因子文件 | 入选基础行情行数 | 算子实际耗时 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 90 分钟首批 | 1 | 334 | 335 | 2,999 | 1,727 毫秒 |
+| 90 分钟续页 | 1 | 334 | 335 | 3,001 | 1,179 毫秒 |
+| 120 分钟首批 | 1 | 500 | 501 | 2,500 | 1,760 毫秒 |
+| 120 分钟续页 | 2 | 501 | 501 | 2,500 | 1,663 毫秒 |
+
+分别启动进程测两档。测到首批时进程峰值 RSS 约为 219、238 MiB，完成续页后分别约为 238、251 MiB。RSS 是整个进程的内存高水位。四次 500 根请求均低于 5 秒，其中三次算子耗时已超过 1.5 秒。阶段 3 用实际接口验收 P95 和回包体积。实测只查询上述股票及请求窗口的行情，以及对应的股票复权因子和单日对照成品。

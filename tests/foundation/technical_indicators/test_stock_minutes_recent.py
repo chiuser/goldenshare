@@ -206,10 +206,9 @@ def test_stock_recent_minute_limit_and_enablement_remain_scoped(tmp_path):
             _service(tmp_path, backend=backend, enabled=enabled).calculate_stock_minutes_recent(request, output_limit=1000)
     with pytest.raises(SourceUnsupportedError):
         service.calculate_stock_minutes_recent(replace(request, adjustment="none"), output_limit=1000)
-    with pytest.raises(SourceUnsupportedError):
-        service.calculate_stock_minutes_recent(replace(request, period="90m"), output_limit=1000)
-    with pytest.raises(SourceUnsupportedError):
-        service.calculate_with_source(replace(request, latest_rows=500))
+    for period in ("30m", "90m", "120m"):
+        with pytest.raises(SourceUnsupportedError):
+            service.calculate_with_source(replace(request, period=period, latest_rows=500))
 
 
 @pytest.mark.parametrize(("freq", "first_regular", "open_", "high", "low", "volume", "amount"), (
@@ -240,3 +239,59 @@ def test_stock_base_frequencies_keep_their_own_auction_and_nine_turn_rules(
     else:
         with pytest.raises(CalculationUnsupportedError):
             service.calculate_stock_minutes_recent(replace(request, calculations=(NINE,)), output_limit=500)
+
+
+@pytest.mark.parametrize(("target", "base", "slots", "ends", "highs", "volumes"), (
+    (90, 30, REGULAR_30, ((11, 0), (14, 0), (15, 0)), (14, 17, 19), (7, 15, 15)),
+    (120, 60, ((10, 30), (11, 30), (14, 0), (15, 0)), ((11, 30), (15, 0)), (13, 15), (4, 7)),
+))
+def test_stock_derived_minutes_use_dg_windows_and_share_adjusted_prices(
+    tmp_path, target, base, slots, ends, highs, volumes,
+):
+    # DG groups consecutive regular bars through the lunch break and attaches
+    # the 09:30 auction only to the first window (cn_a_derived_minute_bars.py).
+    _write_minutes(tmp_path, base, 16, [
+        (minute(16, *clock), 22, 24, 18, 20, 2, 20) for clock in slots[-2:]
+    ])
+    _write_minutes(tmp_path, base, 17, [
+        (minute(17, 9, 30), 9, 99, 1, 8, 1, 10),
+        *((minute(17, *clock), 11, 11 + i, 9, 10, i, 10 * i) for i, clock in enumerate(slots, 1)),
+    ])
+    _write_factor(tmp_path, 16, 2)
+    _write_factor(tmp_path, 17, 4)
+    service = _service(tmp_path)
+    request = _request(minute(17, 15, 0), freq=target, count=len(ends))
+    page = service.calculate_stock_minutes_recent(request, output_limit=500)
+    assert page.result.times == tuple(minute(17, *clock) for clock in ends)
+    assert page.selection.preceding_rows == 1
+    assert page.source_facts.has_more
+    assert page.result.statistics.price_conversion_batches == 1
+    results = _results(page)
+    assert results["price"] == {
+        "open": (8,) + (11,) * (len(ends) - 1),
+        "high": highs,
+        "low": (8,) + (9,) * (len(ends) - 1),
+        "close": (10,) * len(ends),
+        "volume": volumes,
+        "amount": tuple(10 * volume for volume in volumes),
+    }
+    assert results["macd"] == dict.fromkeys(("dif", "dea", "hist"), (0,) * len(ends))
+    # The previous day's adjusted window is (high=12, low=9, close=10).
+    # Its RSV is 100/3, so it advances K and D before today's first target.
+    prior_k = (2 * 50 + 100 / 3) / 3
+    prior_d = (2 * 50 + prior_k) / 3
+    expected_k = (2 * prior_k + (10 - 8) / (highs[0] - 8) * 100) / 3
+    expected_d = (2 * prior_d + expected_k) / 3
+    assert results["kdj"]["j"][0] == pytest.approx(3 * expected_k - 2 * expected_d)
+    assert results["nineturn"] == dict.fromkeys(("up_count", "down_count"), (0,) * len(ends))
+
+    continuation = service.calculate_stock_minutes_recent(
+        replace(request, end=minute(17, 10, 59) if target == 90 else minute(17, 11, 29)),
+        output_limit=500,
+    )
+    assert continuation.result.times == (minute(16, 15, 0),)
+    assert _results(continuation)["price"] == {
+        "open": (11,), "high": (12,), "low": (9,), "close": (10,),
+        "volume": (4,), "amount": (40,),
+    }
+    assert not continuation.source_facts.has_more
