@@ -2,6 +2,8 @@
 
 **阶段 D 第 1–3 项已在独立工作树完成，生产切换待验收。** 新指令通过公开 `calculate()` 返回目标行情和算子结果，股票详情日线和上证综指日线已在隔离应用接入并复核。阶段 D 的开发顺序见 [§6](#阶段-d-的开发顺序和切换条件)，实施后证据见 §8。[整体详细设计与 UML](technical-indicator-operator-library-low-level-design-v1.md)说明目标、类和职责，[原内核代码级 LLD](technical-indicator-kernel-low-level-design-v1.html)保留现行预热、计算公式及历史验收证据。
 
+**2026-11-25 后续专项。** 趋势通道与通用 JSON 说明字段的已确认需求、固定 500 根预热、0.01 绝对误差及旧业务清理见[专项方案](technical-indicator-trend-channel-plan-v1.md)和[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)。该专项尚未开发，和本文阶段 A–D 的历史实施结果分开。
+
 ## 1. 审计结论与开工边界
 
 指数周线、月线在本轮阶段 D 之后单独实施。两端正式行情、周期日期、单位、读取预算与已完成的只读验收见[指数周月线专项方案](technical-indicator-index-period-plan-v1.md)和[专项 LLD](technical-indicator-index-period-low-level-design-v1.md)。
