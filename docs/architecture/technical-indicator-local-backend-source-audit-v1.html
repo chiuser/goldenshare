@@ -347,7 +347,7 @@
             <tr>
               <th scope="row">3. 切换本地股票分钟线</th>
               <td><span class="tag prod">待推进</span><br>股票分钟算子尚未启用。页面的分钟 K 线、MACD／KDJ、九转分别读取 DG 前复权分钟成品。<br><a class="ref" href="#stock-active-minute-indicators">现有页面来源</a> · <a class="ref" href="../../src/app/runtime/technical_indicators/composition.py#L34">算子启用范围</a></td>
-              <td>建议先做 30 分钟。读 DG 不复权分钟线和按交易日匹配的股票复权因子，同一批前复权行情供三类输出使用。通过后扩展 1、5、15、60 分钟，最后按现有合成规则用 Silver 30、60 分钟分别生成 90、120 分钟。九转沿用目前开放的周期。<br><a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py#L3571">现有合成规则</a></td>
+              <td>先实现并验收 30 分钟，通过后扩展 1、5、15、60 分钟。基础周期读取 DG Silver 同频率不复权分钟行情，按交易日应用股票复权因子。历史成交额保留所读周期的值并沿用竞价归入规则。随后用 Silver 30、60 分钟分别合成 90、120 分钟，最后切换本地接口和页面。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md">本期 LLD</a></td>
               <td>对照跨除权日、首屏及续页的价格、指标和九转。按周期核对前复权行情、MACD／KDJ、九转成品及相关日终状态的剩余调用方。<br><a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">MACD／KDJ 依赖</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py#L356">九转依赖</a></td>
             </tr>
             <tr>
