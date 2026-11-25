@@ -44,6 +44,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
+        requestedFrequency={data.freq}
         indicatorControls={defaultIndicatorControls}
         loadState="ready"
         nineTurnControl={nineTurnControl}
@@ -91,6 +92,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
+        requestedFrequency={data.freq}
         indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["macd"]), onToggleIndicatorPanel }}
         loadState="ready"
         nineTurnControl={nineTurnControl}
@@ -140,6 +142,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
+        requestedFrequency={data.freq}
         indicatorControls={defaultIndicatorControls}
         loadState="ready"
         nineTurnControl={nineTurnControl}
@@ -167,12 +170,13 @@ describe("StockMinuteChartWorkspace", () => {
 
   it.each([
     ["idle", undefined, "暂无分钟数据"],
-    ["loading", undefined, "正在加载分钟数据"],
+    ["loading", "", "正在加载 30 分钟行情…"],
     ["error", "读取失败", "读取失败"],
   ] as const)("keeps the %s module state outside the loaded shared chart", (loadState, errorMessage, expected) => {
     render(
       <StockMinuteChartWorkspace
         data={null}
+        requestedFrequency={30}
         indicatorControls={defaultIndicatorControls}
         errorMessage={errorMessage}
         loadState={loadState}
@@ -182,6 +186,9 @@ describe("StockMinuteChartWorkspace", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(expected);
+    if (loadState === "loading") {
+      expect(screen.getByRole("status")).not.toHaveTextContent(/freq=|dataStatus=/);
+    }
     expect(screen.queryByTestId("shared-detail-workspace")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "九转序列" })).not.toBeInTheDocument();
     expect(workspaceMock.props).toHaveLength(0);

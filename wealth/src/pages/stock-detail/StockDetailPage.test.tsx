@@ -720,6 +720,7 @@ describe("StockDetailPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
     expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    expect(screen.getByText("正在加载 5 分钟行情…")).toBeInTheDocument();
 
     await waitFor(() => {
       const minuteRequests = fetchMock.mock.calls
@@ -737,6 +738,7 @@ describe("StockDetailPage", () => {
     expect(minuteRequests[0]).toContain("/stock-detail/minutes");
     expect(await screen.findByLabelText("分钟图表区")).toBeInTheDocument();
     expect(screen.getByText("分钟K线")).toBeInTheDocument();
+    expect(screen.queryByText("正在加载 5 分钟行情…")).not.toBeInTheDocument();
     const nineTurnMinuteRequests = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((url) => url.includes("/minute-nine-turn"));

@@ -235,6 +235,7 @@ class StockMinuteChartResponseDto(StockMinutesResponseDto):
 - `src/app/api/v1/router.py` 装配三条现有本地路由，接入上述依赖。 `src/biz/api/wealth/market/{stock_detail_minutes,stock_detail_minute_nine_turn}.py` 保留鉴权、参数校验和状态映射，让 `/minutes` 回包直接携带同批指标。切换的那个阶段一起迁移本地九转 capability 的消费者，避免因 Gold 文件目录退场而失去已计算的九转。
 - `StockMinuteQueryService` 复用窗口、meta、行情和指标映射，让算子回包取代 Gold 读者。 `StockMinuteNineTurnQueryService` 保留证券校验、九转 DTO 和标记规则。先做引用审计，再退出现有 Gold 读取器中已无业务调用的方法或导出。游标编码和校验保留给新入口复用。交易助手的 `StockRuleMinuteReader` 仍使用 `build_stock_mins_qfq_paths()` 和现有错误类型，保留这些共享引用。 [交易助手读取](../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37)
 - `wealth/src/features/stock-detail/api/stockMinuteApiClient.ts` 增加整图的 API 调用和对应类型。 `StockDetailPage.handlePeriodChange()` 以一次请求替换原行情与指标并行请求。通过现有图表适配器组装分钟图。分钟九转取这次返回的 `nineTurn`，不再调用独立九转查询。日线和周月线标记从各自现行路径取得。频率切换取消旧请求，缓存仍以股票、页面日期和频率为键。九转图层开关不额外起取数请求。图表的拖动、显示精度和指标叠加沿用现行实现。
+- 切换到未缓存的分钟周期时，使用页面已选周期显示「正在加载 30 分钟行情…」格式的文案。加载占位只显示这条提示。即使错误文案为空，也要显示加载提示。既有请求、缓存、取消和失败处理沿用同一流程。前端测试在回包前检查文案和所选周期，回包后检查加载提示消失。
 - 更新[股票分钟 API LLD](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)的现行回包与数据源说明和类型测试。以正式 HTTP／浏览器验收通过后更新总审计表。其它接口、产品域和部署配置按既有分层运行。
 
 ## 7. 预算与失败恢复

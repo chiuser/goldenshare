@@ -17,10 +17,12 @@ import type {
 } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
+import type { StockMinuteFrequency } from "../api/stockMinuteApiTypes";
 import type { StockMinuteChartPoint, StockMinuteChartViewModel } from "../api/stockMinuteViewModelAdapter";
 
 interface StockMinuteChartWorkspaceProps {
   data: StockMinuteChartViewModel | null;
+  requestedFrequency: StockMinuteFrequency | null;
   indicatorControls: DetailChartIndicatorControls;
   loadState: "idle" | "loading" | "ready" | "error";
   errorMessage?: string;
@@ -32,6 +34,7 @@ const STOCK_MINUTE_MAIN_LINES: DetailChartLineDefinition[] = [];
 
 export function StockMinuteChartWorkspace({
   data,
+  requestedFrequency,
   indicatorControls,
   loadState,
   errorMessage,
@@ -39,7 +42,10 @@ export function StockMinuteChartWorkspace({
   nineTurnLayer,
 }: StockMinuteChartWorkspaceProps) {
   const status = data ? data.dataStatus.status : loadState === "error" ? "ERROR" : loadState === "loading" ? "LOADING" : "EMPTY";
-  const statusMessage = errorMessage ?? resolveMinuteStatusMessage(data, status);
+  const loadingMessage = requestedFrequency === null
+    ? "正在加载分钟行情…"
+    : `正在加载 ${requestedFrequency} 分钟行情…`;
+  const statusMessage = status === "LOADING" ? loadingMessage : errorMessage ?? resolveMinuteStatusMessage(data, status);
   const points = useMemo(() => data?.points.map(toDetailChartPoint) ?? [], [data?.points]);
   const dataKey = `stock:${data?.tsCode ?? "pending"}:m${data?.freq ?? "pending"}`;
   const nineTurnChartLayer = useNineTurnChartLayer({
@@ -55,7 +61,7 @@ export function StockMinuteChartWorkspace({
       <section className="stock-detail-chart-workbench stock-minute-chart-workbench" aria-label="分钟图表区">
         <div className="stock-minute-chart-empty" role="status">
           <strong>{statusMessage}</strong>
-          <span>freq={data?.freq ?? "-"}，dataStatus={status}</span>
+          {status !== "LOADING" && <span>freq={data?.freq ?? "-"}，dataStatus={status}</span>}
         </div>
       </section>
     );
@@ -190,7 +196,6 @@ function resolveMinuteStatusMessage(data: StockMinuteChartViewModel | null, stat
 }
 
 function statusMessageFor(status: string): string {
-  if (status === "LOADING") return "正在加载分钟数据";
   if (status === "DELAYED") return "分钟数据尚未覆盖页面期望交易日";
   if (status === "ERROR") return "分钟数据加载失败";
   return "暂无分钟数据";

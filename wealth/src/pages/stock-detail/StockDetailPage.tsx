@@ -348,6 +348,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
         ) : (
           <StockMinuteChartWorkspace
             data={minuteChart}
+            requestedFrequency={minuteFrequencyFromPeriodKey(activePeriod)}
             errorMessage={minuteError}
             indicatorControls={indicatorControls}
             loadState={minuteLoadState}
