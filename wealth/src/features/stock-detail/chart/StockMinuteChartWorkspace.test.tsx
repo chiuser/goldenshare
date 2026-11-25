@@ -48,7 +48,6 @@ describe("StockMinuteChartWorkspace", () => {
         loadState="ready"
         nineTurnControl={nineTurnControl}
         nineTurnLayer={unsupportedNineTurnLayer("5")}
-        onNineTurnRetry={vi.fn()}
       />,
     );
 
@@ -81,7 +80,7 @@ describe("StockMinuteChartWorkspace", () => {
   it("uses the shared single-axis crosshair strategy and keeps the status accessory", () => {
     const data = makeMinuteData(1);
     data.points[0]!.macdDif = null;
-    data.indicatorStatus = {
+    data.dataStatus = {
       status: "DELAYED",
       expectedEndDate: "2026-07-31",
       observedEndDate: "2026-07-30",
@@ -96,7 +95,6 @@ describe("StockMinuteChartWorkspace", () => {
         loadState="ready"
         nineTurnControl={nineTurnControl}
         nineTurnLayer={unsupportedNineTurnLayer("5")}
-        onNineTurnRetry={vi.fn()}
       />,
     );
 
@@ -146,7 +144,6 @@ describe("StockMinuteChartWorkspace", () => {
         loadState="ready"
         nineTurnControl={nineTurnControl}
         nineTurnLayer={unsupportedNineTurnLayer("5")}
-        onNineTurnRetry={vi.fn()}
       />,
     );
 
@@ -181,7 +178,6 @@ describe("StockMinuteChartWorkspace", () => {
         loadState={loadState}
         nineTurnControl={nineTurnControl}
         nineTurnLayer={unsupportedNineTurnLayer("5")}
-        onNineTurnRetry={vi.fn()}
       />,
     );
 
@@ -231,11 +227,6 @@ function makeMinuteData(count: number): StockMinuteChartViewModel {
       observedEndDate: "2026-07-31",
       message: null,
     },
-    indicatorStatus: {
-      status: "READY",
-      expectedEndDate: "2026-07-31",
-      observedEndDate: "2026-07-31",
-      message: null,
-    },
+    nineTurnLayer: null,
   };
 }

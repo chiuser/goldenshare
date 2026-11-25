@@ -375,12 +375,14 @@ class LakeTechnicalIndicatorPriceSource:
                 suspended.add(day)
         return suspended
 
-    def prepare_basis(self, executor, description, requirement, *, table_name, read_context):
+    def prepare_basis(self, executor, description, requirement, *, table_name, read_context, paths_root=None):
         name = _table_name(table_name)
         if not description.converted:
             return description
         candidates = description.factor_paths if requirement.target_adjustment == "hfq" else reversed(description.factor_paths)
         for day, path in candidates:
+            if paths_root is not None:
+                self._safe_path(paths_root, path)
             self._inspect(path, tuple(name for name, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
             stats = executor.execute(SqlStep("prepare_basis", f"""CREATE OR REPLACE TEMP TABLE {name} AS
                 SELECT trade_date AS basis_date, CAST(adj_factor AS DOUBLE) AS basis_value,
@@ -399,7 +401,7 @@ class LakeTechnicalIndicatorPriceSource:
                 return resolved
         raise SourceContractError("The declared daily conversion has no available basis row")
 
-    def prepare_factors(self, executor, description, requirement, trade_dates, *, table_name, read_context):
+    def prepare_factors(self, executor, description, requirement, trade_dates, *, table_name, read_context, paths_root=None):
         name = _table_name(table_name)
         selected_dates = frozenset(trade_dates)
         paths = description.factor_paths
@@ -412,6 +414,8 @@ class LakeTechnicalIndicatorPriceSource:
         basis = read_context.reusable_basis(description, requirement, selected_dates, selected)
         unread = tuple(path for path in selected if basis is None or path != basis[0])
         for path in unread:
+            if paths_root is not None:
+                self._safe_path(paths_root, path)
             self._inspect(path, tuple(field for field, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
         if unread and trade_dates:
             paths_sql = "[" + ",".join("?" for _ in unread) + "]"

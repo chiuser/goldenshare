@@ -152,17 +152,17 @@
               <th scope="row">1、5、15、30、60、90、120 分钟</th>
               <td>MACD、KDJ</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag dg">直接读 DG</span></td>
-              <td>DG 股票分钟前复权 MACD、KDJ <code>gold/indicator/stk_mins_qfq_macd_kdj</code>，按频率、股票、年份分区。分钟 K 线另读 <code>gold/quote/stk_mins_qfq</code>。</td>
-              <td>股票详情切到分钟图时调用 <code>/stock-detail/minute-indicators</code>。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_mins_reader.py#L37">指标列</a> · <a class="ref" href="../../src/foundation/clients/local_lake/stock_mins_reader.py#L109">文件路径</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>DG Silver <code>silver/quote/stk_mins</code> 的不复权行情和 <code>silver/quote/adj_factor</code> 的股票复权因子。90／120 分钟分别用 30／60 分钟行情复权后合成。</td>
+              <td>股票详情切到分钟图时通过一次 <code>/stock-detail/minutes</code> 请求取得 K 线、指标和适用周期的九转。<code>/stock-detail/minute-indicators</code> 仍可直接调用。<br><a class="ref" href="../../src/app/dependencies/stock_minute_technical_indicators.py">算子调用</a> · <a class="ref" href="../../wealth/src/features/stock-detail/api/stockMinuteApiClient.ts">页面调用</a></td>
             </tr>
             <tr>
               <th scope="row">30、60、90、120 分钟</th>
               <td>九转序列</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag dg">直接读 DG</span></td>
-              <td>DG 股票分钟前复权九转 <code>gold/indicator/stk_mins_qfq_nineturn</code>，用前复权分钟 K 线时间匹配。</td>
-              <td>股票详情切到支持的分钟周期时调用 <code>/stock-detail/minute-nine-turn</code>。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_nine_turn_contract.py#L9">支持周期和路径</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>使用本批分钟 K 线的前复权收盘价，与 MACD、KDJ 共用本次取数。页面展示 1–9 标记。</td>
+              <td>九转随 <code>/stock-detail/minutes</code> 回包，开关只控制显示。<code>/stock-detail/minute-nine-turn</code> 保留独立查询。<br><a class="ref" href="../../src/biz/queries/wealth/market/stock_minute_nine_turn/stock_minute_nine_turn_query_service.py">九转回包</a></td>
             </tr>
             <tr id="stock-active-week-month">
               <th scope="row">周线、月线</th>
@@ -346,9 +346,9 @@
             </tr>
             <tr>
               <th scope="row">3. 切换本地股票分钟线</th>
-              <td><span class="tag prod">阶段 2 已完成算子验收</span><br>股票分钟算子已支持七个周期。页面目前分别读取 DG 前复权分钟 K 线、MACD／KDJ 和九转成品。<br><a class="ref" href="#stock-active-minute-indicators">现有页面来源</a> · <a class="ref" href="../../src/app/runtime/technical_indicators/composition.py#L34">算子启用范围</a></td>
-              <td>基础五档读取 DG Silver 同频率不复权行情。90、120 分钟已验收，分别读取 Silver 30、60 分钟不复权行情，按交易日复权后合成。阶段 3 切换本地接口和页面。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md">本期 LLD</a></td>
-              <td>对照跨除权日、首屏及续页的价格、指标和九转。按周期核对前复权行情、MACD／KDJ、九转成品及相关日终状态的剩余调用方。<br><a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">MACD／KDJ 依赖</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py#L356">九转依赖</a></td>
+              <td><span class="tag active">阶段 3 已通过隔离验收</span><br>本地七个周期都使用算子库，图表每个窗口请求一次。<br><a class="ref" href="#stock-active-minute-indicators">页面来源</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-phase-three-acceptance">阶段 3 验收</a></td>
+              <td>基础五档读取 DG Silver 同频率不复权行情，90／120 分钟分别读取 Silver 30／60 分钟行情。按交易日复权，再计算指标。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a></td>
+              <td>股票详情的三个接口已退出 Gold 成品读取。交易助手仍读 Gold 1 分钟行情，DG 指标和九转生成及检查仍按现行依赖运行。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37">交易助手读取</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">DG 指标依赖</a></td>
             </tr>
             <tr>
               <th scope="row">4. 切换本地股票日线趋势通道</th>

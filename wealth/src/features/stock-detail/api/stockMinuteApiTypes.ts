@@ -1,3 +1,4 @@
+import type { NineTurnSeriesDto } from "../../nine-turn/api/nineTurnApiTypes";
 import type { StockMinuteFrequency } from "./stockDetailApiTypes";
 
 export type { StockMinuteFrequency } from "./stockDetailApiTypes";
@@ -58,6 +59,11 @@ export interface StockMinuteBarsResponseDto {
   meta: StockMinutePageMeta;
   dataStatus: StockMinuteDataStatusDto;
   debugInfo?: unknown;
+}
+
+export interface StockMinuteChartResponseDto extends StockMinuteBarsResponseDto {
+  indicators: StockMinuteIndicatorDto[];
+  nineTurn: NineTurnSeriesDto | null;
 }
 
 export interface StockMinuteIndicatorsResponseDto {

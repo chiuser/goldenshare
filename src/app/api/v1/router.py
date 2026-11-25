@@ -49,7 +49,6 @@ from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
     resolve_index_nine_turn_minute_capability,
     resolve_local_minute_capability,
-    resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import Settings, get_settings
 from src.foundation.config.stock_daily_trend_channel_capability import (
@@ -173,17 +172,11 @@ _include_local_xxm_routers(router, _settings, daily_lake=_index_daily_lake)
 def _include_local_minute_router(target_router: APIRouter) -> None:
     capability = resolve_local_minute_capability(get_settings())
     if capability.enabled:
-        from src.biz.api.wealth.market import stock_detail_minutes
+        from src.app.dependencies.stock_minute_technical_indicators import run_stock_minute_page
+        from src.biz.api.wealth.market import stock_detail_minute_nine_turn, stock_detail_minutes
 
-        target_router.include_router(stock_detail_minutes.router)
-
-    stock_nine_turn_capability = resolve_stock_nine_turn_minute_capability(
-        get_settings()
-    )
-    if stock_nine_turn_capability.enabled:
-        from src.biz.api.wealth.market import stock_detail_minute_nine_turn
-
-        target_router.include_router(stock_detail_minute_nine_turn.router)
+        target_router.include_router(stock_detail_minutes.build_router(run_page=run_stock_minute_page))
+        target_router.include_router(stock_detail_minute_nine_turn.build_router(run_page=run_stock_minute_page))
 
     index_capability = resolve_index_minute_capability(get_settings())
     if index_capability.enabled:

@@ -295,3 +295,29 @@ def test_stock_derived_minutes_use_dg_windows_and_share_adjusted_prices(
         "volume": (4,), "amount": (40,),
     }
     assert not continuation.source_facts.has_more
+
+
+def test_stock_minute_large_limit_uses_target_date_range_before_reading_prices(tmp_path, monkeypatch):
+    for day in (14, 15, 16, 17):
+        _write_minutes(tmp_path, 30, day, [
+            (minute(day, 9, 30), 8, 8, 8, 8, 1, 8),
+            *((minute(day, *clock), 8, 8, 8, 8, 2, 16) for clock in REGULAR_30),
+        ])
+    _write_factor(tmp_path, 17, 4)
+    opened = []
+    original = LakePriceLocator._read_rows
+
+    def read(locator, sql, bindings, **kwargs):
+        if "base_bars" in sql and "read_parquet" in sql:
+            opened.extend(bindings[0])
+        return original(locator, sql, bindings, **kwargs)
+
+    monkeypatch.setattr(LakePriceLocator, "_read_rows", read)
+    page = _service(tmp_path).calculate_stock_minutes_recent(
+        _request(minute(17, 15, 0), freq=90, start=minute(17, 0, 0), count=10_000, calculations=(PRICE,)),
+        output_limit=10_000,
+    )
+    assert page.result.times == (minute(17, 11, 0), minute(17, 14, 0), minute(17, 15, 0))
+    assert not page.source_facts.has_more
+    assert len(opened) <= 2
+    assert all("trade_date=2026-11-16" in path or "trade_date=2026-11-17" in path for path in opened)

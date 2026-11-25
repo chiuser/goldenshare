@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type {
   StockMinuteBarsResponseDto,
+  StockMinuteChartResponseDto,
   StockMinuteIndicatorsResponseDto,
 } from "./stockMinuteApiTypes";
 import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "./stockMinuteViewModelAdapter";
@@ -86,9 +87,13 @@ function indicators(): StockMinuteIndicatorsResponseDto {
   };
 }
 
+function chart(indicatorRows = indicators()): StockMinuteChartResponseDto {
+  return { ...bars(), indicators: indicatorRows.items, nineTurn: null };
+}
+
 describe("stock minute view model adapter", () => {
   it("merges exact full date-time keys and preserves warmup nulls", () => {
-    const viewModel = buildStockMinuteChartViewModel(bars(), indicators());
+    const viewModel = buildStockMinuteChartViewModel(chart());
 
     expect(viewModel.points).toHaveLength(2);
     expect(viewModel.points[0]).toMatchObject({
@@ -106,21 +111,21 @@ describe("stock minute view model adapter", () => {
   it("rejects missing or extra indicator time keys", () => {
     const missing = indicators();
     missing.items = missing.items.slice(0, 1);
-    expect(() => buildStockMinuteChartViewModel(bars(), missing)).toThrow("时间键不一致");
+    expect(() => buildStockMinuteChartViewModel(chart(missing))).toThrow("时间键不一致");
 
     const extra = indicators();
     extra.items.push({ ...extra.items[1]!, tradeDate: "2026-08-01", tradeTime: "2026-08-01T09:35:00+08:00" });
-    expect(() => buildStockMinuteChartViewModel(bars(), extra)).toThrow("时间键不一致");
+    expect(() => buildStockMinuteChartViewModel(chart(extra))).toThrow("时间键不一致");
   });
 
   it("rejects response identity drift and duplicate time keys", () => {
     const wrongIdentity = indicators();
-    wrongIdentity.freq = 15;
-    expect(() => buildStockMinuteChartViewModel(bars(), wrongIdentity)).toThrow("身份不一致");
+    wrongIdentity.items[0]!.freq = 15;
+    expect(() => buildStockMinuteChartViewModel(chart(wrongIdentity))).toThrow("身份不一致");
 
     const duplicated = indicators();
     duplicated.items.push({ ...duplicated.items[0]! });
-    expect(() => buildStockMinuteChartViewModel(bars(), duplicated)).toThrow("重复时间键");
+    expect(() => buildStockMinuteChartViewModel(chart(duplicated))).toThrow("重复时间键");
   });
 
   it("maps all supported minute period keys and rejects non-minute keys", () => {

@@ -1,10 +1,11 @@
+import { adaptNineTurnSeries } from "../../nine-turn/model/nineTurnAdapter";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { StockMinuteFrequency } from "./stockDetailApiTypes";
 import type {
   StockMinuteBarDto,
   StockMinuteDataStatusDto,
   StockMinuteIndicatorDto,
-  StockMinuteIndicatorsResponseDto,
-  StockMinuteBarsResponseDto,
+  StockMinuteChartResponseDto,
 } from "./stockMinuteApiTypes";
 
 export interface StockMinuteChartPoint {
@@ -30,16 +31,15 @@ export interface StockMinuteChartViewModel {
   freq: StockMinuteFrequency;
   points: StockMinuteChartPoint[];
   dataStatus: StockMinuteDataStatusDto;
-  indicatorStatus: StockMinuteDataStatusDto;
+  nineTurnLayer: NineTurnLayerViewModel | null;
 }
 
 export function buildStockMinuteChartViewModel(
-  barsResponse: StockMinuteBarsResponseDto,
-  indicatorsResponse: StockMinuteIndicatorsResponseDto,
+  response: StockMinuteChartResponseDto,
 ): StockMinuteChartViewModel {
-  assertMatchingResponseIdentity(barsResponse, indicatorsResponse);
-  const barsByKey = uniqueRowsByMinuteKey(barsResponse.bars, "K 线");
-  const indicatorsByKey = uniqueRowsByMinuteKey(indicatorsResponse.items, "技术指标");
+  assertMatchingResponseIdentity(response);
+  const barsByKey = uniqueRowsByMinuteKey(response.bars, "K 线");
+  const indicatorsByKey = uniqueRowsByMinuteKey(response.indicators, "技术指标");
   if (
     barsByKey.size !== indicatorsByKey.size
     || [...barsByKey.keys()].some((key) => !indicatorsByKey.has(key))
@@ -48,11 +48,15 @@ export function buildStockMinuteChartViewModel(
   }
 
   return {
-    tsCode: barsResponse.tsCode,
-    freq: barsResponse.freq,
-    points: barsResponse.bars.map((bar) => toChartPoint(bar, indicatorsByKey.get(minuteKey(bar))!)),
-    dataStatus: barsResponse.dataStatus,
-    indicatorStatus: indicatorsResponse.dataStatus,
+    tsCode: response.tsCode,
+    freq: response.freq,
+    points: response.bars.map((bar) => toChartPoint(bar, indicatorsByKey.get(minuteKey(bar))!)),
+    dataStatus: response.dataStatus,
+    nineTurnLayer: response.nineTurn ? adaptNineTurnSeries(response.nineTurn, {
+      period: String(response.freq) as "30" | "60" | "90" | "120",
+      subjectType: "stock",
+      tsCode: response.tsCode,
+    }) : null,
   };
 }
 
@@ -62,21 +66,10 @@ export function minuteFrequencyFromPeriodKey(period: string): StockMinuteFrequen
   return Number(match[1]) as StockMinuteFrequency;
 }
 
-function assertMatchingResponseIdentity(
-  barsResponse: StockMinuteBarsResponseDto,
-  indicatorsResponse: StockMinuteIndicatorsResponseDto,
-): void {
+function assertMatchingResponseIdentity(response: StockMinuteChartResponseDto): void {
   if (
-    barsResponse.tsCode !== indicatorsResponse.tsCode
-    || barsResponse.freq !== indicatorsResponse.freq
-  ) {
-    throw new Error("分钟技术指标与 K 线身份不一致");
-  }
-  if (
-    barsResponse.bars.some((bar) => bar.tsCode !== barsResponse.tsCode || bar.freq !== barsResponse.freq)
-    || indicatorsResponse.items.some(
-      (item) => item.tsCode !== indicatorsResponse.tsCode || item.freq !== indicatorsResponse.freq,
-    )
+    response.bars.some((bar) => bar.tsCode !== response.tsCode || bar.freq !== response.freq)
+    || response.indicators.some((item) => item.tsCode !== response.tsCode || item.freq !== response.freq)
   ) {
     throw new Error("分钟响应行身份与根级身份不一致");
   }

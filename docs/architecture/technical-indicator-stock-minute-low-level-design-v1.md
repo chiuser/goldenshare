@@ -1,10 +1,10 @@
 # 本地股票分钟线接入算子库 LLD v1
 
-2026-11-25，阶段 1 已按 30 分钟先验收、再扩展的顺序完成。基础周期读取 DG Silver 同频率不复权行情，接受历史成交额的小额舍入差异。验收见 §9。阶段 2 的 90／120 分钟合成已完成，验收见 §10。本地接口和页面接入留在阶段 3。单请求和整批错误行为见 §6。 [本期方案](technical-indicator-stock-minute-plan-v1.md)
+2026-11-25，阶段 1 已按 30 分钟先验收、再扩展的顺序完成。基础周期读取 DG Silver 同频率不复权行情，接受历史成交额的小额舍入差异。验收见 §9。阶段 2 的 90／120 分钟合成已完成，验收见 §10。阶段 3 的本地接口与页面改造已通过隔离验收。验收见 §11。单请求和整批错误行为见 §6。 [本期方案](technical-indicator-stock-minute-plan-v1.md)
 
 ## 1. 现状和改动位置
 
-[现行股票分钟 API LLD](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)描述的是迁移前的 Gold 读取。三条路由及当前股票详情页面消费者如下。
+[股票分钟 API LLD](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)文首先给出现行接口，后面保留迁移前的 Gold 读取设计。下表记录迁移前的三个入口和页面消费者。
 
 - `stock_detail_minutes.py` 的 `/minutes`、`/minute-indicators` 调用 `StockMinuteQueryService` 和 `StockMinsLakeReader`，分别读 DG 股票分钟前复权 K 线和分钟前复权 MACD／KDJ。
 - `stock_detail_minute_nine_turn.py` 的 `/minute-nine-turn` 调用 `StockMinuteNineTurnQueryService`，先读取股票前复权分钟行情的时间，再按时间关联股票分钟前复权九转成品。标的校验已有本地证券基础信息入口。
@@ -94,7 +94,7 @@ def calculate_stock_minutes_recent(
 
 `LakePriceLocator.describe()` 的分钟分支新增 `_describe_recent_stock_minutes()`。复用指数分钟的按需读取、预热和 Arrow 批次交付办法。股票的频率映射、竞价归入与复权留在股票读取方法。 [指数分钟批量读取](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L826)
 
-1. 用 `_partition_paths()` 枚举目标对应的一个 Silver 基础频率，以截止日期裁剪分区。业务层直接传截止时间、根数和可选下界，不用先查交易日历或停牌表来找日期。
+1. 用 `_partition_paths()` 枚举目标对应的一个 Silver 基础频率，以截止日期裁剪分区。业务层直接传截止时间、根数和可选下界，不用先查交易日历或停牌表来找日期。 用下界到截止日之间的可用分区数乘以每日目标根数，限制首批目标行预算。更早日期按预热所需读取。股票复权因子只检查实际取用的基准候选和入选行情日期的文件路径。
 2. 每批用一条 SQL 传入多个 Parquet 文件路径，显式投影字段、按代码和基础频率过滤，按 DG 时段映射到目标窗口。按目标完成时间过滤截止，再按完成时间降序取需要的候选根数。
 3. 候选保留窗口内原价基础行。若目标、预热或下一页探测不足，再读取更早的不重叠分区。选定后只保留目标和预热对应的原价基础行，以请求内 Arrow 交给复权。定位与实际计算共用这些行。
 4. 空档按实际有效窗口计数。无目标行情时返回空 `CalculationWithSource`，业务入口组装空窗状态。有效行情匹配不到复权因子时按源合同错误处理。
@@ -227,7 +227,7 @@ class StockMinuteChartResponseDto(StockMinutesResponseDto):
 - 行情和 MACD／KDJ 的空、延迟、就绪状态沿用 `StockMinuteQueryService._to_status()`，按 `expectedEndDate` 与实际首尾时间判断。没有交易行的合法空结果与缺因子、源列错误、查询失败分开。沿用各现有入口的 `SM_SOURCE_CONTRACT_INVALID`、`SM_QUERY_FAILED`、`NT_SOURCE_CONTRACT_INVALID`、`NT_QUERY_FAILED` 分类与 HTTP 状态。独立九转接口保留现有股票身份校验和错误处理。整图请求按已确认的整批处理方式，MACD、KDJ 或九转计算失败均由页面展示分钟错误态。
 - `debug=1` 按实际来源列出 Silver 股票分钟和股票复权因子，并沿用已公开的扫描文件数、耗时和期望日字段。普通响应不把复权基准交给页面判断或用于拒绝续页。
 
-[日期解析](../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query.py#L14) · [行情游标](../../src/foundation/clients/local_lake/stock_mins_reader.py#L330) · [九转读取合同](../../src/foundation/clients/local_lake/stock_nine_turn_reader.py#L195)
+[日期解析](../../src/biz/queries/wealth/market/stock_detail_minutes/stock_detail_minutes_query.py#L14) · [行情游标](../../src/foundation/clients/local_lake/stock_mins_reader.py#L330) · [分钟算子请求与游标转换](../../src/biz/queries/wealth/market/stock_detail_minutes/stock_minute_calculation_reader.py#L62)
 
 ### 6.3 文件和职责
 
@@ -316,3 +316,28 @@ class StockMinuteChartResponseDto(StockMinutesResponseDto):
 | 120 分钟续页 | 2 | 501 | 501 | 2,500 | 1,663 毫秒 |
 
 分别启动进程测两档。测到首批时进程峰值 RSS 约为 219、238 MiB，完成续页后分别约为 238、251 MiB。RSS 是整个进程的内存高水位。四次 500 根请求均低于 5 秒，其中三次算子耗时已超过 1.5 秒。阶段 3 用实际接口验收 P95 和回包体积。实测只查询上述股票及请求窗口的行情，以及对应的股票复权因子和单日对照成品。
+
+<a id="stock-minute-phase-three-acceptance"></a>
+
+## 11. 阶段 3 独立验收记录
+
+2026-11-25。沿真实路由、DG 读取、算子执行和前端请求核对。临时本地服务使用正式 DG 有界只读数据、实际行情鉴权和临时 SQLite 审计账号。前端使用本次构建产物，在 Chrome 中验收。本机原服务和 Prod 未切换。
+
+| 验收项 | 结果 |
+| --- | --- |
+| 七档 HTTP 与算子输出 | 贵州茅台 600519.SH，截止 2026-11-17。七档默认请求均返回 500 根，K 线与指标时间逐根相同。1／5／15 分钟九转为 null。30／60／90／120 分钟标记均在本批 K 线上，序号 1–9。独立指标和九转 30 分钟各用 20 根与合并回包对照。三个路由均报告 Silver 不复权分钟行情和股票复权因子。 |
+| 游标、上限与鉴权 | 原 bars v1 游标从 90 分钟 15:00 续到同日 14:00。90／120 分钟各 500 根首批与续页无重复，120 分钟首批覆盖 2025 至 2026 年。指定单日、limit=10,000 的 120 分钟请求返回实际 2 根。单个股票的 1 分钟请求触及实际 5,000,000 字节门禁，得到 HTTP 400 和 SM_REQUEST_INVALID。实际鉴权拒绝未登录请求。分别以 local 关闭和 Prod 配置核对三个路由均未挂载。 |
+| 浏览器与取消 | 30／1／90／120 分钟均在 Chrome 渲染。切换每个周期只请求一次 /minutes。截止日为页面日期，limit=500。九转开关无额外请求。发出 120 分钟请求后切到 1 分钟，浏览器取消旧请求，随后重试 120 分钟成功。服务器在收到取消后约 1.85 毫秒释放算子资源，验收结束执行池占用为 0。临时 SQLite 环境的自选分组请求返回 500，分钟接口均正常，前端无未捕获异常。 |
+| 回归 | 后端 129 项、Wealth 59 项通过，TypeScript 检查和构建通过。独立核对空态、缺因子、游标所属路由、实际回包字节和配置开关。 |
+| DG 成品消费者 | 三个股票详情分钟入口已退出前复权成品读取。交易助手仍读取 DG 1 分钟前复权行情。DG 的股票分钟前复权 MACD／KDJ 和九转生成仍使用其前复权行情，相关检查仍按现行定义读取。代码引用审计未发现其它股票详情或 QTF 分钟成品读取调用。 |
+
+验收时缩小了大 limit 的首批读取范围。算子先用请求覆盖的分区数估算最多能返回多少根，再按预热要求补读。复权因子只检查实际读取的文件。两项调整仅应用于股票分钟读取，沿用现行 500 根预热和资源配置。
+
+| 500 根请求 | 样本数 | HTTP 中位耗时 | 样本耗时上界 |
+| --- | ---: | ---: | ---: |
+| 90 分钟首批 | 5 | 960 ms | 1,046 ms |
+| 90 分钟续页 | 5 | 704 ms | 969 ms |
+| 120 分钟首批 | 5 | 1,186 ms | 1,194 ms |
+| 120 分钟固定续页复测 | 20 | 1,216 ms | 1,431 ms |
+
+120 分钟固定续页的 20 次样本 P95 为 1,376 ms。此前五次续页试测中单次最高 1,571 ms，最终重启后首批单次 1,505 ms。所有默认 500 根样本均低于 5 秒，回包约 0.28–0.35 MB。最后一轮 HTTP 和浏览器验收服务进程峰值 RSS 约 602 MiB，包含整套 Web 运行，单请求内存见阶段 2 记录。耗时结果限定在同一标的、窗口和本机隔离环境。

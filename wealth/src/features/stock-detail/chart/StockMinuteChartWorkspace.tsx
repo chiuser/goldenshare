@@ -26,7 +26,6 @@ interface StockMinuteChartWorkspaceProps {
   errorMessage?: string;
   nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
-  onNineTurnRetry: () => void;
 }
 
 const STOCK_MINUTE_MAIN_LINES: DetailChartLineDefinition[] = [];
@@ -38,9 +37,8 @@ export function StockMinuteChartWorkspace({
   errorMessage,
   nineTurnControl,
   nineTurnLayer,
-  onNineTurnRetry,
 }: StockMinuteChartWorkspaceProps) {
-  const status = data ? resolveMinuteStatus(data) : loadState === "error" ? "ERROR" : loadState === "loading" ? "LOADING" : "EMPTY";
+  const status = data ? data.dataStatus.status : loadState === "error" ? "ERROR" : loadState === "loading" ? "LOADING" : "EMPTY";
   const statusMessage = errorMessage ?? resolveMinuteStatusMessage(data, status);
   const points = useMemo(() => data?.points.map(toDetailChartPoint) ?? [], [data?.points]);
   const dataKey = `stock:${data?.tsCode ?? "pending"}:m${data?.freq ?? "pending"}`;
@@ -79,7 +77,6 @@ export function StockMinuteChartWorkspace({
         <NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
-          onRetry={onNineTurnRetry}
         />
       )}
       mainLines={STOCK_MINUTE_MAIN_LINES}
@@ -186,15 +183,8 @@ function MinuteKlineTooltip({ point, side }: { point: DetailChartPoint; side: De
   );
 }
 
-function resolveMinuteStatus(data: StockMinuteChartViewModel): string {
-  if (data.dataStatus.status === "DELAYED" || data.indicatorStatus.status === "DELAYED") return "DELAYED";
-  if (data.dataStatus.status === "ERROR" || data.indicatorStatus.status === "ERROR") return "ERROR";
-  return data.dataStatus.status;
-}
-
 function resolveMinuteStatusMessage(data: StockMinuteChartViewModel | null, status: string): string {
   if (!data) return statusMessageFor(status);
-  if (data.indicatorStatus.status !== "READY" && data.indicatorStatus.message) return data.indicatorStatus.message;
   if (data.dataStatus.status !== "READY" && data.dataStatus.message) return data.dataStatus.message;
   return statusMessageFor(status);
 }

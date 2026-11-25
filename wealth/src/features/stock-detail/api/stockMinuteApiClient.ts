@@ -1,9 +1,8 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import type { StockDetailFetchOptions } from "./stockDetailApiClient";
 import type {
-  StockMinuteBarsResponseDto,
+  StockMinuteChartResponseDto,
   StockMinuteFrequency,
-  StockMinuteIndicatorsResponseDto,
 } from "./stockMinuteApiTypes";
 
 export interface StockMinuteFetchParams {
@@ -16,8 +15,8 @@ export interface StockMinuteFetchParams {
   debug?: 0 | 1;
 }
 
-function buildMinuteUrl(path: "minutes" | "minute-indicators", params: StockMinuteFetchParams): string {
-  const url = new URL(`/api/v1/wealth/market/stock-detail/${path}`, window.location.origin);
+function buildMinuteUrl(params: StockMinuteFetchParams): string {
+  const url = new URL(`/api/v1/wealth/market/stock-detail/minutes`, window.location.origin);
   Object.entries(params).forEach(([key, value]) => {
     if (typeof value !== "undefined") url.searchParams.set(key, String(value));
   });
@@ -42,26 +41,14 @@ async function parseMinuteResponse<T>(response: Response): Promise<T> {
   throw error;
 }
 
-export async function fetchStockMinuteBars(
+export async function fetchStockMinuteChart(
   params: StockMinuteFetchParams,
   options: StockDetailFetchOptions = {},
-): Promise<StockMinuteBarsResponseDto> {
-  const response = await wealthFetch(buildMinuteUrl("minutes", params), {
+): Promise<StockMinuteChartResponseDto> {
+  const response = await wealthFetch(buildMinuteUrl(params), {
     method: "GET",
     headers: { Accept: "application/json" },
     signal: options.signal,
   });
-  return parseMinuteResponse<StockMinuteBarsResponseDto>(response);
-}
-
-export async function fetchStockMinuteIndicators(
-  params: StockMinuteFetchParams,
-  options: StockDetailFetchOptions = {},
-): Promise<StockMinuteIndicatorsResponseDto> {
-  const response = await wealthFetch(buildMinuteUrl("minute-indicators", params), {
-    method: "GET",
-    headers: { Accept: "application/json" },
-    signal: options.signal,
-  });
-  return parseMinuteResponse<StockMinuteIndicatorsResponseDto>(response);
+  return parseMinuteResponse<StockMinuteChartResponseDto>(response);
 }

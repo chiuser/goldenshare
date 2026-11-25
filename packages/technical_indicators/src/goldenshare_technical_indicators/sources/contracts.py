@@ -73,6 +73,7 @@ class SourceReadFacts:
     current_period_bar: PeriodBarMetadata | None = None
     has_more: bool = False
     target_exchanges: tuple[str, ...] = ()
+    scanned_file_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)

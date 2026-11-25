@@ -24,11 +24,6 @@ def _disable_other_minute_routes(monkeypatch) -> None:
     monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: DISABLED)
     monkeypatch.setattr(
         app_router,
-        "resolve_stock_nine_turn_minute_capability",
-        lambda _settings: DISABLED,
-    )
-    monkeypatch.setattr(
-        app_router,
         "resolve_index_nine_turn_minute_capability",
         lambda _settings: DISABLED,
     )

@@ -6,7 +6,7 @@ export interface StockNineTurnFetchParams {
   debug?: 0 | 1;
   endDate?: string;
   limit?: number;
-  period: Extract<NineTurnPeriod, "day" | "30" | "60" | "90" | "120">;
+  period: "day";
   startDate?: string;
   tsCode: string;
 }

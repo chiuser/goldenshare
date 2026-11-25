@@ -33,7 +33,6 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts imp
 from src.foundation.config.local_minute_capability import (
     SUPPORTED_MINUTE_FREQS,
     resolve_local_minute_capability,
-    resolve_stock_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 from src.foundation.config.stock_daily_trend_channel_capability import (
@@ -125,9 +124,6 @@ class StockDetailQueryService:
 
     def _page_options(self) -> tuple[StockChartDefaultsDto, StockDetailCapabilitiesDto]:
         minute_capability = resolve_local_minute_capability(get_settings())
-        nine_turn_minute_capability = resolve_stock_nine_turn_minute_capability(
-            get_settings()
-        )
         trend_channel_capability = resolve_stock_daily_trend_channel_capability(
             get_settings()
         )
@@ -149,7 +145,7 @@ class StockDetailQueryService:
                 supportsTrendChannel=trend_channel_capability.enabled,
                 supportsWeeklyMonthly=bool(self._period_capabilities),
                 nineTurnPeriods=["day", *self._period_capabilities,
-                                 *(["30", "60", "90", "120"] if nine_turn_minute_capability.enabled else [])],
+                                 *(["30", "60", "90", "120"] if minute_capability.enabled else [])],
             ),
         )
 

@@ -5,6 +5,7 @@ from datetime import date, datetime
 import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
+from fastapi.responses import JSONResponse
 
 from src.app.auth.dependencies import require_quote_access
 from src.app.dependencies import get_db_session
@@ -57,10 +58,17 @@ class _FakeMinuteNineTurnService:
 @pytest.fixture()
 def minute_client(monkeypatch, db_session):
     service = _FakeMinuteNineTurnService()
-    monkeypatch.setattr(stock_detail_minute_nine_turn, "_service", lambda: service)
+    async def run_page(_request, *, output, query, debug, session, arrived_at):
+        assert output == "nine_turn"
+        result = service.read(
+            session, ts_code=query.ts_code, freq=query.freq, start_date=query.start_date,
+            end_date=query.end_date, limit=query.limit, cursor=query.cursor, debug=debug,
+        )
+        return JSONResponse(result.model_dump(mode="json", by_alias=True))
+
     app = FastAPI()
     install_exception_handlers(app)
-    app.include_router(stock_detail_minute_nine_turn.router)
+    app.include_router(stock_detail_minute_nine_turn.build_router(run_page=run_page))
     app.dependency_overrides[get_db_session] = lambda: db_session
     app.dependency_overrides[require_quote_access] = lambda: None
     with TestClient(app) as client:
@@ -152,22 +160,13 @@ def test_app_router_mounts_stock_minute_nine_turn_only_when_capability_is_ready(
         "resolve_index_nine_turn_minute_capability",
         lambda _settings: disabled,
     )
-    monkeypatch.setattr(
-        app_router,
-        "resolve_stock_nine_turn_minute_capability",
-        lambda _settings: disabled,
-    )
     production_target = APIRouter(prefix="/v1")
     app_router._include_local_minute_router(production_target)
     assert "/v1/wealth/market/stock-detail/minute-nine-turn" not in {
         route.path for route in production_target.routes
     }
 
-    monkeypatch.setattr(
-        app_router,
-        "resolve_stock_nine_turn_minute_capability",
-        lambda _settings: enabled,
-    )
+    monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: enabled)
     local_target = APIRouter(prefix="/v1")
     app_router._include_local_minute_router(local_target)
     assert "/v1/wealth/market/stock-detail/minute-nine-turn" in {

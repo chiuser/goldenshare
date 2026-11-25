@@ -1,12 +1,12 @@
 # 本地股票分钟线接入算子库方案 v1
 
-2026-11-25，五个基础周期和 90／120 分钟合成均已实现并完成算子验收。本地接口和页面接入留在阶段 3。依据[总审计表的股票分钟规划](technical-indicator-local-backend-source-audit-v1.html#migration-roadmap)和[现行股票分钟 API](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)。实现、SQL 和验收见 [LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
+2026-11-25，七个股票分钟周期已接入本地接口和页面，功能通过隔离 HTTP 与浏览器验收。依据[总审计表的股票分钟规划](technical-indicator-local-backend-source-audit-v1.html#migration-roadmap)和[现行股票分钟 API](../../wealth/docs/pages/stock-detail/stock-detail-minutes-api-low-level-design-v1.md)。实现、SQL 和验收见 [LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
 
 ## 1. 目标
 
 本地 Wealth 股票详情用算子库生成分钟前复权 K 线、MACD、KDJ 和分钟九转。一张分钟图的一批数据只读一次原价，按各交易日的复权因子做一次价格转换。K 线和指标使用同一批前复权行情、同一组时间键，页面只负责显示。每次请求由算子库决定应补读多少预热行情。
 
-当前分钟 K 线、MACD／KDJ、九转分别读取 DG 前复权分钟行情、分钟前复权 MACD／KDJ、分钟前复权九转成品。切换后这三个本地详情入口从 Silver 股票不复权分钟行情及股票复权因子计算。DG 成品生成、日终状态和回刷任务按各自现行消费者继续运行。交易助手仍用 DG 1 分钟前复权行情，例如它查某只股票某天的分钟收盘价和成交量时仍会打开该成品。本需求只涉及本地股票分钟历史图，Prod、指数、股票日／周／月线及分时数据维持各自现行合同。 [交易助手读取](../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37)
+本地股票详情的三个分钟入口已从 DG Silver 股票不复权分钟行情及股票复权因子计算。页面通过一次请求取得分钟 K 线、MACD／KDJ 和适用周期的九转。DG 成品生成、日终状态和回刷任务按各自现行消费者继续运行。交易助手仍用 DG 1 分钟前复权行情，例如它查某只股票某天的分钟收盘价和成交量时仍会打开该成品。本需求只涉及本地股票分钟历史图，Prod、指数、股票日／周／月线及分时数据维持各自现行合同。 [交易助手读取](../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37)
 
 ## 2. 已确认的做法
 

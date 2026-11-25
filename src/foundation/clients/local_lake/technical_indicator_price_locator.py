@@ -844,9 +844,13 @@ class LakePriceLocator:
         location = self.context.config.dataset_locations[request.target.dataset_id]["dg"]
         base_frequency = int(location["partitions"]["freq"])
         sql, daily_rows = stock_minute_selection_sql(target_frequency, base_frequency)
+        target_limit = request.latest_rows
+        if request.start is not None:
+            first_target = bisect_left(paths, f"trade_date={request.start.date()}", key=lambda path: path.parent.name)
+            target_limit = min(target_limit, (len(paths) - first_target) * daily_rows)
         selection, facts, batches = self._select_recent_minutes(
             paths, ("trade_date", "trade_time", "exchange", "base_bars"), sql,
-            daily_rows=daily_rows, source_filters=(base_frequency,),
+            daily_rows=daily_rows, source_filters=(base_frequency,), target_limit=target_limit,
             error_message="The DG stock minute batch could not be read",
         )
         columns = ("trade_date", "trade_time", *(field for field in DAILY_PRICE_FIELDS
@@ -859,15 +863,14 @@ class LakePriceLocator:
             available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "qfq"),),
             converted=True, selection=selection, source_projection=columns,
             standard_projection=tuple((column, f'b."{column}"') for column in columns),
-            source_facts=facts, delivered_adjustment="qfq",
+            source_facts=replace(facts, scanned_file_count=self.context.source_files),
+            delivered_adjustment="qfq",
         )
         if not selection.target_rows:
             return description
         factor_target = self.context.config.resolve_dataset_location("stock_adj_factor")
         factor_paths = self.source._dated_partitions(self._root, factor_target, date.max, self.control)
-        description = replace(description, factor_paths=tuple(
-            (day, self.source._safe_path(self._root, path)) for day, path in factor_paths
-        ))
+        description = replace(description, factor_paths=factor_paths)
         return self._adjust_recent_stock_minutes(description, batches, columns)
 
     def _adjust_recent_stock_minutes(self, description, batches, columns):
@@ -893,11 +896,11 @@ class LakePriceLocator:
         self._registrations.remove(registration)
         self.context.record_price_rows(0, additional_source_rows=stats.output_rows - windows.num_rows)
         description = self.source.prepare_basis(
-            self.executor, description, request, table_name=basis, read_context=self.context,
+            self.executor, description, request, table_name=basis, read_context=self.context, paths_root=self._root,
         )
         validate_adjustment_basis(description)
         self.source.prepare_factors(
-            self.executor, description, request, trade_dates, table_name=factors, read_context=self.context,
+            self.executor, description, request, trade_dates, table_name=factors, read_context=self.context, paths_root=self._root,
         )
         validate_adjustment_factors(self.executor, selected, factors)
         adjusted = self._read_rows(
@@ -908,13 +911,15 @@ class LakePriceLocator:
         return description
 
     def _select_recent_minutes(
-        self, paths, columns, sql, *, daily_rows, error_message, source_filters=(),
+        self, paths, columns, sql, *, daily_rows, error_message, source_filters=(), target_limit=None,
     ):
         request, config = self.requirement, self.context.config
         pa, _, _, _ = _arrow()
         start = request.start.replace(tzinfo=None) if request.start is not None else None
         cutoff = request.end.replace(tzinfo=None)
         remaining_files = len(paths)
+        if target_limit is None:
+            target_limit = request.latest_rows
         targets = history = 0
         target_start = target_end = read_start = None
         exchanges, batches = [], []
@@ -923,7 +928,7 @@ class LakePriceLocator:
             if not targets and start is not None and paths[remaining_files - 1].parent.name < f"trade_date={start.date()}":
                 break
             history_limit, needs_origin = preceding_limit(config, request, targets)
-            wanted_targets = 0 if crossed_start else request.latest_rows - targets
+            wanted_targets = 0 if crossed_start else target_limit - targets
             probe = not has_more and not crossed_start
             wanted = wanted_targets + max(history_limit - history + int(needs_origin), int(probe))
             if not wanted:

@@ -102,7 +102,7 @@ def test_import_guard_rejects_retired_import_forms(source):
     "source",
     [
         "from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot",
-        "from src.foundation.clients.local_lake.stock_mins_reader import StockMinsLakeReader",
+        "from src.foundation.clients.local_lake.stock_mins_reader import build_stock_mins_qfq_paths",
         "from orchestrator.defs.resources import ProdPostgresResource",
         "historical_reference = 'lake_console.backend.app.cli'",
     ],
@@ -221,7 +221,7 @@ def test_current_lake_consumers_and_clickhouse_tools_are_present():
     for name in (
         "src/foundation/clients/local_lake/stock_mins_reader.py",
         "src/foundation/clients/local_lake/major_index_mins_reader.py",
-        "src/foundation/clients/local_lake/stock_nine_turn_reader.py",
+        "src/biz/queries/wealth/market/stock_detail_minutes/stock_minute_calculation_reader.py",
         "src/foundation/clients/local_lake/index_nine_turn_reader.py",
         "src/foundation/clients/local_lake/major_index_turnover_reader.py",
         "src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py",

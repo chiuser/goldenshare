@@ -9,7 +9,7 @@ export function NineTurnLayerStatus({
 }: {
   droppedMarkerCount: number;
   layer: NineTurnLayerViewModel;
-  onRetry: () => void;
+  onRetry?: () => void;
   showAlignmentDiagnostics?: boolean;
 }) {
   if (layer.phase === "IDLE" || (layer.phase === "READY" && (droppedMarkerCount === 0 || !showAlignmentDiagnostics))) return null;
@@ -20,7 +20,7 @@ export function NineTurnLayerStatus({
     <div className={`nine-turn-layer-status ${layer.phase.toLowerCase()}`} role="status">
       {alignmentMessage ? <span>{alignmentMessage}</span> : null}
       {layer.phase !== "READY" ? <span>{layer.message ?? fallbackMessage(layer.phase)}</span> : null}
-      {layer.canRetry ? (
+      {layer.canRetry && onRetry ? (
         <button type="button" onClick={onRetry}>重试九转</button>
       ) : null}
     </div>

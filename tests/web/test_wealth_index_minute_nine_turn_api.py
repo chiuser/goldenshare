@@ -121,11 +121,6 @@ def test_app_router_mounts_index_minute_nine_turn_only_when_ready(
     )
     monkeypatch.setattr(
         app_router,
-        "resolve_stock_nine_turn_minute_capability",
-        lambda _: disabled,
-    )
-    monkeypatch.setattr(
-        app_router,
         "resolve_index_nine_turn_minute_capability",
         lambda _: disabled,
     )

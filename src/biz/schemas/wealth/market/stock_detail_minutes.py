@@ -5,6 +5,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
+
 MinuteFrequency = Literal[1, 5, 15, 30, 60, 90, 120]
 MinuteStatus = Literal["READY", "DELAYED", "EMPTY", "ERROR"]
 
@@ -73,6 +75,11 @@ class StockMinutesResponseDto(BaseModel):
     meta: MinutePageMeta
     data_status: MinuteDataStatus = Field(alias="dataStatus")
     debug_info: dict[str, Any] | None = Field(default=None, alias="debugInfo")
+
+
+class StockMinuteChartResponseDto(StockMinutesResponseDto):
+    indicators: list[StockMinuteIndicatorDto]
+    nine_turn: NineTurnSeriesDto | None = Field(alias="nineTurn")
 
 
 class StockMinuteIndicatorsResponseDto(BaseModel):

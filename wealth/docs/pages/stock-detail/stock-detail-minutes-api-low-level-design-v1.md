@@ -1,6 +1,6 @@
-# 股票详情分钟线与分钟技术指标 API LLD v1.8
+# 股票详情分钟线与分钟技术指标 API LLD v1.9
 
-> 2026-08-13 数据合同修正：reader 的 Gold-only 边界不变，但正式 Gold QFQ
+> 2026-08-13 Gold 路径历史记录：reader 的 Gold-only 边界不变，但正式 Gold QFQ
 > 5m/15m/30m/60m 与对应 MACD/KDJ/state 必须按
 > [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)
 > 全历史重建。Gold 1m 保留 09:30，非 1m 禁止独立 09:30；API 必须严格按时间键对齐
@@ -12,7 +12,18 @@
 > 门禁：[分钟 API 编码前门禁](./stock-detail-minutes-api-m2-coding-gate-v1.md)
 > 当前图表状态：股票分钟已由 `b38ac20e` 迁入 `DetailChartWorkspace`，并由 `61a5adea` 启用统一自适应缩放；本 API、500 根缓冲和本地/生产隔离合同未改变。
 
-## 1. 目标、边界与硬约束
+
+## 2026-11-25 现行 HTTP 合同
+
+股票详情本地分钟线按[算子库接入 LLD §6](../../../../docs/architecture/technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-http)实施。下面各节保留原 Gold 读取设计和历史验收记录。现行取数、合并回包、九转和页面调用以本节为准。原路径、鉴权、日期与 v1 游标字段继续适用。
+
+- `GET /minutes` 保留原 `tsCode`、`freq`、`bars`、`meta`、`dataStatus`、`debugInfo`，增加 `indicators` 和 `nineTurn`。`indicators` 为原独立指标回包中 `items` 的同型数组，与 `bars` 按 `tradeTime` 一一对应。`nineTurn` 为原 `NineTurnSeriesDto`，仅 30／60／90／120 分钟返回，1／5／15 分钟为 `null`。
+- `GET /minute-indicators` 和 `GET /minute-nine-turn` 保留独立回包。三条路由均计算 DG Silver 不复权分钟行情与股票复权因子的结果。前端分钟周期只请求 `/minutes`，以页面日期为截止日，请求 500 根。九转开关使用该回包中的标记。
+- 日期仍最多横跨三个自然年。游标继续绑定标的、周期、原请求日期和所属接口。下页严格早于上一批最早一根，保留同日更早的行情。算子可为指标预热读取更早的行情，预热行只在算子内部使用。
+- `/minutes` 的 5,000,000 字节门禁覆盖整个合并回包。服务端用同一份 UTF-8 JSON 字节判断大小并发送。参数错误、源合同错误、查询错误使用各入口现有 HTTP 状态和错误码。Prod 的路由范围沿用现行配置。
+
+
+## 1. 原 Gold 读取设计的目标、边界与硬约束
 
 本 LLD 设计本地 `wealth` 股票详情页的分钟线和分钟 MACD/KDJ 只读查询能力。它不改变 Lake 写入链路、不改变 Dagster、不向远程生产发布本地分钟数据。
 

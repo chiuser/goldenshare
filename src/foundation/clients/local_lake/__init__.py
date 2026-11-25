@@ -5,7 +5,6 @@ from src.foundation.clients.local_lake.stock_mins_reader import (
     MinuteReadRequest,
     MinuteRequestError,
     MinuteSourceContractError,
-    StockMinsLakeReader,
     build_stock_mins_qfq_paths,
 )
 
@@ -16,6 +15,5 @@ __all__ = [
     "MinuteReaderError",
     "MinuteRequestError",
     "MinuteSourceContractError",
-    "StockMinsLakeReader",
     "build_stock_mins_qfq_paths",
 ]

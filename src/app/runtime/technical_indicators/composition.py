@@ -13,7 +13,9 @@ from src.foundation.config.settings import Settings, technical_indicator_config_
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 from goldenshare_technical_indicators.calculation.registry import CalculationRegistry
 from goldenshare_technical_indicators.configuration import KernelConfig
-from goldenshare_technical_indicators.configuration.datasets import DATASET_LOCATIONS, DG_RECENT_INDEX_MINUTE_DATASETS
+from goldenshare_technical_indicators.configuration.datasets import (
+    DATASET_LOCATIONS, DG_RECENT_INDEX_MINUTE_DATASETS, DG_RECENT_STOCK_MINUTE_DATASETS,
+)
 from goldenshare_technical_indicators.sources.contracts import PriceSource
 
 from .admission import AdmissionController
@@ -47,6 +49,9 @@ def build_runtime_config(settings: Settings) -> KernelConfig:
     if backend == "dg":
         for dataset_id in DG_RECENT_INDEX_MINUTE_DATASETS.values():
             locations[dataset_id]["dg"]["enabled_adjustments"] = ("none",)
+        if settings.wealth_local_lake_minute_api_enabled:
+            for dataset_id in DG_RECENT_STOCK_MINUTE_DATASETS.values():
+                locations[dataset_id]["dg"]["enabled_adjustments"] = ("qfq",)
     return technical_indicator_config_from_settings(settings, data_location=backend, dataset_locations=locations)
 
 
