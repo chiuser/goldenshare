@@ -4,6 +4,8 @@
 
 固定前置 500 根、每轨绝对误差不超过 0.01、四轨输出、旧方向清理和 MACD 保持现状均已确认，不需要重新拍板。每个后续阶段仍须先补齐该步代码、合同和验收细节并单独 review。
 
+**2026-11-25 后续设计确认。** 管理员确认每个指标独立 build、公共组装复用、业务 `assemble()` 显式组合，并指定在第三阶段实施该组装架构修改。本轮仅补设计：阶段二先完成股票日线接入及计算范围隔离；阶段三先整理公共组装，再接入上证；阶段四清理不变。本地和 Prod 各沿原有接法与环境，Prod 不新增本地式分页。以下 §4.2、§4.3 已按此补齐，未开始业务开发。
+
 ## 1. 当前代码与本期改动边界
 
 | 对象 | 当前代码依据 | 本期处理 |
@@ -115,19 +117,116 @@ PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
 
 ### 4.2 阶段二：股票日线
 
-1. 在现有股票日线计算清单加入趋势通道，补齐算法版本与四轨字段校验，与已有 MA、BOLL、MACD、KDJ、九转共享本次行情和复权基准。保留各环境已有装配路径。
-2. 沿 `StockDailyKlineService` 的结果映射与日 K DTO 组织四轨。拟沿现有 `factors` 分组方式增加日线通道对象，字段映射为 `shortUpper/shortLower/longUpper/longLower`。具体 DTO 分派和所有构造、消费点在本阶段开工前冻结；共用周月线 DTO 的非目标路径不因此新增计算。
-3. 首批和续页从同一批日 K 结果取得四轨，适配为现有 `TrendChannelPoint`；保持颜色、画法和开关，清理目标页面已经无用的独立日线趋势请求。保留盘口、页面日期、其他指标、游标和失败后的已加载图表。
-4. 同步修改 `StockDetailQueryService._page_options()`：`supportsTrendChannel` 和 `availableMainOverlays` 按已经接入的股票日线能力返回，不再调用 `resolve_stock_daily_trend_channel_capability()`；具体条件与测试见 §4.5。不能将入口修改拖到阶段四，否则页面仍受旧数据集控制。
-5. 使用当前 500 根首批、下一批和现有真实游标验收；四轨日期与本批 K 线一一对应、结果不混用复权基准，不为趋势通道另读一份行情。旧通道开关关闭、结果与续算状态目录不存在时仍须通过；目标页面不再发出旧独立通道请求。
+目标是沿现有 `/api/v1/wealth/market/stock-detail/kline` 返回本批四轨，停止页面的独立通道请求，并保持周月线和各环境原有行为。本阶段不执行 §4.3.1 的公共四组指标拆分，不修改算法、通用结果合同、正式文件或部署配置。
 
-### 4.3 阶段三：上证日线
+#### 4.2.1 计算清单和实际调用
 
-1. 在上证日线请求的既有计算清单加入趋势通道；本地和生产继续使用各自现有的日 K 装配、来源与计算调用。共享清单也被其他指数使用时，仅对 `000001.SH` 的目标请求加项，其他指数保持原清单，不扩大页面范围。
-2. 在现有计算结果映射和 `IndexKlineFactorsDto` 日线回包中按与股票相同的四轨含义组装，随后交给原有图层。具体 DTO 分派、字段和受影响构造点在本阶段开工前冻结。
-3. 首批不超过 500 根，向左翻页后使用下一批 K 线和四轨；沿原 `nextEndDate`、历史下界和失败重试，不新增分页体系。`useIndexDetailController` 与 `useIndexDailyHistory` 改用日 K 回包中的四轨，停止 `fetchTrendChannel()` 的独立请求。
-4. 上证四轨使用算子库返回值，不再调用 `QuoteTrendChannelQueryService`、`QuoteTrendChannelCalculator` 或旧通道缓存，也不在失败时退回旧链路。指数基础行情继续服务日 K 和新算子，不能随旧专用计算器清理。
-5. 回归首批、续页、切日期、开关、错误重试及既有指标和图形；不因本次接入扩大单次返回数量或要求先一次算完整历史。以旧计算器、旧独立请求被调用即失败的测试验证迁移确实生效。
+当前周月线 `StockPeriodKlineService.calculate()` 也调用 `stock_daily_calculations(include_nine_turn=True)`；只按旧函数名认为它是日线独有，会错误扩大计算范围。本次经 `codegraph_callers(stock_daily_calculations)` 及源码核对，消费者包括请求构造、日线结果检查、周月线计算和 App 启动检查。阶段二作如下必要隔离：
+
+1. 在 `stock_daily_kline_calculations.py` 将原共用清单命名为 `STOCK_COMMON_CALCULATIONS`，由 `stock_common_calculations(include_nine_turn=...)` 保持原指标、实际参数及九转选择。新增的 `STOCK_DAILY_CALCULATIONS` 是不含可选九转的公共基础清单加无参数 `trend_channel`；日线 `stock_daily_calculations()` 对公共函数返回的原序列在末尾加通道，保留已有指标与可选九转的顺序。公共指标只声明一份，不按周期复制参数或先加通道再过滤。
+2. `StockPeriodKlineService.calculate()` 改调用公共清单，实际请求集合与改前一致；日线两个请求构造、`StockDailyKlineService._validate_result()`、App 启动检查使用日线清单。版本映射加入 `trend_channel=1.0.0`，字段映射加入四轨，沿现有检查核对实例、参数、版本、字段、长度和数值输出。
+3. 本地继续 `StockDailyKlineAppBackend.work()` → `StockDailyKlineService.prepare_recent()` → `build_recent_calculation_request()` → 传入的 `TechnicalIndicatorService.calculate_with_source()`。首批和续页只是不同的截止日，不另造翻页接口。
+4. Prod 继续 `work()` → `prepare()` 取得本批日期 → `build_calculation_request()` → `TechnicalIndicatorService.calculate()`。保留原 PostgreSQL 只读范围、会话、错误与取消规则，不要求新增按根数读取或生产翻页。
+
+代码中的算法调用仍在组装之前。各 build 函数只映射已经算完的结果，不读取数据、不调用算子库、不决定计算清单。
+
+#### 4.2.2 日线字段、类型与组装
+
+固定字段路径为 `bars[].factors.trendChannel`：
+
+| API 字段 | 算子结果字段 | 合同 |
+| --- | --- | --- |
+| `shortUpper` | `short_upper` | 25 周期最高价 EMA，必有有限数值，单位元 |
+| `shortLower` | `short_lower` | 25 周期最低价 EMA，必有有限数值，单位元 |
+| `longUpper` | `long_upper` | 90 周期最高价 EMA，必有有限数值，单位元 |
+| `longLower` | `long_lower` | 90 周期最低价 EMA，必有有限数值，单位元 |
+
+在 `src/biz/schemas/wealth/market/stock_detail.py` 增加 `StockTrendChannelFactorsDto`、`StockDailyKlineFactorDto`、`StockDailyKlineBarDto`。日线 factor 类型在原公共四组上增加必有 `trendChannel`，日线 bar 明确声明该 factor 类型；`StockDetailKlineResponseDto.bars` 使用日线 bar，本地首批、续页响应沿原继承使用它。`StockDetailPeriodKlineResponseDto.bars` 显式保留 `list[StockKlineBarDto]`，原公共 factor/bar 不增加通道、可选空对象或空轨道。无行情时沿原空 `bars`，不造空 K 线。
+
+阶段二在 `stock_daily_kline_service.py` 增加 `build_stock_trend_channel_factors(results, index)`，输入为本请求按实际算子参数整理的数值数组，输出上述通道 DTO；不使用 `special_factors` 名称。日线 `assemble()` 继续调用现有 `build_kline_factors()` 得到公共四组，再显式组合通道形成 `StockDailyKlineFactorDto`。公共字段按现有对象成员合入，不重新列写一份 MA/BOLL/MACD/KDJ 的数值映射。价格及基础字段复用 `build_kline_bar()` 已生成的成员，替换 `factors` 后构造明确的日线 bar；不复制一套 OHLC、幅度或盘口映射。
+
+四轨必须在实际 JSON 和 OpenAPI 中出现，不能只验证 Python 对象上有属性。Pydantic 默认按字段声明的模型类型序列化嵌套对象，基类声明不会自动输出子类新增字段；已按[官方序列化说明](https://docs.pydantic.dev/latest/concepts/serialization/#subclasses-of-model-like-types)和本机 2.13.4 有界实例核对。因此响应、bar、factor 三层均须明确对应类型，不开启全局多态序列化来代替合同定义。
+
+`StockDailyKlineService.assemble()` 是完整响应组装；上述每指标 build 是其子步骤。首批与续页都调用同一个 `assemble()`，不是算一次后再重复组装另一份相同响应。
+
+#### 4.2.3 前端首批、续页和图层交接
+
+`stockDetailApiTypes.ts` 区分日线 bar（必有四轨）和周月线 bar（原字段）。`fetchStockDetailKline()` 仍是同一个入口，以 `period=day` 与 `week/month` 的请求类型分别声明对应返回类型；通过函数重载保持现有调用方式，不新增 HTTP 端点或按是否缺字段猜回包版本。
+
+在 `stockDetailViewModelAdapter.ts` 增加 `buildStockDailyTrendChannelPoints()`，将每根日 K 的日期、收盘价和 `factors.trendChannel` 转为现有 `TrendChannelPoint`。沿既有日期、数值及上下轨合同适配，不计算 EMA、不使用旧 API 响应类型拼造新结果。
+
+| 位置 | 实施动作 |
+| --- | --- |
+| `StockDetailPage.loadStockDetail()` | 日 K 返回后同时生成原 viewModel 和首批通道点；`StockDetailLoad` 增加 `dailyTrendPoints`，与首批 candles 一同保存，之后才进入 ready。首批图层无须再等待另一请求。 |
+| `useStockDailyHistory.loadPage()` | `HistoryPage` 保存必有 `trendPoints`；先完成本批原日期/游标核对、candles 转换、通道点转换和九转读取，再一次提交 `nextEndDate`、candles、pages。失败时不推进游标、不追加部分数据，重试同一 `endDate`。现有代码先写游标再转换的顺序须随本次接入调整。 |
+| `StockChartWorkspace` | 用 `initialTrendPoints` 替代旧 `trend` 对象，类型为 `readonly TrendChannelPoint[]`；日线传入首批数组，非目标周月线传空数组并维持禁用。合并历史页的 `trendPoints` 与首批点，沿已有 `buildTrendChannelLines()` 和 `TrendChannelPanePrimitive` 绘制。 |
+| 开关和历史状态 | 移除页面的 `useStockTrendChannel()` 调用、`onTrendSelect` 请求回调，以及历史控制的 `loadTrend/ensureTrend/retryTrend`、独立 phase 和通道失败重试 UI。`changeOverlay()` 只控制绘制；未选择通道时加载的历史页仍保存四轨，之后打开无需补请求。 |
+
+保持页面初始图层、画法、着色、盘口和页面日期。首批失败由 `loadStockDetail()` 处理，本地续页失败由 `loadPage()` 处理并保留已加载图表及当前视野；切证券、切页面日期或离开日线沿现有取消和迟到响应隔离，不创建跨页面通道缓存。
+
+旧通道接口读取的是 DG 后台已生成的股票日线趋势通道结果文件，不是首屏计算缓存。接入后每个日 K 请求计算自己的目标与预热，浏览器保留该批结果供开关重复使用；不同 HTTP 翻页请求不复用首屏 EMA 状态。旧前端请求模块与后端接口按 §5 清理，阶段二只保证新页面不再调用，不提前改变旧路由限制。
+
+#### 4.2.4 本地与 Prod 范围
+
+| 环境 | 保持的现有行为 | 本次增加与验收 |
+| --- | --- | --- |
+| 本地 DG | 由 page-init 锚定日期；首屏含盘口、续页不含；每批最多 500 根、沿实际 `nextEndDate` 续取，保留日 K 内联九转 | 每批日 K 必有四轨，入口不依赖旧开关和旧通道目录；首批与至少一批续页验收。 |
+| Prod | 原 page-init 盘口、原日 K 参数和范围计算、原 meta；前端原先不创建本地 historySeed 的行为保持 | 现有日 K 回包增加四轨，首屏可展示；不添加 `nextEndDate`、本地九转字段、首屏盘口迁移或新的分页流程。 |
+
+页面入口修改沿 §4.5；旧通道开关关闭、两个旧目录不存在时，两个已接入环境的日线均应支持新通道。缺行情仍走各自原有日 K 错误/空态，不改成关闭功能或回退旧源。
+
+#### 4.2.5 影响面、测试与预算
+
+代码落点为：计算清单与版本/字段表、股票日线服务及请求/结果检查、周月线清单调用、股票 schema/路由响应声明、页面能力判断、App 装配、前端 API 类型与 adapter、`StockDetailPage`、`useStockDailyHistory`、`StockChartWorkspace`。原股票首屏与本地 DG 方案/LLD同步记录本次后续切换，保留已有实施与生产证据。
+
+后端至少覆盖 `tests/test_stock_daily_kline_service.py`、`tests/app/technical_indicators/test_stock_daily_integration.py`、`tests/app/technical_indicators/test_stock_daily_source_repair.py`、`tests/web/test_wealth_stock_detail_api.py`、`tests/web/test_stock_daily_technical_indicator_api.py`，同步迁移 `tests/stock_daily_kline_helpers.py` 等日线夹具；新增 `tests/test_stock_period_kline_service.py` 隔离验证周月线清单、组装和原 JSON。基础周期计算继续引用现有 `tests/foundation/technical_indicators/test_stock_period_calculation.py` 的适用合同，不把无关正式 PG 测试整组运行。验证日线有四轨且参数/版本匹配，周月线计算指令、字段集合不变；验证真实 `model_dump`、HTTP JSON、OpenAPI，避免嵌套类型漏字段。本地与 Prod 分别装配隔离应用，不能用本地通过代替生产路径合同。
+
+前端覆盖 `stockDetailViewModelAdapter.test.ts`、`useStockDailyHistory.test.tsx`、`StockChartWorkspace.test.tsx`、`StockDetailPage.test.tsx` 及受 API 类型影响的周月线测试。正向覆盖首批、续页、未选通道先翻页后打开、反复开关、切证券/日期、周月线切换；反向覆盖日线缺轨/非有限值/错日期、续页失败后原游标重试、迟到响应丢弃、旧接口请求次数为零。夹具按新日线/原周月线合同分别构造，预期四轨用独立手算或 Decimal 参考，不调用待测 builder 生成 expected。
+
+沿 §3.4 的工作区算子源码路径运行；不为开发安装包或改变部署。前端执行 `npm --prefix wealth run typecheck`、相关 Vitest 和 build，并将缓存、编译产物等本次输出放到工程外临时目录；浏览器核对网络只走日 K、首批/续页数据和图形、开关、失败重试、盘口及页面日期。
+
+预算沿当前 App 配置：默认公共清单是 7 组 MA 加 BOLL/MACD/KDJ/price 共 11 项；本地分页原有九转后为 12 项，加通道后为 13，Prod 沿原选择从 11 增为 12，均低于现有实例上限 16。共享行情取各算子的最大前置需求，不叠加读取或复权；目标 R、最大前置 500 时交付 `R+500`，R=500 时为 1,000 根，合法历史不足据实减少。计入新增 DTO 构造、前端点转换、正常请求、取消清理、完整重试和最后验收，不新增或抬高耗时/内存/文件阈值。
+
+真实有界验收优先复用原股票页面 LLD 的 `600519.SH`、截止 2026-11-19、首批和至少下一批各最多 500 根的来源与接口证据；新四轨及新调用仍须实际验证。目标环境覆盖不足时保留失败原因、先选当前正式覆盖内的有界窗口并记录选择依据，不回填数据或跨环境兜底。记录各请求实际源行/文件、SQL处理量、组装编码、总耗时和取消至资源归还，不能把旧实测当成接入后结果。核对范围为单证券有界窗口，不全市场扫库；真实 Prod 访问和部署仍遵守原授权边界。
+
+### 4.3 阶段三：逐指标组装整理与上证日线接入
+
+本阶段包含两个依次验收的步骤，四个总阶段不重新编号。先完成管理员指定的组装架构修改，再接入上证；不将该重构提前到阶段二，也不推迟到旧业务清理阶段。
+
+#### 4.3.1 公共组装与每指标独立函数
+
+当前 `build_kline_factors()` 位于日线服务，但同时被股票日线与周月线 `assemble()` 调用。它是固定 MA/BOLL/MACD/KDJ 映射，不是指标算法，也不是所有算子的自动处理器。目标是公共映射只维护一份，各业务显式选择自己的指标，不在公共函数中累积 `day/week/month` 判断。
+
+新增 `src/biz/services/wealth/market/stock_detail/stock_kline_factor_mapper.py`，承接当前两个股票调用方的公共职责：
+
+| 函数 | 职责与输出 |
+| --- | --- |
+| `stock_calculation_key()` | 从现有 `_calculation_key()` 迁入公共模块，以算子 ID 和实际参数形成原有键；所有调用方同步迁移，无旧名兼容别名。 |
+| `index_stock_calculation_results()` | 每请求一次整理 `CalculationResult.calculations` 的索引，保留各数值元组引用；不复制整列、不读源、不算算法。 |
+| `build_stock_ma_factors()` | 按实际 MA 周期取当前根，返回 `StockMovingAverageDto`，保持现有周期和字段名。 |
+| `build_stock_boll_factors()` | 返回现有 `StockBollDto`。 |
+| `build_stock_macd_factors()` | 返回现有 `StockMacdDto`，保留 hist 到 macd 的既有字段映射。 |
+| `build_stock_kdj_factors()` | 返回现有 `StockKdjDto`。 |
+| `build_stock_trend_channel_factors()` | 将阶段二的独立通道函数移入该模块，仍只由获准的日线业务调用，返回 `StockTrendChannelFactorsDto`。 |
+| `build_stock_common_factors()` | 明确调用 MA/BOLL/MACD/KDJ 四个独立函数，返回这四组已组装对象的命名映射，供日线和周月线复用；不包含趋势通道或周期分支。 |
+
+日线 `assemble()` 使用公共组装结果，加上独立的通道 build 结果，构造阶段二已确定的日线 factor/bar/响应。周月线 `assemble()` 使用公共组装结果，维持原 factor/bar/响应及自己的周期日期、九转等组装；本次没有专属指标时不造空专属函数。后续共性指标放入独立指标 build 并由公共组合调用，专属指标由所属业务 `assemble()` 显式调用。
+
+原 `_calculation_key/build_kline_factors` 的消费者须全量迁移，周月线不再从日线服务导入公共映射。各 build 不决定要算哪些算法，不修改通用结果，不获取行情；上游请求清单仍由业务装配负责。采用直接函数组合，不新增策略注册表、处理器链、继承体系或周期兼容分支。
+
+本次公共映射范围是已核实的股票日/周/月调用方；不要求指数业务依赖股票私有 DTO，也不为追求统一重写未涉及的业务。该步骤不改变阶段二已经发布的字段合同、不增加算法或来源；上证的新增组装继续位于指数业务路径。
+
+重构前保存独立字面金样本及当前日/周/月 JSON 基线，重构后逐项验证相同输入下的字段、数值、日期、空值、游标与错误行为一致。新增 `tests/test_stock_kline_factor_mapping.py` 验证每个指标 build 的独立字段映射，包含不同 MA 周期不可混用、公共指标只维护一处、日线有通道而周月线不计算/不输出通道；再跑阶段二后端/页面及新增周月线服务回归。不得从待测 builder 生成 expected，或为通过测试修改已有正确字段和行为。
+
+改动只有请求内结果读取和对象组装，不新增源读取、复权、SQL计算、状态持久化或重试；沿原请求预算，计入重构后的组装、错误清理、取消、重试和最后回归开销。记录前后源行/文件及计算次数一致，实测总请求费用；没有未测依据的新性能阈值。实现、接口与原方案对账后，独立审计该步骤，再进入上证接入。
+
+#### 4.3.2 上证日线接入
+
+1. 在上证日线请求的既有计算清单加入趋势通道；本地和生产继续使用各自现有的日 K 装配、来源与计算调用。共享清单也被其他指数使用时，仅对 `000001.SH` 的目标请求加项，其他指数保持原清单。`apply_calculated_kline_factors()` 的实例数和字段映射必须依据实际请求清单校准，不能只加指令而保留旧固定数量。
+2. 在现有指数结果映射和 `IndexKlineFactorsDto` 日线回包中按与股票相同的四轨含义组装，随后交给原有图层；明确日线 DTO、类型、构造和消费点，避免影响其他指数、周月线和股票 DTO。开工前沿当前指数链路复审，不因股票组装整理已通过就跳过。
+3. 每批最多 500 根，按上证各环境原有游标、历史下界和失败重试续页。`useIndexDetailController` 与 `useIndexDailyHistory` 改用日 K 回包中的四轨，停止 `fetchTrendChannel()` 的独立请求；不新增分页体系。
+4. 上证四轨使用算子库结果，`QuoteTrendChannelQueryService`、`TrendChannelCalculator` 和旧通道缓存退出页面调用链；失败不回退旧链路。指数基础行情继续使用。
+5. 回归首批、续页、切日期、开关、错误重试、既有指标和图形，并以旧计算器和旧独立请求被调用即失败的用例验证迁移。按原请求预算记录源读取、组装编码、取消清理、完整重试和最后验收；不因本次接入扩大单次返回量或读取全历史。
 
 ### 4.4 新旧接口和数据集的具体处理
 
@@ -191,7 +290,8 @@ PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
 | 预热误差 | **参考**从已确认完整历史起点连续计算；**被测**从目标前 500 根开始初始化；以同一行情、同一复权基准比较相同目标日期，每轨最大绝对误差不超过 0.01 | 保留 485 根的超限反例；不得把“参考与被测同一起点”用于预热误差验收，也不得用显示舍入或平均误差替代逐轨最大误差。 |
 | 跨批正确性 | 这是另一类测试：整批与分批使用相同输入、相同初始化，逐轨比较 | 批次切换不重置 EMA，历史重叠行不重复计算；不能与上一行的不同起点误差测试混为一项。 |
 | 同批共享 | 与现有指标同算使用同批行情、同一复权基准 | 不新增每指标取源或复权；不同参数的既有指标仍分别返回正确结果。 |
-| 股票接入 | 现有指令、日 K 结果和图层接上四轨，首批/续页均最多 500 根，沿原游标；本地 DG 与 Prod 分别验证 | 页面不请求旧通道接口，不调用旧读取器；失败后保留已有图、盘口、页面日期和游标；非目标周期不被顺带启用。 |
+| 股票接入 | 本地日 K 首批/续页各最多 500 根，沿原游标；Prod 原回包及加载增加四轨；真实 JSON 和 OpenAPI 明确日线类型 | 周月线公共清单不含趋势通道、字段集合不变；页面不请求旧通道接口、不调用旧读取器；本批转换失败不推进游标，重试原批，保留原图和盘口。 |
+| 第三阶段组装架构 | 每指标独立 build，公共组合供股票日/周/月调用，日线显式加通道；日/周/月 JSON、数值与错误行为与改前一致 | 不保留旧函数兼容别名，不复制公共映射、不创建笼统 special 函数、不按周期堆条件；不增加算法、来源或字段；上证不得依赖股票私有 DTO。 |
 | 股票页面入口 | 旧开关关闭、两个旧通道目录都不存在时，已接入的股票日线 page-init 仍声明支持并展示入口，日 K 能返回四轨 | page-init 与新日 K 请求期间调用旧能力函数、旧通道目录检查或 Dagster 查询即失败；正常空行情和短历史不误关入口，基础行情读取失败仍按现有错误合同处理。旧路由启动挂载的检查按原合同单独验证，不计入新页面请求断言，也不得提前开放旧独立接口。 |
 | 上证接入 | 沿当前装配与回包映射，首批/续页、开关、切日期、重试通过，四轨只用算子库结果 | 旧专用计算器、旧通道缓存、旧独立请求被调用即失败；不要求一次返回 2,000 根，不改变旧独立端点合同来冒充接入；四轨与当批 K 线对齐。 |
 | 接口与数据边界 | 阶段四引用审计后删除无消费者的旧接口、专用代码和配置；日 K 与基础行情、股票复权因子数据继续可用 | 页面接入不读旧通道成品/续算文件；取消或失败不回退旧链路；未批准整个数据集退出前不删正式文件、停产或修改调度。 |
@@ -229,7 +329,7 @@ PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
 
 开发前文档修订已明确：旧端点最多 2,000 根、已取消的 JSON 说明设计、旧通道目录或开关、旧数据集整体清退均不是阶段一算子开发的前置条件。股票页面入口脱离旧目录必须与阶段二取数切换一同完成；上证页面使用算子库结果、专用计算器退出该调用链必须与阶段三一同完成。
 
-阶段一实现及验收见 §9，提交管理员 review 后再分别推进股票接入、上证接入；旧业务清理与正式数据迁移按阶段四补齐设计、审计和执行范围。每步开工前完成该步所需代码、消费者、合同、预算和测试准备，不把前一步通过当成后续全部完成。正式环境部署和文件写入继续按阶段授权。
+阶段一实现及验收见 §9；阶段二按 §4.2 接入股票日线，阶段三按 §4.3 先整理逐指标公共组装、再接入上证；旧业务清理与正式数据迁移按阶段四补齐设计、审计和执行范围。每步开工前完成该步所需代码、消费者、合同、预算和测试准备，不把前一步通过当成后续全部完成。正式环境部署和文件写入继续按阶段授权。
 
 ## 9. 阶段一实现、验收与独立对照审计（2026-11-25）
 

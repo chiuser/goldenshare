@@ -1,5 +1,13 @@
 # 股票详情首屏与本地 DG 取数迁移 LLD v1
 
+**2026-11-25 后续趋势通道专项（尚未实施页面切换）。** 股票日线将由同一次算子库调用取得行情、原指标和四轨，并在 `/kline` 的每根日 K 中返回必有 `factors.trendChannel`。字段、日线/周月线类型隔离、原函数消费者和测试以[专项 LLD §4.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#42-阶段二股票日线)为准；本文件下方旧接口、独立图层与性能记录保留历史及当前未切换路径的语义，不表示新通道已接入。
+
+阶段二的具体交接为：`StockDetailPage.loadStockDetail()` 由日 K 生成首批通道点并与 candles 一同保存；`useStockDailyHistory.loadPage()` 先完成 K 线、四轨和九转等转换，成功后才一起提交页数组及 `nextEndDate`，失败保留原图、原游标并重试原批。`StockChartWorkspace` 合并首批和历史页通道点，保留原画法/着色，开关只切绘制；移除新页面的 `useStockTrendChannel()` 调用和历史 `loadTrend/ensureTrend/retryTrend`、独立请求及其重试 UI。保留现有取消和迟到响应处理。
+
+本地继续每批最多 500 根及实际游标，首批盘口/续页省略盘口保持；Prod 沿原环境和参数、原 page-init 盘口及原无本地游标的加载方式，只给日线增加四轨，不新增生产分页或内联九转。本文原迁移阶段“Prod JSON 字段集合不变”不限制此项明确批准的四轨增量，其余原行为仍保留。页面支持标志脱离旧通道配置、结果和续算状态目录；旧接口未删除期间的原限制只控制旧接口。
+
+管理员指定在专项第三阶段整理公共组装：每指标独立 build，公共组合复用，各业务 `assemble()` 显式组合；公共职责迁出日线服务，日线独立调用趋势通道 builder，周月线不新增计算或空轨道。阶段二先完成计算清单隔离和日线接入，不提前拆改公共四组组装。源码依据、函数名、实施范围、预算和逐项回归见[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。本次仅修订设计，未开发、切换或部署。
+
 > 2026-11-19 · 待开发评审。[本期方案](stock-detail-first-screen-and-local-dg-read-plan-v1.md)确定业务范围，本文规定代码入口、数据合同、实施顺序与验收。下文标为「拟新增」的类和方法是开发合同。
 
 ## 1. 实施边界与开工条件
@@ -333,6 +341,8 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 具体日期和状态断言如下。若显式选休市日 2026-11-15，本地首屏日 K 的 `tradeDate` 和 `endDate` 都是 11-15，顶部指数、新闻窗口和图层也以 11-15 为边界。若首屏在 DG 查到的最新目标日 K 是 11-13，则 `quote.tradeDate=2026-11-13`，`dataStatus.expectedTradeDate=2026-11-15`、`observedTradeDate=2026-11-13`、`status=DELAYED`。同一轮重新请求日 K 或重试图层时沿用 D。用户主动刷新整个页面时，可以重新发 `/page-init` 并取新的默认日期。
 
 ### 5.4 本地股票日 K 向前翻页
+
+本节保留原翻页实现与验收记录。2026-11-25 后续趋势通道接入决定见文首专项说明：新四轨与日 K 同批返回，下面旧独立趋势请求及分图层重试不是新接入的实现要求；已有盘口、日期、游标和历史记录保持。
 
 本节记录 2026-11-20 的翻页实现。2026-11-22，本地股票日线九转已切换到 `/kline`。下文的独立九转请求用于记录当时的实现和验收。当前接口与验收见[九转专项 LLD](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)。
 
