@@ -1,202 +1,232 @@
-# 趋势通道算子与通用 JSON 说明字段 LLD v1
+# 趋势通道算子及股票、上证接入 LLD v1
 
-2026-11-25｜[专项方案](technical-indicator-trend-channel-plan-v1.md)记录已确认需求；本文细化拟实施位置与验收。本轮仅落文档，未修改算子、业务接口、DG 数据集或正式文件，未部署。
+2026-11-25｜[专项方案](technical-indicator-trend-channel-plan-v1.md)记录最终需求。本次修订取消 JSON 说明字段与相关接口设计，纠正预热测试起点，补齐新旧接口、数据集依赖和股票页面入口判断，按“算子 → 股票 → 上证 → 旧业务清理”分阶段推进。尚未开发、接入、清理正式数据或部署。
 
-已确认的是四轨输出、说明字段留空、前置预热固定 500 根、每轨绝对误差不超过 0.01、清理旧方向与组合状态、保留 MACD 现状。下文新增字段和方法名是拟实施设计，不代表已经存在。代码开发前仍须完成对应步骤审计；§5.3 的正式数据集迁移设计尚未补齐，不可直接执行。
+固定前置 500 根、每轨绝对误差不超过 0.01、四轨输出、旧方向清理和 MACD 保持现状均已确认，不需要重新拍板。每个后续阶段仍须先补齐该步代码、合同和验收细节并单独 review。
 
-## 1. 当前实现、入口与影响面
+## 1. 当前代码与本期改动边界
 
-| 对象 | 代码依据 | 对本次的影响 |
+| 对象 | 当前代码依据 | 本期处理 |
 | --- | --- | --- |
-| 请求与通用结果 | `packages/technical_indicators/src/goldenshare_technical_indicators/contracts.py` 的 `CalculationRequest`、`CalculationValues` | 已有 `end/latest_rows`，每项结果只有 ID、版本、参数和数值字段；新增说明字段属于共享结果合同变更。 |
-| 算子及工厂 | 同包 `calculation/calculation.py`、`calculation/registry.py`、`calculation/indicators/__init__.py` | 复用定义、工厂冻结与完整接口检查；趋势通道尚未注册。 |
-| 计算、历史、读取 | 同包 `service.py`、`calculation/engine.py`、`calculation/history.py`、`request_parser.py`、`sources/session.py` | 各算子申报需求，引擎合并后读取一次；不让趋势通道直接读库或读预计算通道。 |
-| 结果与编码 | 同包 `output/contracts.py`、`output/collector.py`、`output/result.py`、`output/encoding.py` | 数值列的 DOUBLE 校验和日期时间校验各自独立；新增 JSON 文本不能进入现有数值有限值检查。 |
-| 应用入口 | `src/app/runtime/technical_indicators/{composition,execution,response}.py`，`src/app/dependencies/stock_daily_technical_indicators.py`、`index_daily_technical_indicators.py` 及周月线、分钟线现行装配 | 共用结果合同需要审计所有编码、构造、消费和测试；本次不顺手改其他指标的值或业务接口。 |
-| 上证旧业务 | `src/biz/services/quote_trend_channel_calculator.py`、`quote_trend_channel_query_service.py`，`src/biz/schemas/quote_trend_channel.py`，`src/biz/api/quote.py` | 旧计算含方向标签，旧 HTTP 合同也有对应字段；不能只改计算器而漏掉 DTO 和调用方。 |
-| 股票旧业务 | `src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py`，`src/foundation/clients/local_lake/stock_daily_trend_channel_{contract,reader}.py`，对应 API 与 DTO | 当前消费正式预计算文件，必须先核对生产者及 schema，不能根据新查询反推上游已有字段。 |
-| 前端 | `wealth/src/features/index-detail/api/trendChannelAdapter.ts`、股票趋势通道适配器、`wealth/src/shared/charts/trend-channel/trendChannelGeometry.ts` | 传给绘图的只有日期、收盘价和四轨；着色按当根收盘价是否低于当根下轨判断。旧方向字段存在于 API 类型和测试样本，但不参与绘图。 |
+| 算子请求与结果 | `packages/technical_indicators/src/goldenshare_technical_indicators/contracts.py` | 沿用 `CalculationRequest/CalculationValues`、数值 `fields` 和公共 `times`；不新增说明字段或说明空串。 |
+| 算子接口与引擎 | 同包 `calculation/calculation.py`、`registry.py`、`engine.py`、`history.py` | 沿现有接口新增计算实现与注册，不增加 `output_info()`，不批量改造既有算子。 |
+| 输出检查与编码 | 同包 `output/collector.py`、`result.py`、`encoding.py` | 四轨沿既有 DOUBLE 校验、日期对齐和编码，不为本期增加 VARCHAR 指标列或 JSON 处理。 |
+| 股票调用 | `src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py`、`stock_daily_kline_service.py`，`src/app/dependencies/stock_daily_technical_indicators.py` | 按现有 MACD/KDJ 接法：计算指令加项 → 共享计算 → 按同批日期组装日 K 指标。 |
+| 上证调用 | `src/app/dependencies/index_daily_technical_indicators.py`、`src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py` | 按现有日线装配、算子请求、数值映射和 `nextEndDate` 接入。 |
+| 页面首批与续页 | 股票 `useStockDailyHistory.ts`、指数 `useIndexDailyHistory.ts`、对应页面 controller | 沿 `DAILY_CHART_PAGE_SIZE` 与 `nextEndDate` 加载，趋势四轨随同一批行情进入图层。 |
+| 股票页面入口与旧路由挂载 | `src/foundation/config/stock_daily_trend_channel_capability.py`、股票查询的 `_page_options()`、`src/app/api/v1/router.py`；`tests/test_stock_daily_trend_channel_capability.py` | 当前同一旧检查同时用于页面入口、旧路由挂载和旧接口请求；阶段二只移除新页面对它的依赖，阶段四再按引用清理旧检查、旧配置和路由。 |
+| 旧独立通道 | 上证 `quote_trend_channel_calculator.py`、`quote_trend_channel_query_service.py`；股票通道 query service 与 Lake reader | 属于后续清理、消费者迁移对象；不把完整旧 HTTP 响应直接换成共享库响应。 |
 
-本轮使用 CodeGraph `codegraph_explore(CalculationValues)` 与 `codegraph_impact(TrendChannelCalculator)` 识别共享结果、旧查询服务与测试影响，再用当前源码和精确引用搜索核实。CodeGraph 的同名 `calculate` 还命中板块等无关业务，不能把这些命中直接当成真实依赖。未来删除前必须重新核对完整引用，不用本表冒充已经清理完成。
+CodeGraph 已用于定位算子结果、请求解析与旧业务调用影响；已用 `codegraph_explore(run_index_daily_kline)` 核对上证装配，本次再用 `codegraph_explore(resolve_stock_daily_trend_channel_capability)` 定位股票页面、旧路由和旧接口的调用关系，并直接核对股票、指数的计算指令、读取器、前端批次加载和相关测试。同名 `run/calculate/resolve` 的无关命中不作为真实依赖。完整清理仍须在对应阶段按引用逐项核对，当前未证明旧数据集已无其他消费者。
 
-## 2. 通用 JSON 说明字段
+## 2. 本期输出合同与范围
 
-### 2.1 对外合同
+本期只增加 `trend_channel` 数值算子。JSON 说明字段已取消：不增加 `CalculationValues.info`，不返回 `info: ""`，不增加 `Calculation.output_info()` 或相关注册、校验、编码和测试。该能力未来需要时另议，不作为本期前置步骤。
 
-在 `CalculationValues` 增加 `info: str = ""`，每项算子一个字段。现有 `fields` 仍只放数值数组，`times` 仍是公共时间轴。
+拟新增算子 ID `trend_channel`、算法版本 `1.0.0`，参数为空。短期固定 25、长期固定 90，不开放管理员未要求的周期参数。返回四个必有有限 DOUBLE 字段：
 
-- `info == ""` 表示没有说明；不是 `null`、字符串 `"null"` 或自动填入空对象。
-- 非空值是合法 JSON 文本，JSON 内部字段、含义、允许值以及是否含逐根信息，由对应算子的说明和测试定义。通用库不固定其内部业务结构。
-- 接口外层的 `info` 类型是字符串，编码后内部引号会按 JSON 字符串规则转义；调用方需要使用说明时再解析该字符串。不得擅自改成外层 JSON 对象。
-- 若未来某个算子的说明包含逐根结果，该算子必须定义与 `times` 对应的方式，且只交付目标结果的信息，不把预热明细交给业务。趋势通道本次无此非空结构，固定返回空串。
-- 不把现有数值列改成 VARCHAR，也不为趋势通道新增五个枚举输出列。日期/分钟时间继续按 DATE/TIMESTAMP 检查，编码为现有 ISO 日期时间字符串。
+| 字段 | 计算 | 单位 |
+| --- | --- | --- |
+| `short_upper` | 最高价的 25 周期 EMA | 输入价格单位 |
+| `short_lower` | 最低价的 25 周期 EMA | 输入价格单位 |
+| `long_upper` | 最高价的 90 周期 EMA | 输入价格单位 |
+| `long_lower` | 最低价的 90 周期 EMA | 输入价格单位 |
 
-拟返回形状只新增一个说明字段：
+日期时间仍由 `times` 与各字段数组一一对应，日线为日期，分钟为既有带时区业务时间。说明、位置、方向、组合状态均不进入新算子结果。数值输入只需要 `high/low`，来源原有 OHLC 检查继续执行；无需读取收盘价来判断历史方向。
 
-```json
-{
-  "calculation_id": "trend_channel",
-  "algorithm_version": "1.0.0",
-  "parameters": {},
-  "fields": {
-    "short_upper": [11.0],
-    "short_lower": [9.0],
-    "long_upper": [11.0],
-    "long_lower": [9.0]
-  },
-  "info": ""
-}
+通用算法沿现有标准行情及已启用来源合同注册，不自动开放新的证券、周期、复权或环境组合。页面接入范围是股票日线及上证日线；股票周月线、分钟线、其他指数页面不因本次接入自动增加通道图层。
+
+## 3. 阶段一：完整实现趋势通道算子
+
+### 3.1 文件与接口
+
+拟新增 `packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/trend_channel.py`，实现 `TrendChannelCalculation` 的现有六个方法：`input_requirement/dependencies/prepare/consume/release_batch/release`。在 `calculation/indicators/__init__.py` 的 `create_builtin_registry()` 冻结前注册，沿现有 `CalculationDefinition/CalculationOutput` 和能力查询，不改变通用协议。
+
+在该算子定义中以 `TREND_CHANNEL_WARMUP_ROWS = 500` 保存唯一数值来源，历史需求和能力说明读取它；测试以管理员指定的 500 为独立预期。此值随算法版本生效，不存入 Settings、环境变量或数据库，不开放运营输入，不复用 MACD 的最低预热常量或 `PRICE_ABSOLUTE_BOUND`。
+
+`input_requirement(session, max_input_rows)` 声明 `fields={high, low}`、`preceding_rows=0`、`warmup_rows=500`、`requires_source_origin=False`，并声明 `last_seq` 与四条 EMA 数值状态。没有额外算子依赖，不读现有通道成品。
+
+### 3.2 初始化、递推与批次
+
+短期 `α=2/26`，长期 `α=2/91`。首个已读取的最高价初始化两组上轨，最低价初始化两组下轨；以后按 `EMA_t=α×价格_t+(1−α)×EMA_(t−1)` 递推。
+
+1. `prepare` 准备固定系数和本请求数值状态。复用现有 `smoothing_parameters.sql` 的分段范围计算，不另造段长上限。
+2. `consume` 仅首次初始化，其后只处理新序号；四轨使用共享行情执行固定 SQL，每段末尾更新四个原始 EMA 和 `last_seq`。批次重叠行不重复推进。
+3. 拟新增 `trend_channel_first.sql`、`trend_channel_segment.sql`，登记到该类资源声明和现有 SQL 白名单。输入只限本请求共享行情、自有参数和数值状态，输出 `seq` 与四轨。
+4. `release_batch` 释放本批输出，跨批保留四个 EMA 与序号；`release` 沿引擎的结束、失败、超时和取消路径释放剩余资源。
+
+计算中不按两位或四位小数逐根量化；0.01 是结果绝对误差标准。四个 EMA 数值是必要的续算状态，与要删除的方向标签不同。不得增加 `short_state/long_state/combined_state`，不得为新算子增加价格位置判断或旧方向保留规则。
+
+### 3.3 读取、重试和预算
+
+单算时沿当前已启用的读取方式定位目标：支持按根数时使用截止时间和本批数量，已有范围调用继续由当前装配确定目标日期；本阶段不改请求解析器的来源选择或扩大来源支持。读取模块在目标之前补最多 500 根实际 K 线。到已确认的来源起点而不足 500 时使用已有历史，不补造行情，不把缺失或 I/O 错误当成合法短历史。只返回目标区间，前置行情不进入结果。
+
+| 场景 | 计算输入与恢复成本 |
+| --- | --- |
+| 历史充足，单算返回 R 根 | `500 + R` 根，R 不超过本次业务每批 500 根。 |
+| 单算返回 500 根 | `500 + 500 = 1,000` 根计算输入，返回后 500 根。 |
+| 与其他指标同算 | `R + max(各算子实际历史需求)`，不相加、不重复取数或复权；其他指标确需更多历史时整次输入可能更大。 |
+| 中断后完整重试一次 | 两轮计算输入按 `2×(500+R)` 核算，实际中断点可能少于一轮；沿现有取消与资源清理，不新增持久化状态。 |
+| 最后验收 | 完整参考与被测窗口的输入分别计量；复用固定样本，真实核验仅限获准证券、周期和有界窗口。 |
+
+这些是计算 K 线数量，不是物理文件读量、重复 SQL 处理量或耗时保证。现有输出/输入容量、批量、时限、内存、文件和编码预算沿当前装配，不扩容、不新增参数。共享 SQL 链路的耗时、物理读量、内存、中断重跑与清理费用在阶段一有界验收时实测；现无依据预填新的数值阈值或套用旧业务计算器耗时。
+
+### 3.4 阶段一开工审计（2026-11-25）
+
+结论：阶段一具备开始开发的条件，没有需要重新拍板的业务口径。范围仅为算子实现、注册、固定 SQL 资源和必要测试，不修改业务日 K、页面、旧接口或正式数据集。
+
+本次用 `codegraph_explore` 检索 `MACDCalculation/CalculationEngine`，返回结果包含无关同名项；下表结论已逐项复核当前算子、引擎、读取、输出代码和相关测试，不以索引结果代替源码。
+
+| 已确认约束 | 当前代码依据及实施要求 |
+| --- | --- |
+| 完整四轨、无参数、固定 500 根预热 | `CalculationDefinition`、六方法 `Calculation` 协议及 `HistoryRequirement` 已支持；`history.py` 合并历史需求取最大值，趋势通道独立返回 500，不使用 `session.recursive_warmup` 或 MACD 价格上界。 |
+| 固定 SQL 和数值续算 | 沿 MACD/KDJ 声明 `TABLE_ROLES/SQL_FILES/FIXED_SQL_STEPS`，分别保存参数、四个 EMA 与序号、批次工作表及输出。`sql_templates.py` 的白名单加入本算子两份 SQL；分段控制读取复用引擎已允许的 `read_smoothing_limits/read_segment_bounds`，不增加新的控制读取名称或修改通用引擎。 |
+| 分批、共享输入及只返回目标 | `service.py` 先准备算子、合并历史再创建输入会话；`sources/session.py` 区分预热与目标、按 `preceding_rows` 保留输入；`OutputCollector` 按目标区间收集已声明的 DOUBLE 字段，支持四轨而无需新结果协议。 |
+| 结束、取消及失败清理 | `CalculationEngine.release_batch_tables()` 释放本批表并保留请求状态；`close()` 逆序释放各算子资源。新算子按现有 MACD 的释放方式处理自有表，测试覆盖失败后完整重试，不增加持久续跑状态。 |
+| 0.01 精度和独立预期 | §6、§7 已区分不同起点的预热误差与相同起点的分批一致性；固定上证输入夹具的 1,599 根记录和 SHA-256 与 §7 一致。新 SQL 的金样本、误差、短历史、共享、跨批和取消仍须实现后验收。 |
+
+已执行 74 项既有基线测试并全部通过，覆盖合同、注册/依赖，以及选定的执行器配置、标量绑定、取消后清理和 SQL 失败后的资源释放。测试只用本地隔离资源，未运行受保护 D3，未读取正式数据。该结果证明上述现有基础可用，不代表未实现的趋势通道已验收。
+
+本机 `.venv` 默认加载已安装的旧版算子包，首次测试因缺少 `configuration.datasets` 在收集阶段失败；显式指定工作区源码后通过，无需安装依赖或改本机配置。阶段一测试从仓库根运行，必须沿当前源码路径启动；新增算子测试文件落地后加入下列明确清单，不直接运行整个指标目录：
+
+```bash
+trend_audit_tmp="$(mktemp -d /private/tmp/trend-channel-stage1-XXXXXX)"
+PYTHONPATH=packages/technical_indicators/src:. PYTHONDONTWRITEBYTECODE=1 \
+  .venv/bin/python -B -m pytest -q -p no:cacheprovider --basetemp="$trend_audit_tmp" \
+  tests/foundation/technical_indicators/test_contracts.py \
+  tests/foundation/technical_indicators/test_registry_dependencies.py \
+  tests/foundation/technical_indicators/test_executor.py::test_private_connection_uses_all_confirmed_settings \
+  tests/foundation/technical_indicators/test_executor.py::test_execute_uses_returned_count_and_bindings_without_an_extra_scan \
+  tests/foundation/technical_indicators/test_executor.py::test_stopped_cleanup_only_accepts_owned_resources_and_is_idempotent \
+  tests/foundation/technical_indicators/test_executor.py::test_failed_creation_retains_cleanup_eligibility_and_original_database_cause
 ```
 
-上例是一根最高价 11、最低价 9 的初始化字面样本，不是正式行情验收证据。完整响应继续包含 `times` 等公共信息。
+这份清单是本次开工基线；阶段一完成验收还须运行 §6 对应的新算子、同批共享、输出、失败与取消测试。新增和复跑均使用工程外临时目录，验收后删除无用临时文件，保留必要证据于本 LLD。
 
-### 2.2 算子提供与库内交接
+## 4. 阶段二、三：沿现有业务接法接入
 
-拟在 `Calculation` 增加 `output_info() -> str`，于本次计算完成后取得该节点的完整说明文本。内置价格、内部窗口均值、MA、BOLL、MACD、内部窗口 RSV、KDJ、九转和新增趋势通道均显式返回空串；不使用 `getattr` 默认值、旧新两套接口或业务侧补字段。未来需要非空说明的算子自行实现该方法，不能在通用服务里按算子 ID 拼业务 JSON。
+### 4.1 已核对的现有方式
 
-| 修改位置 | 拟实施内容 |
-| --- | --- |
-| `calculation/calculation.py`、`calculation/registry.py` | 在协议与工厂完整性检查中同步加入 `output_info`，迁移全部实际实现与测试替身。 |
-| `calculation/engine.py` | 在 `finish()` 后、资源关闭前，按本次请求顺序从计算节点取得说明。相同算子、相同参数仍共享节点，各请求项各有结果；不同参数不混用说明。 |
-| `service.py` | 将说明按现有整数请求下标交给输出模块；没有说明时也明确传空串。 |
-| `output/collector.py`、`output/result.py` | 继续完成原数值与时间位置检查，再核对说明项与请求项对应。说明必须是字符串；非空时校验为严格合法 JSON，失败走现有整次输出错误，不返回部分成功。通用校验不判断内部业务字段。 |
-| `contracts.py`、`output/encoding.py` | 构造每项 `CalculationValues.info`，外层显式编码该字符串。保留原文，不在库里重排或增删其 JSON 业务字段。 |
-| `discovery/catalog.py` 与算子文档 | 能力说明注明每项结果有通用说明字段；具体算子使用非空信息时同步说明内部结构。本次各内置算子均为空。 |
+- **股票。** `stock_daily_kline_calculations.py` 集中构造算子清单；`StockDailyKlineService` 校验结果并由 `build_kline_factors()` 组装日 K 指标；App 按环境调用共享库。本地 DG 已使用 `build_recent_calculation_request()` 的 `end/latest_rows`，Prod 沿现有 `prepare()` 确定目标日期后，以 `build_calculation_request()` 调用共享库。股票日线请求本来就限制 1–500 根。
+- **上证。** `run_index_daily_kline()` 构造现有 MACD、KDJ 等指令；DG 用 `calculate_with_source()`，Prod 先由查询服务确定本批目标日期，再沿现有范围计算与结果映射。`apply_calculated_kline_factors()`、`_calculated_daily_response()` 负责指标和 `nextEndDate`。
+- **页面。** 股票与上证日 K 都用当前 `DAILY_CHART_PAGE_SIZE` 请求，当前为 500；下一次沿服务返回的 `nextEndDate` 取更早一批。旧独立趋势端点的 2,000 上限不是本次页面单次请求的要求。接入不要求共享库支持一次 2,000 根，也不以全量替换旧端点为前提。
 
-非空 JSON 的通路用隔离算子测试验证；不能只给结果对象添一个永远不接算子的字段，就声称通用能力完成。说明文本不能成为绕过现有 SQL 计算、输入输出合同或来源边界的入口。未来需要从 SQL 产生非空业务说明时，在对应算子专项中明确其固定读取与交接方式，本次不开放任意 SQL 或源读取接口。
+因此此前审计把“旧端点允许 2,000 根”直接当成本次接入阻塞，遗漏了当前页面的 500 根批次调用，是判断错误。本次沿已有入口加算子、组装四轨和翻页，不强制新增 Prod 的原生按根数读取，也不自行改写现有 2,000 根旧端点的合同。
 
-开发前消费者审计至少覆盖：上述全部构造和编码点；`tests/foundation/technical_indicators/test_contracts.py`、`test_registry_dependencies.py`、`test_d3_engine_extension.py`、`test_request_reuse_correction.py`；`tests/app/technical_indicators/test_output_encoding_correction.py`、`test_execution_cancellation.py`、`test_stock_daily_integration.py`；股票日 K helpers 与服务结果构造；当前独立包安装及 DG 引用方。严格检查结果键集合的消费者在同一变更中迁移，不保留缺字段的旧口径。包版本和内核合同版本按该次发版核对，本轮不改版本号或环境安装。
+### 4.2 阶段二：股票日线
 
-## 3. 趋势通道算子的实施位置
+1. 在现有股票日线计算清单加入趋势通道，补齐算法版本与四轨字段校验，与已有 MA、BOLL、MACD、KDJ、九转共享本次行情和复权基准。保留各环境已有装配路径。
+2. 沿 `StockDailyKlineService` 的结果映射与日 K DTO 组织四轨。拟沿现有 `factors` 分组方式增加日线通道对象，字段映射为 `shortUpper/shortLower/longUpper/longLower`。具体 DTO 分派和所有构造、消费点在本阶段开工前冻结；共用周月线 DTO 的非目标路径不因此新增计算。
+3. 首批和续页从同一批日 K 结果取得四轨，适配为现有 `TrendChannelPoint`；保持颜色、画法和开关，清理目标页面已经无用的独立日线趋势请求。保留盘口、页面日期、其他指标、游标和失败后的已加载图表。
+4. 同步修改 `StockDetailQueryService._page_options()`：`supportsTrendChannel` 和 `availableMainOverlays` 按已经接入的股票日线能力返回，不再调用 `resolve_stock_daily_trend_channel_capability()`；具体条件与测试见 §4.5。不能将入口修改拖到阶段四，否则页面仍受旧数据集控制。
+5. 使用当前 500 根首批、下一批和现有真实游标验收；四轨日期与本批 K 线一一对应、结果不混用复权基准，不为趋势通道另读一份行情。旧通道开关关闭、结果与续算状态目录不存在时仍须通过；目标页面不再发出旧独立通道请求。
 
-### 3.1 定义与公式
+### 4.3 阶段三：上证日线
 
-拟新增 `packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/trend_channel.py`，实现 `TrendChannelCalculation`，在 `create_builtin_registry()` 冻结前注册：
+1. 在上证日线请求的既有计算清单加入趋势通道；本地和生产继续使用各自现有的日 K 装配、来源与计算调用。共享清单也被其他指数使用时，仅对 `000001.SH` 的目标请求加项，其他指数保持原清单，不扩大页面范围。
+2. 在现有计算结果映射和 `IndexKlineFactorsDto` 日线回包中按与股票相同的四轨含义组装，随后交给原有图层。具体 DTO 分派、字段和受影响构造点在本阶段开工前冻结。
+3. 首批不超过 500 根，向左翻页后使用下一批 K 线和四轨；沿原 `nextEndDate`、历史下界和失败重试，不新增分页体系。`useIndexDetailController` 与 `useIndexDailyHistory` 改用日 K 回包中的四轨，停止 `fetchTrendChannel()` 的独立请求。
+4. 上证四轨使用算子库返回值，不再调用 `QuoteTrendChannelQueryService`、`QuoteTrendChannelCalculator` 或旧通道缓存，也不在失败时退回旧链路。指数基础行情继续服务日 K 和新算子，不能随旧专用计算器清理。
+5. 回归首批、续页、切日期、开关、错误重试及既有指标和图形；不因本次接入扩大单次返回数量或要求先一次算完整历史。以旧计算器、旧独立请求被调用即失败的测试验证迁移确实生效。
 
-| 项目 | 拟实施值与依据 |
-| --- | --- |
-| ID、算法版本 | `trend_channel`、`1.0.0`；新算子自身的命名和版本，不冒用旧日线接口版本。 |
-| 参数 | 空参数；短期 25、长期 90 沿既有公式，本期不开放新的参数。 |
-| 输入 | 最高价 `high`、最低价 `low`；移除旧方向判断后不再需要收盘价来计算四轨。来源原有 OHLC 合同照常执行。 |
-| 输出 | `short_upper/short_lower/long_upper/long_lower` 四个必有的有限 DOUBLE 值；单位沿源价格单位。 |
-| 说明 | `output_info()` 返回 `""`。 |
-| 支持组合 | 遵循现有证券、周期、复权与来源启用合同，不额外开放来源或添加业务未要求的周期限制；每个实际启用组合仍须有对应验收证据。既有业务清理对象是股票日线和上证日线。 |
+### 4.4 新旧接口和数据集的具体处理
 
-短期递推系数为 `2/26`，长期为 `2/91`；上轨用最高价、下轨用最低价。首次输入时分别取该根最高价、最低价初始化，后续为 `新 EMA = α × 本根价格 + (1−α) × 上根 EMA`。计算中不按两位或四位小数逐根量化；0.01 是绝对误差要求，不是中间结果舍入规则。
-
-### 3.2 历史需求、状态与 SQL
-
-`input_requirement(session, max_input_rows)` 直接声明 `HistoryRequirement(fields={high, low}, preceding_rows=0, warmup_rows=500, requires_source_origin=False, state_fields=(last_seq, short_upper, short_lower, long_upper, long_lower), ...)`。在 `trend_channel.py` 以 `TREND_CHANNEL_WARMUP_ROWS = 500` 保存唯一数值来源，历史需求与算子能力说明读取该算法常量；测试以管理员确认的 500 作独立预期。该值随算子版本生效，不存入 Settings、环境变量或数据库，不开放运营输入，也不复用 MACD 的最低值常量。它不引用 `PRICE_ABSOLUTE_BOUND`，不使用 MACD 的动态误差搜索。
-
-`prepare/consume/release_batch/release` 沿现有算子生命周期：
-
-1. `prepare` 准备固定系数和本请求数值状态表；复用现有 `smoothing_parameters.sql` 的分段范围计算，不自行另定无依据的段长。
-2. `consume` 首次设置四个 EMA 和 `last_seq`，之后仅处理新序号；使用固定 SQL 对四条独立 EMA 分段递推，每段末尾更新四个原始数值和序号。批次重叠历史不得再次推进状态。
-3. 拟增加固定资源 `trend_channel_first.sql` 与 `trend_channel_segment.sql`，登记到该类的 SQL 资源声明与现有白名单。SQL 只读取本请求共享行情、自有参数和数值状态，输出 `seq` 与四轨。
-4. 每批只保留数值续算状态，释放本批临时输出；结束、失败、超时或取消时沿引擎统一清理。
-
-四个 EMA 数值和序号是计算所需状态，不能因为删除“方向状态”而一并删除。不得新增 `short_state/long_state/combined_state`，不得用旧 `_position` 或历史突破标签驱动数值或颜色，不读取已有通道成品来填四轨。
-
-## 4. 截止日期、根数与预算
-
-请求沿 `CalculationRequest(end=带时区的截止时间, latest_rows=R, ...)`；业务通常不传 `start`，现有入口明确给定目标下界时仍保留其语义。日周月读取按现有上海时间归一后的业务日期处理，分钟使用现有业务时间。来源支持仍按 `CalculationRequestParser` 的实际启用范围核对，不能声称任意 Prod/DG 组合已经支持按根数定位。
-
-读取模块先定位目标 R 根，再补 500 根实际 K 线；到已确认的来源起点而不足 500 时用已有历史初始化。来源错误或应有记录缺失沿现有合同处理，不截少、不补零。收集器只收集目标区间，四轨数组与 `times` 一一对应，输出不含预热。
-
-| 场景 | 可复算的计算输入与恢复成本 |
-| --- | --- |
-| 单算趋势通道，返回 R 根 | 历史足够时 `R + 500` 根，四条 EMA 在同一批行情上计算。 |
-| 返回 500 根 | `500 + 500 = 1,000` 根计算输入；只返回后 500 根。 |
-| 同算其他指标 | `R + max(各算子实际历史需求)`，窗口历史按现有规则共享；不得相加、逐指标取源或逐指标复权。 |
-| 中断后重试 | 不保存新的跨请求业务状态；同一请求重新读取、计算与清理。一轮原请求加一轮完整重试至多按两轮所需计算输入计，单算时为 `2 × (R + 500)`；实际中断点可能少于完整一轮。 |
-| 最后验收 | 每个获准验收请求的参考与被测输入分别计量；已有样本复用，不把参考计算也说成唯一源行情根数。真实来源只做获准证券、周期和有界窗口，不默认扫描数据集。 |
-
-现有 `max_output_rows/max_input_rows`、批量、请求时限、内存、文件、SQL 及编码字节限制沿用本次装配，不新增数值上限、不擅自扩大容量。四条 EMA 的累计递推次数与 K 线根数、文件读取量分别记录。当前没有趋势通道在共享 SQL 链路上的端到端耗时、物理读量或内存实测，不能套用旧业务计算器的耗时；实施验收记录实测后再判断现有预算能否满足，中断后的重跑与清理也计入。
-
-## 5. 旧业务清理：本次需求中的独立步骤
-
-### 5.1 先明确删什么
-
-清理对象是短期方向、长期方向及二者组合：`short_state/long_state/combined_state`，HTTP 中短期/长期通道的 `state` 与 `combinedState/combined_state`，以及只为这些标签服务的枚举、突破保留计算、缓存负载、schema/check 条件和测试断言。旧 `stateRule`、带 `hysteresis` 的公式标识及公式版本也随实际规则核对，在该步原方案中冻结最终值并同步全部消费者，不能数值已切换而公式说明仍宣称保留突破方向。
-
-同日位置 `short_position/long_position` 与历史方向不是同一含义。本次新算子不输出位置，也不填入说明 JSON；存量位置字段是否随清理删除，必须在消费者审计中列出明确清单，不默认为管理员授权删除所有其他字段。保留四轨、必要行情、日期和真正用于后续递推的 EMA 数值。
-
-### 5.2 代码、API 与页面清单
-
-| 链路 | 必须逐项核对的实施方和消费者 | 清理验收 |
+| 对象 | 当前实现依据 | 接入后 |
 | --- | --- | --- |
-| 上证指数 | `quote_trend_channel_calculator.py`、`quote_trend_channel_query_service.py`、`quote_trend_channel_query.py`、`schemas/quote_trend_channel.py`、`api/quote.py`；`tests/test_quote_trend_channel_{calculator,query_service}.py`、`tests/web/test_quote_trend_channel_api.py` | 删除无用方向计算和 DTO 字段；原鉴权、证券/周期边界、目标日期及翻页行为分别回归。四轨切换固定 500 后按 0.01 验收，不再宣称与旧全历史结果逐位相同。 |
-| 股票日线 | `stock_detail_trend_channel_query_service.py`、对应 schema/API、`stock_daily_trend_channel_contract.py`、`stock_daily_trend_channel_reader.py` 和其契约/API 测试 | 必须先核对正式文件生产者；不得只删查询投影而遗留仍强制要求旧字段的 schema 校验。 |
-| 前端 | 指数 `trendChannelApiClient.ts`，股票 `stockTrendChannelApiTypes.ts`，两条 ViewModel adapter、测试样本与股票历史控制测试 | 同步清除旧方向类型和样本。现有绘图只用日期、收盘价和四轨，保持其画法、颜色和开关行为。 |
-| 共享包接线 | 迁移需要行情与轨道同批时，请求已有 `price` 和新 `trend_channel`，按公共时间轴组装；使用各自已启用的来源与复权口径 | 不让业务侧计算轨道或拼初始值；不将股票预计算结果与指数完整历史算法当成新算子的第二套实现。 |
+| 股票、指数日 K 接口 | 现有日线 App 装配、计算清单、结果组装和前端 API 类型 | 保留入口及既有日 K 行为，在目标日线指标中增加四轨；图层与其他指标使用同批日期、复权和游标。 |
+| 股票旧独立接口 `/api/v1/wealth/market/stock-detail/trend-channel` | `stock_detail_trend_channel.py` → `StockDetailTrendChannelQueryService` → `StockDailyTrendChannelLakeReader` | 股票页面切换后不再调用。接口尚保留期间继续按原合同读结果文件；阶段四审计全部调用方后删除无消费者的路由、专用查询、schema 和读取器，不转调新日 K 接口或另造算子入口。 |
+| 上证旧独立接口 `/api/v1/quote/detail/trend-channel` | `src/biz/api/quote.py` → `QuoteTrendChannelQueryService._load_consistent_series()` → `load_all_rows()` 与专用计算器/缓存 | 页面切换后不再调用，页面所需结果改由算子库计算。阶段四按引用删除旧路由及其专用计算、查询、缓存、schema 和前端请求代码；不因移除通道接口而删除 `quote.py` 中其他接口。 |
+| 股票日线趋势通道结果数据集 `gold/indicator/stock_daily_trend_channel` | 旧读取器按股票、截止日期和根数读取正式 Parquet 结果 | 新算子、新日 K 接入和新页面入口均不依赖它；是否整体停产或清退由阶段四审计决定，页面切换不授权删除文件。 |
+| 股票日线趋势通道续算状态数据集 `gold/indicator/stock_daily_trend_channel_state` | 旧数据生产需要数值续算；旧页面能力函数检查目录，但旧 API 读取器不读它 | 新算子在本请求内维护四个 EMA 数值，不读该文件；不能因为旧文件名带 `state` 就在阶段二删除整个数据集。 |
+| 股票、指数基础行情和股票复权因子数据 | 本环境现有日 K 来源和共享库读取装配；旧上证查询读取 `IndexDailyServing` 的 OHLC | 继续使用，保留现有读写职责；退出的是旧通道专用计算/成品读取，不能清理基础行情及复权因子数据。 |
 
-当前 Prod 的按根数读取并未对全部组合启用。具体业务环境接入前，应先在本 LLD 补齐目标入口、来源支持、请求构造、完整消费者及最小真实验证，不用业务端自行倒推日期替代缺少的读取能力。API 字段移除在同次获准变更中迁移所有消费者，不保留运行时双合同；部署与代码审查分开处理。
+### 4.5 股票页面入口判断与失败处理
 
-### 5.3 股票日线正式数据集的清理边界
+旧检查的目的，是在本地具备预计算文件读取条件时才展示入口。`resolve_stock_daily_trend_channel_capability()` 依次检查 `APP_ENV` 为 `dev/local`、`WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED` 开启、正式 Lake 根路径及可读性、DuckDB 可发现、结果和续算状态两个目录均可读。它只检查环境与目录，不读取具体股票记录，不检查某日期分区是否齐备，也不查询 Dagster instance、任务或资产状态。`tests/test_stock_daily_trend_channel_capability.py` 使用空的两个目录即可验证旧检查返回启用。
 
-当前 `lake_console/orchestrator/src/orchestrator/defs/stock_daily_trend_channel.py` 同时计算和校验方向标签；`run_contracts/asset_column_schemas.py`、`defs/assets/stock_daily_trend_channel.py`、相关 checks、catalog、日常与 repair job/sensor、bootstrap 和 readiness 都属于审计入口。正式结果文件和续算文件分别由上述原 DG 方案与 LLD 管理。
+阶段二按以下位置修改，不重做数据可用性检查：
 
-这里不能只删除一个 `state` 文件：续算表中 `short_upper_raw/short_lower_raw/long_upper_raw/long_lower_raw` 是四个 EMA 原始数值，`state_source_trade_date/observed_on_partition` 还参与当日观察与延续判断。它们与无用的方向字符串必须分开核实。算法升级不能误删停牌延续、股票生命周期、源日期或覆盖检查。
+1. 股票页面初始化的 `_page_options()` 移除旧能力函数调用及相应导入。在本环境已接入股票日线算子能力的页面中，`supportsTrendChannel=true`，`availableMainOverlays` 包含 `TREND_CHANNEL`；沿既有图层限制只在目标日线使用，不顺带开放周月线或分钟线。
+2. 新页面不继承旧接口的 `dev/local` 限制、专用开关和通道目录检查；本地 DG 与 Prod 沿各自已接入的日 K 装配。算子库读取 DG 行情所需的原有组件和配置仍保留，不把“去掉旧通道检查”扩展成绕过日 K 来源合同。
+3. 当前无行情、合法短历史和源读取失败继续按现有日 K 合同处理；`supportsTrendChannel` 表示功能支持，不随单次空行情或 I/O 失败关闭。不能以 `false` 隐藏算子计算或读取错误，也不新增独立开关、就绪查询、重试和额外取数。
+4. `src/app/api/v1/router.py` 对旧路由的挂载、旧 API 请求内部的检查，在旧接口仍保留时只控制旧接口；不得因页面修改而让它提前对生产开放。阶段四按全部引用删除无消费者的旧路由、能力函数、Settings 字段、配置说明和专用测试。
 
-本次把下列工作纳入清理步骤，尚未以本轮静态阅读代替其实施前审计：
+性能和恢复沿现有日 K 请求：不为入口判断增加文件内容读取、数据库查询或 Dagster 请求；计算输入按 §3.3 的同批最大历史需求核算。取消、超时、编码错误和重试使用现有资源清理与响应规则，失败不返回新旧结果混合的批次，也不退回旧通道数据；前端失败后保留已加载图表及原有重试行为。
 
-1. 在原 DG 方案/LLD 写清每个待删字段、保留字段、schema/公式版本、实际依赖与迁移顺序；核对日更、repair、历史、readiness、catalog、事件和物理文件消费者。
-2. 列出目标日期/证券/文件范围、只读核验方式、候选生成与校验、正式提升、逐文件 checkpoint、失败续跑、最终 schema 与覆盖对账。范围、文件量、读写量、耗时、空间、重跑和最终验收预算目前未测，不得填造数字或直接进入编码/正式执行。
-3. 原方案与 LLD 复审通过后，才按对应阶段修改 DG 实现、执行获准的正式迁移。正式 Lake 为 `/Volumes/datasource/data_lake`；候选只能在 `/Volumes/datasource/data_lake_staging`，完整校验后同文件系统逐文件原子提升。本轮不包含全局明细读取、重写、删文件、补事件或变更自动任务；后续确有必要时分别遵守对应授权和性能门禁，不得以清理为由扩大范围。
-4. 历史验收和旧报告保留并标明适用版本；活动实现及全部消费者切换后才能验收旧方向引用清零。不得以新算子验收通过代替数据集清理完成。
+阶段二与阶段三分别审计、开发和验收，不在阶段一同时改业务。共享包发布与业务部署是各阶段验收后的独立动作；当前没有自动部署或正式写入授权。新算子阶段一通过不等于两个页面接入已完成。
 
-这部分遵守[性能治理](../../lake_console/docs/design/dagster-data-pipeline-performance-governance.md)及原 DG 规则。本轮未访问正式 instance、Lake 或数据库，也未执行任何 Dagster 命令。
+## 5. 阶段四：旧业务清理与总验收
 
-## 6. 测试、真实验收和开发前对账
+### 5.1 清理对象
 
-以下是待实施门禁，不是本轮通过清单。测试夹具先核对现有生产者、schema 和有界样本；预期不得由待测算子或同一计算 helper 生成。
+删除对象是历史短期方向、长期方向和组合：`short_state/long_state/combined_state`、HTTP 中对应 `state/combinedState/combined_state`，以及只为它们服务的枚举、保留突破方向的计算、缓存负载、schema/check 条件和测试断言。旧 `stateRule`、带 `hysteresis` 的公式标识与版本随实际规则核对，冻结最终值并同步全部消费者。
 
-| 约束 | 正向验证 | 反向验证及不会误拦的样本 |
+新算子不输出当根位置，既有 `short_position/long_position` 是否随清理删除按消费者审计给出明确清单，不自动扩大为删除所有其他字段。保留四条轨道、必要行情与日期、真正的 EMA 原始数值和续算所需事实。
+
+### 5.2 消费者清单与代码清理
+
+- 上证：旧 calculator/query service/query/schema/API、`tests/test_quote_trend_channel_calculator.py`、查询服务和 API 测试。
+- 股票：趋势通道 query service、schema/API、`stock_daily_trend_channel_contract.py`、`stock_daily_trend_channel_reader.py`、旧路由挂载、`stock_daily_trend_channel_capability.py`、旧 Settings 开关及配置说明和测试；页面对旧能力判断的依赖应在阶段二移除，不能留到本阶段才处理。
+- 前端：指数 `trendChannelApiClient.ts`、股票通道 API 类型、首批和历史控制、两个 ViewModel adapter、测试样本；按真实引用决定删除和保留。
+- 数据生产与检查：股票通道结果和续算字段、生成 SQL、schema、catalog、日更和 repair、bootstrap、readiness 与对应测试，先完成完整实施方和消费者审计。
+
+活动消费者在同次获准变更中同步迁移，不留下旧方向口径或新增兼容分支。不能只删除 DTO 而继续计算无用方向，也不能因页面不再调用就自行退休整个数据集或删正式文件。历史报告保留并注明适用版本。
+
+旧接口和专用代码在引用审计确认无消费者后删除，不长期保留旧实现或改造成兼容入口。股票旧结果和续算数据集的完整消费者及停产范围尚未冻结；该项只约束阶段四正式清理，不阻塞新算子和两个页面沿现有日 K 接入。基础行情和股票复权因子数据始终不是旧通道清理对象。
+
+### 5.3 正式数据集迁移与执行门禁
+
+当前 `lake_console/orchestrator/src/orchestrator/defs/stock_daily_trend_channel.py` 同时生成方向标签、轨道和续算数值。续算文件中的 `short_upper_raw/short_lower_raw/long_upper_raw/long_lower_raw` 以及 `state_source_trade_date/observed_on_partition` 分别承担数值连续性与观察日期判断，不能随方向字符串一并清空。
+
+如清理需要改变正式 schema，在原 [DG 方案](../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md)和[原 DG LLD](../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)补齐：字段保留/删除、版本、全部依赖、日期/证券/文件范围、候选校验、逐文件提升、checkpoint、失败续跑和最终物理对账。预算要包括读写行数/文件数、耗时、空间、中断重跑和最后验收。当前尚未测量这些正式迁移成本，不能填造数字或直接进入执行。
+
+正式 Lake 为 `/Volumes/datasource/data_lake`，候选在 `/Volumes/datasource/data_lake_staging`；完整校验后同文件系统逐文件原子提升。全局明细读取、正式文件写入/删除、事件补录和任务变更按各自授权执行，不能以清理为由扩大范围。遵守[性能治理](../../lake_console/docs/design/dagster-data-pipeline-performance-governance.md)，本轮未操作这些正式资源。
+
+## 6. 测试与分阶段验收
+
+| 目标 | 正向测试 | 反向测试与正常例外 |
 | --- | --- | --- |
-| JSON 通用说明 | 两个隔离算子用不同内部 JSON 字段，通过统一计算与编码原样返回；空串、中文和引号可正确编码 | 非字符串、非空非法 JSON 不返回成功；合法空串及合法不同结构不因无统一 schema 被拒绝。 |
-| 四轨完整输出 | 首根最高 11、最低 9 时两组上下轨分别为 11/9；下一根最高 12、最低 10，独立按 2/26、2/91 手算 | 缺任一轨道、非有限值、错位或少根按现有输出合同失败；真实短历史正常初始化。 |
-| 固定 500 | 历史充足时首目标前恰好申报 500；返回根数另计；与其他算子同算取最大需求 | 不受 `PRICE_ABSOLUTE_BOUND` 变化驱动，不请求旧方向状态；来源起点不足 500 的合法样本仍可计算，不能误认缺失或补造行情。 |
-| 跨批与共享 | 一次输入与分批输入使用同一初始化，逐轨比较；与 MACD/KDJ 同算只准备一批行情、只做一次该批复权 | 检查批次切换不重新初始化，重叠行不重算；相同与不同参数的既有算子仍分别正确。 |
-| 0.01 绝对误差 | 固定样本及获准真实窗口逐轨对完整参考核验；参考与被测使用相同来源、复权基准、起点 | 485 根的既有反例应能超限；不以显示两位小数相同、总平均误差或某一轨道通过替代逐轨最大误差。 |
-| 方向清理 | 四轨和原绘图仍正常；JSON 说明为空；所有活动消费者按新合同运行 | 活动实现不再产出/读取旧方向与组合标签；不得仅删 DTO 而继续计算。保留原始 EMA 续算值的正常样本。 |
-| 失败与取消 | 首批、跨批、失败后的同请求重试，资源按现有生命周期归还 | 一批成功后故障/取消也不得返回部分结果，不把清理失败当成功。 |
-| MACD 不变 | 默认及既有自定义参数的历史需求、数值、算法版本与说明空值回归 | 不改变 MACD 的 100 万常量、最低预热、误差要求或动态搜索；趋势通道的 0.01 不扩展为其他指标的新容差。 |
+| 四轨完整输出 | 首根最高 11、最低 9，两组轨道为 11/9；下一根最高 12、最低 10，按 2/26、2/91 独立手算 | 缺轨、非有限值、少根或错位失败；合法短历史可初始化。 |
+| 固定预热 500 | 首目标前申报 500，输出根数另计；同算其他指标取最大需求 | 不读取 MACD 的价格上界或旧方向；到真实起点不足 500 不补造、不误报缺失。 |
+| 预热误差 | **参考**从已确认完整历史起点连续计算；**被测**从目标前 500 根开始初始化；以同一行情、同一复权基准比较相同目标日期，每轨最大绝对误差不超过 0.01 | 保留 485 根的超限反例；不得把“参考与被测同一起点”用于预热误差验收，也不得用显示舍入或平均误差替代逐轨最大误差。 |
+| 跨批正确性 | 这是另一类测试：整批与分批使用相同输入、相同初始化，逐轨比较 | 批次切换不重置 EMA，历史重叠行不重复计算；不能与上一行的不同起点误差测试混为一项。 |
+| 同批共享 | 与现有指标同算使用同批行情、同一复权基准 | 不新增每指标取源或复权；不同参数的既有指标仍分别返回正确结果。 |
+| 股票接入 | 现有指令、日 K 结果和图层接上四轨，首批/续页均最多 500 根，沿原游标；本地 DG 与 Prod 分别验证 | 页面不请求旧通道接口，不调用旧读取器；失败后保留已有图、盘口、页面日期和游标；非目标周期不被顺带启用。 |
+| 股票页面入口 | 旧开关关闭、两个旧通道目录都不存在时，已接入的股票日线 page-init 仍声明支持并展示入口，日 K 能返回四轨 | page-init 与新日 K 请求期间调用旧能力函数、旧通道目录检查或 Dagster 查询即失败；正常空行情和短历史不误关入口，基础行情读取失败仍按现有错误合同处理。旧路由启动挂载的检查按原合同单独验证，不计入新页面请求断言，也不得提前开放旧独立接口。 |
+| 上证接入 | 沿当前装配与回包映射，首批/续页、开关、切日期、重试通过，四轨只用算子库结果 | 旧专用计算器、旧通道缓存、旧独立请求被调用即失败；不要求一次返回 2,000 根，不改变旧独立端点合同来冒充接入；四轨与当批 K 线对齐。 |
+| 接口与数据边界 | 阶段四引用审计后删除无消费者的旧接口、专用代码和配置；日 K 与基础行情、股票复权因子数据继续可用 | 页面接入不读旧通道成品/续算文件；取消或失败不回退旧链路；未批准整个数据集退出前不删正式文件、停产或修改调度。 |
+| 旧方向清理 | 四轨、图形、实际 EMA 续算数值仍正确，活动消费者同步切换 | 活动链路不再产出或读取旧方向、组合标签；不能误删数值续算、生命周期、停牌延续及源日期事实。 |
+| 本期不做 JSON | 既有请求、结果与算子接口保持原结构，新增算子仅四个数值字段 | 不增加 `info`、说明空串、`output_info()` 或 JSON 专项测试。 |
+| MACD 不变与取消 | 原默认/自定义参数、历史需求、数值和版本回归；跨批失败/取消可清理并重试 | 不调整 100 万常量或既有精度；失败不返回部分结果，不把状态清理失败当成功。 |
 
-拟新增普通隔离测试 `tests/foundation/technical_indicators/test_trend_channel_calculation.py` 与 `test_calculation_info.py`；现有注册、合同、编码、执行取消和业务测试按实际影响补充。文件名是拟实施位置，当前不存在不代表已漏跑测试。受保护 D3 用例继续遵守其原启动与预算，不直接全量执行。
+阶段一拟新增 `tests/foundation/technical_indicators/test_trend_channel_calculation.py`，按影响补充现有注册、历史需求、输出、取消和来源隔离测试；不再新增 JSON 说明测试。阶段二至少覆盖 `tests/web/test_wealth_stock_detail_api.py`、现有股票日 K 服务测试与股票页面/历史加载测试，页面用例不再以伪造旧 capability 启用来证明新接入；`tests/test_stock_daily_trend_channel_capability.py` 在旧接口保留时继续验证旧接口限制，不能为了新页面修改预期而提前开放旧路由。阶段三补现有指数日 K、`useIndexDetailController`、历史加载和页面测试，独立断言算子结果映射及旧计算器不被调用。部署前进行实际目标环境的有界只读与浏览器验收。受保护 D3 测试继续按原启动与预算执行，不直接全量运行。
 
-最小真实验收优先复用有来源的固定证据，仅补缺失的获准证券、周期和少量日期。核对源 high/low、复权基准、目标及前置根数、输出时间和四轨误差，区分隔离输入、真实只读和正式迁移；不为凑验收覆盖而全市场扫描。实际场景超过 0.01 时先记录证据并回到设计，不自行加预热、放宽误差或引入全历史回退。
+正式测试先核对生产者、schema 和必要样本；expected 不调用待测算子或相同 helper 生成。真实验收复用有来源的证据，只补获准窗口，不全市场扫库。若真实目标场景误差超 0.01，保留样本回到方案，不自行改变已确认的 500、放宽误差或引入全历史回退。
 
 ## 7. 已有测算证据及其范围
 
-### 7.1 固定上证指数样本
+### 7.1 固定样本与正确起点
 
-来源为[输入夹具](../../tests/fixtures/quote_trend_channel/000001_sh_daily_input.json)，SHA-256 为 `ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad`，日期 2020-01-02 至 2026-08-07，共 1,599 根。来源说明为当时 `core_serving.index_daily_serving` 的固定快照；本轮不重读生产库。四价的基本合同见[既有测试](../../tests/test_quote_trend_channel_calculator.py)。
+[上证输入夹具](../../tests/fixtures/quote_trend_channel/000001_sh_daily_input.json)的 SHA-256 为 `ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad`，共 1,599 根，2020-01-02 至 2026-08-07，为当时正式指数日线服务表的固定快照。本轮没有重读生产库，也不把该样本起点称为上证全部历史起点。
 
-本轮先从样本首根用 70 位 Decimal 独立递推四条完整轨道。对每个 H，从目标位置 H 到 1598，分别取该目标之前 H 根加目标一根，用双精度重新初始化和递推，与独立完整参考比较。每轨窗口数为 `1599−H`。在同一段初始化后，后续误差按 EMA 衰减；此验证主要检查每个可用窗口的第一根输出，不冒充 SQL 新算子或真实业务集成验收。
+已有测算先从样本首根用 70 位 Decimal 递推四轨，作为独立完整参考；再对目标位置 H 至 1598，分别取该目标前 H 根加目标一根，以双精度从截取窗口首根初始化。两种计算的起点不同，比较相同目标日期；每轨窗口数为 `1599−H`。
 
-| H | 每条轨道的窗口数 | 最大绝对误差（点） | 达标情况 |
+| H | 每轨窗口数 | 最大绝对误差（点） | 结果 |
 | --- | --- | --- | --- |
-| 485 | 1,114 | 0.010067342861678173 | 长期上轨有一个窗口超过 0.01 |
-| 486 | 1,113 | 0.0098460825786383 | 四轨各窗口均不超过 0.01 |
-| 500 | 1,099 | 0.007213467416398642 | 四轨各窗口均不超过 0.01 |
+| 485 | 1,114 | 0.010067342861678173 | 长期上轨有一个窗口超出 0.01 |
+| 486 | 1,113 | 0.0098460825786383 | 四轨全部窗口不超过 0.01 |
+| 500 | 1,099 | 0.007213467416398642 | 四轨全部窗口不超过 0.01 |
 
-H=500 时短期上轨、短期下轨、长期上轨、长期下轨的最大绝对误差分别约为 `4.70×10⁻¹²`、`4.12×10⁻¹²`、`0.0072134674`、`0.0068476520` 点。这里只验证这批输入及其起点；486 不是全证券最低预热根数，500 是管理员最终确认的设计决定，不能写成已证明覆盖任意价格序列的数学保证。
+500 根时，短期上轨、短期下轨、长期上轨、长期下轨最大误差分别约为 `4.70×10⁻¹²`、`4.12×10⁻¹²`、`0.0072134674`、`0.0068476520` 点。纠正的是原测试说明中“参考与被测同一起点”的错误文字，实际测算并非如此，已有数值不受影响。上述证据不代替共享 SQL 新算子或真实页面集成验收。
 
-### 7.2 讨论中各数字的最终含义
+### 7.2 最终决定与未采用的推导
 
-| 数字 | 已核实含义与本次处理 |
-| --- | --- |
-| 0.01 | 管理员确认的趋势通道逐轨绝对误差要求；单位沿输入价格，不是浮点位数或每步舍入。 |
-| 500 | 管理员确认的趋势通道固定前置根数；不能因为与 MACD 下限数值相同，就共用 MACD 的推导依据或误差参数。 |
-| 486 | 既有 1,599 根上证样本的窗口复算结果；保留证据，不用于修改最终 500 根决定。 |
-| 829 | 假定初始差值不超过 100 万，按 `误差 = 初始差值 × (89/91)^H` 得出的条件根数；未采用，不是本次预算，也不与 500 相加。 |
-| 100 万 | 当前共享计算库 `calculation/history.py` 的 `PRICE_ABSOLUTE_BOUND`，由 MACD 固定预热 SQL 使用；是价格范围的验证假设，不是实测价格或实测误差。原 LLD 声明其用途，但本次未找到选择该值的充分业务取值说明。管理员决定保留，不在本轮整改。 |
-| 默认 MACD 的 500 | 标准精度路径先规定最低 500，再按参数、100 万范围与 `2.5×10⁻⁹` 初始化误差要求验证是否足够；较长自定义参数可能需要更多。不能说“100 万恰好推导出最低 500 根”。 |
+500 根是管理员确认的固定预热；486 仅是这份样本的测算结果。829 根来自假定初始差值不超过 100 万的 90 周期 EMA 衰减推导，未采用，不进入预算。100 万是现有 MACD 的范围假设，不是实际误差，管理员决定保留，当前 MACD 算法和精度要求本期均不改。
 
-按当前 MACD 误差公式、默认参数 12/26/9 和上述原条件复算，去掉固定 500 下限时 467 根已满足、466 根不满足。这只是说明“固定下限”与“误差校验”是两件事；不是本次降低 MACD 预热或更改其精度的建议。旧所谓“内核”实际仍是当前共享技术指标计算库中的 MACD 模块，没有另外一套已退役运行系统。
+默认 MACD 的最低 500 与误差公式是两层规则。按原默认参数、100 万范围与既有误差条件，去掉固定下限时 467 根已满足、466 根不满足；此记录只解释既有行为，不是调整 MACD 的建议。趋势通道的 500 不依赖该推导，0.01 也不扩展为 MACD 的新容差。
 
-## 8. 本轮文档验收与后续开工边界
+## 8. 本轮订正与下一步
 
-本轮只对账需求、源码引用、样本测算、索引和文档完整性；不以这些结果宣称新算子、JSON 能力或清理已实现。业务结果合同开发、旧 API 消费者同步迁移、正式数据集字段迁移和部署是不同步骤。
+本轮仅修订方案、LLD 和相关原文引用，未开始开发。本次业务阶段已经明确：旧端点最多 2,000 根、已取消的 JSON 说明设计、旧通道目录或开关、旧数据集整体清退均不是阶段一算子开发的前置条件。股票页面入口脱离旧目录必须与阶段二取数切换一同完成；上证页面使用算子库结果、专用计算器退出该调用链必须与阶段三一同完成。
 
-后续每步开工前按本文映射补齐该步尚缺的完整消费者清单、来源支持、真实样本、性能预算及验收，再按获准范围实施。尤其 §5.3 尚缺正式迁移的范围与成本，不能据本 LLD 直接修改生产 schema、正式 Parquet、sensor、job、cursor 或事件。用户已确认的 500 根、0.01、JSON 留空、清理步骤和 MACD 保留决定无需再次拍板；新增实施范围与正式写入仍按阶段处理。
+下一步先 review 阶段一的算子实现与验收，完成后单独 review 股票接入，再 review 上证接入；旧业务清理与正式数据迁移按阶段四补齐设计、审计和执行范围。每步开工前完成该步所需代码、消费者、合同、预算和测试准备，不把前一步通过当成后续全部完成。正式环境部署和文件写入继续按阶段授权。
