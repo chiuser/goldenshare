@@ -16,7 +16,7 @@ from src.app.auth.dependencies import require_quote_access
 from src.app.dependencies.index_minute_technical_indicators import run_index_minute_page
 from src.app.exceptions import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
-from src.biz.api.wealth.market import index_detail_minutes
+from src.biz.api.wealth.market import index_detail_minute_nine_turn, index_detail_minutes
 from src.biz.schemas.wealth.market.index_detail_minutes import IndexMinutesResponseDto
 from src.biz.services.wealth.market.index_detail_minutes.index_minute_response_policy import (
     enforce_index_minute_response_size,
@@ -79,13 +79,16 @@ def _client(lake_root: Path) -> TestClient:
     install_exception_handlers(app)
     app.dependency_overrides[require_quote_access] = lambda: None
     app.include_router(index_detail_minutes.build_router(run_page=run_index_minute_page))
+    app.include_router(index_detail_minute_nine_turn.build_router(run_page=run_index_minute_page))
     return TestClient(app)
 
 
 def _v1_cursor(dataset: str, freq: int, clock: str) -> str:
     # Old v1 wire format. Construct this independently of the current encoder.
     payload = {
-        "v": 1, "dataset": dataset, "tsCode": "000001.SH", "freq": freq,
+        "v": 1, "dataset": dataset,
+        **({"subjectType": "index"} if dataset == "index_minute_nine_turn" else {}),
+        "tsCode": "000001.SH", "freq": freq,
         "startDate": "2026-11-09", "endDate": "2026-11-09",
         "beforeTradeDate": "2026-11-09", "beforeTradeTime": f"{clock}:00.000000",
     }
@@ -121,6 +124,17 @@ def test_index_minute_apis_calculate_seven_frequencies_and_accept_v1_cursors(tmp
                 assert first[field][0]["vol"] == 100
                 assert first[field][0]["amount"] == 120
                 assert "vwap" not in first[field][0]
+                series = first["nineTurn"]
+                if freq == 1:
+                    assert series is None and last["nineTurn"] is None
+                else:
+                    assert series["meta"]["matchedRowCount"] == 1 and series["markers"] == []
+                    nine_turn_cursor = _v1_cursor("index_minute_nine_turn", freq, newest)
+                    assert series["meta"]["nextCursor"] == nine_turn_cursor
+                    independent = client.get(f"{_PREFIX}/minute-nine-turn", params=params)
+                    assert independent.status_code == 200 and independent.json() == series
+                    continued = client.get(f"{_PREFIX}/minute-nine-turn", params={**params, "cursor": nine_turn_cursor})
+                    assert continued.status_code == 200 and continued.json() == last["nineTurn"]
                 assert "preClose" not in first[field][0]
             else:
                 assert first[field][0]["ma250"] is None
@@ -163,6 +177,7 @@ def test_index_minute_indicators_failure_preserves_independent_bars(
     assert indicators.json()["code"] == "IM_SOURCE_CONTRACT_INVALID"
     assert bars.status_code == 200
     assert bars.json()["dataStatus"]["status"] == "READY"
+    assert bars.json()["nineTurn"]["meta"]["matchedRowCount"] == 2
 
 
 def test_index_minute_api_maps_missing_source_column_to_contract_error(tmp_path: Path) -> None:
@@ -181,6 +196,10 @@ def test_index_minute_api_enforces_universe_and_bse_empty(
             "/wealth/market/index-detail/minutes",
             params={"tsCode": "899050.BJ", "freq": "5", "endDate": "2026-08-11"},
         )
+        bse_nine_turn = client.get(
+            f"{_PREFIX}/minute-nine-turn",
+            params={"tsCode": "899050.BJ", "freq": 5, "endDate": "2026-08-11", "debug": 1},
+        )
         lake_only = client.get(
             "/wealth/market/index-detail/minutes",
             params={"tsCode": "000680.SH", "freq": "5", "endDate": "2026-08-11"},
@@ -189,6 +208,10 @@ def test_index_minute_api_enforces_universe_and_bse_empty(
     assert bse.status_code == 200
     assert bse.json()["dataStatus"]["status"] == "EMPTY"
     assert bse.json()["dataStatus"]["code"] == "IM_SOURCE_NOT_READY"
+    assert bse.json()["nineTurn"]["dataStatus"]["status"] == "EMPTY"
+    assert bse_nine_turn.status_code == 200
+    assert bse_nine_turn.json()["debugInfo"]["sourceDatasets"] == []
+    assert bse_nine_turn.json()["debugInfo"]["scannedFileCount"] == 0
     assert lake_only.status_code == 404
     assert lake_only.json()["code"] == "ID_NOT_FOUND"
 
@@ -255,6 +278,7 @@ def test_index_minute_response_size_guard_rejects_payload_above_5mb() -> None:
         {
             "tsCode": "000001.SH",
             "freq": 5,
+            "nineTurn": None,
             "bars": [
                 {
                     "tsCode": "000001.SH",

@@ -5,9 +5,9 @@ from datetime import date
 import pytest
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
+from starlette.responses import Response
 
 from src.app.auth.dependencies import require_quote_access
-from src.app.dependencies import get_db_session
 from src.app.exceptions import install_exception_handlers
 from src.biz.api.wealth.market import index_detail_minute_nine_turn
 from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import (
@@ -19,9 +19,6 @@ from src.biz.schemas.wealth.market.nine_turn import (
     NineTurnSeriesDto,
 )
 from src.foundation.config.local_minute_capability import LocalMinuteCapability
-from src.foundation.clients.local_lake.index_nine_turn_reader import (
-    IndexNineTurnReadPage,
-)
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
 )
@@ -31,9 +28,10 @@ class _FakeIndexMinuteNineTurnService:
     def __init__(self) -> None:
         self.calls: list[dict[str, object]] = []
 
-    def read(self, _session, **kwargs) -> NineTurnSeriesDto:
+    async def run(self, _request, *, dataset, arrived_at, **kwargs) -> Response:
+        assert dataset == "nine_turn"
         self.calls.append(kwargs)
-        return NineTurnSeriesDto(
+        response = NineTurnSeriesDto(
             subjectType="index",
             tsCode=str(kwargs["ts_code"]),
             period=str(kwargs["freq"]),
@@ -53,16 +51,15 @@ class _FakeIndexMinuteNineTurnService:
                 endDate=kwargs["end_date"] or date(2026, 8, 14),
             ),
         )
+        return Response(response.model_dump_json(), media_type="application/json")
 
 
 @pytest.fixture()
-def minute_client(monkeypatch, db_session):
+def minute_client():
     service = _FakeIndexMinuteNineTurnService()
-    monkeypatch.setattr(index_detail_minute_nine_turn, "_service", lambda: service)
     app = FastAPI()
     install_exception_handlers(app)
-    app.include_router(index_detail_minute_nine_turn.router)
-    app.dependency_overrides[get_db_session] = lambda: db_session
+    app.include_router(index_detail_minute_nine_turn.build_router(run_page=service.run))
     app.dependency_overrides[require_quote_access] = lambda: None
     with TestClient(app) as client:
         yield client, service
@@ -119,11 +116,6 @@ def test_app_router_mounts_index_minute_nine_turn_only_when_ready(
     monkeypatch.setattr(
         app_router, "resolve_index_minute_capability", lambda _: disabled
     )
-    monkeypatch.setattr(
-        app_router,
-        "resolve_index_nine_turn_minute_capability",
-        lambda _: disabled,
-    )
     production = APIRouter(prefix="/v1")
     app_router._include_local_minute_router(production)
     assert "/v1/wealth/market/index-detail/minute-nine-turn" not in {
@@ -132,7 +124,7 @@ def test_app_router_mounts_index_minute_nine_turn_only_when_ready(
 
     monkeypatch.setattr(
         app_router,
-        "resolve_index_nine_turn_minute_capability",
+        "resolve_index_minute_capability",
         lambda _: enabled,
     )
     local = APIRouter(prefix="/v1")
@@ -142,16 +134,12 @@ def test_app_router_mounts_index_minute_nine_turn_only_when_ready(
     }
 
 
-def test_minute_service_applies_product_allowlist_before_reader(
-    db_session,
-    tmp_path,
-) -> None:
+def test_minute_service_applies_product_allowlist_before_reader() -> None:
     reader = _CountingReader()
-    service = IndexMinuteNineTurnQueryService(tmp_path, reader=reader)
+    service = IndexMinuteNineTurnQueryService(reader)
 
     with pytest.raises(IndexDetailNotFoundError):
         service.read(
-            db_session,
             ts_code="000680.SH",
             freq=5,
             start_date=None,
@@ -168,17 +156,5 @@ class _CountingReader:
     def __init__(self) -> None:
         self.calls = []
 
-    def read(self, request):
+    def read_nine_turn(self, request):
         self.calls.append(request)
-        return IndexNineTurnReadPage(
-            rows=(),
-            source_row_count=0,
-            matched_row_count=0,
-            missing_row_count=0,
-            has_more=False,
-            next_cursor=None,
-            observed_start_date=None,
-            observed_end_date=None,
-            scanned_file_count=0,
-            elapsed_ms=0,
-        )

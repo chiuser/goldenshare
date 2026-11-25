@@ -1,6 +1,9 @@
 import type { IndexDetailRequestScheduler } from "../api/indexDetailRequestScheduler";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { NineTurnPeriod, NineTurnSeriesDto } from "../../nine-turn/api/nineTurnApiTypes";
+import { adaptNineTurnSeries } from "../../nine-turn/model/nineTurnAdapter";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import {
   fetchIndexDetailMinuteIndicators,
   fetchIndexDetailMinutes,
@@ -19,6 +22,11 @@ import type {
 
 const idleState: IndexMinuteSeriesState = { data: null, errorMessage: "", phase: "idle" };
 
+interface CachedMinuteWindow {
+  series: IndexMinuteSeriesState | null;
+  nineTurn: NineTurnLayerViewModel | null;
+}
+
 export function useIndexMinuteSeries({
   activePeriod,
   enabled,
@@ -31,10 +39,13 @@ export function useIndexMinuteSeries({
   endDate: string | null;
   requests?: IndexDetailRequestScheduler;
   tsCode: string;
-}): IndexMinuteSeriesState & { retry: () => void } {
+}): IndexMinuteSeriesState & {
+  retry: () => void;
+  nineTurnFor: (period: Exclude<NineTurnPeriod, "day">) => NineTurnLayerViewModel | null;
+} {
   const [state, setState] = useState<IndexMinuteSeriesState>(idleState);
   const [retryToken, setRetryToken] = useState(0);
-  const cacheRef = useRef(new Map<string, IndexMinuteSeriesState>());
+  const cacheRef = useRef(new Map<string, CachedMinuteWindow>());
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -45,7 +56,7 @@ export function useIndexMinuteSeries({
       return;
     }
     const cacheKey = `${tsCode}|${freq}|${endDate}`;
-    const cached = cacheRef.current.get(cacheKey);
+    const cached = cacheRef.current.get(cacheKey)?.series;
     if (cached) {
       requestIdRef.current += 1;
       setState(cached);
@@ -61,13 +72,14 @@ export function useIndexMinuteSeries({
     );
     fetchIndexDetailMinutes(request, { signal: controller.signal }, requests).then((response) => {
       if (controller.signal.aborted || requestIdRef.current !== requestId) return;
+      const nineTurn = freq === 1 ? null : adaptMinuteNineTurn(response.nineTurn, freq, tsCode);
       if (response.bars.length === 0 || response.dataStatus.status === "EMPTY") {
         const empty: IndexMinuteSeriesState = {
           data: null,
           errorMessage: response.dataStatus.message ?? "当前分钟数据源暂不覆盖该指数。",
           phase: "empty",
         };
-        cacheRef.current.set(cacheKey, empty);
+        cacheRef.current.set(cacheKey, { series: empty, nineTurn });
         setState(empty);
         return;
       }
@@ -78,6 +90,7 @@ export function useIndexMinuteSeries({
         setState({ data: null, errorMessage: resolveMinuteError(error), phase: "error" });
         return;
       }
+      cacheRef.current.set(cacheKey, { series: null, nineTurn });
       setState({
         data,
         errorMessage: response.dataStatus.message ?? "",
@@ -116,7 +129,7 @@ export function useIndexMinuteSeries({
               ? "delayed"
               : "ready",
         };
-        cacheRef.current.set(cacheKey, ready);
+        cacheRef.current.set(cacheKey, { series: ready, nineTurn });
         setState(ready);
       });
     }).catch((error: unknown) => {
@@ -128,7 +141,18 @@ export function useIndexMinuteSeries({
   }, [activePeriod, enabled, endDate, requests, retryToken, tsCode]);
 
   const retry = useCallback(() => setRetryToken((value) => value + 1), []);
-  return { ...state, retry };
+  const nineTurnFor = useCallback((period: Exclude<NineTurnPeriod, "day">) =>
+    cacheRef.current.get(`${tsCode}|${period}|${endDate}`)?.nineTurn ?? null, [tsCode, endDate]);
+  return { ...state, retry, nineTurnFor };
+}
+
+function adaptMinuteNineTurn(
+  series: NineTurnSeriesDto | null,
+  freq: Exclude<IndexDetailMinuteFrequency, 1>,
+  tsCode: string,
+): NineTurnLayerViewModel {
+  if (!series) throw new Error("指数分钟行情回包缺少九转序列");
+  return adaptNineTurnSeries(series, { period: String(freq) as Exclude<NineTurnPeriod, "day">, subjectType: "index", tsCode });
 }
 
 export function minuteFrequencyFromPeriod(period: IndexPeriodKey): IndexDetailMinuteFrequency | null {

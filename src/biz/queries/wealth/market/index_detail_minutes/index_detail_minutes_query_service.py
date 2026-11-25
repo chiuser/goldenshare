@@ -4,6 +4,9 @@ from datetime import date, datetime
 from typing import Any, Protocol
 from zoneinfo import ZoneInfo
 
+from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import (
+    IndexMinuteNineTurnQueryService,
+)
 from src.biz.schemas.wealth.market.index_detail_minutes import (
     IndexMinuteBarDto,
     IndexMinuteIndicatorDto,
@@ -18,9 +21,11 @@ from src.biz.services.wealth.market.index_detail_minutes.index_minute_response_p
     build_index_minute_status,
     enforce_index_minute_response_size,
 )
+from src.foundation.clients.local_lake.index_nine_turn_contract import SUPPORTED_INDEX_NINE_TURN_FREQS
 from src.foundation.clients.local_lake.major_index_mins_reader import (
     IndexMinuteReadPage,
     IndexMinuteReadRequest,
+    IndexMinuteRequestError,
 )
 
 
@@ -55,37 +60,18 @@ class IndexDetailMinutesQueryService:
     ) -> IndexMinutesResponseDto:
         normalized_code = ts_code.strip().upper()
         self._universe.require_supported(normalized_code)
-        if normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES:
-            page = empty_index_minute_page()
-            response = IndexMinutesResponseDto(
-                tsCode=normalized_code,
-                freq=freq,
-                bars=[],
-                meta=build_index_minute_meta(
-                    page,
-                    start_date=start_date,
-                    end_date=end_date,
-                    limit=limit,
-                ),
-                dataStatus=build_index_minute_status(
-                    page,
-                    expected_end_date=end_date,
-                    known_unsupported=True,
-                ),
-            )
-            enforce_index_minute_response_size(response)
-            return response
-
-        page = self._reader.read_bars(
-            IndexMinuteReadRequest(
-                ts_code=normalized_code,
-                freq=freq,
-                start_date=start_date,
-                end_date=end_date,
-                limit=limit,
-                cursor=cursor,
-            )
+        request = IndexMinuteReadRequest(
+            ts_code=normalized_code, freq=freq, start_date=start_date, end_date=end_date, limit=limit, cursor=cursor,
         )
+        known_unsupported = normalized_code in KNOWN_UNSUPPORTED_MINUTE_CODES
+        page = empty_index_minute_page() if known_unsupported else self._reader.read_bars(request)
+        try:
+            nine_turn = (
+                IndexMinuteNineTurnQueryService.to_response(page, request, debug=False)
+                if freq in SUPPORTED_INDEX_NINE_TURN_FREQS else None
+            )
+        except ValueError as exc:
+            raise IndexMinuteRequestError(str(exc)) from exc
         response = IndexMinutesResponseDto(
             tsCode=normalized_code,
             freq=freq,
@@ -96,7 +82,8 @@ class IndexDetailMinutesQueryService:
                 end_date=end_date,
                 limit=limit,
             ),
-            dataStatus=build_index_minute_status(page, expected_end_date=end_date),
+            dataStatus=build_index_minute_status(page, expected_end_date=end_date, known_unsupported=known_unsupported),
+            nineTurn=nine_turn,
         )
         enforce_index_minute_response_size(response)
         return response

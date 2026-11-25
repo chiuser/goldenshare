@@ -47,7 +47,6 @@ from src.foundation.clients.local_lake.reference_data_reader import LakeTradeCal
 from src.foundation.clients.local_lake.major_index_mins_contract import FORMAL_LAKE_ROOT
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
-    resolve_index_nine_turn_minute_capability,
     resolve_local_minute_capability,
 )
 from src.foundation.config.settings import Settings, get_settings
@@ -182,20 +181,14 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
     if index_capability.enabled:
         from src.app.dependencies.index_minute_technical_indicators import run_index_minute_page
         from src.biz.api.wealth.market import (
+            index_detail_minute_nine_turn,
             index_detail_minutes,
             index_turnover_insight,
         )
 
         target_router.include_router(index_detail_minutes.build_router(run_page=run_index_minute_page))
+        target_router.include_router(index_detail_minute_nine_turn.build_router(run_page=run_index_minute_page))
         target_router.include_router(index_turnover_insight.router)
-
-    index_nine_turn_capability = resolve_index_nine_turn_minute_capability(
-        get_settings()
-    )
-    if index_nine_turn_capability.enabled:
-        from src.biz.api.wealth.market import index_detail_minute_nine_turn
-
-        target_router.include_router(index_detail_minute_nine_turn.router)
 
 
 _include_local_minute_router(router)

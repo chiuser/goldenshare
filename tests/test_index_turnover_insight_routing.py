@@ -22,11 +22,6 @@ app_router = importlib.import_module("src.app.api.v1.router")
 
 def _disable_other_minute_routes(monkeypatch) -> None:
     monkeypatch.setattr(app_router, "resolve_local_minute_capability", lambda _settings: DISABLED)
-    monkeypatch.setattr(
-        app_router,
-        "resolve_index_nine_turn_minute_capability",
-        lambda _settings: DISABLED,
-    )
 
 
 def test_index_batch_route_is_mounted_with_existing_index_capability(monkeypatch) -> None:

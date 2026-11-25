@@ -12,14 +12,18 @@ from src.biz.queries.wealth.market.index_detail_minutes.index_detail_minutes_que
 )
 from src.biz.queries.wealth.market.index_detail_minutes.index_minute_calculation_reader import (
     IndexMinuteCalculationReader,
+    IndexMinuteOutput,
 )
-from src.foundation.clients.local_lake.major_index_mins_contract import MAX_INDEX_MINUTE_LIMIT, IndexMinuteDataset
+from src.biz.queries.wealth.market.index_minute_nine_turn.index_minute_nine_turn_query_service import (
+    IndexMinuteNineTurnQueryService,
+)
+from src.foundation.clients.local_lake.major_index_mins_contract import MAX_INDEX_MINUTE_LIMIT
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteSourceContractError
 from src.foundation.config.local_minute_capability import LocalMinuteCapabilityError
 
 
 async def run_index_minute_page(
-    request: Request, *, dataset: IndexMinuteDataset, arrived_at: float, **params,
+    request: Request, *, dataset: IndexMinuteOutput, arrived_at: float, **params,
 ) -> Response:
     runtime = getattr(request.app.state, "technical_indicator_runtime", None)
     if runtime is None:
@@ -35,9 +39,13 @@ async def run_index_minute_page(
         def calculate(calculation):
             return service.calculate_index_minutes_recent(calculation, output_limit=MAX_INDEX_MINUTE_LIMIT)
 
-        query = IndexDetailMinutesQueryService(IndexMinuteCalculationReader(calculate))
+        reader = IndexMinuteCalculationReader(calculate)
         try:
-            response = query.read_bars(**options) if dataset == "bars" else query.read_indicators(**options)
+            if dataset == "nine_turn":
+                response = IndexMinuteNineTurnQueryService(reader).read(**options)
+            else:
+                query = IndexDetailMinutesQueryService(reader)
+                response = query.read_bars(**options) if dataset == "bars" else query.read_indicators(**options)
             return response.model_dump_json().encode("utf-8")
         except SourceContractError as exc:
             raise IndexMinuteSourceContractError(str(exc)) from exc

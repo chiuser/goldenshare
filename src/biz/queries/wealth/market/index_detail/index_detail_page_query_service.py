@@ -32,7 +32,6 @@ from src.foundation.clients.technical_indicator_stock_daily import dg_index_dail
 from src.foundation.config.local_minute_capability import (
     SUPPORTED_MINUTE_FREQS,
     resolve_index_minute_capability,
-    resolve_index_nine_turn_minute_capability,
 )
 from src.foundation.config.settings import get_settings
 
@@ -205,9 +204,8 @@ class IndexDetailPageQueryService:
     @staticmethod
     def _build_capabilities(*, ts_code: str, weekly_monthly_enabled: bool = False) -> IndexDetailCapabilitiesDto:
         capability = resolve_index_minute_capability(get_settings())
-        nine_turn_capability = resolve_index_nine_turn_minute_capability(get_settings())
         nine_turn_periods: list[IndexDetailNineTurnPeriod] = ["day"]
-        if nine_turn_capability.enabled:
+        if capability.enabled:
             nine_turn_periods.extend(["5", "15", "30", "60", "90", "120"])
         return IndexDetailCapabilitiesDto(
             supportsTimeShare=False,

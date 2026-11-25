@@ -2,14 +2,14 @@
 
 > 2026-11-04：§8为已实施的本地r4分钟识别配套摘要，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准，完成证据见其§20.7—20.8、§21.14.14及§22.16.6。§1—7的七频和10000行情上限不适用于识别。
 
-> 版本：`1.2.0`
-> 本地分钟行情和指标均由算子库返回。历史 Gold 切换证据保留在 §6。算子库接入见 [LLD §29.4](index-detail-low-level-design-v1.md#index-minute-kernel-stage-3)。
+> 版本：`1.3.0`
+> 本地分钟行情回包增加九转，独立九转查询同期改用算子库。见[九转 LLD §11.3](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。历史 Gold 切换证据保留在 §6。
 > 命名空间：`/api/v1/wealth/market/index-detail/*`
 
 ## 1. 边界
 
 1. 本合同只在 `APP_ENV in {dev, local}`、本地分钟开关开启、正式 Lake 根可读且 DuckDB 可用时挂载；prod/staging 不挂载，访问返回 404。
-2. 两个接口都将频率、截止时间和目标根数交给算子库。1／5／15／30／60 分钟读 DG 指数 Gold 标准 K 线 `gold/quote/major_index_mins`。90／120 分钟分别读 DG 指数 Silver 30／60 分钟行情，由算子库按交易时段合成。指标从相同口径的 K 线计算。
+2. 三个接口都将频率、截止时间和目标根数交给算子库。1／5／15／30／60 分钟读 DG 指数 Gold 标准 K 线 `gold/quote/major_index_mins`。90／120 分钟分别读 DG 指数 Silver 30／60 分钟行情，由算子库按交易时段合成。 `/minutes` 的九转与价格共用一次取数，独立指标与独立九转也使用同口径的 K 线。
 3. 1 分钟可返回 09:30。其他六频完整交易日的第一根分别为 09:35／09:45／10:00／10:30／11:00／11:30。
 4. bars 与 indicators 必须按完整 `tradeTime` 集合严格相等；不允许后端或前端自行补 bar、删 bar 或按数组位置对齐。
 5. 七频均不得返回 `15:01-15:30`；完整交易日最后一根必须精确为 15:00，技术指标同样截止 15:00。
@@ -24,6 +24,7 @@
 ```http
 GET /api/v1/wealth/market/index-detail/minutes
 GET /api/v1/wealth/market/index-detail/minute-indicators
+GET /api/v1/wealth/market/index-detail/minute-nine-turn
 ```
 
 ### 2.2 参数
@@ -37,7 +38,7 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 | `limit` | integer | 否 | 默认 500，范围 `1..10000` |
 | `cursor` | string | 否 | v1 URL-safe base64；绑定 dataset/code/freq/start/end/before time |
 
-未知参数、重复参数、非法日期、非法 limit、cursor 解析失败或 cursor 与当前请求错配均返回 HTTP 400 `ID_REQUEST_INVALID`。分页不使用 OFFSET。`10000` 是语法允许的请求上限，不代表任意 DTO 都能在 5MB 响应门禁内返回；5MB 门禁优先，调用方收到响应过大错误后必须降低 limit 并使用 cursor。
+未知参数、重复参数、非法日期、非法 limit、cursor 解析失败或与当前请求错配均返回 HTTP 400。行情和指标用 `ID_REQUEST_INVALID`，独立九转用 `NT_REQUEST_INVALID`。独立九转只接受 5／15／30／60／90／120 分钟，额外接受原 `debug`。三条接口沿用 5 MB 响应上限，调用方收到响应过大错误后可降低 limit 并使用对应的 cursor。
 
 ## 3. 响应 DTO
 
@@ -74,11 +75,11 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 ```json
 {
   "tsCode": "000001.SH",
-  "freq": 5,
+  "freq": 1,
   "bars": [
     {
       "tsCode": "000001.SH",
-      "freq": 5,
+      "freq": 1,
       "tradeDate": "2026-08-11",
       "tradeTime": "2026-08-11T09:35:00+08:00",
       "open": 3900.0,
@@ -91,13 +92,16 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
     }
   ],
   "meta": {},
-  "dataStatus": {}
+  "dataStatus": {},
+  "nineTurn": null
 }
 ```
 
 `vol` 的单位是股，`amount` 的单位是元。
 
 不返回 `preClose/change/changePct/amplitude/turnoverRate/vwap`，前端不得自行伪造日线字段。
+
+`nineTurn` 为必有字段。1 分钟返回 `null`，其余六频返回 §3.4 的 `NineTurnSeriesDto`。合法空页仍返回该周期的空九转序列。外层 `meta.nextCursor` 供 `/minutes` 续页。
 
 ### 3.3 Indicators
 
@@ -138,6 +142,12 @@ GET /api/v1/wealth/market/index-detail/minute-indicators
 
 MA／BOLL 预热不足时返回 null。MA、BOLL、MACD 和 KDJ 均由算子库计算。`paramsKey` 和 `indicatorVersion` 仍标识原有参数与版本。
 
+### 3.4 九转
+
+- `/minutes.nineTurn` 与 `/minute-nine-turn` 使用同一 `NineTurnSeriesDto`。现有 `subjectType`、`tsCode`、`period`、`markers`、`latestMarker`、`meta`、`dataStatus` 和 `debugInfo` 契约沿用。标记按行情时间升序，图上显示 1–9，`latestMarker` 只对应实际末根 K 线。零计数算匹配，有行情时 `sourceRowCount=matchedRowCount` 且 `missingRowCount=0`。
+- 内嵌与独立九转的 `meta.nextCursor` 均为 `index_minute_nine_turn` v1 格式，供独立九转接口继续读取。复用原请求的代码、频率和日期，续页严格早于游标的首根时间。省略截止日时读取最新已发布行情，独立九转 `meta.endDate` 仍记本机上海时区当天，`dataStatus.expectedEndDate` 为 `null`。
+- 图表使用行情回包的九转。技术面摘要复用当日已加载的周期，其余周期按原入口加载。北证 50 分钟行情维持空态，六个支持周期的九转序列返回 `EMPTY`。独立九转保留既有 `NT_REQUEST_INVALID`、`NT_NOT_FOUND`、`NT_SOURCE_CONTRACT_INVALID`、`NT_QUERY_FAILED` 类型。其调试回包报告实际行情来源、文件数和耗时。
+
 ## 4. 异常
 
 | HTTP | code | 语义 |
@@ -146,6 +156,8 @@ MA／BOLL 预热不足时返回 null。MA、BOLL、MACD 和 KDJ 均由算子库�
 | 404 | `ID_NOT_FOUND` | 非页面十指数名单 |
 | 500 | `IM_SOURCE_CONTRACT_INVALID` | 路径、Parquet schema、身份、日期、时间键或版本不符合合同 |
 | 500 | `IM_QUERY_FAILED` | 查询、资源限制或结果校验失败 |
+
+`/minutes` 的九转计算异常沿用该接口的错误处理。独立常用指标失败时，页面仍展示已返回的 K 线和九转。
 
 401/403 沿用认证层。响应体超过 5MB 按 `ID_REQUEST_INVALID` 拒绝，调用方必须降低 limit 或使用 cursor。
 
@@ -197,6 +209,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 | 版本 | 日期 | 变更摘要 | 负责人 |
 |---|---|---|---|
+| 1.3.0 | 2026-11-25 | 分钟行情与独立摘要改用算子库九转，保留各自的 v1 游标 | Codex |
 | 1.2.0 | 2026-11-24 | 本地七频行情和指标接入算子库，保留 v1 游标，移除指标回包的 `observationCount` | Codex |
 | 1.1.0 | 2026-08-14 | 完成 P10：bars 从历史 Silver 合同切换到正式 Gold canonical bars，无 fallback；同步七频时间键和本地业务读取验收口径 | Codex |
 | 1.0.4 | 2026-08-13 | 完成真实 Gold provider、bars-only Partial、Mock 清零和浏览器验收；以 4,277×7 分区最终重跑更新全历史、性能、10000 拒绝与 5000 正常分页证据 | Codex |

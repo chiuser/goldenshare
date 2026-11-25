@@ -289,13 +289,26 @@ describe("IndexDetailPage", () => {
     await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
     expect(within(screen.getByLabelText("指数分钟图表区")).getByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
 
-    for (const endpoint of ["minutes", "minute-indicators", "minute-nine-turn"]) {
+    for (const endpoint of ["minutes", "minute-indicators"]) {
       const frequencies = fetchMock.mock.calls.map(([input]) => new URL(String(input)))
         .filter((url) => url.pathname.endsWith(`/index-detail/${endpoint}`))
         .map((url) => url.searchParams.get("freq"));
       expect(frequencies).toEqual(["5", "15"]);
     }
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    const summary = await screen.findByLabelText("九转序列摘要");
+    await waitFor(() => {
+      expect(Array.from(summary.querySelectorAll(".index-nine-turn-summary-row")).find(
+        (row) => row.firstElementChild?.textContent === "15分钟"
+      )).toHaveTextContent("上序 3");
+      const independent = fetchMock.mock.calls
+        .filter(([input]) => String(input).includes("/minute-nine-turn"))
+        .map(([input]) => new URL(String(input)).searchParams.get("freq"));
+      expect(independent.sort()).toEqual(["120", "30", "60", "90"]);
+    });
   });
 
   it("keeps three panes and renews the limit toast on another rejected click", async () => {
@@ -775,7 +788,7 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
   return fetchMock;
 }
 
-function makeIndexNineTurnResponse(tsCode: string, period: "day" | "5" | "15" | "30" | "60" | "90" | "120") {
+function makeIndexNineTurnResponse(tsCode: string, period: "day" | "5" | "15" | "30" | "60" | "90" | "120", count = 1) {
   const tradeTime = period === "day" ? null : "2026-07-31T09:49:00+08:00";
   const marker = { completed: false, direction: "UP" as const, sequenceNumber: 3 as const, tradeDate: "2026-07-31", tradeTime };
   return {
@@ -783,7 +796,7 @@ function makeIndexNineTurnResponse(tsCode: string, period: "day" | "5" | "15" | 
     debugInfo: null,
     latestMarker: marker,
     markers: [marker],
-    meta: { comparisonLag: 4 as const, endDate: "2026-07-31", formulaVersion: 1 as const, hasMore: false, limit: period === "day" ? 300 : 500, markerCount: 1, matchedRowCount: 1, missingRowCount: 0, nextCursor: null, observedEndDate: "2026-07-31", observedStartDate: "2026-07-31", signalThreshold: 9 as const, sourceRowCount: 1, startDate: null },
+    meta: { comparisonLag: 4 as const, endDate: "2026-07-31", formulaVersion: 1 as const, hasMore: false, limit: period === "day" ? 300 : 500, markerCount: 1, matchedRowCount: count, missingRowCount: 0, nextCursor: null, observedEndDate: "2026-07-31", observedStartDate: "2026-07-31", signalThreshold: 9 as const, sourceRowCount: count, startDate: null },
     period,
     subjectType: "index" as const,
     tsCode,
@@ -813,6 +826,7 @@ function makeMinuteResponse(freq: number, tsCode = "000001.SH") {
       open: 10 + index, high: 11 + index, low: 9 + index, close: 10.5 + index,
       vol: 100 + index, amount: 1000 + index, exchange: "SSE",
     })).reverse(),
+    nineTurn: freq === 1 ? null : makeIndexNineTurnResponse(tsCode, String(freq) as "5" | "15" | "30" | "60" | "90" | "120", 20),
     meta: { count: 20, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: "2026-07-31", observedEndDate: "2026-07-31" },
     dataStatus: { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: "2026-07-31", message: null },
   };
@@ -823,6 +837,7 @@ function makeEmptyMinuteResponse(freq: number, tsCode: string) {
     tsCode,
     freq,
     bars: [],
+    nineTurn: freq === 1 ? null : makeEmptyIndexNineTurnResponse(tsCode, String(freq) as "5" | "15" | "30" | "60" | "90" | "120"),
     meta: { count: 0, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: null, observedEndDate: null },
     dataStatus: { status: "EMPTY" as const, code: "IM_SOURCE_NOT_READY", expectedEndDate: "2026-07-31", observedEndDate: null, message: "当前数据源不覆盖北证50分钟数据。" },
   };

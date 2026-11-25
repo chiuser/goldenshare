@@ -1,3 +1,4 @@
+import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -95,17 +96,17 @@ describe("useIndexMinuteSeries", () => {
     expect(result.current.data?.indicatorSource).toBe("gold");
   });
 
-  it("keeps real bars and marks only the indicator layer partial when Gold fails", async () => {
+  it("keeps real bars and keeps nine-turn when the common indicator request fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));
       if (url.pathname.endsWith("/minute-indicators")) {
         return response({ code: "IM_QUERY_FAILED", message: "指标查询失败" }, 500);
       }
-      return response(makeBarsResponse(1));
+      return response(makeBarsResponse(5));
     }));
 
     const { result } = renderHook(() => useIndexMinuteSeries({
-      activePeriod: "m1",
+      activePeriod: "m5",
       enabled: true,
       endDate: "2026-07-31",
       tsCode: "000001.SH",
@@ -115,6 +116,7 @@ describe("useIndexMinuteSeries", () => {
     expect(result.current.data?.points).toHaveLength(20);
     expect(result.current.data?.indicatorSource).toBe("unavailable");
     expect(result.current.data?.points.every((point) => point.ma5 === null && point.macd === null)).toBe(true);
+    expect(result.current.nineTurnFor("5")?.markers).toHaveLength(1);
     expect(result.current.errorMessage).toContain("K 线仍可使用");
   });
 
@@ -153,10 +155,29 @@ function makeBarsResponse(freq: IndexDetailMinuteFrequency, empty = false): Inde
     amount: 1000 + index,
     exchange: "SSE",
   })).reverse();
+  const tsCode = empty ? "899050.BJ" : "000001.SH";
+  const observedDate = empty ? null : "2026-07-31";
+  const latestMarker = bars.length ? {
+    completed: false, direction: "UP" as const, sequenceNumber: 3 as const,
+    tradeDate: bars[0].tradeDate, tradeTime: bars[0].tradeTime,
+  } : null;
   return {
-    tsCode: empty ? "899050.BJ" : "000001.SH",
+    tsCode,
     freq,
     bars,
+    nineTurn: freq === 1 ? null : {
+      tsCode, period: String(freq) as Exclude<NineTurnPeriod, "day">, subjectType: "index",
+      markers: latestMarker ? [latestMarker] : [], latestMarker, debugInfo: null,
+      meta: {
+        comparisonLag: 4, signalThreshold: 9, formulaVersion: 1, limit: 500,
+        startDate: null, endDate: "2026-07-31", observedStartDate: observedDate, observedEndDate: observedDate,
+        hasMore: false, nextCursor: null, markerCount: latestMarker ? 1 : 0,
+        sourceRowCount: bars.length, matchedRowCount: bars.length, missingRowCount: 0,
+      },
+      dataStatus: empty
+        ? { status: "EMPTY", code: "NT_SOURCE_NOT_READY", expectedEndDate: "2026-07-31", observedEndDate: null, message: "当前数据源不覆盖该指数分钟九转。" }
+        : { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: observedDate, message: null },
+    },
     meta: { count: bars.length, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: empty ? null : "2026-07-31", observedEndDate: empty ? null : "2026-07-31" },
     dataStatus: empty
       ? { status: "EMPTY", code: "IM_SOURCE_NOT_READY", expectedEndDate: "2026-07-31", observedEndDate: null, message: "当前分钟数据源暂不覆盖该指数。" }

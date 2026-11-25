@@ -1,5 +1,5 @@
 import type { MarketDirection } from "../../../shared/model/market";
-import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnMarkerDto, NineTurnSeriesDto } from "../../nine-turn/api/nineTurnApiTypes";
 
 export type IndexDetailDataStatusValue = "READY" | "DELAYED" | "PARTIAL" | "EMPTY";
 export type IndexLongPeriod = "week" | "month";
@@ -210,6 +210,7 @@ export interface IndexMinutesResponseDto {
   tsCode: string;
   freq: IndexDetailMinuteFrequency;
   bars: IndexMinuteBarDto[];
+  nineTurn: NineTurnSeriesDto | null;
   meta: {
     count: number;
     limit: number;

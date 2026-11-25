@@ -1,5 +1,7 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
+> 本地指数日线和分钟线算子接入见[九转算子 LLD §11](../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。下方保留原 Gold 和 Prod 交付记录。
+
 <a id="report-attachment-cleanup-20261103"></a>
 
 > 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../lake_console/docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。

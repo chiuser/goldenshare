@@ -4,7 +4,7 @@
 
 §1–4 记录九转算子及本地股票日线的首期实施。其他股票周期见[股票周月线方案](technical-indicator-stock-period-plan-v1.md)和[股票分钟线方案](technical-indicator-stock-minute-plan-v1.md)。
 
-2026-11-25｜[本地指数九转](#local-index-nine-turn-plan)阶段 1 和阶段 2 已通过独立验收，分钟线接入待实施。
+2026-11-25｜[本地指数九转](#local-index-nine-turn-plan)阶段 1–3 已通过本机隔离验收，待切换常用本地服务。
 
 ## 1. 目标与范围
 
@@ -40,9 +40,9 @@
 
 ## 5. 本地指数日线和分钟线九转
 
-2026-11-25｜阶段 1 的六档分钟九转算子、阶段 2 的本地指数日线回包及页面接入均已验收。常用本机服务待正式切换，分钟接口和页面待接入。[阶段 1 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-one-audit) · [阶段 2 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit)
+2026-11-25｜本地指数日线与六档分钟九转接入已通过隔离验收。常用本机服务待正式切换。[阶段 1 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-one-audit) · [阶段 2 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit) · [阶段 3 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-three-audit)
 
-本地指数详情已经用算子库计算日 K、分钟 K 和常用指标。日线页面仍另发九转请求，由本地后端用 DG 日线日期匹配 Prod 指数日线九转表 `core_serving.index_nineturn_daily`。分钟图和右侧「技术面」仍经独立九转接口读 DG 主要指数分钟九转成品 `gold/indicator/major_index_mins_nineturn`。本期迁移这两条链，页面继续使用原有九转开关、位置和 1–9 标记。[当前数据来源](technical-indicator-local-backend-source-audit-v1.html#index-active-daily-nine-turn)
+迁移前，本地指数详情已用算子库计算日 K、分钟 K 和常用指标。日线页面另发九转请求，由本地后端用 DG 日线日期匹配 Prod 指数日线九转表 `core_serving.index_nineturn_daily`。分钟图和右侧「技术面」经独立九转接口读 DG 主要指数分钟九转成品 `gold/indicator/major_index_mins_nineturn`。本期迁移这两条链，页面继续使用原有九转开关、位置和 1–9 标记。[当前数据来源](technical-indicator-local-backend-source-audit-v1.html#index-active-daily-nine-turn)
 
 - **日线。** 所有已接入本地日 K 的指数，用同一次算子请求计算日 K、常用指标和九转。浏览器从 `/kline` 取得首屏和续页的九转。每批最多 500 根，首屏以 `/page-init` 给出的交易日为准，翻页沿用 `nextEndDate`。日线摘要复用首屏回包。
 - **分钟线。** 迁移现有的 5、15、30、60、90、120 分钟九转。算子复用本次请求所用的不复权分钟 K 线，90／120 分钟以已合成的 K 线为输入。行情接口 `/minutes` 一次返回这批 K 线及九转。现有常用分钟指标接口照旧单独加载，保留其失败时 K 线仍可显示的行为。1 分钟继续提供 K 线和常用指标，九转开放范围沿用现有页面。

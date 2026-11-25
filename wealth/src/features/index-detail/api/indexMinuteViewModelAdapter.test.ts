@@ -111,6 +111,7 @@ function makeBarsResponse(bars: IndexMinuteBarDto[]): IndexMinutesResponseDto {
     tsCode: "000001.SH",
     freq: 1,
     bars,
+    nineTurn: null,
     meta: { count: bars.length, limit: 500, hasMore: false, nextCursor: null, startDate: null, endDate: "2026-07-31", observedStartDate: "2026-07-01", observedEndDate: "2026-07-01" },
     dataStatus: { status: "READY", code: null, expectedEndDate: "2026-07-31", observedEndDate: "2026-07-31", message: null },
   };

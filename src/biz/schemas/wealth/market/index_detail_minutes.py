@@ -5,6 +5,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from .nine_turn import NineTurnSeriesDto
 
 IndexMinuteFrequency = Literal[1, 5, 15, 30, 60, 90, 120]
 IndexMinuteStatusValue = Literal["READY", "DELAYED", "EMPTY"]
@@ -85,6 +86,7 @@ class IndexMinutesResponseDto(BaseModel):
     bars: list[IndexMinuteBarDto]
     meta: IndexMinutePageMetaDto
     dataStatus: IndexMinuteDataStatusDto
+    nineTurn: NineTurnSeriesDto | None
 
 
 class IndexMinuteIndicatorsResponseDto(BaseModel):

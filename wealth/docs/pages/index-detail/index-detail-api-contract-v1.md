@@ -28,7 +28,7 @@
 2. `GET /api/v1/wealth/market/index-detail/kline`
 3. `GET /api/v1/wealth/market/index-detail/weights`
 
-趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`。本地日线九转随 §5.7 的日 K 返回，Prod 日线和本地分钟图继续使用各自的独立九转接口。page-init 只声明当前环境支持的九转周期。技术结论和本地指数分钟由各自独立合同治理。
+趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`。本地日线九转随 §5.7 的日 K 返回，Prod 日线按 §5.8 查询。page-init 声明当前环境支持的九转周期。分钟图及技术面摘要的九转取数见[本地分钟 API 合同](index-detail-minutes-api-contract-v1.md#34-九转)。
 
 ## 2. 全局序列化规则
 
@@ -237,8 +237,8 @@ interface IndexDetailPageInitResponseDto {
 13. 分钟能力关闭时，`availablePeriods` 不含分钟周期，`minuteFrequencies` 为空。两种指数周月线算子位置和对应接口同时就绪、运行配置支持每页 500 根时，`availablePeriods` 在 `day` 后列出 `week`、`month`，`supportsWeeklyMonthly=true`。否则两项均不开放。普通、核验接口使用同一能力判断，默认仍为 `day`。
 14. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
 15. `supportsNineTurn=true` 表示指数详情支持日线九转。当前窗口没有 1–9 标记时仍可返回空列表。本地和 Prod 按 §5.7、§5.8 取得标记。
-16. 生产、local/dev 分钟九转能力未就绪时，`nineTurnPeriods=["day"]`；local/dev 且指数分钟九转 capability 与分钟 router 同时就绪时，返回 `day,5,15,30,60,90,120`。指数 1 分钟永不进入列表。
-17. page-init 与 App router 必须消费同一个指数分钟九转 capability resolver；页面只能请求 `nineTurnPeriods` 中的周期，禁止以 K 线周期列表推导九转能力。
+16. 指数分钟行情能力启用时，`nineTurnPeriods` 返回 `day,5,15,30,60,90,120`，其余环境为 `["day"]`。
+17. page-init 与 App 的两条分钟行情及独立分钟九转路由使用同一个指数分钟行情能力判断。页面按 `nineTurnPeriods` 判断九转能力。
 18. 本地请求早于该指数首根完整日 K，或该日期及之前无已发布行情，返回空盘。DG 读取失败仍返回 HTTP 500 / `ID_QUERY_FAILED`。已发布行情落后于期望日期时，保留其实际日期及现有状态优先级。
 
 ## 5. `GET /kline`

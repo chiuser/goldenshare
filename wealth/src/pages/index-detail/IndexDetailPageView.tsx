@@ -38,7 +38,7 @@ import { resolveIndexRecognitionAvailability } from "../../features/index-detail
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import { isXxmPeriod } from "../../features/index-detail/xxm/types";
-import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
+import { idleNineTurnLayer, unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import "./index-detail-page.css";
@@ -132,9 +132,6 @@ export function IndexDetailPageView({
   const nineTurnControl = useNineTurnDisplayControl(normalizedTsCode,
     activeNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
       && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
-  const nineTurnLayer = activeNineTurnPeriod === null
-    ? unsupportedNineTurnLayer("1")
-    : (activeNineTurnPeriod === "day" ? localDailyNineTurn : null) ?? nineTurnRegistry.stateFor(activeNineTurnPeriod);
   const minute = useIndexMinuteSeries({
     activePeriod: chartPeriod,
     requests,
@@ -142,6 +139,19 @@ export function IndexDetailPageView({
     endDate: viewModel?.asOfTradeDate ?? null,
     tsCode: normalizedTsCode,
   });
+  const { nineTurnFor: minuteNineTurnFor } = minute;
+  const nineTurnLayer = activeNineTurnPeriod === null
+    ? unsupportedNineTurnLayer("1")
+    : activeNineTurnPeriod === "day"
+      ? localDailyNineTurn ?? nineTurnRegistry.stateFor("day")
+      : nineTurnCapabilities?.nineTurnPeriods.includes(activeNineTurnPeriod)
+        ? minuteNineTurnFor(activeNineTurnPeriod) ?? {
+            ...idleNineTurnLayer(activeNineTurnPeriod),
+            phase: minute.phase === "error" ? "ERROR" : "LOADING",
+            canRetry: minute.phase === "error",
+            message: minute.errorMessage || null,
+          }
+        : unsupportedNineTurnLayer(activeNineTurnPeriod);
 
   useEffect(() => {
     if (controller.phase === "loading" || controller.phase === "empty") setActiveTab("basic");
@@ -158,20 +168,19 @@ export function IndexDetailPageView({
   }, [activePeriod, viewModel]);
 
   useEffect(() => {
-    if (!hasData || activeNineTurnPeriod === null) return;
-    if (activeNineTurnPeriod === "day" && localDailyNineTurn) return;
-    void nineTurnRegistry.ensure(activeNineTurnPeriod);
+    if (!hasData || activeNineTurnPeriod !== "day" || localDailyNineTurn) return;
+    void nineTurnRegistry.ensure("day");
   }, [activeNineTurnPeriod, hasData, localDailyNineTurn, nineTurnRegistry.ensure]);
 
   useEffect(() => {
     if (!hasData || activeTab !== "technical") return;
     INDEX_TECHNICAL_NINE_TURN_PERIODS.forEach(({ period }) => {
-      if (period === "day" && localDailyNineTurn) return;
+      if (period === "day" ? localDailyNineTurn : period === activeNineTurnPeriod || minuteNineTurnFor(period)) return;
       if (viewModel?.capabilities.nineTurnPeriods.includes(period)) {
         void nineTurnRegistry.ensure(period);
       }
     });
-  }, [activeTab, hasData, localDailyNineTurn, nineTurnRegistry.ensure, viewModel]);
+  }, [activeTab, activeNineTurnPeriod, hasData, localDailyNineTurn, minuteNineTurnFor, nineTurnRegistry.ensure, viewModel]);
 
   const historyError = controller.history?.error;
   useEffect(() => {
@@ -313,9 +322,7 @@ export function IndexDetailPageView({
               indicatorControls={indicatorControls}
               nineTurnControl={nineTurnControl}
               nineTurnLayer={nineTurnLayer}
-              onNineTurnRetry={() => {
-                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
-              }}
+              onNineTurnRetry={minute.retry}
               onRetry={minute.retry}
               phase={minute.phase}
             />
@@ -330,7 +337,13 @@ export function IndexDetailPageView({
           activeTab={activeTab}
           onAction={showToast}
           onTabChange={setActiveTab}
-          onNineTurnRetry={(period) => { void nineTurnRegistry.retry(period); }}
+          onNineTurnRetry={(period) => {
+            if (period !== "day" && period === activeNineTurnPeriod) {
+              minute.retry();
+              return;
+            }
+            void nineTurnRegistry.retry(period);
+          }}
           onTrendRetry={controller.retryTrend}
           pagePhase={controller.phase}
           partialReasons={controller.partialReasons}
@@ -340,7 +353,8 @@ export function IndexDetailPageView({
           weights={displayedWeights}
           nineTurnSummary={Object.fromEntries(
             INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ period }) => [
-              period, (period === "day" ? localDailyNineTurn : null) ?? nineTurnRegistry.stateFor(period),
+              period, (period === "day" ? localDailyNineTurn : minuteNineTurnFor(period))
+                ?? (period === activeNineTurnPeriod ? nineTurnLayer : nineTurnRegistry.stateFor(period)),
             ]),
           ) as IndexTechnicalNineTurnSummary}
         />

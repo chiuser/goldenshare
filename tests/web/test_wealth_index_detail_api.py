@@ -370,23 +370,24 @@ def test_page_init_without_trade_date_uses_shared_default_page_context(app_clien
     assert payload["asOfTradeDate"] == today.isoformat()
 
 
-def test_page_init_uses_the_index_nine_turn_router_capability_resolver(monkeypatch) -> None:
-    enabled = LocalMinuteCapability(enabled=True, lake_root=None, reason_code=None)
-    disabled = LocalMinuteCapability(enabled=False, lake_root=None, reason_code=None)
-    monkeypatch.setattr(index_detail_page_query_service, "resolve_index_minute_capability", lambda _: disabled)
+@pytest.mark.parametrize("minutes_enabled", [False, True])
+def test_page_init_uses_the_same_capability_for_index_minutes_and_nine_turn(monkeypatch, minutes_enabled) -> None:
+    capability = LocalMinuteCapability(enabled=minutes_enabled, lake_root=None, reason_code=None)
     monkeypatch.setattr(
         index_detail_page_query_service,
-        "resolve_index_nine_turn_minute_capability",
-        lambda _: enabled,
+        "resolve_index_minute_capability",
+        lambda _: capability,
     )
 
     capabilities = index_detail_page_query_service.IndexDetailPageQueryService._build_capabilities(
         ts_code=_INDEX_CODE
     )
 
-    assert capabilities.supportsMinute is False
+    assert capabilities.supportsMinute is minutes_enabled
     assert capabilities.supportsNineTurn is True
-    assert capabilities.nineTurnPeriods == ["day", "5", "15", "30", "60", "90", "120"]
+    assert capabilities.nineTurnPeriods == (
+        ["day", "5", "15", "30", "60", "90", "120"] if minutes_enabled else ["day"]
+    )
 
 
 def test_page_init_keeps_factor_amount_null_and_never_falls_back_to_daily(app_client, db_session) -> None:
