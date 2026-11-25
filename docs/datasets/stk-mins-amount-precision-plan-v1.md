@@ -3,7 +3,7 @@
 - 日期：2026-11-25
 - 状态：阶段 1 开发和隔离验收完成，详见 [LLD 验收记录](stk-mins-amount-precision-low-level-design-v1.md#8-阶段-1-独立验收记录)。阶段 2 生产切换待执行。
 - 范围：Prod 股票历史分钟行情 `stk_mins` 的成交额写入、Prod 消费者和 DG 从 Prod 取数。覆盖 Tushare 原生 1、5、15、30、60 分钟。成交额单位为元。
-- 依据：[股票历史分钟维护说明](stk-mins-dataset-development.md) · [Tushare 股票历史分钟行情 0370](../sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md) · [股票分钟样本对账](../architecture/technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-amount-rounding)
+- 依据：[股票历史分钟维护说明](stk-mins-dataset-development.md) · [Tushare 股票历史分钟行情 0370](../sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md)
 
 ## 1. 目标与现状
 
@@ -21,7 +21,7 @@
 | 原表叶分区 | 按月及默认分区共 325 个，其中 11 个已分配数据页 |
 | 数据量 | 约 3.69 亿行，表及索引合计 57,222,864,896 字节，约 53.3 GiB |
 
-2026-11-17 贵州茅台 15:00 的 30 分钟成交额源值为 1,228,092,577 元，经 Prod `REAL` 入库变成 1,228,092,544 元，DG 继承该结果。旧湖逐股直拉历史样本的差异在迁入 DG 前就已存在，现有证据不足以判定当时 Tushare 返回了什么。本方案处理已经定位的 **Prod 入库精度损失**。 [Prod 样本复算](../architecture/technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-amount-rounding)
+2026-11-17 贵州茅台 15:00 的 30 分钟成交额源值为 1,228,092,577 元，经 Prod `REAL` 入库变成 1,228,092,544 元，DG 继承该结果。旧湖逐股直拉历史样本的差异在迁入 DG 前就已存在，现有证据不足以判定当时 Tushare 返回了什么。本方案处理已经定位的 **Prod 入库精度损失**。 2026-11-25 切换前复查按 `600519.SH`、30 分钟、`2026-11-17 15:00:00` 的完整主键只读一行，Prod 仍为 1,228,092,544 元。 [历史金额读取验证](stk-mins-amount-precision-low-level-design-v1.md#32-prod-读者)
 
 ## 2. 存储与写入
 
