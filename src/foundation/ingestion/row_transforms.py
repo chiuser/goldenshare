@@ -15,6 +15,7 @@ from src.foundation.services.transform.top_list_payload import build_top_list_pa
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
+from src.utils import to_decimal
 from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
 from src.foundation.datasets.anns_d_contracts import identity as announcement_identity
 from src.foundation.datasets.public_fund_contracts import (
@@ -988,7 +989,8 @@ def _stk_mins_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed["high"] = _optional_float(transformed.get("high"), ndigits=2)
     transformed["low"] = _optional_float(transformed.get("low"), ndigits=2)
     transformed["vol"] = _optional_int(transformed.get("vol"))
-    transformed["amount"] = _optional_float(transformed.get("amount"))
+    transformed["amount_precise"] = to_decimal(transformed.get("amount"))
+    transformed["amount"] = None
     transformed.pop("trade_date", None)
     transformed.pop("session_tag", None)
     transformed.pop("api_name", None)

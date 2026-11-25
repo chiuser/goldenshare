@@ -36,7 +36,7 @@
 
 进度含代码、名称（可取得时）、频率、窗口及当前 unit/累计行数。逐 unit 提交保护已提交事实，但不能据此宣称已有退出后的精准续跑。整段多年窗口仍可能产生大 unit；大范围执行必须按[执行计划与长任务基线](/Users/congming/github/goldenshare/docs/architecture/dataset-execution-plan-refactor-plan-v1.md)另行评估内存、分页、事务和恢复，不因文档精简放宽门禁。
 
-## 4. 九列物理表与视图
+## 4. 现行 Prod 九列物理表与视图
 
 [Raw 模型](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_stk_mins.py)对应唯一物理表 `raw_tushare.stk_mins`：
 
@@ -69,3 +69,15 @@
 90 分钟是我方派生结果，不得写入 Tushare Raw。后续采用独立派生存储的方向已确认；原建议 `core_serving.equity_minute_bar_derived` 及字段仍需独立设计，当前没有该表实现，不能写成已接入。
 
 存储迁移保留独立[瘦身与冷热治理方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)，不在本文重列生产命令或解除 No-Go。worker 领取、取消及部署见[执行隔离说明](/Users/congming/github/goldenshare/docs/ops/ops-stk-mins-dedicated-worker-execution-lane-plan-v1.md)；停车道不等于数据库拒写。
+
+## 7. 成交额精度改造的实施合同
+
+阶段 1 开发和隔离验收已完成。第 4 节记录生产切换前的 Prod 结构，切换以[方案](stk-mins-amount-precision-plan-v1.md)及[实施 LLD](stk-mins-amount-precision-low-level-design-v1.md)为准。
+
+| 开发模板检查项 | 本次核定 |
+| --- | --- |
+| 源接口、业务时间和执行计划 | 继续使用 [Tushare doc 370](../sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md) 的 `stk_mins`。渲染及存储单位为元。现有实测是明确代码、频率、时间区间的分钟样本。旧参数、无日期及分页行为沿用 §1–§3 的已实现合同，验收读取限单股、单日、单频。交易日解释、每股每频一个窗口及 `trade_time` 观测各自维持原用途。 |
+| Definition 与合同消费者 | 身份、存储目标、执行计划、动作和目录契约继续引用现有 Definition。手动、计划和重试复用股票分钟专用 worker。取数、写入、查询视图、快照命令、DG 以及间接 API 消费清单见 LLD §3。 |
+| 源字段到存储 | HTTP 响应 `amount` 保留十进制。原表增加可空且无默认值的 `amount_precise NUMERIC`。新版写两列时将旧列设为 `NULL`，现存旧行留在 `amount REAL`。视图、聚合和 DG 输出继续使用 `amount`，金额选择依 LLD §2–§3。股票代码、时间、频率、四价和成交量继续用 §4 的字段合同。 |
+| 批量、事务与状态 | 每页上限 8,000 行，现有并发 2，每 unit 内累积页面。提交依旧以 unit 为边界，幂等键为 `(ts_code,freq,trade_time)`。保留进度里的股票、频率、窗口、完成 unit、累计行数和 TaskRun 终态。取消仍用现有检查点。进程重启后用已有 Ops 重试入口重放范围，已提交的主键用于幂等重放。DAO 批次上限受绑定列数量及有效配置共同约束，详见 LLD §4。 |
+| 开发和部署验证 | 阶段 1 在隔离 PostgreSQL、DuckDB 和固定源样本验证了新旧值、冲突更新、快照及跨库导出，证据见 LLD §8。生产抽样与日常同步按 LLD §6 区分，禁止全量审计、扫描及回刷。 |

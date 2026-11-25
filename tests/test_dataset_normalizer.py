@@ -1249,7 +1249,8 @@ def test_stk_mins_normalizer_writes_slim_storage_fields_only() -> None:
         "high": 10.25,
         "low": 10.22,
         "vol": 3000000000,
-        "amount": 5678.9,
+        "amount": None,
+        "amount_precise": Decimal("5678.9"),
     }
 
 

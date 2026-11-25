@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from decimal import Decimal
 import logging
 from threading import Lock
 import time
@@ -207,10 +208,11 @@ class TushareHttpClient:
             "fields": ",".join(fields) if fields else "",
         }
         param_summary = self._summarize_params(params)
+        preserve_amount = api_name == "stk_mins"
         try:
             response = self.session.post(self.base_url, json=payload, timeout=self.timeout)
             response.raise_for_status()
-            raw_response_json = response.json()
+            raw_response_json = response.json(parse_float=Decimal) if preserve_amount else response.json()
             envelope = TushareEnvelope.model_validate(raw_response_json)
         except requests.RequestException as exc:
             self.logger.warning(
@@ -235,11 +237,17 @@ class TushareHttpClient:
                 api_name=api_name,
                 message=message,
                 code=envelope.code,
-                raw_response_json=raw_response_json,
+                raw_response_json=response.json() if preserve_amount else raw_response_json,
             )
         if envelope.data is None:
             return []
-        return [dict(zip(envelope.data.fields, item, strict=False)) for item in envelope.data.items]
+        rows = [dict(zip(envelope.data.fields, item, strict=False)) for item in envelope.data.items]
+        if preserve_amount:
+            for row in rows:
+                for field, value in row.items():
+                    if field != "amount" and isinstance(value, Decimal):
+                        row[field] = float(value)
+        return rows
 
     @staticmethod
     def _is_rate_limit_message(message: str) -> bool:

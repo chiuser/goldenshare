@@ -31,7 +31,10 @@ def test_materialize_trade_date_builds_ready_snapshot() -> None:
     session = _build_session()
     try:
         trade_date = date(2026, 5, 8)
-        for ts_code, amount_base in (("000001.SZ", 1000.0), ("000002.SZ", 1200.0)):
+        for ts_code, amount_fields in (
+            ("000001.SZ", {"amount": 1000.0}),
+            ("000002.SZ", {"amount_precise": Decimal("1200.25")}),
+        ):
             for minute in ("09:30:00", "10:00:00", "10:30:00", "15:00:00"):
                 session.add(
                     RawStkMins(
@@ -43,7 +46,7 @@ def test_materialize_trade_date_builds_ready_snapshot() -> None:
                         high=10.0,
                         low=10.0,
                         vol=100,
-                        amount=amount_base,
+                        **amount_fields,
                     )
                 )
         session.commit()
@@ -73,7 +76,7 @@ def test_materialize_trade_date_builds_ready_snapshot() -> None:
         assert snapshot.total_vol == 800
         assert isinstance(snapshot.points_json, list)
         assert len(snapshot.points_json) == 4
-        assert snapshot.points_json[0]["amount"] == 2.2
+        assert snapshot.points_json[0]["amount"] == 2.20025
         assert snapshot.points_json[0]["vol"] == 200
     finally:
         session.close()

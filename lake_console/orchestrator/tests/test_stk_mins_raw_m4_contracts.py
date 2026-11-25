@@ -593,6 +593,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertNotIn("api_name", normalized_sql)
         self.assertNotIn("fetched_at", normalized_sql)
         self.assertNotIn("raw_payload", normalized_sql)
+        self.assertIn(
+            "coalesce(amount_precise, amount::double precision::numeric)::double precision as amount",
+            normalized_sql,
+        )
         self.assertIn("ts_code = any(array[", normalized_sql)
         self.assertIn("where freq = 1", normalized_sql)
         self.assertIn("trade_time >=", normalized_sql)

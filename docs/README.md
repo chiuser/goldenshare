@@ -221,6 +221,8 @@ docs/
 - [25股历史因子及DG下游修复方案（暂停、后置；周/月Raw及Silver完成后另行确认）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-adj-factor-history-repair-plan-v1.md)
 - [25股修复LLD（R1/R2已提交、R3暂停现场及未实施优化）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-adj-factor-history-repair-low-level-design-v1.md)
 - [股票历史分钟维护说明（九列模型、整窗 unit 与 CLI 限制）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)
+- [Prod 股票分钟行情成交额精度改造方案 v1（阶段 1 已隔离验收，待生产切换）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-amount-precision-plan-v1.md)
+- [Prod 股票分钟行情成交额精度改造 LLD v1（含阶段 1 验收记录）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-amount-precision-low-level-design-v1.md)
 - [指数历史分钟维护说明（激活池、默认五频与存在性探测；后续生产验收未复核）](/Users/congming/github/goldenshare/docs/datasets/index-mins-dataset-development.md)
 - [主要指数历史分钟线数据集开发说明（Lake/Dagster，开发完成，待独立运维验收）](/Users/congming/github/goldenshare/docs/datasets/major-index-mins-dataset-development.md)
 - [指数四浪反弹失效与趋势反转量化回测方案 v1（独立专项案例，暂缓实施）](/Users/congming/github/goldenshare/docs/datasets/index-wave4-trend-reversal-backtest-plan-v1.md)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -75,6 +76,34 @@ def test_tushare_http_client_uses_session_post_with_timeout_tuple(mocker) -> Non
         },
         timeout=(5, 30),
     )
+
+
+@pytest.mark.parametrize(
+    ("api_name", "expected_amount"),
+    [
+        ("stk_mins", Decimal("7473614620.35")),
+        ("idx_mins", 7473614620.35),
+    ],
+)
+def test_tushare_http_preserves_only_stock_minute_amount_precision(mocker, api_name, expected_amount) -> None:
+    client = TushareHttpClient(token="token")
+    response = requests.Response()
+    response.status_code = 200
+    # 300750.SZ at 2025-11-17 10:00, 30-minute Tushare sample documented in the LLD.
+    response._content = (
+        b'{"code":0,"msg":"ok","data":{"fields":["close","amount","vol","ts_code"],'
+        b'"items":[[387.86,7473614620.35,19322154,"300750.SZ"]]}}'
+    )
+    post = mocker.patch.object(client.session, "post", return_value=response)
+
+    [row] = client.call(api_name)
+
+    assert type(row["amount"]) is type(expected_amount)
+    assert row["amount"] == expected_amount
+    assert isinstance(row["close"], float)
+    assert row["close"] == 387.86
+    assert row["vol"] == 19322154
+    post.assert_called_once()
 
 
 def test_tushare_http_client_logs_and_reraises_request_exception(mocker) -> None:

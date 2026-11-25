@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import Double, Numeric, cast, func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core_serving.wealth_market_turnover_snapshot import WealthMarketTurnoverSnapshot
@@ -63,11 +63,14 @@ class TurnoverSnapshotMaterializeService:
             RawStkMins.trade_time < day_end,
         )
 
+        amount = func.coalesce(
+            RawStkMins.amount_precise, cast(cast(RawStkMins.amount, Double()), Numeric())
+        )
         summary = session.execute(
             select(
                 func.count().label("source_row_count"),
                 func.count(func.distinct(RawStkMins.ts_code)).label("security_count"),
-                func.sum(RawStkMins.amount).label("total_amount"),
+                func.sum(amount).label("total_amount"),
                 func.sum(RawStkMins.vol).label("total_vol"),
                 func.max(RawStkMins.trade_time).label("latest_trade_time"),
             ).where(*filters)
@@ -111,7 +114,7 @@ class TurnoverSnapshotMaterializeService:
         points_rows = session.execute(
             select(
                 RawStkMins.trade_time.label("trade_time"),
-                func.sum(RawStkMins.amount).label("amount"),
+                func.sum(amount).label("amount"),
                 func.sum(RawStkMins.vol).label("vol"),
                 func.count(func.distinct(RawStkMins.ts_code)).label("security_count"),
             )

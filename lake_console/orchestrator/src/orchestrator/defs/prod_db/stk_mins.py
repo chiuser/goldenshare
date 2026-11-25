@@ -68,7 +68,7 @@ SELECT
   high,
   low,
   vol,
-  amount
+  COALESCE(amount_precise, amount::double precision::numeric)::double precision AS amount
 FROM raw_tushare.stk_mins
 WHERE freq = {freq}
   AND trade_time >= TIMESTAMP {start_datetime}

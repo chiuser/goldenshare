@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import BigInteger, DateTime, Float, SmallInteger, String
+from sqlalchemy import BigInteger, DateTime, Float, Numeric, SmallInteger, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base
@@ -21,3 +22,4 @@ class RawStkMins(Base):
     low: Mapped[float | None] = mapped_column(Float(24))
     vol: Mapped[int | None] = mapped_column(BigInteger)
     amount: Mapped[float | None] = mapped_column(Float(24))
+    amount_precise: Mapped[Decimal | None] = mapped_column(Numeric(), nullable=True)
