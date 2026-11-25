@@ -1,6 +1,6 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-11-25（核对每日盘后工作流当前 28 步，登记临时移除股票技术面因子的待实施方案；非生产运行验收）
+> 更新时间：2026-11-25（本地每日盘后工作流临时移除股票技术面因子，保留 27 步；未部署、非生产运行验收）
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
@@ -92,7 +92,7 @@
 
 ## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
-2026-11-25：管理员明确要求临时从本工作流移除股票技术面因子 `stk_factor_pro`。本轮只编写[方案](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)与 [LLD](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-low-level-design-v1.md)，代码尚未修改，以下仍是当前 28 步。实施后才变为 27 步；股票复权因子 `adj_factor` 继续保留，股票技术面因子的独立维护入口不删除。
+2026-11-25：已按管理员确认的[方案](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)与 [LLD](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-low-level-design-v1.md)，在本地代码中临时注释股票技术面因子 `stk_factor_pro` 步骤，由开发前 28 步变为以下 27 步；股票复权因子 `adj_factor` 继续保留，股票技术面因子的独立维护入口仍在。尚未部署，不表示 Prod 已生效。
 
 - 描述：覆盖日线、集合竞价、历史基础列表、日指标、资金流、热榜、基金日线与新闻资讯的每日维护工作流。
 - 支持自动调度：是
@@ -112,29 +112,28 @@
 | 5 | `daily_basic` | 每日指标 | `daily_basic.maintain` |
 | 6 | `bak_basic` | 股票历史基础列表 | `bak_basic.maintain` |
 | 7 | `cyq_perf` | 每日筹码及胜率 | `cyq_perf.maintain` |
-| 8 | `stk_factor_pro` | 股票技术面因子(专业版) | `stk_factor_pro.maintain` |
-| 9 | `stk_limit` | 每日涨跌停价格 | `stk_limit.maintain` |
-| 10 | `stock_st` | ST股票列表 | `stock_st.maintain` |
-| 11 | `limit_list` | 每日涨跌停名单 | `limit_list_d.maintain` |
-| 12 | `suspend_d` | 每日停复牌信息 | `suspend_d.maintain` |
-| 13 | `top_list` | 龙虎榜 | `top_list.maintain` |
-| 14 | `block_trade` | 大宗交易 | `block_trade.maintain` |
-| 15 | `fund_daily` | 基金日线行情 | `fund_daily.maintain` |
-| 16 | `fund_adj` | 基金复权因子 | `fund_adj.maintain` |
-| 17 | `ths_daily` | 同花顺板块日线行情 | `ths_daily.maintain` |
-| 18 | `dc_index` | 东方财富板块列表 | `dc_index.maintain` |
-| 19 | `dc_member` | 东方财富板块成分 | `dc_member.maintain` |
-| 20 | `dc_daily` | 东方财富板块日线行情 | `dc_daily.maintain` |
-| 21 | `ths_hot` | 同花顺热榜 | `ths_hot.maintain` |
-| 22 | `dc_hot` | 东方财富热榜 | `dc_hot.maintain` |
-| 23 | `limit_list_ths` | 同花顺涨停名单 | `limit_list_ths.maintain` |
-| 24 | `limit_step` | 连板梯队 | `limit_step.maintain` |
-| 25 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
-| 26 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
-| 27 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
-| 28 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
+| 8 | `stk_limit` | 每日涨跌停价格 | `stk_limit.maintain` |
+| 9 | `stock_st` | ST股票列表 | `stock_st.maintain` |
+| 10 | `limit_list` | 每日涨跌停名单 | `limit_list_d.maintain` |
+| 11 | `suspend_d` | 每日停复牌信息 | `suspend_d.maintain` |
+| 12 | `top_list` | 龙虎榜 | `top_list.maintain` |
+| 13 | `block_trade` | 大宗交易 | `block_trade.maintain` |
+| 14 | `fund_daily` | 基金日线行情 | `fund_daily.maintain` |
+| 15 | `fund_adj` | 基金复权因子 | `fund_adj.maintain` |
+| 16 | `ths_daily` | 同花顺板块日线行情 | `ths_daily.maintain` |
+| 17 | `dc_index` | 东方财富板块列表 | `dc_index.maintain` |
+| 18 | `dc_member` | 东方财富板块成分 | `dc_member.maintain` |
+| 19 | `dc_daily` | 东方财富板块日线行情 | `dc_daily.maintain` |
+| 20 | `ths_hot` | 同花顺热榜 | `ths_hot.maintain` |
+| 21 | `dc_hot` | 东方财富热榜 | `dc_hot.maintain` |
+| 22 | `limit_list_ths` | 同花顺涨停名单 | `limit_list_ths.maintain` |
+| 23 | `limit_step` | 连板梯队 | `limit_step.maintain` |
+| 24 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
+| 25 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
+| 26 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
+| 27 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
 
-当前为 28 步。原目录曾登记 29 步，本次据当前定义和 `test_announcements_use_standalone_maintenance_instead_of_workflows` 核实，上市公司公告 `anns_d` 已独立维护，故校准表格；这不是本次新增代码改动。`margin` 不在该工作流中，不代表其数据集或独立维护能力退场。
+本地当前为 27 步，开发前为 28 步，本次只临时移除股票技术面因子。原目录曾登记 29 步；上市公司公告 `anns_d` 已独立维护，之前已据代码和对应测试校准，不是本次新增移除项。`margin` 不在该工作流中，不代表其数据集或独立维护能力退场。
 
 ## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 

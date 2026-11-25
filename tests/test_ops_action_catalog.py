@@ -200,7 +200,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "daily_basic",
         "bak_basic",
         "cyq_perf",
-        "stk_factor_pro",
         "stk_limit",
         "stock_st",
         "limit_list_d",
@@ -223,6 +222,12 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "irm_qa_sz",
     ]
     assert "cyq_chips" not in [step.dataset_key for step in daily_market_close.steps]
+    assert "stk_factor_pro" not in [step.dataset_key for step in daily_market_close.steps]
+    factor_action = get_catalog_target("dataset_action", "stk_factor_pro.maintain")
+    assert factor_action == get_dataset_definition("stk_factor_pro")
+    maintain = factor_action.capabilities.get_action("maintain")
+    assert maintain.manual_enabled and maintain.schedule_enabled and maintain.retry_enabled
+    assert maintain.supported_time_modes == ("point", "range")
 
     assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_moneyflow.workflow_profile == "point_incremental"

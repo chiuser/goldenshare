@@ -2,7 +2,7 @@
 
 日期：2026-11-25（Asia/Shanghai）。
 
-状态：管理员已明确移除对象和工作流范围；方案与 LLD 待审阅。本轮只编写文档，未修改代码、发布、停止任务或补数。
+状态：本地实现、回归与完成后审计已完成，未部署。管理员于 2026-11-25 授权开发与审计，明确要求不自行部署；生产停止、补数与恢复均未执行。相关验证 53 条通过、1 条既有无关失败，范围与结果见 LLD §10。
 
 配套文档：[LLD](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-low-level-design-v1.md)、[现行工作流目录](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)。
 
@@ -14,7 +14,9 @@
 
 本次移除的是股票技术面因子 `stk_factor_pro` 这一个工作流步骤。股票复权因子 `adj_factor` 继续按原工作流维护。暂停期间，工作流完成不再表示股票技术面因子当天数据或历史更正已经完成。
 
-## 2. 当前实现依据
+## 2. 实施前代码依据
+
+下表保留开发前的 28 步基线及审计依据；本地当前代码已按 §3 移除股票技术面因子，保留 27 步。Prod 是否加载新定义尚未核验。
 
 | 已核实事实 | 当前代码或测试 |
 | --- | --- |
@@ -23,6 +25,7 @@
 | 股票技术面因子的全市场单日维护先创建当天下载单元，再比较相邻交易日的股票复权因子，为变化股票追加从本库存最早日期到目标日的下载单元。 | `src/foundation/ingestion/unit_planner.py::_build_stk_factor_pro_units`、`_build_stk_factor_pro_adj_factor_refresh_units`、`_load_stk_factor_pro_raw_start_dates`。这里读取的是 `core.equity_adj_factor`，不是在本地重算源端股票技术面因子。 |
 | 工作流运行时取得当前代码中的定义。修改源文件不能让已在执行的旧任务跳过当前步骤，也不能让旧进程自动加载新定义。 | `_dispatch_workflow` 开始时调用 `get_workflow_definition`，随后遍历取得的 steps。 |
 | 目录 API 的工作流步骤与独立数据集维护动作分别生成。 | `src/ops/queries/catalog_query_service.py::OpsCatalogQueryService.build_catalog`。移除一个工作流步骤不要求删除该数据集。 |
+| 数据状态页按工作流的实际步骤计算自动任务覆盖。移除后该工作流不再计入股票技术面因子的自动维护数量；已有独立调度仍按原配置计入。 | `src/ops/queries/freshness_query_service.py::_auto_schedule_by_action_key`。只影响覆盖展示，不修改 `ops.schedule`。 |
 | 板块分析每日事实所需节点为股票日线、股票复权因子、东方财富板块成分和东方财富板块日线，不包含股票技术面因子。板块热度的必需节点也不包含它。 | `src/ops/services/sector_analysis_daily_upstream_readiness_service.py`、`src/ops/services/sector_heat_upstream_readiness_service.py`。实际日期、时间窗口和业务输入要求继续生效。 |
 
 本次已使用 CodeGraph `codegraph_node(_dispatch_workflow)` 和 `codegraph_impact(get_workflow_definition, depth=1)`，并核对定义、resolver/planner、目录 API、调度入口、前端目录类型与现有测试。图中同名方法存在多义，具体执行事实以以上文件核验为准。
@@ -89,9 +92,12 @@ _dataset_workflow_step("stk_factor_pro", "stk_factor_pro"),
 
 恢复不能仅以“盘后任务恢复正常”为条件。必须先明确恢复后大范围单股历史回刷是否仍会再次占住工作流；处理方式和成本未确认时，保持暂停，不自动恢复。代码回退也会重新带回该步骤，发布回退时须明确这一影响。
 
-## 8. 本轮证据与未执行项
+## 8. 实施记录与未执行项
 
-- 当前代码和既有测试源码已核对；28 → 27 是源码 steps 的直接计数，不是生产执行结果。
-- 前一轮对现有股票技术面因子 planner 执行了 22 条隔离单元测试并通过，包括单日区间不追加历史回刷；该结果不证明本次工作流移除已经实现。
-- 本轮文档检查、最终改动文件和未验证项在配套 LLD 的状态记录中填写。
-- 未读取 Prod 数据、源端历史样本或实时任务状态；未执行代码修改、发布、任务停止、补数及历史回刷。
+2026-11-25 开发前审计：文档已以 `ba7c8508e` 提交；相关基线 20 条通过、1 条既有失败。失败为 `test_maintenance_action_registry_keeps_only_explicit_actions` 的预期清单漏列已有 `maintenance.fill_daily_basic_limit_status`，与本次工作流步骤无关。该失败保留记录，本次不扩展范围修复。
+
+- 业务代码只注释该工作流原 `stk_factor_pro` 元素并补暂停原因。整个 `action_catalog.py` 的 AST 与实施前代码相比，除该元素外完全一致；其余 27 步、其他工作流和默认值保持原样。
+- 7 个针对性用例在实施前全部失败，实施后全部通过，覆盖步骤清单、手动/自动/重新提交、目录 API 和独立调度覆盖；完整回归分类见 LLD §10，不重复累计同一用例数量。
+- 已将方案硬口径逐项对照代码与测试；本地验证覆盖临时移除及能力保留，不声称真实源下载、生产任务退出或 24 日数据已齐备。
+- 相关验证 53 条通过、1 条既有失败。已有动作注册测试漏列 `maintenance.fill_daily_basic_limit_status` 的问题未在本次扩大修复；不能据此宣称相关测试全部通过。
+- 未读取 Prod 数据、源端历史样本或实时任务状态；未执行发布、任务停止、补数、恢复或历史回刷。

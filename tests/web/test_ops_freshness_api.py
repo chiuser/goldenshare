@@ -219,6 +219,47 @@ def test_ops_freshness_marks_dataset_as_automatic_when_covered_by_workflow_sched
     assert grouped["reference_data"]["trade_cal"]["auto_schedule_total"] == 1
 
 
+@pytest.mark.parametrize("independent_factor_schedule", [False, True])
+def test_ops_freshness_daily_workflow_excludes_stock_factor_but_keeps_independent_schedule(
+    app_client,
+    user_factory,
+    ops_schedule_factory,
+    independent_factor_schedule,
+) -> None:
+    # Bindings use the current OpsSchedule contract; expected counts follow
+    # the approved workflow removal and the separately retained dataset action.
+    user_factory(username="admin", password="secret", is_admin=True)
+    ops_schedule_factory(
+        target_type="workflow",
+        target_key="daily_market_close_maintenance",
+        status="active",
+        schedule_type="cron",
+        cron_expr="0 19 * * *",
+    )
+    if independent_factor_schedule:
+        ops_schedule_factory(
+            target_type="dataset_action",
+            target_key="stk_factor_pro.maintain",
+            status="active",
+            schedule_type="cron",
+            cron_expr="0 20 * * *",
+        )
+
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+    response = app_client.get("/api/v1/ops/freshness", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 200
+    items = {item["dataset_key"]: item for group in response.json()["groups"] for item in group["items"]}
+    for dataset_key in ("adj_factor", "daily", "stk_limit"):
+        assert items[dataset_key]["auto_schedule_status"] == "active"
+        assert items[dataset_key]["auto_schedule_total"] == 1
+    factor = items["stk_factor_pro"]
+    assert factor["auto_schedule_total"] == int(independent_factor_schedule)
+    assert factor["auto_schedule_active"] == int(independent_factor_schedule)
+    assert factor["auto_schedule_status"] == ("active" if independent_factor_schedule else "none")
+
+
 def test_ops_freshness_exposes_active_task_run_status_for_dataset(
     app_client,
     user_factory,

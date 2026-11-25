@@ -438,7 +438,9 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("daily_basic", "daily_basic"),
             _dataset_workflow_step("bak_basic", "bak_basic"),
             _dataset_workflow_step("cyq_perf", "cyq_perf"),
-            _dataset_workflow_step("stk_factor_pro", "stk_factor_pro"),
+            # 2026-11-25 临时移出盘后流程，避免单股历史回刷阻塞；恢复条件见
+            # docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md。
+            # _dataset_workflow_step("stk_factor_pro", "stk_factor_pro"),
             _dataset_workflow_step("stk_limit", "stk_limit"),
             _dataset_workflow_step("stock_st", "stock_st"),
             _dataset_workflow_step("limit_list", "limit_list_d"),

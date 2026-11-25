@@ -55,6 +55,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     ]
     assert all(key not in actions for key in legacy_keys)
     assert "daily_market_close_maintenance" in workflow_keys
+    daily_steps = workflows["daily_market_close_maintenance"]["steps"]
+    assert len(daily_steps) == 27
+    assert all(step["dataset_key"] != "stk_factor_pro" for step in daily_steps)
+    assert daily_steps[3]["dataset_key"] == "adj_factor"
+    assert [step["dataset_key"] for step in daily_steps[6:8]] == ["cyq_perf", "stk_limit"]
+    factor_action = actions["stk_factor_pro.maintain"]
+    assert factor_action["manual_enabled"] and factor_action["schedule_enabled"] and factor_action["retry_enabled"]
     assert "reference_data_refresh" in workflow_keys
     assert "reference_data_natural_day_maintenance" not in workflow_keys
     assert "index_extension_maintenance" not in workflow_keys

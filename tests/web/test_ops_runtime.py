@@ -1078,6 +1078,7 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
     trade_calendar_factory(trade_date=resolved_trade_date, is_open=True)
 
     def fake_build_plan(self, request):  # type: ignore[no-untyped-def]
+        assert request.dataset_key != "stk_factor_pro", "盘后工作流不得计划股票技术面因子历史回刷"
         return SimpleNamespace(dataset_key=request.dataset_key, run_profile="point_incremental")
 
     def fake_run_dataset_action_plan(self, session, task_run, action_request, plan):  # type: ignore[no-untyped-def]
@@ -1112,17 +1113,45 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
     assert all(node.resource_key != "anns_d" for node in nodes)
     assert "bak_basic" in dispatched_dataset_keys
     assert dispatched_dataset_keys[5] == "bak_basic"
-    assert len(dispatched_dataset_keys) == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
-    assert [node.node_key for node in nodes][:6] == [
+    # Existing workflow order, with only stk_factor_pro removed (LLD §4).
+    expected_step_keys = [
         "daily",
         "stk_auction_o",
         "stk_auction_c",
         "adj_factor",
         "daily_basic",
         "bak_basic",
+        "cyq_perf",
+        "stk_limit",
+        "stock_st",
+        "limit_list",
+        "suspend_d",
+        "top_list",
+        "block_trade",
+        "fund_daily",
+        "fund_adj",
+        "ths_daily",
+        "dc_index",
+        "dc_member",
+        "dc_daily",
+        "ths_hot",
+        "dc_hot",
+        "limit_list_ths",
+        "limit_step",
+        "limit_cpt_list",
+        "kpl_concept_cons",
+        "irm_qa_sh",
+        "irm_qa_sz",
     ]
-    assert task_run.unit_total == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
-    assert task_run.unit_done == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
+    expected_dataset_keys = ["limit_list_d" if key == "limit_list" else key for key in expected_step_keys]
+    assert dispatched_dataset_keys == expected_dataset_keys
+    assert [node.node_key for node in nodes] == expected_step_keys
+    assert [node.resource_key for node in nodes] == expected_dataset_keys
+    assert [node.sequence_no for node in nodes] == list(range(1, 28))
+    assert all(node.status == "success" for node in nodes)
+    assert task_run.unit_total == 27
+    assert task_run.unit_done == 27
+    assert task_run.unit_failed == 0
     assert task_run.progress_percent == 100
     assert task_run.time_input_json == {"mode": "point"}
     assert all(

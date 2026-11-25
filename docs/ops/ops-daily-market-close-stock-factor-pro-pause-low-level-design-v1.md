@@ -2,7 +2,7 @@
 
 日期：2026-11-25（Asia/Shanghai）。
 
-状态：设计待审阅，未开发、未部署、未执行生产任务。依据[配套方案](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)和[工作流开发说明模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)编写；本 LLD 不是生产执行授权。
+状态：本地实现、回归与完成后审计已完成，未部署、未执行生产任务。依据[配套方案](/Users/congming/github/goldenshare/docs/ops/ops-daily-market-close-stock-factor-pro-pause-plan-v1.md)和[工作流开发说明模板](/Users/congming/github/goldenshare/docs/templates/workflow-development-template.md)实施；管理员明确要求不自行部署。验证 53 条通过、1 条既有无关失败，详见 §10。
 
 ## 1. 目标与基本信息
 
@@ -14,7 +14,7 @@
 | 原有工作流的用途 | 按盘后顺序维护多个不同数据集；本次只调整其中一个成员，不新建工作流或任务类型。 |
 | 实施与验收责任 | 由管理员指定；本次没有生产执行人或运行时间安排。 |
 | 业务代码位置 | `src/ops/action_catalog.py` 的 `WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps`。 |
-| 测试位置 | `tests/test_ops_action_catalog.py`、`tests/web/test_ops_runtime.py`、`tests/web/test_ops_catalog_api.py`；独立能力回归复用既有 planner/writer 测试。 |
+| 测试位置 | `tests/test_ops_action_catalog.py`、`tests/web/test_ops_runtime.py`、`tests/web/test_ops_catalog_api.py`、`tests/web/test_ops_freshness_api.py`；独立能力回归复用既有 planner/writer 测试。 |
 
 本次没有 `DatasetDefinition`、`DatasetExecutionPlan`、源字段、日期语义、API/CLI 输入格式、数据库 schema 或数据写入规则变更，也不迁移数据。后续原有步骤仍按自身合同访问和更新 Prod 数据。
 
@@ -22,11 +22,12 @@
 
 | 环节 | 真实入口与行为 | 本次处理 |
 | --- | --- | --- |
-| 定义 | `_dataset_workflow_step` 从数据集事实源取得动作与显示名称，steps 含股票技术面因子。 | 只注释该 steps 元素，保留 helper。 |
+| 定义 | `_dataset_workflow_step` 从数据集事实源取得动作与显示名称；实施前 steps 含股票技术面因子。 | 已只注释该 steps 元素，保留 helper。 |
 | 执行 | `TaskRunDispatcher._dispatch_workflow` 取得代码定义并逐项执行，创建 `node_type=workflow_step` 节点。 | 保持串行分发与失败规则；不新增按股票技术面因子名称判断的跳过分支。 |
 | 单日计划 | `_build_stk_factor_pro_units` 先生成当天单元，再调用 `_build_stk_factor_pro_adj_factor_refresh_units`。 | 不修改。独立维护仍可能触发历史回刷。 |
 | 单股历史范围 | `_load_stk_factor_pro_raw_start_dates` 查询变化股票现有原始库存最早日，生成至目标日的单股范围。 | 不修改股票名单、历史起点、分页、并发或超时。 |
 | 目录 API | `OpsCatalogQueryService.build_catalog` 分别生成数据集动作与工作流列表；工作流 steps 直接来自定义。 | 工作流响应少一个成员，结构和独立动作保留；不修改 schema。 |
+| 自动任务覆盖展示 | `OpsFreshnessQueryService._auto_schedule_by_action_key` 按当前 steps 展开工作流绑定，并与独立数据集绑定分别计数。 | 股票技术面因子不再计入盘后工作流的覆盖；保留独立调度，股票复权因子继续计入原工作流。不修改配置。 |
 | 调度与手动入口 | `TaskRunCommandService` 和自动任务能力解析通过同一 workflow key 取得定义。 | 保持 `ops.schedule.target_type=workflow`、`target_key=daily_market_close_maintenance`；不改配置行。 |
 | 前端 | `frontend/src/shared/api/types.ts` 声明目录结构；`ops-v21-task-auto-tab.tsx` 消费返回的 workflows。任务记录读取既有 TaskRun/节点。 | 不增加前端开关或硬编码过滤，不删除历史节点。 |
 | 下游任务 | 板块分析/板块热度检查各自必需节点，不要求股票技术面因子节点。 | 保留现有上游条件，不放宽日期、时间窗口、输入完整性或成功证据。 |
@@ -35,7 +36,7 @@
 
 ## 3. 具体改动
 
-实施时在原位置保留注释行，拟议差异如下；本段只是设计，本轮未改源文件：
+已在原位置保留注释行，实际差异如下；本地代码已修改，Prod 未部署：
 
 ```diff
              _dataset_workflow_step("cyq_perf", "cyq_perf"),
@@ -54,7 +55,7 @@
 
 参数仍为处理日期 `trade_date`、开始日期 `start_date`、结束日期 `end_date`，均为既有可选日期参数；实际请求使用现行单日或区间输入。补 24 日必须显式指定 `2026-11-24`，不能使用“最新交易日”的默认值替代。
 
-下表为**实施后的目标 27 步**。当前仍是 28 步，其中股票技术面因子位于每日筹码及胜率之后。
+下表为**本地当前代码的 27 步**。实施前为 28 步，其中股票技术面因子位于每日筹码及胜率之后；Prod 当前版本未核验。
 
 | 目标序号 | step_key | 数据集完整名称 | action_key |
 | --- | --- | --- | --- |
@@ -131,7 +132,7 @@
 
 ## 8. 实施测试与验收清单
 
-下列项目是下一步开发的验收要求。本轮仅编写文档，不把待改测试写成已通过。
+下列项目为本次验收清单；已在本地调整或复用对应测试，实际结果和替代边界见 §10。生产验收仍未执行。
 
 | 验收点 | 实现位置 / 必要断言 | 独立依据与边界 |
 | --- | --- | --- |
@@ -139,6 +140,7 @@
 | 独立动作保留 | 在目录测试中断言 `stk_factor_pro.maintain` 仍可手动、自动维护；数据集存储与日期能力不变。 | 当前 `DatasetDefinition`；不能只检查 workflow 缺少名称。 |
 | 正常运行能跨过原阻塞位置 | 加强既有 `tests/web/test_ops_runtime.py::test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_step`，覆盖已有 manual/scheduled 参数；完整断言保留步骤顺序、节点和计数。若 planner 收到 `stk_factor_pro` 则立即失败；同时证明 `adj_factor` 被调用以及 `cyq_perf` 后执行 `stk_limit`，末尾问答步骤可达。 | 该测试替代源下载和业务写入，只证明真实 dispatcher、任务节点及顺序，不能证明生产数据已经写入。新增反向断言在移除前应失败，移除后通过。 |
 | 目录 API 一致 | 在 `tests/web/test_ops_catalog_api.py` 核对工作流不含股票技术面因子、独立 action 仍在，其他字段和调度绑定语义不变。 | 使用隔离数据库；前端消费同一目录，无需增加硬编码或新开关。 |
+| 自动任务覆盖展示一致 | 在 `tests/web/test_ops_freshness_api.py` 用“只有盘后工作流绑定”和“另外存在股票技术面因子独立绑定”两个样本核对：前者不再覆盖股票技术面因子，后者仍覆盖；股票复权因子始终由盘后工作流覆盖。 | 输入采用现有隔离 `ops.schedule` 夹具；预期来自各绑定实际指向，不能把全部自动任务数量直接置零。 |
 | 独立维护语义不变 | 复用 `tests/test_dataset_action_resolver.py` 中 `stk_factor_pro` 用例，以及 `tests/test_dataset_writer_stk_factor_pro.py`。 | 覆盖全市场单日追加历史、指定股票单日不比较全市场变化、同日区间只按日期请求与 raw-only 写入。不得为了暂停工作流而改这些预期。 |
 | 下游条件保留 | 复用板块分析 `test_upstream_readiness_requires_same_day_success_for_all_four_nodes` 和板块热度 `test_upstream_gate_uses_independent_workflow_cutoffs_and_all_required_nodes`。 | 本次保留其全部必需节点，不能因工作流成功就跳过各自输入检查。 |
 | 失败与停止 | 复用既有 workflow 失败/worker 终态测试，核对本变更未扩大执行范围；生产停止另按 §6 读回。 | 不以 mock 的取消结果宣称旧生产任务已停，也不为本次移除扩建取消/续跑实现。 |
@@ -157,7 +159,7 @@ Web 的目录和 worker 的执行定义必须使用一致版本；scheduler 使�
 文档同步范围：
 
 - 本方案与本 LLD：目标、暂停/恢复状态、实测及未执行事项。
-- `docs/ops/ops-workflow-catalog-v1.md`：本轮标注待实施方案；代码实施后再改为目标 27 步，保留历史变更说明。
+- `docs/ops/ops-workflow-catalog-v1.md`：已同步本地当前 27 步，保留实施前基线说明；未声称 Prod 已生效。
 - `docs/README.md`：登记两份文档与真实状态。
 - 不改其他技术指标、Dagster 或数据集方案，不新增通用治理规则。
 
@@ -166,11 +168,29 @@ Web 的目录和 worker 的执行定义必须使用一致版本；scheduler 使�
 | 项目 | 2026-11-25 状态 |
 | --- | --- |
 | 管理员对象与范围 | 已确认：从每日盘后工作流移除股票技术面因子 `stk_factor_pro`。 |
-| 方案 / LLD | 已编写，待审阅；不是开发、发布或生产任务授权。 |
-| 当前步骤核对 | 源码 AST 计数 28；目标为 28 减 1 等于 27；代码尚未修改。 |
+| 方案 / LLD | 开发前审计完成后，管理员已授权本地开发与审计；未授权自行部署。 |
+| 当前步骤核对 | 已从 28 步移除股票技术面因子，保留 27 步；整个业务文件的 AST 除该元素外与开发前完全一致。 |
 | 当前调用与消费者审计 | CodeGraph 与当前源码已核对，见 §2。 |
-| 前一轮已有测试证据 | 现有股票技术面因子 planner 的 22 条隔离单元测试通过；不覆盖尚未实施的本变更。 |
-| 本轮文档检查 | `python3 scripts/check_docs_integrity.py` 三个检查组通过；`git diff --check` 通过。另以源码 AST 对照 §4，27 步的顺序和动作严格等于当前 28 步只移除股票技术面因子，股票复权因子保留。这些静态检查不证明生产运行或数据已齐备。 |
-| 本次新增/调整代码测试 | 未实施。 |
+| 前一轮已有测试证据 | 开发前的股票技术面因子 planner 22 条隔离单元测试通过；该历史结果本身不包含本次工作流回归。 |
+| 本轮文档与索引检查 | `python3 scripts/check_docs_integrity.py` 三组通过，`git diff --check` 通过；AST、LLD 和工作流目录的 27 步逐项一致。`codegraph sync` 显示已是最新，status 无待同步文件。静态检查不证明生产运行或数据已齐备。 |
+| 本次新增/调整代码测试 | 7 个针对性参数化用例在修改前全部失败，修改后全部通过；下列回归累计 53 条通过、1 条既有失败，不重复计算这 7 个用例。 |
+| 开发前审计与本轮授权 | 相关基线 20 条通过、1 条既有失败（动作注册测试漏列已有的 `maintenance.fill_daily_basic_limit_status`）；未发现本次方案阻塞项。管理员随后明确授权开发与完成后审计，不授权自行部署。 |
 | Prod 实时任务、独立调度与实际缺口 | 未核验。 |
 | 停止、部署、补数与恢复 | 均未执行。 |
+
+### 本地验证结果与方案对账
+
+统一使用现有 `.venv/bin/python -m pytest`，设置 `PYTHONDONTWRITEBYTECODE=1`、`PYTHONPATH=packages/technical_indicators/src`、`-p no:cacheprovider`；临时资源位于 `/private/tmp` 的本任务独立目录，未安装依赖。
+
+| 硬口径 | 实现与验证 | 实际结果 |
+| --- | --- | --- |
+| 只移除股票技术面因子，27 步顺序及股票复权因子保持 | `action_catalog.py` 单行注释；动作目录的字面顺序断言；全文件 AST 与开发前代码对照。 | 目录及 writer 回归 13 条通过、1 条既有失败；无其他业务代码变化。 |
+| 手动、自动与重新提交均不进入股票技术面因子，后续步骤可达 | 真实 dispatcher 与隔离 SQLite 节点；planner 若收到 `stk_factor_pro` 立即断言失败；完整字面清单核对全部节点、数据集、顺序及 27/27 进度。 | manual、scheduled、retry 三种样本均通过；源下载与业务写入由替身代替，不属于真实源集成验收。 |
+| 独立维护入口、日期和写入能力保留 | 目录 API 保留独立 action 及手动/自动/重试能力；现有 `stk_factor_pro` planner 与 raw-only writer 回归。 | planner 22 条通过；writer 已计入前述 13 条通过。 |
+| 目录、调度和覆盖展示一致 | 目录 API 全文件回归；只有盘后绑定/另有独立绑定两个实际隔离配置样本；原有基础工作流与日期意图回归。 | 与正常分发、取消和下游条件一起执行的隔离 Web 回归共 16 条通过。 |
+| 下游和现有失败/取消处理不改 | 保留板块分析、板块热度必需节点；复用 worker 取消回归及 `test_other_workflow_errors_keep_the_existing_partial_success_policy`。 | 下游/取消已计入前述 16 条；普通 workflow 的 fail_fast/continue_on_error 另 2 条通过。真实生产取消未执行。 |
+| 不扩大实施或宣称数据恢复 | 未改执行器、数据集定义、源请求、前端或调度配置，未部署、停止任务、补数或恢复。 | 代码差异及操作范围审计符合方案；Prod 24 日完整性、独立活动任务与已加载版本均未验收。 |
+
+53 = 13（动作目录与 writer）+ 22（股票技术面因子 planner）+ 16（隔离 Web）+ 2（workflow 失败策略）。各组文件/节点互不重复。唯一失败仍为开发前已记录的维护动作注册清单遗漏；没有 skip、删除断言或修改该预期来隐藏失败。现有 TestClient 依赖的弃用提示保留，未安装替代套件。
+
+完成后审计结论：本地改动符合临时移除这一个工作流步骤的预期，未发现本次引入的阻塞问题。下一阶段由管理员安排提交与部署，并按 §5–§7 核实旧任务、独立调度及目标日数据；本地结果不替代生产验收。
