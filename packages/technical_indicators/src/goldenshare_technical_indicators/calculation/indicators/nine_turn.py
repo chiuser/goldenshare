@@ -13,6 +13,16 @@ from ..history import HistoryRequirement
 from ..sql_templates import render_sql
 
 
+INDEX_MINUTE_SOURCES = (
+    ("index", "5m", "none"),
+    ("index", "15m", "none"),
+    ("index", "30m", "none"),
+    ("index", "60m", "none"),
+    ("index", "90m", "none"),
+    ("index", "120m", "none"),
+)
+
+
 DEFINITION = CalculationDefinition(
     calculation_id="nineturn",
     algorithm_version="1.0.0",

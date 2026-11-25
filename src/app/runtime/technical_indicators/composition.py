@@ -57,7 +57,7 @@ def build_runtime_config(settings: Settings) -> KernelConfig:
 
 def create_runtime(settings: Settings, *, session_factory=None) -> TechnicalIndicatorRuntime:
     config = build_runtime_config(settings)
-    registry = create_builtin_registry()
+    registry = create_builtin_registry(enable_index_minute_nine_turn=config.data_location == "dg")
     if config.data_location == "dg":
         source = LakeTechnicalIndicatorPriceSource(config)
     else:

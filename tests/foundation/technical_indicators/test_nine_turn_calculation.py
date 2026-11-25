@@ -1,5 +1,6 @@
 """Public nine-turn contract with independently specified day-bar sequences."""
 
+import asyncio
 from datetime import date, datetime, time, timedelta
 from time import monotonic
 from zoneinfo import ZoneInfo
@@ -14,7 +15,7 @@ from goldenshare_technical_indicators.errors import CalculationCancelledError, C
 from goldenshare_technical_indicators.execution_control import ExecutionControl
 from goldenshare_technical_indicators.executor import DuckDBExecutor
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
-from src.app.runtime.technical_indicators.composition import build_runtime_config
+from src.app.runtime.technical_indicators.composition import build_runtime_config, create_runtime
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
 from src.foundation.config.settings import Settings
 from test_stage_b_stock_daily import CODE, PRICE, _write
@@ -114,6 +115,33 @@ def test_rejects_enabled_non_daily_sources(tmp_path, period):
     service = _service(_config(tmp_path))
     with pytest.raises(CalculationUnsupportedError, match="requested period"):
         service.calculate(_request(day, day, kind="index", period=period, adjustment="none"))
+
+
+def test_index_minute_nine_turn_is_enabled_only_in_the_dg_runtime(tmp_path):
+    def unexpected_query():
+        pytest.fail("Enabling nine-turn for DG must not issue a Prod query")
+
+    async def check_registrations():
+        dg = create_runtime(Settings(_env_file=None, APP_ENV="local", GOLDENSHARE_LAKE_ROOT=str(tmp_path)))
+        prod = create_runtime(Settings(_env_file=None, APP_ENV="prod"), session_factory=unexpected_query)
+        try:
+            local_definition = dg.registry.resolve("nineturn")
+            prod_definition = prod.registry.resolve("nineturn")
+            expected_sources = tuple(("index", period, "none") for period in ("5m", "15m", "30m", "60m", "90m", "120m"))
+            assert prod_definition == create_builtin_registry().resolve("nineturn")
+            assert local_definition.additional_sources == (*prod_definition.additional_sources, *expected_sources)
+            assert local_definition.supports_source("index", "day", "none")
+            for period in ("1m", "week", "month"):
+                assert not local_definition.supports_source("index", period, "none")
+            prod_service = TechnicalIndicatorService(config=prod.config, source=prod.source, registry=prod.registry)
+            day = date(2026, 11, 17)
+            with pytest.raises(CalculationUnsupportedError, match="requested period"):
+                prod_service.calculate(_request(day, day, kind="index", period="5m", adjustment="none"))
+        finally:
+            await dg.aclose()
+            await prod.aclose()
+
+    asyncio.run(check_registrations())
 
 
 def test_rejects_parameters(tmp_path):

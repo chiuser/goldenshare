@@ -4,7 +4,7 @@
 
 §1–10 记录日线九转的首期范围、代码和验收。其他股票周期见[股票周月线 LLD](technical-indicator-stock-period-low-level-design-v1.md#stock-period-nine-turn)和[股票分钟线 LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
 
-2026-11-25｜[本地指数日线与分钟九转实施设计](#local-index-nine-turn-lld)待开发。
+2026-11-25｜[本地指数日线与分钟九转](#local-index-nine-turn-lld)阶段 1 已通过独立审计，接口和前端待接入。
 
 ## 1. 现状和改动边界
 
@@ -195,7 +195,7 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 ## 11. 本地指数日线和分钟线九转
 
-2026-11-25｜待开发。对应[方案 §5](technical-indicator-nine-turn-plan-v1.md#local-index-nine-turn-plan)。本节沿用 §2 的计算、预热和结果合同，补齐本地指数的接入。现行指数日 K、分钟取数及分页的实现与实测见[指数详情 LLD §28–29](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
+2026-11-25｜阶段 1 实施与独立审计已通过，阶段 2、3 待实施。对应[方案 §5](technical-indicator-nine-turn-plan-v1.md#local-index-nine-turn-plan)。本节沿用 §2 的计算、预热和结果合同，补齐本地指数的接入。现行指数日 K、分钟取数及分页的实现与实测见[指数详情 LLD §28–29](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
 
 ### 11.1 阶段 1｜为本地指数分钟启用九转算子
 
@@ -226,3 +226,26 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 - **阶段 2。** 回归 [本地指数日 K HTTP](../../tests/web/test_wealth_index_detail_dg_kline.py)、[独立日线九转](../../tests/web/test_wealth_index_nine_turn_api.py)和 [指数详情页面](../../wealth/src/pages/index-detail/IndexDetailPage.test.tsx)。用上证综指、深证成指、北证 50、中证 A500 覆盖全页及短页。实际请求首屏和上一页，按日期与独立读到的旧标记对照，复核边界差异、无标记与空页。浏览器向左翻页和打开技术面时，确认本地日线独立请求为零，原日期、光标和趋势通道行为正常。
 - **阶段 3。** 回归 [分钟 HTTP](../../tests/web/test_index_detail_minutes_api.py)、[独立分钟九转](../../tests/web/test_wealth_index_minute_nine_turn_api.py)和 [分钟图控制](../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.test.tsx)。用上证综指或深证成指的有界真实窗口逐档验收六频，以 90／120 分钟核对时间键、旧游标续页和合成后的收盘价。对照旧标记时若来源收盘价或时间键不同，用本次实际 K 线独立复算该处并记录原因。浏览器确认当前图表与摘要共用一次九转结果，未加载周期的摘要从独立接口拿到算子结果，1 分钟无九转、北证 50 分钟为空，常用指标失败时行情和九转还可显示。通过隔离数据或读数追踪验证两个新路径都无需读取 DG 主要指数分钟九转成品。复验 Prod 分钟路由仍未开放。
 - **验收后盘点。** 用实际浏览器网络和接口调用确认本地指数详情依赖退出。保留旧独立日线接口的 Prod 消费和DG 生成、同步等外部依赖的审计记录。旧数据源的对照限代表性指数、周期和窗口，不做全量扫描。
+
+
+<a id="local-index-nine-turn-phase-one-audit"></a>
+
+### 11.5 阶段 1 实施与独立审计（2026-11-25）
+
+**实施通过。** [内置注册](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/__init__.py)复用原九转定义和工厂，在[本地运行时](../../src/app/runtime/technical_indicators/composition.py)按 `data_location="dg"` 启用六档指数不复权分钟九转。只追加适用周期，[原计算及 16 根预热](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/nine_turn.py)沿用。阶段 2 的日 K 回包与阶段 3 的分钟接口、摘要和页面各在后续验收。
+
+**代码与回归。** 用 CodeGraph 和当前源码对照运行时、注册表、分钟按根数入口及合成 SQL。52 项定向测试通过，覆盖默认注册、DG 与 Prod 装配、指数 1 分钟仍拒绝、股票日线九转、计数及换向、16 根预热、已有分钟读取与量额，以及 90／120 分钟用合成后收盘价计算。Prod 的旧 5 分钟区间九转请求在读取前按原规则拒绝。 [注册测试](../../tests/foundation/technical_indicators/test_nine_turn_calculation.py) · [分钟计算测试](../../tests/foundation/technical_indicators/test_index_minutes_recent.py)
+
+**实际 DG 只读对照。** 用上证综指 `000001.SH` 截至 2026-11-17 15:00 的样本，独立从有限日期的 Parquet 读取时间和收盘价。90／120 分钟分别从 Silver 30／60 分钟取各窗口最后一根有效收盘价，再按前第 4 根独立复算。日线 12 根、各分钟周期 24 根的时间、收盘价和两列计数逐根一致。单算九转均预热 16 根，与价格和 MA20 合算预热 19 根。与只算价格和 MA20 的对照相比，加入九转后两者结果一致，读到的文件数也一致。六档分钟每次取数各用一条批量 SQL，同算九转前后每次选择同一批文件。
+
+| 周期 | 单算／同算的算子记录文件数 | 单算／同算的单次算子耗时（毫秒） |
+| --- | --- | --- |
+| 日线 | 29／32 | 442／136 |
+| 5 分钟 | 1／1 | 64／54 |
+| 15 分钟 | 3／3 | 63／55 |
+| 30 分钟 | 5／6 | 71／55 |
+| 60 分钟 | 10／11 | 74／56 |
+| 90 分钟 | 14／15 | 612／57 |
+| 120 分钟 | 20／22 | 157／60 |
+
+独立复算每个周期读取 1–28 个已限定日期的文件。表中为本机单个算子请求实测。另以相同的 120 分钟参数做取消和重试。首轮 87 毫秒，注入取消后约 1.1 毫秒释放资源，九转输出表和状态表均清理。重试 73 毫秒，一条 SQL 读取相同 22 个文件，24 根目标结果与首轮一致。HTTP 体积与页面性能在对应接入阶段实测。

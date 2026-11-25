@@ -1,7 +1,7 @@
 """Exercise the DG index-minute request from market-data selection to indicator output."""
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pyarrow as pa
@@ -24,14 +24,16 @@ from src.foundation.config.settings import Settings
 SHANGHAI = ZoneInfo("Asia/Shanghai")
 PRICE = {"calculation_id": "price", "parameters": {}}
 MA2 = {"calculation_id": "ma", "parameters": {"period": 2}}
+NINE_TURN = {"calculation_id": "nineturn", "parameters": {}}
 
 
-def _service(root, environment="local"):
+def _service(root, environment="local", *, enable_index_minute_nine_turn=False):
     config = build_runtime_config(Settings(
         _env_file=None, APP_ENV=environment, GOLDENSHARE_LAKE_ROOT=str(root),
     ))
     return TechnicalIndicatorService(
-        config=config, source=LakeTechnicalIndicatorPriceSource(config), registry=create_builtin_registry(),
+        config=config, source=LakeTechnicalIndicatorPriceSource(config),
+        registry=create_builtin_registry(enable_index_minute_nine_turn=enable_index_minute_nine_turn),
     )
 
 
@@ -148,6 +150,38 @@ def test_recent_minute_limit_and_dataset_are_scoped_to_dg(tmp_path):
     assert legacy.target.dataset_id == "index_mins_5m"
 
 
+def test_recent_minute_nine_turn_uses_prewarm_and_shares_the_chart_read(tmp_path, monkeypatch):
+    # 17 rising closes, then an equal comparison and three down comparisons.
+    closes = (*range(100, 117), 113, 90, 89, 88)
+    times = tuple(_minute(10, 9, 35) + timedelta(minutes=5 * offset) for offset in range(len(closes)))
+    price_file = _write_minutes(tmp_path, 5, 10, [
+        ("000001.SH", time, close, 10) for time, close in zip(times, closes, strict=True)
+    ])
+    reads = []
+    original_read = LakePriceLocator._read_rows
+
+    def record(locator, sql, bindings, **kwargs):
+        if "read_parquet" in sql:
+            reads.append(bindings[0])
+        return original_read(locator, sql, bindings, **kwargs)
+
+    monkeypatch.setattr(LakePriceLocator, "_read_rows", record)
+    service = _service(tmp_path, enable_index_minute_nine_turn=True)
+    request = _request(5, times[-1], count=5, start=times[-5])
+    for calculations in ((NINE_TURN,), (*request.calculations, NINE_TURN)):
+        reads.clear()
+        page = service.calculate_index_minutes_recent(
+            replace(request, calculations=calculations), output_limit=MAX_INDEX_MINUTE_LIMIT,
+        )
+        assert reads == [[str(price_file)]]
+        assert page.selection.preceding_rows == 16
+        assert page.result.times == times[-5:]
+        assert dict(page.result.calculations[-1].fields) == {
+            "up_count": (13, 0, 0, 0, 0),
+            "down_count": (0, 0, 1, 2, 3),
+        }
+
+
 def _write_silver_minutes(root, freq, day, slots):
     # Silver has VARCHAR freq and derives trade_date from the local trade_time.
     path = root / f"silver/quote/major_index_mins/freq={freq}min/trade_date=2026-11-{day:02}/part-000.parquet"
@@ -222,3 +256,24 @@ def test_derived_minutes_use_available_rows_of_completed_windows(tmp_path, freq,
     assert empty.result is None
     with pytest.raises(SourceUnsupportedError):
         _service(tmp_path, "prod").calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
+
+
+@pytest.mark.parametrize(("freq", "base", "target_times", "closes", "up", "down"), (
+    (90, 30, ((11, 0), (14, 0), (15, 0)), (42, 66, 76), (0, 1, 2), (1, 0, 0)),
+    (120, 60, ((11, 30), (15, 0)), (51, 76), (1, 2), (0, 0)),
+))
+def test_index_minute_nine_turn_compares_derived_window_closes(tmp_path, freq, base, target_times, closes, up, down):
+    # The two earlier days repeat. The last day's base prices are all ten points higher.
+    slots = ((9, 30, 9), (10, 30, 25), (11, 30, 40), (14, 0, 55), (15, 0, 65))
+    if base == 30:
+        slots += ((10, 0, 20), (11, 0, 31), (13, 30, 50), (14, 30, 60))
+    for day in (6, 9, 10):
+        increase = 10 if day == 10 else 0
+        _write_silver_minutes(tmp_path, base, day, tuple((h, m, price + increase) for h, m, price in slots))
+
+    service = _service(tmp_path, enable_index_minute_nine_turn=True)
+    request = replace(_request(freq, _minute(10, 15, 0), count=len(target_times)), calculations=(PRICE, NINE_TURN))
+    page = service.calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
+    assert page.result.times == tuple(_minute(10, h, m) for h, m in target_times)
+    assert dict(page.result.calculations[0].fields)["close"] == closes
+    assert dict(page.result.calculations[1].fields) == {"up_count": up, "down_count": down}
