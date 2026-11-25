@@ -1,6 +1,6 @@
 # 趋势通道算子及股票、上证接入方案 v1
 
-2026-11-25｜需求口径已确认，尚未开发或部署。本次修订取消通用 JSON 说明字段，纠正预热验收的参考起点，补齐接口、数据集和页面入口判断的处理，并将算子开发、股票接入、上证接入和旧业务清理分阶段推进。[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)
+2026-11-25｜阶段一算子已实现并完成隔离验收及独立对照审计，提交管理员 review；股票接入、上证接入和旧业务清理尚未实施，未发包或部署。JSON 已取消、固定预热 500 根和接口处理等已确认口径保持不变。实施证据见[专项 LLD §9](technical-indicator-trend-channel-low-level-design-v1.md#9-阶段一实现验收与独立对照审计2026-11-25)。
 
 本文承接[算子库整体设计](technical-indicator-operator-library-low-level-design-v1.md)、[实施 LLD](technical-indicator-operator-library-implementation-lld-v1.md)和[原上证趋势通道说明](sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)。历史决定和测算保留来源，当前实施以本次最终口径为准。
 
@@ -31,7 +31,7 @@
 
 | 对象 | 当前代码事实 | 本次处理 |
 | --- | --- | --- |
-| 共享算子库 | [注册入口](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/__init__.py)有价格、MA、BOLL、MACD、KDJ、九转，没有趋势通道 | 增加实际计算算子，沿现有 DOUBLE 数值输出；不改通用请求、结果结构和算子协议，不增加说明字段。 |
+| 共享算子库 | [注册入口](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/indicators/__init__.py)已有价格、MA、BOLL、MACD、KDJ、九转；本轮已新增趋势通道实际计算 | 四轨沿现有 DOUBLE 数值输出；通用请求、结果结构和算子协议未改，未增加说明字段。 |
 | 股票日线 | [计算指令](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py)集中列算子，[服务](../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py)把结果组装为日 K 指标，[App 装配](../../src/app/dependencies/stock_daily_technical_indicators.py)处理环境和调用 | 在既有指令加入趋势通道，按本批日期将四轨加入日 K 结果并供图层使用。沿本地 DG 和 Prod 现有的调用方式接入，不重新设计整个旧 HTTP 接口。 |
 | 上证日线 | [App 装配](../../src/app/dependencies/index_daily_technical_indicators.py)已经调用共享库，[查询服务](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py)负责结果映射和游标 | 沿相同入口加入趋势通道；保持本次每批不超过 500 根，按现有游标续页。 |
 | 页面翻页 | [股票历史控制](../../wealth/src/features/stock-detail/controller/useStockDailyHistory.ts)与[指数历史控制](../../wealth/src/features/index-detail/controller/useIndexDailyHistory.ts)已经按日 K 批次加载、使用 `nextEndDate` | 趋势通道跟随同一批行情返回和绘制。目标日线接入后，清理该页面已无消费者的独立趋势请求，不新增另一套分页。 |
@@ -95,7 +95,7 @@ EMA 使用 `α=2/(周期+1)`。首次读取时用该根最高价、最低价初�
 
 | 阶段 | 做什么 | 完成标准 |
 | --- | --- | --- |
-| 一、趋势通道算子 | 在共享包实现、注册四轨，固定预热 500 根；复用读取、引擎、批次与数值输出，不做 JSON，不改业务页面 | 算子独立请求、独立金样本、误差、跨批、同批共享、真实起点与取消清理验收通过。完成后独立 review。 |
+| 一、趋势通道算子 | 在共享包实现、注册四轨，固定预热 500 根；复用读取、引擎、批次与数值输出，不做 JSON，不改业务页面 | 本轮实现、隔离验收和独立对照审计已完成，证据见 LLD §9；提交管理员阶段 review，不自动进入股票接入。 |
 | 二、股票日线接入 | 沿现有股票日 K 算子指令、结果组装和前端分页接入四轨；复权价格与其他指标共用，同步移除页面入口对旧通道目录和开关的依赖 | 首批及下一批均为最多 500 根；旧通道目录不存在、旧开关关闭时仍可展示和取四轨，页面不再请求旧接口；日期、游标、盘口及现有指标不受影响。完成后独立 review。 |
 | 三、上证日线接入 | 沿上证现有算子调用、结果组装和历史加载接入四轨，页面停止独立通道请求，专用计算器退出该调用链 | 首批、续页、图层开关、日期与失败重试通过；不调用旧计算器、旧通道缓存和独立接口；本地/生产沿各自现有装配与已启用来源验收。完成后独立 review。 |
 | 四、旧业务清理与总验收 | 按消费者清单清理无用方向、组合字段、旧接口、计算器、读取器、配置、类型、请求、测试和数据集相关检查；正式文件迁移独立安排 | 无消费者的旧接口和专用代码删除，活动消费者同步迁移、旧方向引用清零；保留基础行情、复权因子数据及仍在使用的 EMA 续算数值；原方案、LLD、代码和验收一致。不能只完成新算子就结案。 |
@@ -110,4 +110,4 @@ EMA 使用 `α=2/(周期+1)`。首次读取时用该根最高价、最低价初�
 
 正式股票文件如需字段迁移，先在[原 DG 方案](../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-plan-v1.md)与[原 DG LLD](../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md)补齐字段、目标范围、候选校验、逐文件提升、checkpoint、恢复和性能预算。尚未补齐的正式迁移项不能直接编码或执行。
 
-本轮只修订文档；未开发算子、未修改接口、未清理文件或部署。本地只读 DG、生产只读 Prod PostgreSQL 的环境边界沿用现有工程。MACD 的 100 万常量与既有预热算法保留，本次不再讨论或调整。
+本轮仅完成阶段一及文档对账；未修改业务接口、清理正式文件、发包或部署。测试使用固定快照与工程外隔离文件，未读取正式数据。本地只读 DG、生产只读 Prod PostgreSQL 的环境边界沿用现有工程。MACD 的 100 万常量与既有预热算法保留，本次不再讨论或调整。

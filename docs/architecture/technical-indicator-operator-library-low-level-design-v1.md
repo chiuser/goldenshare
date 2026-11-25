@@ -553,9 +553,9 @@ internal_calculations = {
 
 本地股票详情已切换，首批和续页由同一次日 K 计算提供九转标记。接口、前端接入和验收见[九转专项方案](technical-indicator-nine-turn-plan-v1.md)与[九转专项 LLD](technical-indicator-nine-turn-low-level-design-v1.md)。
 
-### 4.2 趋势通道及分阶段接入（2026-11-25 已确认需求，未开发）
+### 4.2 趋势通道及分阶段接入（2026-11-25 阶段一已实现，业务未接入）
 
-新增专项见[趋势通道方案](technical-indicator-trend-channel-plan-v1.md)与[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)。当前注册表尚无趋势通道，不能把现有业务计算器或股票预计算结果读取器列为已接入算子。
+新增专项见[趋势通道方案](technical-indicator-trend-channel-plan-v1.md)与[专项 LLD](technical-indicator-trend-channel-low-level-design-v1.md)。阶段一已在共享包实现、注册趋势通道并完成隔离验收和独立对照审计，证据见专项 LLD §9；股票和上证业务尚未接入，不能把旧计算器或预计算结果读取器列为已迁移。
 
 趋势通道完整计算最高价、最低价各自的 25/90 周期 EMA，只输出四条轨道；不迁入历史方向与组合状态，也不新增通道升降方向。固定前置预热 500 根，返回根数另计，每轨绝对误差不超过 0.01：参考从完整历史起点计算，被测从目标前 500 根开始计算，用同一行情及复权基准比较相同目标日期。500 是管理员的设计决定，不用 MACD 的 100 万范围假设求根。
 
