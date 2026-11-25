@@ -1,5 +1,5 @@
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from functools import partial
 
 from fastapi import FastAPI
@@ -14,6 +14,7 @@ from src.app.dependencies.db import get_db_session
 from src.app.exceptions.web import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
 from src.biz.api.wealth.market.index_detail import build_router
+from src.biz.api.wealth.market.index_detail_debug import add_openapi_responses
 from src.biz.api.wealth.market.index_detail_debug import build_router as build_debug_router
 from src.biz.queries.wealth.market.index_detail import index_detail_kline_query_service
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
@@ -177,6 +178,7 @@ def test_sse_kline_origin_short_page_and_empty_page(dg_client):
     assert body["meta"]["count"] == 3
     assert body["meta"]["nextEndDate"] is None
     assert body["debugInfo"] is None
+    assert body["nineTurnMarkers"] == []
     for bar in body["bars"]:
         assert set(bar["factors"]["ma"].values()) == {None}
         assert set(bar["factors"]["boll"].values()) == {None}
@@ -187,10 +189,66 @@ def test_sse_kline_origin_short_page_and_empty_page(dg_client):
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["bars"] == [] and body["dataStatus"]["status"] == "EMPTY"
+    assert body["nineTurnMarkers"] == []
     assert body["meta"]["nextEndDate"] is None
     assert not reads
     assert len(calculated) == 1
     assert len(encoded) == 2
+
+
+def test_dg_nine_turn_markers_follow_each_daily_page(dg_client, tmp_path):
+    client, _, _, _, calculated = dg_client
+    calendar_path = tmp_path / "silver/calendar/trade_calendar/full/part-000.parquet"
+    calendar = pq.ParquetFile(calendar_path).read().to_pylist()
+    trade_dates = [ORIGIN, THU, FRI, MON]
+    for offset in range(1, 16):
+        day = MON + timedelta(days=offset)
+        is_open = day.weekday() < 5
+        calendar.append(dict(exchange="SSE", trade_date=day, is_open=is_open, pretrade_date=trade_dates[-1]))
+        if is_open:
+            close = float(10 + len(trade_dates))
+            write_partition(tmp_path, day, close=close, open=close, high=close + 1, low=close - 1)
+            trade_dates.append(day)
+    pq.write_table(pa.Table.from_pylist(sorted(calendar, key=lambda row: row["trade_date"])), calendar_path)
+
+    params = {"tsCode": CODE, "limit": 5, "endDate": str(trade_dates[-1])}
+    first = client.get(PATH, params=params)
+    assert first.status_code == 200, first.text
+    first_page = first.json()
+    assert first_page["nineTurnMarkers"] == [
+        dict(tradeDate=str(day), tradeTime=None, direction="UP", sequenceNumber=count, completed=count == 9)
+        for day, count in zip(trade_dates[-5:-2], (7, 8, 9), strict=True)
+    ]
+    previous = client.get(PATH.replace("/kline", "/debug/kline"), params={
+        **params, "endDate": first_page["meta"]["nextEndDate"],
+    })
+    assert previous.status_code == 200, previous.text
+    previous_page = previous.json()
+    assert [bar["tradeDate"] for bar in previous_page["bars"]] == [str(day) for day in trade_dates[-10:-5]]
+    assert [marker["sequenceNumber"] for marker in previous_page["nineTurnMarkers"]] == [2, 3, 4, 5, 6]
+    assert previous_page["debugInfo"]["modules"][0]["rowCount"] == 5
+    assert len(calculated) == 2
+
+
+def test_index_daily_nine_turn_openapi_only_declares_markers_for_local_daily(tmp_path):
+    for lake in (IndexDailyLakeReader(tmp_path), None):
+        app = FastAPI()
+        app.include_router(build_router(daily_lake=lake), prefix="/api/v1")
+        app.include_router(build_debug_router(daily_lake=lake), prefix="/api/v1")
+        schema = app.openapi()
+        add_openapi_responses(schema)
+        for endpoint, local_model in (
+            ("kline", "LocalIndexDetailDailyKlineResponseDto"),
+            ("debug/kline", "LocalIndexDetailDailyKlineDebugResponseDto"),
+        ):
+            path = f"/api/v1/wealth/market/index-detail/{endpoint}"
+            output = schema["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+            if lake is None:
+                assert local_model not in str(output)
+                assert "nineTurnMarkers" not in schema["components"]["schemas"][output["$ref"].split("/")[-1]]["properties"]
+            else:
+                assert {"$ref": f"#/components/schemas/{local_model}"} in output["anyOf"]
+                assert "nineTurnMarkers" in schema["components"]["schemas"][local_model]["required"]
 
 
 @pytest.mark.parametrize("missing_file", [True, False])

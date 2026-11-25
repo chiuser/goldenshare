@@ -15,6 +15,7 @@ import type { IndexCandlePoint, IndexDetailViewModel, TrendChannelPoint } from "
 const SSE_CODE = "000001.SH";
 
 export interface IndexDailyHistorySeed {
+  embeddedNineTurn: boolean;
   nextEndDate: string | null;
   viewModel: IndexDetailViewModel;
 }
@@ -173,6 +174,10 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       );
       if (signal.aborted) return;
       const nextEndDate = readIndexDailyCursor(response, tsCode, endDate);
+      const markers = response.period === "day" ? response.nineTurnMarkers : undefined;
+      if (owner.seed.embeddedNineTurn && !Array.isArray(markers)) {
+        throw new Error("指数日线续页回包缺少九转标记");
+      }
       const last = response.bars.at(-1);
       if (last && last.tradeDate >= owner.candles[0]!.time) {
         throw new Error("指数日线续页与已加载的K线日期重叠");
@@ -182,7 +187,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
         endDate: last.tradeDate,
         candles: response.bars.map(toCandlePoint),
         nearDate: owner.candles[Math.min(SSE_DAILY_PREFETCH_REMAINING, owner.candles.length) - 1]!.time,
-        nineTurn: {},
+        nineTurn: owner.seed.embeddedNineTurn && markers ? { result: { phase: "ready", data: markers } } : {},
         trend: {},
       } : null;
       owner.nextEndDate = nextEndDate;
@@ -190,7 +195,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       if (page) owner.pages.push(page);
       publish(owner);
       if (page) {
-        if (capabilities.supportsNineTurn && capabilities.nineTurnPeriods.includes("day")) {
+        if (!owner.seed.embeddedNineTurn && capabilities.supportsNineTurn && capabilities.nineTurnPeriods.includes("day")) {
           void loadLayer(owner, page, "nineTurn");
         }
         if (tsCode === SSE_CODE && capabilities.supportsTrendChannel) void loadLayer(owner, page, "trend");

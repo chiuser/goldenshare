@@ -1,4 +1,5 @@
 import type { MarketDirection } from "../../../shared/model/market";
+import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 
 export type IndexDetailDataStatusValue = "READY" | "DELAYED" | "PARTIAL" | "EMPTY";
 export type IndexLongPeriod = "week" | "month";
@@ -154,7 +155,7 @@ interface IndexDetailKlineData {
 type IndexPagedKlineMeta = IndexDailyKlineMeta & { nextEndDate: string | null };
 
 export type IndexDetailKlineResponseDto = IndexDetailKlineData & (
-  | { period: "day"; meta: IndexDailyKlineMeta | IndexPagedKlineMeta }
+  | { period: "day"; meta: IndexDailyKlineMeta | IndexPagedKlineMeta; nineTurnMarkers?: NineTurnMarkerDto[] }
   | { period: IndexLongPeriod; meta: IndexPagedKlineMeta }
 );
 

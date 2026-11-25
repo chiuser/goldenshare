@@ -18,7 +18,9 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailKlineMetaDto,
     IndexDetailKlineResponseDto,
     IndexDetailSseKlineMetaDto,
+    LocalIndexDetailDailyKlineResponseDto,
 )
+from src.biz.schemas.wealth.market.nine_turn import NineTurnMarkerDto
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import (
     build_identity,
     build_kline_bar,
@@ -31,6 +33,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailRequestError,
     IndexDetailUniverseService,
 )
+from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from src.foundation.clients.technical_indicator_stock_daily import dg_index_daily_origin
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -104,8 +107,28 @@ def count_calculated_kline_missing(rows, preceding_rows):
     )
 
 
+def _build_nine_turn_markers(ts_code, dates, calculation) -> list[NineTurnMarkerDto]:
+    counts = dict(calculation.fields)
+    up = counts.get("up_count", ())
+    down = counts.get("down_count", ())
+    if len(up) != len(dates) or len(down) != len(dates):
+        raise IndexDetailQueryError(f"{ts_code} 九转结果与本页行情根数不一致")
+
+    markers = []
+    for day, up_count, down_count in zip(dates, up, down, strict=True):
+        if (up_count not in range(14) or down_count not in range(14)
+                or (up_count > 0 and down_count > 0)):
+            raise IndexDetailQueryError(f"{ts_code} {day} 九转计数无效")
+        marker = build_nine_turn_marker(
+            trade_date=day, trade_time=None, up_count=int(up_count), down_count=int(down_count),
+        )
+        if marker is not None:
+            markers.append(marker)
+    return markers
+
+
 class IndexDetailKlineQueryService:
-    """Assemble factor-only index daily K-line responses."""
+    """Assemble index daily K-line responses from the selected source."""
 
     def __init__(self, *, daily_lake: IndexDailyLakeReader | None = None) -> None:
         self._universe_service = IndexDetailUniverseService()
@@ -253,6 +276,7 @@ class IndexDetailKlineQueryService:
         else:
             query_end = end_date
         rows, missing_count, next_end = [], None, None
+        nine_turn_markers = []
         if query_end < lower:
             if context is None:
                 calendar = self._daily_lake.calendar_rows(start=query_end, end=query_end)
@@ -266,8 +290,18 @@ class IndexDetailKlineQueryService:
                 dates = tuple(bar.trade_date for bar in facts.target_bars)
                 if dates != result.times or len(dates) != result.range.count:
                     raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
-                *indicators, price = result.calculations
-                values = dict(price.fields)
+                direct_outputs = {}
+                indicators = []
+                for calculation in result.calculations:
+                    if calculation.calculation_id in ("price", "nineturn"):
+                        direct_outputs[calculation.calculation_id] = calculation
+                    else:
+                        indicators.append(calculation)
+                if (direct_outputs.keys() != {"price", "nineturn"}
+                        or len(result.calculations) != len(indicators) + 2):
+                    raise IndexDetailQueryError(f"{ts_code} 本页行情或九转结果不完整")
+                values = dict(direct_outputs["price"].fields)
+                nine_turn_markers = _build_nine_turn_markers(ts_code, dates, direct_outputs["nineturn"])
                 for index, bar in enumerate(facts.target_bars):
                     vol, amount = values["volume"][index], values["amount"][index]
                     rows.append({
@@ -285,7 +319,10 @@ class IndexDetailKlineQueryService:
                 self._daily_lake, market="CN_A", requested_trade_date=end_date, now=now, calendar_rows=calendar,
             )
         check_active()
-        return self._calculated_daily_response(context, identity, rows, missing_count, start_date, limit, next_end)
+        return self._calculated_daily_response(
+            context, identity, rows, missing_count, start_date, limit, next_end,
+            nine_turn_markers=nine_turn_markers,
+        )
 
     def _build_calculated_daily_kline(
         self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
@@ -324,7 +361,9 @@ class IndexDetailKlineQueryService:
             next_end = None
         return self._calculated_daily_response(context, identity, rows, missing_count, start_date, limit, next_end)
 
-    def _calculated_daily_response(self, context, identity, rows, missing_count, start_date, limit, next_end):
+    def _calculated_daily_response(
+        self, context, identity, rows, missing_count, start_date, limit, next_end, *, nine_turn_markers=None,
+    ):
         query_end = context.trade_date
         expected_end = query_end if context.is_trading_day else context.prev_trade_date
         data_status = self._status_resolver.resolve(
@@ -332,7 +371,7 @@ class IndexDetailKlineQueryService:
             observed_trade_date=rows[-1]["trade_date"] if rows else None,
             empty=not rows, partial=bool(missing_count),
         )
-        return IndexDetailKlineResponseDto(
+        fields = dict(
             pageContext=build_page_context(context),
             indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
             period="day", bars=[build_kline_bar(row) for row in rows],
@@ -340,7 +379,10 @@ class IndexDetailKlineQueryService:
                 count=len(rows), limit=limit, startDate=start_date, endDate=query_end, nextEndDate=next_end,
             ),
             dataStatus=data_status,
-        ), missing_count
+        )
+        if nine_turn_markers is not None:
+            return LocalIndexDetailDailyKlineResponseDto(**fields, nineTurnMarkers=nine_turn_markers), missing_count
+        return IndexDetailKlineResponseDto(**fields), missing_count
 
     @staticmethod
     def _read_sse_auxiliary(session, ts_code, dates):

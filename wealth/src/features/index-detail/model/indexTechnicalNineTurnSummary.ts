@@ -1,4 +1,4 @@
-import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
+import type { NineTurnMarkerDto, NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 
 export const INDEX_TECHNICAL_NINE_TURN_PERIODS = [
@@ -12,4 +12,8 @@ export const INDEX_TECHNICAL_NINE_TURN_PERIODS = [
 
 export type IndexTechnicalNineTurnPeriod = typeof INDEX_TECHNICAL_NINE_TURN_PERIODS[number]["period"];
 
-export type IndexTechnicalNineTurnSummary = Record<IndexTechnicalNineTurnPeriod, NineTurnLayerViewModel>;
+export interface IndexTechnicalNineTurnLayer extends NineTurnLayerViewModel {
+  latestMarker?: NineTurnMarkerDto | null;
+}
+
+export type IndexTechnicalNineTurnSummary = Record<IndexTechnicalNineTurnPeriod, IndexTechnicalNineTurnLayer>;

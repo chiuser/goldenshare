@@ -87,7 +87,11 @@ export function IndexChartWorkspace({
   const nineTurnLayer = useMemo(() => {
     if (!firstDate || !lastDate) return ordinaryNineTurn;
     const initial = ordinaryNineTurn.markers.filter(marker => firstDate <= marker.tradeDate && marker.tradeDate <= lastDate);
-    return { ...ordinaryNineTurn, markers: [...(historical?.nineTurnMarkers ?? []), ...initial] };
+    const markers = [...(historical?.nineTurnMarkers ?? []), ...initial];
+    if (ordinaryNineTurn.phase === "EMPTY" && ordinaryNineTurn.data === null && markers.length) {
+      return { ...ordinaryNineTurn, markers, phase: "READY" as const, message: null };
+    }
+    return { ...ordinaryNineTurn, markers };
   }, [firstDate, lastDate, historical?.nineTurnMarkers, ordinaryNineTurn]);
   const trend = useMemo(() => {
     if (!firstDate || !lastDate) return ordinaryTrend;

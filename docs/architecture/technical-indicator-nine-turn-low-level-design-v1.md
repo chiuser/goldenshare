@@ -4,7 +4,7 @@
 
 §1–10 记录日线九转的首期范围、代码和验收。其他股票周期见[股票周月线 LLD](technical-indicator-stock-period-low-level-design-v1.md#stock-period-nine-turn)和[股票分钟线 LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
 
-2026-11-25｜[本地指数日线与分钟九转](#local-index-nine-turn-lld)阶段 1 已通过独立审计，接口和前端待接入。
+2026-11-25｜[本地指数日线与分钟九转](#local-index-nine-turn-lld)阶段 1、2 已通过独立验收，阶段 3 待实施。
 
 ## 1. 现状和改动边界
 
@@ -195,7 +195,7 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 ## 11. 本地指数日线和分钟线九转
 
-2026-11-25｜阶段 1 实施与独立审计已通过，阶段 2、3 待实施。对应[方案 §5](technical-indicator-nine-turn-plan-v1.md#local-index-nine-turn-plan)。本节沿用 §2 的计算、预热和结果合同，补齐本地指数的接入。现行指数日 K、分钟取数及分页的实现与实测见[指数详情 LLD §28–29](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
+2026-11-25｜阶段 1 和阶段 2 已通过独立验收，阶段 3 待实施。对应[方案 §5](technical-indicator-nine-turn-plan-v1.md#local-index-nine-turn-plan)。本节沿用 §2 的计算、预热和结果合同，补齐本地指数的接入。现行指数日 K、分钟取数及分页的实现与实测见[指数详情 LLD §28–29](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
 
 ### 11.1 阶段 1｜为本地指数分钟启用九转算子
 
@@ -249,3 +249,25 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 | 120 分钟 | 20／22 | 157／60 |
 
 独立复算每个周期读取 1–28 个已限定日期的文件。表中为本机单个算子请求实测。另以相同的 120 分钟参数做取消和重试。首轮 87 毫秒，注入取消后约 1.1 毫秒释放资源，九转输出表和状态表均清理。重试 73 毫秒，一条 SQL 读取相同 22 个文件，24 根目标结果与首轮一致。HTTP 体积与页面性能在对应接入阶段实测。
+
+
+<a id="local-index-nine-turn-phase-two-audit"></a>
+
+### 11.6 阶段 2 实施与独立审计（2026-11-25）
+
+**通过隔离验收。** [指数日 K API 合同 §5.7](../../wealth/docs/pages/index-detail/index-detail-api-contract-v1.md#local-index-daily-kline-api)确定了本地 `nineTurnMarkers`。后端在一次 DG 日 K 计算里组装行情、原有指标和九转，普通、核验回包均有标记数组。合法空页的数组为 `[]`。本地 OpenAPI 保留带标记的类型，旧 Prod 日 K 和独立九转合同沿用原类型。用 CodeGraph 与源码检查了日 K 装配、核验投影、历史控制和技术面摘要。
+
+**实际来源对照。** 隔离路由读正式 DG 普通指数日线，以独立的收盘价序列复算每批 1–9 标记并逐日比对。用本地已配置的只读连接对照 Prod `core_serving.index_nineturn_daily`，查询仅含四个指数、下表日期区间以及 `ts_code, trade_date, close, up_count, down_count`，最多返回 2,970 行。实际对照 2,970 行，收盘价和标记全部一致。
+
+| 指数 | 页锚 | 首屏根数／标记数 | 续页根数／标记数 | 最早核对日期 |
+| --- | --- | --- | --- | --- |
+| 上证综指 | 2026-11-17 | 500／453 | 500／439 | 2022-09-28 |
+| 深证成指 | 2026-11-17 | 500／452 | 500／440 | 2022-09-28 |
+| 北证 50 | 2026-11-17 | 500／461 | 447／383 | 2022-12-19 |
+| 中证 A500 | 2024-10-30 | 23／19 | 历史到头 | 2024-09-23 |
+
+核验接口的中证 A500 标记与普通接口一致，早于起点的请求返回空日 K、空标记和空游标。上证综指首轮与同参重试均用两批 SQL 读取 1,000 个行情文件，预热与目标各 500 根，算子另记录一份来源文件。一次注入取消约 11.8 毫秒清理资源，同参重试 414 毫秒，行情和标记一致。首轮 890 毫秒，回包 385,444 字节。这些是隔离本机样本的单次结果。
+
+**浏览器。** 用本轮 Wealth 构建和本机隔离服务打开四只指数。页面日期和日 K 读正式 DG。登录、顶部指数、估值和成分统计使用隔离数据，趋势通道用受控回包核对请求范围。三只可翻页的指数都按上一页的 `nextEndDate=2024-10-25` 请求 500 根，北证 50 的短页结束历史，中证 A500 首屏即到头。打开技术面、切换九转及拖动的过程中，四只指数的独立日线九转请求均为零。续页保持页锚、盘口和首屏摘要，上证综指仍发出原首屏和续页两次趋势通道请求，后者使用实际续页首末日。最终浏览器验证无脚本或资源错误。
+
+**回归。** 后端 73 项、Wealth 专项 83 项通过。类型检查、隔离构建通过。覆盖本地普通页与核验页、旧接口、首屏末根无标记时的摘要，以及续页缺少标记字段后重试原游标。常用本机服务的正式切换与阶段 3 的分钟接入待推进。

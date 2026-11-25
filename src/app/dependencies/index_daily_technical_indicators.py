@@ -23,7 +23,11 @@ from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 _PROD_SOURCE_ORIGIN = date(2010, 1, 4)
-_DG_CALCULATIONS = (*SSE_DAILY_CALCULATIONS, {"calculation_id": "price", "parameters": {}})
+_DG_CALCULATIONS = (
+    *SSE_DAILY_CALCULATIONS,
+    {"calculation_id": "price", "parameters": {}},
+    {"calculation_id": "nineturn", "parameters": {}},
+)
 
 
 async def run_index_daily_kline(

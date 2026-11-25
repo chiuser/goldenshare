@@ -4,7 +4,7 @@
 
 §1–4 记录九转算子及本地股票日线的首期实施。其他股票周期见[股票周月线方案](technical-indicator-stock-period-plan-v1.md)和[股票分钟线方案](technical-indicator-stock-minute-plan-v1.md)。
 
-2026-11-25｜[本地指数九转](#local-index-nine-turn-plan)阶段 1 已通过独立审计，日线与分钟线的页面接入待实施。
+2026-11-25｜[本地指数九转](#local-index-nine-turn-plan)阶段 1 和阶段 2 已通过独立验收，分钟线接入待实施。
 
 ## 1. 目标与范围
 
@@ -40,7 +40,7 @@
 
 ## 5. 本地指数日线和分钟线九转
 
-2026-11-25｜阶段 1 已完成，六档指数分钟九转可在本地算子库计算。接口和页面接入待实施。[实施 LLD](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld) · [阶段 1 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-one-audit)
+2026-11-25｜阶段 1 的六档分钟九转算子、阶段 2 的本地指数日线回包及页面接入均已验收。常用本机服务待正式切换，分钟接口和页面待接入。[阶段 1 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-one-audit) · [阶段 2 审计](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit)
 
 本地指数详情已经用算子库计算日 K、分钟 K 和常用指标。日线页面仍另发九转请求，由本地后端用 DG 日线日期匹配 Prod 指数日线九转表 `core_serving.index_nineturn_daily`。分钟图和右侧「技术面」仍经独立九转接口读 DG 主要指数分钟九转成品 `gold/indicator/major_index_mins_nineturn`。本期迁移这两条链，页面继续使用原有九转开关、位置和 1–9 标记。[当前数据来源](technical-indicator-local-backend-source-audit-v1.html#index-active-daily-nine-turn)
 

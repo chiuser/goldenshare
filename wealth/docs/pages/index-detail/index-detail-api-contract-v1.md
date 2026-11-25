@@ -1,5 +1,7 @@
 # 指数详情页正式 API / DTO 合同 v1
 
+> 2026-11-25。合同 `1.6.0` 为本地指数日 K 九转，实施见 [九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。日线的普通、核验回包适用 §5.7，独立日线查询适用 §5.8。
+
 > 2026-11-22。本地全部支持指数的日 K 首屏与向左翻页已验收，每批最多 500 根。见[日 K 合同 §5.7](#local-index-daily-kline-api)和[浏览器验收记录](index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)。
 
 > 2026-11-22。合同 `1.5.0` 为阶段二指数周月线接口，适用范围见 §4.3 和 §5.6。阶段三页面接入另行实施。
@@ -26,7 +28,7 @@
 2. `GET /api/v1/wealth/market/index-detail/kline`
 3. `GET /api/v1/wealth/market/index-detail/weights`
 
-趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`，不在本合同复制。九转数据继续由独立的日线/分钟九转接口提供；本合同只在 page-init 声明当前环境允许请求的九转周期，不复制 marker payload。技术结论和本地指数分钟仍由各自独立合同治理，不向本合同预留 `any`、占位 payload 或未定义字段。
+趋势通道继续直接消费既有 `GET /api/v1/quote/detail/trend-channel`。本地日线九转随 §5.7 的日 K 返回，Prod 日线和本地分钟图继续使用各自的独立九转接口。page-init 只声明当前环境支持的九转周期。技术结论和本地指数分钟由各自独立合同治理。
 
 ## 2. 全局序列化规则
 
@@ -234,7 +236,7 @@ interface IndexDetailPageInitResponseDto {
 12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
 13. 分钟能力关闭时，`availablePeriods` 不含分钟周期，`minuteFrequencies` 为空。两种指数周月线算子位置和对应接口同时就绪、运行配置支持每页 500 根时，`availablePeriods` 在 `day` 后列出 `week`、`month`，`supportsWeeklyMonthly=true`。否则两项均不开放。普通、核验接口使用同一能力判断，默认仍为 `day`。
 14. `supportsTradePlanEntry=true` 只表示顶部入口存在；技术结论和任何数据 effect 都不得触发交易动作。
-15. `supportsNineTurn=true` 只表示指数日线九转接口已经部署，不表示当前窗口一定有 1～9 marker。
+15. `supportsNineTurn=true` 表示指数详情支持日线九转。当前窗口没有 1–9 标记时仍可返回空列表。本地和 Prod 按 §5.7、§5.8 取得标记。
 16. 生产、local/dev 分钟九转能力未就绪时，`nineTurnPeriods=["day"]`；local/dev 且指数分钟九转 capability 与分钟 router 同时就绪时，返回 `day,5,15,30,60,90,120`。指数 1 分钟永不进入列表。
 17. page-init 与 App router 必须消费同一个指数分钟九转 capability resolver；页面只能请求 `nineTurnPeriods` 中的周期，禁止以 K 线周期列表推导九转能力。
 18. 本地请求早于该指数首根完整日 K，或该日期及之前无已发布行情，返回空盘。DG 读取失败仍返回 HTTP 500 / `ID_QUERY_FAILED`。已发布行情落后于期望日期时，保留其实际日期及现有状态优先级。
@@ -370,7 +372,7 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 - **正常空页。** 按上交所日历、请求上下界与本环境已核实的上证行情起点，确认请求内本来没有应返回的交易日，返回 HTTP 200、`bars=[]`、`meta.count=0`、`meta.nextEndDate=null`、`dataStatus.status="EMPTY"`。有部分应有交易日且全部读到时按实际根数返回。预热不足且确实到历史起点时允许按实际有效历史初始化，MA、BOLL 未满窗口的 null 合法。
 - **行情缺失。** 请求范围内应有交易日缺整根、日期与应有序列不符、或当页开高低收缺失或无效，返回 HTTP 500、`ID_QUERY_FAILED`。当页有数据或达到 `limit` 都不能掩盖缺口。预热数据缺失、读取或计算失败、内核结果日期或字段不完整，同样整页失败。
 - **已有部分缺项规则。** 日期和四价校验通过后，量额等原行情缺项、以及 MA 或 BOLL 窗口已满但指标值仍为空，沿用 `PARTIAL` 和原有调试信息。缺少指标字段或对应日期属于整页错误。分页继续与否由本页K线根数和 `meta.nextEndDate` 决定。
-- **图层衔接。** 首屏按原时机调用独立图层。历史页有K线时，以实际首末交易日分别请求日线九转和[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)，每路传500。历史空页不发图层请求。
+- **图层衔接。** 本节分支的 Prod 首屏按原时机调用独立图层，历史页按实际首末交易日分别请求日线九转和[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)，每路传 500。历史空页结束翻页。本地日线按 §5.7 接入图层。
 
 ### 5.6 指数周线和月线（1.5.0）
 
@@ -392,10 +394,31 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 - 结果日期正序。所有支持指数的本地成功页都提供 `meta.nextEndDate`。先于本批最早日 K 的上一开市日仍在有效范围内时，满页返回该日期。短页、空页或没有更早日 K 时返回 `null`，调用方结束翻页。前端收到其他指数的旧 Prod 回包时，沿用缺少该字段时的页面行为。
 - 日 K 从 DG 普通指数日线取得四价和辅助行情，同批算子计算 MA、BOLL、MACD、KDJ。字段、正常空值和读取失败的对外行为沿用 §5.5，历史起点按指数核定。`meta.nextEndDate` 是全部支持指数本地日 K 的响应字段；字段为 `null` 时表示历史结束。Prod 仍按 §5.5 的适用范围返回此字段。
 
-非空续页有日线九转能力时，页面用同一 `tsCode` 和续页实际首末日作为 `startDate`、`endDate`，调用现有 `/index-detail/nine-turn`，每批显式传 `limit=500`。上证综指沿用同一日期范围请求趋势通道。空续页结束翻页。页面交互见[原方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)，实现和验收见[LLD §28](index-detail-low-level-design-v1.md#local-index-daily-library-expansion-lld)。
+本地日 K 在原回包上增加必有的 `nineTurnMarkers` 数组。首屏和续页都用同一算子请求的收盘价计算九转并返回本批标记。
+
+```ts
+interface IndexDailyNineTurnMarkerDto {
+  tradeDate: string;  // YYYY-MM-DD，与本批实际日 K 交易日对应。
+  tradeTime: null;
+  direction: "UP" | "DOWN";
+  sequenceNumber: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  completed: boolean;  // 第 9 根时为 true。
+}
+
+interface LocalIndexDetailDailyKlineResponseDto extends IndexDetailKlineResponseDto {
+  period: "day";
+  meta: IndexDetailSseKlineMetaDto;
+  nineTurnMarkers: IndexDailyNineTurnMarkerDto[];
+}
+```
+
+- 标记按交易日升序，每日最多一枚。合法空页或本批无可显示标记时返回 `[]`。普通地址仍返回 `debugInfo: null`，核验地址返回原诊断对象和同一标记数组。
+- 计算或结果错误沿用日 K 的 HTTP 500 / `ID_QUERY_FAILED`。续页失败后当前画面和下一次请求日期继续使用既有状态。
+- 页面首屏、续页直接用同批标记。「技术面」日线摘要使用首屏最后一根 K 线的标记，末根无标记时显示空。向左翻页只补图表历史。Prod、指数周月线继续使用原回包类型。
+- 上证综指的趋势通道仍按原图层取数，续页使用实际首末交易日。原分页交互见[方案 §9](index-detail-daily-kline-integration-implementation-design-v1.md#local-index-daily-library-expansion)，日线九转实施见[九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。
 
 <a id="local-index-daily-nine-turn-api"></a>
-### 5.8 本地指数日线九转
+### 5.8 指数日线九转独立查询
 
 `GET /api/v1/wealth/market/index-detail/nine-turn` 保留现有鉴权、参数、回包及 `cursor` 编码。独立接口的 `limit` 默认 300，上限 2,000。两端都按指数代码及交易日从 `core_serving.index_nineturn_daily` 读取已有九转结果。
 
@@ -497,13 +520,14 @@ interface IndexDetailErrorResponseDto {
 
 1. v1 实现不得向股票详情、主要指数卡片或 Quote trend DTO 添加字段。
 2. 新增 response 字段、修改 nullable/required、枚举值、来源或状态语义都需要提升合同版本并同步 LLD、M2 gate、后端 schema、前端类型和契约测试。
-3. 技术结论、九转数据和分钟数据必须以独立合同扩展；page-init 只声明稳定的九转 capability 与周期列表，不能嵌入 marker 或临时对象。
+3. 技术结论、分钟数据和独立九转查询由各自合同管理。本地日 K 标记由 §5.7 管理，page-init 只声明九转能力与周期列表。
 4. API 测试必须断言 `extra="forbid"`、debug null/object、非法字段、null 保留、字段来源和旧 DTO 无漂移。
 
 ## 9. 版本记录
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.6.0` | 2026-11-25 | 本地指数普通和核验日 K 随首屏及续页返回九转标记，技术面摘要复用首屏 |
 | `1.5.0` | 2026-11-22 | 指数详情周月线接口及能力声明，复用原行情和指标字段 |
 | `1.4.0` | 2026-11-05 | 定稿上证日K新分支、`meta.nextEndDate`、完整性错误与16个指标回填，待实现和验收 |
 | `1.3.2` | 2026-10-20 | 仅成分缺行情不再触发 breadth/page-init/weights PARTIAL 或两处提示；保留完整名单、null 与缺失计数，指数昨收缺失等原错误继续提示。工作区开发与本地技术验收完成，未部署 |

@@ -109,7 +109,9 @@ describe("ordinary index daily history", () => {
 
   // Input shape follows the implemented local page contract. Weekday dates are
   // sufficient to verify the cursor supplied by the server and the drag threshold.
-  function page(endDate: string, count: number, nextEndDate: string | null, tsCode = code): IndexDetailKlineResponseDto {
+  function page(
+    endDate: string, count: number, nextEndDate: string | null, tsCode = code,
+  ): Extract<IndexDetailKlineResponseDto, { period: "day" }> {
     const initial = makeOrdinaryKline(tsCode);
     const rows = [];
     const date = new Date(endDate);
@@ -128,7 +130,7 @@ describe("ordinary index daily history", () => {
     };
   }
 
-  function mountFirstPage(tsCode = code) {
+  function mountFirstPage(tsCode = code, embeddedNineTurn = false) {
     const sample = page(firstEnd, 500, null);
     const firstDate = sample.bars[0]!.tradeDate;
     const friday = new Date(firstDate);
@@ -137,7 +139,7 @@ describe("ordinary index daily history", () => {
     const olderEnd = friday.toISOString().slice(0, 10);
     const initial = page(firstEnd, 500, olderEnd, tsCode);
     vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit(tsCode));
-    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(initial);
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(embeddedNineTurn ? { ...initial, nineTurnMarkers: [] } : initial);
     vi.mocked(fetchTrendChannel).mockResolvedValueOnce(makeTrendPayload());
     const hook = renderHook(({ tsCode }) => useIndexDetailController(tsCode, undefined), { initialProps: { tsCode } });
     const move = (remaining: number, direction: "history" | "recent", gesture = Symbol(), beyondLeft = false) =>
@@ -147,6 +149,29 @@ describe("ordinary index daily history", () => {
       }));
     return { ...hook, move, olderEnd };
   }
+
+  it("retains the local cursor after an incomplete response and uses the retried page's own markers", async () => {
+    const tsCode = "399001.SZ";
+    const { result, move, olderEnd } = mountFirstPage(tsCode, true);
+    const older = page(olderEnd, 2, null, tsCode);
+    const marker = { tradeDate: olderEnd, tradeTime: null, sequenceNumber: 7, direction: "UP", completed: false } as const;
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(older)
+      .mockResolvedValueOnce({ ...older, nineTurnMarkers: [marker] });
+    await waitFor(() => expect(result.current.history.active).toBe(true));
+    expect(result.current.dailyNineTurnMarkers).toEqual([]);
+    move(100, "history");
+    await waitFor(() => expect(result.current.history.phase).toBe("error"));
+    expect(result.current.history.visible).toBeNull();
+    move(100, "history", Symbol(), true);
+    await waitFor(() => expect(result.current.history.visible?.nineTurnMarkers).toEqual([marker]));
+    expect(result.current.history.visible?.candles).toHaveLength(502);
+    expect(result.current.dailyNineTurnMarkers).toEqual([]);
+    expect(fetchIndexDetailKline).toHaveBeenCalledTimes(3);
+    expect(fetchIndexDetailKline).toHaveBeenLastCalledWith(
+      { tsCode, period: "day", limit: 500, endDate: olderEnd }, { signal: expect.any(AbortSignal) },
+    );
+    expect(loadIndexNineTurnSeries).not.toHaveBeenCalled();
+  });
 
   it.each([
     "000001.SH", "399001.SZ", "399006.SZ", "000688.SH", "000300.SH",

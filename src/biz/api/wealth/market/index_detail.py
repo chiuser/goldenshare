@@ -28,6 +28,7 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailKlineResponseDto,
     IndexDetailPageInitResponseDto,
     IndexDetailWeightsResponseDto,
+    LocalIndexDetailDailyKlineResponseDto,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
@@ -133,7 +134,11 @@ def build_router(
             _raise_http_error(exc)
             raise AssertionError("unreachable")
 
-    @router.get("/kline", response_model=IndexDetailKlineResponseDto)
+    @router.get(
+        "/kline",
+        response_model=(LocalIndexDetailDailyKlineResponseDto | IndexDetailKlineResponseDto
+                        if daily_lake is not None else IndexDetailKlineResponseDto),
+    )
     async def get_index_detail_kline(
         request: Request,
         ts_code: str | None = Query(default=None, alias="tsCode"),

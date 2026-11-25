@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import {
   fetchIndexDetailKline,
   fetchIndexDetailPageInit,
@@ -28,6 +29,7 @@ import type {
 
 interface IndexDetailControllerSnapshot {
   basePhase: IndexDataPagePhase;
+  dailyNineTurnMarkers: NineTurnMarkerDto[] | null;
   errorCode: string;
   errorMessage: string;
   pagePartialReasons: string[];
@@ -102,6 +104,10 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
         if (kline.indexRef.tsCode !== normalizedTsCode) throw new Error("指数K线返回的代码与请求不一致");
+        const markers = kline.period === "day" ? kline.nineTurnMarkers : undefined;
+        if ("nineTurnMarkers" in kline && !Array.isArray(markers)) {
+          throw new Error("指数日线回包缺少有效的九转标记");
+        }
         const supportsDailyHistory = normalizedTsCode === "000001.SH" || "nextEndDate" in kline.meta;
         const nextEndDate = supportsDailyHistory
           ? readIndexDailyCursor(kline, normalizedTsCode, pageInit.asOfTradeDate)
@@ -124,12 +130,13 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
           return {
             ...current,
             basePhase,
+            dailyNineTurnMarkers: markers ?? null,
             errorCode: "",
             errorMessage: "",
             pagePartialReasons,
             partialReasons: trendFailed ? mergeReasons(pagePartialReasons, ["趋势通道"]) : pagePartialReasons,
             phase: trendFailed ? "partial" : basePhase,
-            historySeed: supportsDailyHistory ? { viewModel, nextEndDate } : null,
+            historySeed: supportsDailyHistory ? { viewModel, nextEndDate, embeddedNineTurn: markers !== undefined } : null,
             viewModel,
           };
         });
@@ -181,6 +188,7 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
 function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
   return {
     basePhase: "ready",
+    dailyNineTurnMarkers: null,
     errorCode: "",
     errorMessage: "",
     historySeed: null,

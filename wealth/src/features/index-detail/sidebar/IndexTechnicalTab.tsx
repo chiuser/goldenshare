@@ -51,13 +51,13 @@ function NineTurnSummaryCard({
       <div className="index-nine-turn-summary-rows">
         {INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ label, period }) => {
           const layer = layers[period];
-          const latest = layer.data?.latestMarker ?? null;
+          const latest = layer.latestMarker ?? layer.data?.latestMarker ?? null;
           const value = latest ? `${latest.direction === "UP" ? "上序" : "下序"} ${latest.sequenceNumber}` : "--";
           return (
             <div className="index-nine-turn-summary-row" data-phase={layer.phase} key={period}>
               <span>{label}</span>
               <b className={latest?.direction === "UP" ? "up" : latest?.direction === "DOWN" ? "down" : "secondary"}>{value}</b>
-              <small>{nineTurnStatusText(layer)}</small>
+              <small>{nineTurnStatusText(layer, latest !== null)}</small>
               {layer.canRetry ? <button aria-label={`重试${label}九转`} onClick={() => onRetry(period)} type="button">重试</button> : null}
             </div>
           );
@@ -67,7 +67,7 @@ function NineTurnSummaryCard({
   );
 }
 
-function nineTurnStatusText(layer: NineTurnLayerViewModel): string {
+function nineTurnStatusText(layer: NineTurnLayerViewModel, hasLatestMarker: boolean): string {
   if (layer.phase === "LOADING") return "加载中";
   if (layer.phase === "EMPTY") return "暂时空缺";
   if (layer.phase === "SOURCE_EMPTY") return "数据源未覆盖";
@@ -76,7 +76,7 @@ function nineTurnStatusText(layer: NineTurnLayerViewModel): string {
   if (layer.phase === "FORBIDDEN") return "权限不足";
   if (layer.phase === "UNSUPPORTED") return "当前环境未开放";
   if (layer.phase === "IDLE") return "等待加载";
-  return layer.data?.latestMarker ? "最新标记" : "暂时空缺";
+  return hasLatestMarker ? "最新标记" : "暂时空缺";
 }
 
 function TechnicalCard({ title, value, note }: { title: string; value: string; note: string }) {

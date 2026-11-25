@@ -57,6 +57,45 @@ describe("IndexDetailPage", () => {
     window.history.replaceState({}, "", "/wealth/market/overview");
   });
 
+  it.each([false, true])("uses the local daily K-line markers for the chart and technical summary (debug=%s)", async (debug) => {
+    const tsCode = "399001.SZ";
+    const daily = makeOrdinaryKline(tsCode);
+    const fetchMock = mockFetch(tsCode, {
+      kline: () => response({
+        ...daily, meta: { ...daily.meta, nextEndDate: null },
+        nineTurnMarkers: [{ tradeDate: "2026-07-31", tradeTime: null, direction: "DOWN", sequenceNumber: 9, completed: true }],
+      }),
+    });
+    const Page = debug ? IndexDetailDebugPage : IndexDetailPage;
+    render(<Page search="" tsCode={tsCode} />);
+    const chart = await screen.findByLabelText("指数日线图表区");
+    expect(chart).toHaveAttribute("data-nine-turn-phase", "READY");
+    fireEvent.click(within(chart).getByRole("button", { name: "九转序列" }));
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    const summary = within(screen.getByLabelText("九转序列摘要"));
+    expect(summary.getByText("下序 9")).toBeInTheDocument();
+    expect(summary.getByText("最新标记")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(0);
+  });
+
+  it("keeps the day summary empty when only an earlier local K-line has a marker", async () => {
+    const tsCode = "399001.SZ";
+    const daily = makeOrdinaryKline(tsCode);
+    const fetchMock = mockFetch(tsCode, {
+      kline: () => response({
+        ...daily, meta: { ...daily.meta, nextEndDate: null },
+        nineTurnMarkers: [{ tradeDate: "2026-07-30", tradeTime: null, direction: "UP", sequenceNumber: 3, completed: false }],
+      }),
+    });
+    render(<IndexDetailPage search="" tsCode={tsCode} />);
+    expect(await screen.findByLabelText("指数日线图表区")).toHaveAttribute("data-nine-turn-phase", "READY");
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    const summary = within(screen.getByLabelText("九转序列摘要"));
+    expect(summary.queryByText("上序 3")).not.toBeInTheDocument();
+    expect(summary.getByText("暂时空缺")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(0);
+  });
+
   it("renders the Loaded skeleton, fixed basic fields, three tabs, and lazily cached full weights", async () => {
     const fetchMock = mockFetch("000001.SH");
     render(<IndexDetailPage search="" tsCode="000001.SH" />);

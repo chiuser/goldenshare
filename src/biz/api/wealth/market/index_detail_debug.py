@@ -10,6 +10,10 @@ from src.biz.api.wealth.market.index_detail import (
 from src.biz.queries.wealth.market.index_detail.index_detail_page_query_service import IndexDetailPageQueryService
 from src.biz.queries.wealth.market.index_detail.index_detail_weights_query_service import IndexDetailWeightsQueryService
 from src.biz.schemas.wealth.market.index_detail_daily_wave import DailyWaveEmptyDto, DailyWaveReadyDto
+from src.biz.schemas.wealth.market.index_detail_debug import (
+    IndexDetailKlineDebugResponseDto,
+    LocalIndexDetailDailyKlineDebugResponseDto,
+)
 from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
 
 
@@ -41,7 +45,11 @@ def build_router(*, daily_lake=None, run_sse_kline=None, run_period_kline=None, 
         except Exception as exc:
             _raise_http_error(exc)
 
-    @router.get("/kline")
+    @router.get(
+        "/kline",
+        response_model=(LocalIndexDetailDailyKlineDebugResponseDto | IndexDetailKlineDebugResponseDto
+                        if daily_lake is not None else None),
+    )
     async def kline(request: Request, ts_code: str | None = Query(None, alias="tsCode"),
                     period: str | None = Query(None), start_date: str | None = Query(None, alias="startDate"),
                     end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None),
@@ -145,9 +153,12 @@ def add_openapi_responses(schema):
     for endpoint, model in models.items():
         path = f"/api/v1/wealth/market/index-detail/debug/{endpoint}"
         if path in schema["paths"]:
+            content = schema["paths"][path]["get"]["responses"]["200"]["content"]
+            if endpoint == "kline" and content["application/json"].get("schema"):
+                # Local daily and period responses are already declared by the route.
+                continue
             response = model.model_json_schema(ref_template="#/components/schemas/{model}", mode="serialization")
             for name, definition in response.pop("$defs", {}).items():
                 components.setdefault(name, definition)
             components[model.__name__] = response
-            content = schema["paths"][path]["get"]["responses"]["200"]["content"]
             content["application/json"]["schema"] = {"$ref": f"#/components/schemas/{model.__name__}"}

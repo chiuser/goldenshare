@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, model_validator
 
+from .nine_turn import NineTurnMarkerDto
+
 
 IndexDetailDataStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY"]
 IndexDetailDirection = Literal["UP", "DOWN", "FLAT", "UNKNOWN"]
@@ -231,6 +233,12 @@ class IndexDetailKlineDataDto(BaseModel):
 
 class IndexDetailKlineResponseDto(IndexDetailKlineDataDto):
     debugInfo: None = None
+
+
+class LocalIndexDetailDailyKlineResponseDto(IndexDetailKlineResponseDto):
+    period: Literal["day"]
+    meta: IndexDetailSseKlineMetaDto
+    nineTurnMarkers: list[NineTurnMarkerDto]
 
 
 class IndexDetailWeightRowDto(BaseModel):

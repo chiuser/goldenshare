@@ -9,8 +9,10 @@ from .index_detail import (
     IndexDetailDataStatusValue,
     IndexDetailPageInitDataDto,
     IndexDetailKlineDataDto,
+    IndexDetailSseKlineMetaDto,
     IndexDetailWeightsDataDto,
 )
+from .nine_turn import NineTurnMarkerDto
 
 
 IndexDetailSeverity = Literal["info", "warn", "error"]
@@ -68,6 +70,12 @@ class IndexDetailPageInitDebugResponseDto(IndexDetailPageInitDataDto):
 
 class IndexDetailKlineDebugResponseDto(IndexDetailKlineDataDto):
     debugInfo: IndexDetailDebugInfoDto
+
+
+class LocalIndexDetailDailyKlineDebugResponseDto(IndexDetailKlineDebugResponseDto):
+    period: Literal["day"]
+    meta: IndexDetailSseKlineMetaDto
+    nineTurnMarkers: list[NineTurnMarkerDto]
 
 
 class IndexDetailWeightsDebugResponseDto(IndexDetailWeightsDataDto):

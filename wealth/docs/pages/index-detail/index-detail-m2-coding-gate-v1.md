@@ -1,5 +1,7 @@
 # 指数详情页 M2 编码前门禁 v1
 
+> 2026-11-25。本地指数日 K 九转接入按 [API 合同 §5.7](./index-detail-api-contract-v1.md#local-index-daily-kline-api)及[九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)验收。下方为 M2 历史记录。
+
 > 上证日K接入另按[LLD §27](./index-detail-low-level-design-v1.md#sse-daily-kline-integration)推进。Figma 已确认，[上证日K 1.4.0](./index-detail-api-contract-v1.md#sse-daily-kline-api)与[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)已定稿，待核定有界验收样本及读取上限后编码。下方 M2 门禁记录对应原阶段。
 
 > 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。

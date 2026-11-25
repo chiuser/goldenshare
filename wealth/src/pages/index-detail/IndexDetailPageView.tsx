@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType } from "react";
 
 import {
   buildIndexDetailPath,
@@ -17,7 +17,11 @@ import { IndexBreadcrumbActionBar } from "../../features/index-detail/layout/Ind
 import { IndexChartToolbar } from "../../features/index-detail/layout/IndexChartToolbar";
 import { getIndexShellIdentity, getIndexShellPeriods, normalizeIndexTsCode } from "../../features/index-detail/model/indexDetailState";
 import type { IndexInfoTab, IndexPeriodKey } from "../../features/index-detail/model/indexDetailTypes";
-import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary } from "../../features/index-detail/model/indexTechnicalNineTurnSummary";
+import {
+  INDEX_TECHNICAL_NINE_TURN_PERIODS,
+  type IndexTechnicalNineTurnLayer,
+  type IndexTechnicalNineTurnSummary,
+} from "../../features/index-detail/model/indexTechnicalNineTurnSummary";
 import { IndexInfoRail } from "../../features/index-detail/sidebar/IndexInfoRail";
 import { IndexDetailLoadingSkeleton } from "../../features/index-detail/state/IndexDetailLoadingSkeleton";
 import { IndexDetailPageState } from "../../features/index-detail/state/IndexDetailPageState";
@@ -108,13 +112,29 @@ export function IndexDetailPageView({
     validatedTsCode: hasData && viewModel?.identity.tsCode === normalizedTsCode ? normalizedTsCode : null,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(chartPeriod);
+  const dailyNineTurnMarkers = controller.dailyNineTurnMarkers;
+  const firstPageLastDate = viewModel?.chart.candles.at(-1)?.time;
+  const localDailyNineTurn = useMemo<IndexTechnicalNineTurnLayer | null>(() => {
+    if (dailyNineTurnMarkers === null) return null;
+    const lastMarker = dailyNineTurnMarkers.at(-1);
+    return {
+      canRetry: false,
+      data: null,
+      errorCode: null,
+      latestMarker: lastMarker?.tradeDate === firstPageLastDate ? lastMarker ?? null : null,
+      markers: dailyNineTurnMarkers,
+      message: dailyNineTurnMarkers.length ? null : "当前窗口暂无九转标记。",
+      period: "day",
+      phase: dailyNineTurnMarkers.length ? "READY" : "EMPTY",
+    };
+  }, [dailyNineTurnMarkers, firstPageLastDate]);
   const nineTurnCapabilities = viewModel?.capabilities;
   const nineTurnControl = useNineTurnDisplayControl(normalizedTsCode,
     activeNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
       && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
   const nineTurnLayer = activeNineTurnPeriod === null
     ? unsupportedNineTurnLayer("1")
-    : nineTurnRegistry.stateFor(activeNineTurnPeriod);
+    : (activeNineTurnPeriod === "day" ? localDailyNineTurn : null) ?? nineTurnRegistry.stateFor(activeNineTurnPeriod);
   const minute = useIndexMinuteSeries({
     activePeriod: chartPeriod,
     requests,
@@ -139,17 +159,19 @@ export function IndexDetailPageView({
 
   useEffect(() => {
     if (!hasData || activeNineTurnPeriod === null) return;
+    if (activeNineTurnPeriod === "day" && localDailyNineTurn) return;
     void nineTurnRegistry.ensure(activeNineTurnPeriod);
-  }, [activeNineTurnPeriod, hasData, nineTurnRegistry.ensure]);
+  }, [activeNineTurnPeriod, hasData, localDailyNineTurn, nineTurnRegistry.ensure]);
 
   useEffect(() => {
     if (!hasData || activeTab !== "technical") return;
     INDEX_TECHNICAL_NINE_TURN_PERIODS.forEach(({ period }) => {
+      if (period === "day" && localDailyNineTurn) return;
       if (viewModel?.capabilities.nineTurnPeriods.includes(period)) {
         void nineTurnRegistry.ensure(period);
       }
     });
-  }, [activeTab, hasData, nineTurnRegistry.ensure, viewModel]);
+  }, [activeTab, hasData, localDailyNineTurn, nineTurnRegistry.ensure, viewModel]);
 
   const historyError = controller.history?.error;
   useEffect(() => {
@@ -266,7 +288,7 @@ export function IndexDetailPageView({
               nineTurnControl={nineTurnControl}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
-                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+                if (!localDailyNineTurn && activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
               history={controller.history}
               trend={controller.trend}
@@ -317,7 +339,9 @@ export function IndexDetailPageView({
           viewModel={viewModel}
           weights={displayedWeights}
           nineTurnSummary={Object.fromEntries(
-            INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ period }) => [period, nineTurnRegistry.stateFor(period)]),
+            INDEX_TECHNICAL_NINE_TURN_PERIODS.map(({ period }) => [
+              period, (period === "day" ? localDailyNineTurn : null) ?? nineTurnRegistry.stateFor(period),
+            ]),
           ) as IndexTechnicalNineTurnSummary}
         />
       </main>
