@@ -81,4 +81,4 @@
 | Definition 与合同消费者 | 身份、存储目标、执行计划、动作和目录契约继续引用现有 Definition。手动、计划和重试复用股票分钟专用 worker。取数、写入、查询视图、快照命令、DG 以及间接 API 消费清单见 LLD §3。 |
 | 源字段到存储 | HTTP 响应 `amount` 保留十进制。原表增加可空且无默认值的 `amount_precise NUMERIC`。新版写两列时将旧列设为 `NULL`，现存旧行留在 `amount REAL`。视图、聚合和 DG 输出继续使用 `amount`，金额选择依 LLD §2–§3。股票代码、时间、频率、四价和成交量继续用 §4 的字段合同。 |
 | 批量、事务与状态 | 每页上限 8,000 行，现有并发 2，每 unit 内累积页面。提交依旧以 unit 为边界，幂等键为 `(ts_code,freq,trade_time)`。保留进度里的股票、频率、窗口、完成 unit、累计行数和 TaskRun 终态。取消仍用现有检查点。进程重启后用已有 Ops 重试入口重放范围，已提交的主键用于幂等重放。DAO 批次上限受绑定列数量及有效配置共同约束，详见 LLD §4。 |
-| 开发和部署验证 | 阶段 1 隔离验证和阶段 2 生产切换证据见 LLD §8、§9。首批正式数据按 LLD §6.3 验收，禁止全量审计、扫描及回刷。 |
+| 开发和部署验证 | 阶段 1 隔离验证和阶段 2 生产切换证据见 LLD §8、§9。首批正式数据已按单股、单日、单频完成验收，见 [LLD §10](stk-mins-amount-precision-low-level-design-v1.md#stk-mins-amount-first-production-acceptance)。验收禁止全量审计、扫描及回刷。 |
