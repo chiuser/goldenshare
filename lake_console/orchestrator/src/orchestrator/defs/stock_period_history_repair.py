@@ -1,7 +1,9 @@
-"""Factor-change period history: explicit inputs, fresh source, native delivery."""
+"""Stock period history: explicit inputs and native delivery."""
 
+import csv
 import tempfile
 import time
+from ast import literal_eval
 from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -24,12 +26,14 @@ from orchestrator.defs.io.stock_period_raw import (
     StorageBudget,
     assemble_history_maintenance_period,
     assemble_history_period,
+    check_cancel,
     count_maintenance_rows,
     durable_directory,
     file_version,
     group_history_sources,
     process_memory_budget,
     publish_period,
+    safe_path,
     target_path,
 )
 from orchestrator.defs.paths import (
@@ -61,6 +65,7 @@ from orchestrator.defs.run_contracts.stock_period_delivery import (
 from orchestrator.defs.run_contracts.stock_period_history_repair import (
     FREQUENCIES,
     JOB_NAME,
+    OP_NAME,
     StockPeriodHistoryRepairConfig,
     build_history_repair_run_config,
     repair_upstream_batch_id,
@@ -245,8 +250,193 @@ def _validate_upstreams(instance, root, config):
             raise ValueError("period_repair_upstream_coverage_missing")
 
 
+def load_saved_week_pages(instance, staging, config, cancel):
+    """Read a canceled run's complete, named week pages before preparing targets."""
+    previous = instance.get_run_by_id(config.saved_source_run_id)
+    if (
+        previous is None
+        or previous.job_name != JOB_NAME
+        or previous.status != dg.DagsterRunStatus.CANCELED
+    ):
+        raise ValueError("period_saved_week_run_invalid")
+    original = previous.run_config["ops"][OP_NAME]["config"]
+    if (
+        original.get("intent") != "factor_changed"
+        or original.get("business_date") != config.business_date
+        or original.get("stock_codes") != config.stock_codes
+        or original.get("codes_hash") != config.codes_hash
+        or original.get("frequencies") != FREQUENCIES
+    ):
+        raise ValueError("period_saved_week_run_scope_mismatch")
+    root = safe_path(
+        staging / "stock_period" / "runs" / previous.run_id / "source" / "week"
+    )
+    if {entry.name for entry in root.iterdir()} != set(config.stock_codes):
+        raise ValueError("period_saved_week_stock_scope_mismatch")
+
+    end_date = config.business_date.replace("-", "")
+    last_week = period_for(date.fromisoformat(config.business_date), "week")
+    code_index, date_index, end_index, freq_index = (
+        FIELDS.index(name) for name in ("ts_code", "trade_date", "end_date", "freq")
+    )
+    periods = {}
+    sources = []
+    for code in config.stock_codes:
+        check_cancel(cancel)
+        folder = safe_path(root / code)
+        page = safe_path(folder / "page-0.csv")
+        if sorted(folder.glob("page-*.csv")) != [page] or not page.is_file():
+            raise ValueError(f"period_saved_week_incomplete_page:{code}")
+        before = file_version(page)
+        seen = set()
+        with page.open(newline="", encoding="utf-8") as handle:
+            rows = csv.reader(handle)
+            if tuple(next(rows, ())) != FIELDS:
+                raise ValueError(f"period_saved_week_fields_invalid:{code}")
+            for row in rows:
+                if (
+                    len(row) != len(FIELDS)
+                    or row[code_index] != code
+                    or row[freq_index] != "week"
+                    or row[end_index] != end_date
+                    or row[date_index] in seen
+                ):
+                    raise ValueError(f"period_saved_week_row_invalid:{code}")
+                label = row[date_index]
+                if label not in periods:
+                    periods[label] = source_period(label, "week")
+                if periods[label] > last_week:
+                    raise ValueError(f"period_saved_week_future_period:{code}")
+                seen.add(label)
+        if not 0 < len(seen) < DEFAULT_POLICY.page_limit or file_version(page) != before:
+            raise ValueError(f"period_saved_week_incomplete_page:{code}")
+        sources.append(page)
+    return sources
+
+
+def saved_month_page_completions(instance, run_id):
+    """Read just this run's source progress and identify terminal pages by stock."""
+    completed, cursor, code = {}, None, None
+    while True:
+        page = instance.get_records_for_run(run_id, cursor=cursor, limit=1000)
+        for record in page.records:
+            message = record.event_log_entry.user_message
+            if message.startswith("{'stage': 'history_source', 'freq': 'month',"):
+                code = literal_eval(message)["code"]
+            elif message.startswith("{'stage': 'source_page_complete', 'freq': 'month',"):
+                event = literal_eval(message)
+                count, rows = event["pages"], event["source_rows"]
+                limit = DEFAULT_POLICY.page_limit
+                if code is None or not 0 <= rows - (count - 1) * limit <= limit:
+                    raise ValueError("period_saved_month_page_event_invalid")
+                if rows and rows < count * limit:
+                    completed[code] = count, rows
+        if not page.has_more:
+            return completed
+        cursor = page.cursor
+
+
+def validate_saved_month_pages(pages, code, expected_rows, latest_day, date_cache):
+    """Check archived rows against the completed request before using them."""
+    code_index, date_index, end_index, freq_index = (
+        FIELDS.index(name) for name in ("ts_code", "trade_date", "end_date", "freq")
+    )
+    seen = set()
+    limit = DEFAULT_POLICY.page_limit
+    for index, page in enumerate(pages):
+        before = file_version(page)
+        previous_count = len(seen)
+        with page.open(newline="", encoding="utf-8") as handle:
+            rows = csv.reader(handle)
+            if tuple(next(rows, ())) != FIELDS:
+                raise ValueError(f"period_saved_month_fields_invalid:{code}")
+            for row in rows:
+                if (
+                    len(row) != len(FIELDS)
+                    or row[code_index] != code
+                    or row[freq_index] != "month"
+                    or row[date_index] in seen
+                ):
+                    raise ValueError(f"period_saved_month_row_invalid:{code}")
+                label, asof = row[date_index], row[end_index]
+                for value in (label, asof):
+                    if value not in date_cache:
+                        if len(value) != 8 or not value.isascii() or not value.isdigit():
+                            raise ValueError(f"period_saved_month_date_invalid:{code}")
+                        date_cache[value] = date.fromisoformat(value)
+                if date_cache[asof] > latest_day:
+                    raise ValueError(f"period_saved_month_future_source:{code}")
+                seen.add(label)
+        expected_page_rows = min(limit, expected_rows - index * limit)
+        if len(seen) - previous_count != expected_page_rows or file_version(page) != before:
+            raise ValueError(f"period_saved_month_page_rows_mismatch:{code}")
+
+
+def load_saved_month_pages(instance, staging, config, cancel):
+    """Bind archived pages to the original run and any interrupted month retries."""
+    run_id = config.saved_source_run_id
+    codes, visited, sources, date_cache = set(config.stock_codes), set(), {}, {}
+    while True:
+        check_cancel(cancel)
+        previous = instance.get_run_by_id(run_id)
+        if (
+            run_id in visited
+            or previous is None
+            or previous.job_name != JOB_NAME
+            or previous.status not in (dg.DagsterRunStatus.CANCELED, dg.DagsterRunStatus.FAILURE)
+        ):
+            raise ValueError("period_saved_month_run_invalid")
+        visited.add(run_id)
+        recorded = StockPeriodHistoryRepairConfig.model_validate(
+            previous.run_config["ops"][OP_NAME]["config"]
+        )
+        if (
+            recorded.business_date != config.business_date
+            or recorded.stock_codes != config.stock_codes
+            or recorded.codes_hash != config.codes_hash
+        ):
+            raise ValueError("period_saved_month_run_scope_mismatch")
+
+        parent = recorded.saved_source_run_id
+        if (
+            recorded.intent == "factor_changed"
+            and recorded.frequencies == FREQUENCIES
+            and parent is None
+            and previous.status == dg.DagsterRunStatus.CANCELED
+        ):
+            latest_day = date.fromisoformat(config.business_date)
+        elif recorded.intent == "specified_history" and recorded.frequencies == ["month"] and parent:
+            recorded.validate_intent()
+            finished = instance.get_run_stats(run_id).end_time
+            if finished is None:
+                raise ValueError("period_saved_month_parent_end_missing")
+            latest_day = datetime.fromtimestamp(finished, ZoneInfo("Asia/Shanghai")).date()
+        else:
+            raise ValueError("period_saved_month_run_scope_mismatch")
+
+        completed = saved_month_page_completions(instance, run_id)
+        if completed.keys() - codes:
+            raise ValueError("period_saved_month_stock_scope_mismatch")
+        root = safe_path(staging / "stock_period" / "runs" / run_id / "source" / "month")
+        for code in sorted(completed.keys() - sources.keys()):
+            check_cancel(cancel)
+            count, rows = completed[code]
+            folder = safe_path(root / code)
+            pages = [
+                safe_path(folder / f"page-{index * DEFAULT_POLICY.page_limit}.csv")
+                for index in range(count)
+            ]
+            if set(folder.glob("page-*.csv")) != set(pages):
+                raise ValueError(f"period_saved_month_pages_mismatch:{code}")
+            validate_saved_month_pages(pages, code, rows, latest_day, date_cache)
+            sources[code] = pages
+        if parent is None:
+            return sources
+        run_id = parent
+
+
 def execute_history_repair(context, config):
-    """All source units and candidates are rebuilt in this real run's directory."""
+    """Build candidates in this run, optionally using explicitly saved source pages."""
     from dagster._core.definitions.asset_checks.asset_check_evaluation import (
         AssetCheckEvaluation,
         AssetCheckEvaluationTargetMaterializationData,
@@ -266,6 +456,7 @@ def execute_history_repair(context, config):
     root_resource.ensure_available_for_run()
     root, staging = roots(root_resource.root(), Path(paths.DEFAULT_LAKE_STAGING_ROOT))
     frequencies = config.frequencies
+    recover_month = bool(config.saved_source_run_id and frequencies == ["month"])
     kind = (
         "factor_repair" if config.intent == "factor_changed" else "history_maintenance"
     )
@@ -280,20 +471,25 @@ def execute_history_repair(context, config):
         aliases = None
     else:
         codes = config.stock_codes
-        aliases = load_history_maintenance_scope(root, config)
+        aliases = (
+            {}
+            if config.saved_source_run_id
+            else load_history_maintenance_scope(root, config)
+        )
+    recovery_metadata = {}
     removal_metadata = (
         {"remove_keys": config.remove_keys, "remove_keys_hash": config.remove_keys_hash}
         if config.intent == "identity_maintenance"
         else {}
     )
-    context.instance.add_run_tags(
-        context.run_id,
-        period_run_tags(
-            business_date=config.business_date,
-            kind=kind,
-            freq=frequencies[0] if len(frequencies) == 1 else None,
-        ),
+    tags = period_run_tags(
+        business_date=config.business_date,
+        kind=kind,
+        freq=frequencies[0] if len(frequencies) == 1 else None,
     )
+    if config.saved_source_run_id:
+        tags["goldenshare/stock_period_saved_source_run_id"] = config.saved_source_run_id
+    context.instance.add_run_tags(context.run_id, tags)
     progress = lambda value: context.log.info(str(value))
     cancelled, last_checked = False, float("-inf")
 
@@ -332,33 +528,77 @@ def execute_history_repair(context, config):
                         ).fetchall()
                     aliases = dict(identities)
                     aliases.update({latest: latest for _, latest in identities})
-                sources = []
-                transport = (
-                    HttpPage(cancel=cancel, progress=progress) if codes else None
-                )
-                for freq in frequencies:
-                    for index, code in enumerate(codes):
+                if config.saved_source_run_id and not recover_month:
+                    sources = load_saved_week_pages(context.instance, staging, config, cancel)
+                    progress({"stage": "history_saved_week_source", "stock_count": len(sources)})
+                else:
+                    saved = (
+                        load_saved_month_pages(context.instance, staging, config, cancel)
+                        if recover_month
+                        else {}
+                    )
+                    pending = [code for code in codes if code not in saved]
+                    if recover_month and pending:
+                        aliases = load_history_maintenance_scope(
+                            root, config.model_copy(update={"stock_codes": pending})
+                        )
+                    sources = [page for code in codes for page in saved.get(code, ())]
+                    attempts = 0
+
+                    def source_progress(event):
+                        nonlocal attempts
+                        if event["stage"] == "source_worker_started":
+                            attempts += 1
+                        progress(event)
+
+                    if recover_month:
                         progress(
                             {
-                                "stage": "history_source",
-                                "freq": freq,
-                                "code": code,
-                                "done": index,
-                                "total": len(codes),
+                                "stage": "history_saved_month_source",
+                                "reused_stock_count": len(saved),
+                                "pending_stock_count": len(pending),
                             }
                         )
-                        sources.extend(
-                            capture_stock_history(
-                                work=work / "source" / freq / code,
-                                freq=freq,
-                                code=code,
-                                listed=set(codes),
-                                aliases=aliases,
-                                transport=transport,
-                                cancel=cancel,
-                                progress=progress,
-                            )
+                    transport = (
+                        HttpPage(
+                            cancel=cancel,
+                            progress=source_progress if recover_month else progress,
                         )
+                        if pending
+                        else None
+                    )
+                    listed = set(pending)
+                    for freq in frequencies:
+                        for index, code in enumerate(pending):
+                            progress(
+                                {
+                                    "stage": "history_source",
+                                    "freq": freq,
+                                    "code": code,
+                                    "done": index,
+                                    "total": len(pending),
+                                }
+                            )
+                            sources.extend(
+                                capture_stock_history(
+                                    work=work / "source" / freq / code,
+                                    freq=freq,
+                                    code=code,
+                                    listed=listed,
+                                    aliases=aliases,
+                                    transport=transport,
+                                    cancel=cancel,
+                                    progress=progress,
+                                )
+                            )
+                    if recover_month:
+                        recovery_metadata = {
+                            "reused_stock_count": len(saved),
+                            "fetched_stock_count": len(pending),
+                            "source_page_count": len(sources),
+                            "request_attempt_count": attempts,
+                        }
+                        progress({"stage": "history_month_source_complete", **recovery_metadata})
                 groups = (
                     group_history_sources(
                         sources,
@@ -367,6 +607,7 @@ def execute_history_repair(context, config):
                         execution_date=datetime.now(ZoneInfo("Asia/Shanghai"))
                         .date()
                         .isoformat(),
+                        **({"through_month": config.business_date[:7]} if recover_month else {}),
                         cancel=cancel,
                         progress=progress,
                     )
@@ -419,6 +660,7 @@ def execute_history_repair(context, config):
                                         upstream_completions=config.upstream_completions,
                                     ),
                                     **removal_metadata,
+                                    **recovery_metadata,
                                 }
                             )
                         },

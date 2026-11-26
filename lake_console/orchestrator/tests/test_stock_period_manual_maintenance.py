@@ -5,13 +5,17 @@ are the real Silver producer schema; identity is the confirmed producer schema.
 Literal prices and exact key lists below define expectations independently.
 """
 
+import csv
 import json
+import time
 from decimal import Decimal
+from pathlib import Path
 from types import SimpleNamespace as NS
 
 import dagster as dg
 import pytest
 from dagster._core.events import DagsterEventType
+from dagster._core.events.log import EventLogEntry
 
 from orchestrator.defs import paths, stock_period_silver, stock_period_source
 from orchestrator.defs import stock_period_history_repair as repair
@@ -26,6 +30,7 @@ from orchestrator.defs.run_contracts.stock_period_delivery import (
     WORK_KEY,
 )
 from orchestrator.defs.run_contracts.stock_period_history_repair import (
+    OP_NAME,
     StockPeriodHistoryRepairConfig,
     build_history_repair_run_config,
     normalize_remove_keys,
@@ -286,6 +291,83 @@ def test_specified_history_can_refresh_non_factor_stock_single_frequency(manual)
         (I, "20200229", Decimal(6)),
     ]
     consume_silver(m, "month")
+
+
+def test_saved_month_reuses_original_and_interrupted_pages(manual, monkeypatch):
+    m = manual
+    cfg = config(codes=[A, I], frequencies=["month"])
+    job = m.defs.resolve_job_def(raw_stock_period_history_repair_job.name)
+    original_config = cfg.model_dump(exclude_none=True)
+    original_config.update(intent="factor_changed", frequencies=["week", "month"])
+    original = m.instance.create_run_for_job(
+        job,
+        run_config={"ops": {OP_NAME: {"config": original_config}}},
+        status=dg.DagsterRunStatus.CANCELED,
+    )
+    stage = Path(paths.DEFAULT_LAKE_STAGING_ROOT) / "stock_period" / "runs"
+    saved = stage / original.run_id / "source" / "month" / A / "page-0.csv"
+    saved.parent.mkdir(parents=True)
+    with saved.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(FIELDS)
+        writer.writerows([
+            literal_row(A, "20250930", "month", asof="20250910", qfq="7"),
+            literal_row(A, "20261130", "month", asof="20261110", qfq="8"),
+        ])
+    for message in (
+        {"stage": "history_source", "freq": "month", "code": A},
+        {"stage": "source_page_complete", "freq": "month", "pages": 1, "source_rows": 2},
+        {"stage": "history_source", "freq": "month", "code": I},
+    ):
+        m.instance.store_event(EventLogEntry(None, 20, str(message), original.run_id, time.time()))
+    seed(m, "month", "2025-09", [
+        literal_row(A, "20250930", "month", asof="20250910", qfq="1"),
+    ])
+    seed(m, "month", "2026-11", [
+        literal_row(A, "20261130", "month", asof="20261112", qfq="2"),
+        literal_row(I, "20261130", "month", asof="20261110", qfq="3"),
+    ])
+    m.rows[(I, "month")] = [
+        literal_row(I, "20261130", "month", asof="20261111", qfq="9"),
+        literal_row(I, "20261231", "month", asof="20261111", qfq="99"),
+    ]
+    initial = cfg.model_copy(update={"saved_source_run_id": original.run_id})
+    real_group = repair.group_history_sources
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("isolated stop after fetching")
+
+    monkeypatch.setattr(repair, "group_history_sources", interrupted)
+    stopped = run(m, initial, raise_on_error=False)
+    assert not stopped.success and [call["ts_code"] for call in m.calls] == [I]
+    assert values(m, "month", "2026-11") == [
+        (A, "20261130", Decimal(2)),
+        (I, "20261130", Decimal(3)),
+    ]
+    monkeypatch.setattr(repair, "group_history_sources", real_group)
+    resumed = cfg.model_copy(update={"saved_source_run_id": stopped.run_id})
+    result = run(m, resumed)
+    assert result.success and [call["ts_code"] for call in m.calls] == [I]
+    assert values(m, "month", "2025-09") == [(A, "20250930", Decimal(7))]
+    assert values(m, "month", "2026-11") == [
+        (A, "20261130", Decimal(2)),
+        (I, "20261130", Decimal(9)),
+    ]
+    assert not raw.target_path(m.market.root, "month", "2026-12").exists()
+    delivered, = origins(m, result).values()
+    assert delivered["completion"]["business_date"] == D
+    assert delivered["items"][("month", "2026-11")]["asof"] == "2026-11-12"
+    silver = consume_silver(m, "month")
+    silver_path = paths.silver_stock_monthly_path(m.market.root, "2026-11")
+    with raw.connection(m.market.tmp / "silver_read") as con:
+        assert con.execute(
+            "SELECT ts_code, end_date, close_qfq FROM read_parquet(?) ORDER BY 1",
+            [str(silver_path)],
+        ).fetchall() == [
+            (A, "20261112", Decimal(2)),
+            (I, "20261111", Decimal(9)),
+        ]
+    assert silver.success
 
 
 def test_missing_removal_target_refuses_before_any_candidate(manual, monkeypatch):

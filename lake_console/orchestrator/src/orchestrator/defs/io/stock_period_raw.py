@@ -484,6 +484,7 @@ def group_history_sources(
     work,
     root,
     execution_date,
+    through_month=None,
     policy=DEFAULT_POLICY,
     cancel=lambda: False,
     progress=lambda _: None,
@@ -509,6 +510,15 @@ def group_history_sources(
             policy=policy,
         ).fetchone()[0]:
             raise ValueError("period_source_future_date")
+        if through_month is not None:
+            period_date(through_month, "month")
+            execute(
+                con,
+                "DELETE FROM history_source WHERE substr(trade_date,1,6)>?",
+                [through_month.replace("-", "")],
+                cancel=cancel,
+                policy=policy,
+            )
         scope = execute(
             con,
             f"SELECT freq,{PERIOD_SQL} period,count(*) FROM history_source GROUP BY 1,2 ORDER BY 1,2",

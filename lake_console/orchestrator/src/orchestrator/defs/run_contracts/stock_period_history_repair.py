@@ -34,6 +34,7 @@ class StockPeriodHistoryRepairConfig(dg.Config):
     frequencies: list[str]
     upstream_completions: list[dict[str, str]] = Field(default_factory=list)
     remove_keys: list[dict[str, str]] = Field(default_factory=list)
+    saved_source_run_id: str | None = None
 
     @property
     def remove_keys_hash(self):
@@ -53,6 +54,15 @@ class StockPeriodHistoryRepairConfig(dg.Config):
             or gold_stock_daily_qfq_factor_repair_codes_hash(codes) != self.codes_hash
         ):
             raise ValueError("period_repair_codes_hash_mismatch")
+        if self.saved_source_run_id is not None and (
+            self.intent != "specified_history"
+            or self.frequencies not in (["week"], ["month"])
+            or not re.fullmatch(
+                r"[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}",
+                self.saved_source_run_id,
+            )
+        ):
+            raise ValueError("period_saved_source_scope_invalid")
         if self.intent == "factor_changed":
             if (
                 self.frequencies != FREQUENCIES
@@ -121,4 +131,4 @@ def repair_upstream_batch_id(config):
 
 def build_history_repair_run_config(config):
     config.validate_intent()
-    return {"ops": {OP_NAME: {"config": config.model_dump()}}}
+    return {"ops": {OP_NAME: {"config": config.model_dump(exclude_none=True)}}}
