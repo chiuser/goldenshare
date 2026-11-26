@@ -1,6 +1,6 @@
 # 财势探查｜ETF 动态需求与交互基线 v1
 
-2026-11-26。管理员已确认桌面 Figma，数据读取及实现细节见配套方案和 LLD。
+2026-11-26。管理员已确认桌面 Figma，并确认第 3 阶段整体验收通过。本期交付已收尾，数据读取及实现细节见配套方案和 LLD。[第 3 阶段验收记录](./etf-activity-low-level-design-v1.md#12-第-3-阶段验收收尾)
 
 [Figma 桌面评审稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2282-538)
 
