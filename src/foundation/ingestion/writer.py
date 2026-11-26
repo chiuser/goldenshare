@@ -28,6 +28,7 @@ from src.foundation.ingestion.etf_basic_snapshot import (
     validate_etf_basic_snapshot,
 )
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.index_minute_volume import normalize_index_minute_volumes
 from src.foundation.ingestion.moneyflow_publish import publish_moneyflow_serving_for_keys
 from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
 from src.foundation.ingestion.observed_snapshot import (
@@ -2163,30 +2164,26 @@ class DatasetWriter:
                                "rows_saved_semantics": "committed_valid_inputs",
                            }})
 
-    @staticmethod
     def _write_raw_only_upsert(
+        self,
         *,
         definition: DatasetDefinition,
         batch: NormalizedBatch,
         raw_dao,
     ) -> WriteResult:
-        if definition.storage.conflict_columns:
-            rejected_reason_counts, rejected_reason_samples = DatasetWriter._duplicate_reason_diagnostics(
-                rows=batch.rows_normalized,
-                conflict_columns=definition.storage.conflict_columns,
-                unit_id=batch.unit_id,
-            )
-            rows_written = raw_dao.bulk_upsert(
-                batch.rows_normalized,
-                conflict_columns=list(definition.storage.conflict_columns),
-            )
+        conflict_columns = definition.storage.conflict_columns
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
+            rows=batch.rows_normalized,
+            conflict_columns=self._resolve_conflict_columns(raw_dao, conflict_columns),
+            unit_id=batch.unit_id,
+        )
+        rows = batch.rows_normalized
+        if definition.dataset_key == "index_mins":
+            rows = normalize_index_minute_volumes(self.session, self.dao.trade_calendar, rows)
+        if conflict_columns:
+            rows_written = raw_dao.bulk_upsert(rows, conflict_columns=list(conflict_columns))
         else:
-            rejected_reason_counts, rejected_reason_samples = DatasetWriter._duplicate_reason_diagnostics(
-                rows=batch.rows_normalized,
-                conflict_columns=DatasetWriter._resolve_conflict_columns(raw_dao, None),
-                unit_id=batch.unit_id,
-            )
-            rows_written = raw_dao.bulk_upsert(batch.rows_normalized)
+            rows_written = raw_dao.bulk_upsert(rows)
         return WriteResult(
             unit_id=batch.unit_id,
             rows_written=rows_written,

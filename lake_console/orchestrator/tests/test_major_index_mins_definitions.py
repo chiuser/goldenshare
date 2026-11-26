@@ -1,3 +1,4 @@
+from orchestrator.defs.assets.calendar import silver_trade_calendar
 from orchestrator.defs.assets.major_index_mins_raw import RAW_MAJOR_INDEX_MINS_ASSETS
 from orchestrator.defs.assets.major_index_mins_silver import (
     SILVER_MAJOR_INDEX_MINS_ASSETS,
@@ -47,7 +48,8 @@ def test_dependency_graph_keeps_native_and_derived_sources_explicit() -> None:
         assert silver_by_name[
             f"silver_major_index_mins_{frequency}m"
         ].dependency_keys == {
-            raw_by_name[f"raw_major_index_mins_{frequency}m"].key
+            raw_by_name[f"raw_major_index_mins_{frequency}m"].key,
+            silver_trade_calendar.key,
         }
     assert silver_by_name["silver_major_index_mins_90m"].dependency_keys == {
         silver_by_name["silver_major_index_mins_30m"].key

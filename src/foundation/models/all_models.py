@@ -140,6 +140,7 @@ from src.foundation.models.raw.raw_dc_member import RawDcMember
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
+from src.foundation.models.raw.index_mins_volume_evidence import IndexMinsVolumeEvidence
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_idx_factor_pro import RawIdxFactorPro
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
@@ -292,6 +293,7 @@ __all__ = [
     "RawIndexBasic",
     "RawIndexDailyBasic",
     "RawIndexDaily",
+    "IndexMinsVolumeEvidence",
     "RawIndexMins",
     "RawIdxFactorPro",
     "RawIndexMonthlyBar",

@@ -1,10 +1,14 @@
 """Dagster Silver assets for native and derived major-index minute bars."""
 
+from pathlib import Path
+
 import dagster as dg
 
+from orchestrator.defs.assets.calendar import silver_trade_calendar
 from orchestrator.defs.assets.major_index_mins_raw import (
     RAW_MAJOR_INDEX_MINS_ASSETS,
 )
+from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.major_index_mins_silver_writer import (
     write_major_index_mins_silver_partition,
 )
@@ -14,6 +18,7 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
     silver_major_index_mins_path,
+    silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -28,12 +33,38 @@ from orchestrator.defs.run_contracts.major_index_mins import (
     MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
     MAJOR_INDEX_MINS_SILVER_FREQS,
     MAJOR_INDEX_MINS_SOURCE_COLUMNS,
+    MAJOR_INDEX_MINS_SOURCE_FREQS,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+
+
+def _partition_source_volume(context: dg.AssetExecutionContext, day: str) -> dict:
+    records = context.instance.fetch_materializations(
+        dg.AssetRecordsFilter(asset_key=context.asset_key, asset_partitions=[day]),
+        limit=1,
+    ).records
+    if records:
+        value = records[0].asset_materialization.metadata.get("goldenshare/source_volume")
+        if value is not None:
+            return value.value
+    return {}
+
+
+def _previous_source_volume(context: dg.AssetExecutionContext, duckdb: DuckDBResource, root: Path) -> dict:
+    calendar = read_parquet(silver_trade_calendar_path(root), hive_partitioning=False)
+    with duckdb.connect() as connection:
+        previous = connection.execute(
+            f"""
+            SELECT max(trade_date) FROM {calendar}
+            WHERE exchange = 'SSE' AND is_open AND trade_date < CAST(? AS DATE)
+            """,
+            [context.partition_key],
+        ).fetchone()[0]
+    return _partition_source_volume(context, previous.isoformat()) if previous is not None else {}
 
 
 def _build_silver_asset(
@@ -48,9 +79,11 @@ def _build_silver_asset(
         else "30min" if frequency == "90min" else "60min"
     )
 
+    native = frequency in MAJOR_INDEX_MINS_SOURCE_FREQS
+
     @dg.asset(
         name=asset_name,
-        deps=[dependency],
+        deps=[dependency, silver_trade_calendar] if native else [dependency],
         partitions_def=cn_major_index_mins_trade_days,
         group_name="index",
         tags=build_asset_tags(
@@ -85,19 +118,29 @@ def _build_silver_asset(
         duckdb: DuckDBResource,
     ) -> dg.MaterializeResult:
         lake_root.ensure_available_for_run()
+        root = lake_root.root()
+        previous = (
+            _previous_source_volume(context, duckdb, root) if native else None
+        )
         result = write_major_index_mins_silver_partition(
-            lake_root_path=lake_root.root(),
+            lake_root_path=root,
             duckdb_resource=duckdb,
             freq=frequency,
             partition_key=context.partition_key,
             run_id=context.run.root_run_id or context.run.run_id,
+            previous_source_volume=previous,
         )
+        details = result.to_details()
+        if native and result.write_mode == "reuse_existing" and not result.source_volume:
+            recorded = _partition_source_volume(context, context.partition_key)
+            if recorded:
+                details["source_volume"] = recorded
         return dg.MaterializeResult(
             metadata=build_materialization_metadata(
                 uri=result.target_path,
                 row_count=result.output_row_count,
                 observed_columns=MAJOR_INDEX_MINS_SOURCE_COLUMNS,
-                extra_metadata=result.to_details(),
+                extra_metadata=details,
             )
         )
 

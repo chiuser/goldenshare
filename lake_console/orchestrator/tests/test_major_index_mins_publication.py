@@ -312,8 +312,21 @@ def test_original_raw_then_silver_jobs_and_checks(tmp_path, monkeypatch):
     lake.mkdir()
     for layer in ("raw", "silver", "gold"):
         (lake / layer).mkdir()
+    calendar = paths.silver_trade_calendar_path(lake)
+    calendar.parent.mkdir(parents=True)
+    with duckdb.connect() as connection:
+        connection.execute(f"""
+            COPY (
+                SELECT 'SSE' AS exchange, DATE '2026-11-02' AS trade_date,
+                       TRUE AS is_open, DATE '2026-10-30' AS pretrade_date
+            ) TO '{calendar.as_posix()}' (FORMAT PARQUET)
+        """)
     definitions = dg.Definitions(
-        assets=[*RAW_MAJOR_INDEX_MINS_ASSETS, *SILVER_MAJOR_INDEX_MINS_ASSETS],
+        assets=[
+            dg.AssetSpec("silver_trade_calendar"),
+            *RAW_MAJOR_INDEX_MINS_ASSETS,
+            *SILVER_MAJOR_INDEX_MINS_ASSETS,
+        ],
         asset_checks=[*RAW_MAJOR_INDEX_MINS_CHECKS, *SILVER_MAJOR_INDEX_MINS_CHECKS],
         jobs=[raw_major_index_mins_update_job, silver_major_index_mins_update_job],
         resources={
@@ -324,6 +337,16 @@ def test_original_raw_then_silver_jobs_and_checks(tmp_path, monkeypatch):
     )
     with dg.DagsterInstance.ephemeral(tempdir=str(tmp_path)) as instance:
         instance.add_dynamic_partitions("cn_major_index_mins_trade_days", [DAY])
+        for asset, bars_per_day in zip(SILVER_MAJOR_INDEX_MINS_ASSETS[:5], (241, 49, 17, 9, 5), strict=True):
+            # Known prior-day source facts for this fixture. All indexes except
+            # 000001.SH continue in shares; its new response is in lots.
+            source_volume = {code: [bars_per_day * 100.0, "share"] for code in CODES}
+            source_volume["000001.SH"][0] *= 100
+            instance.report_runless_asset_event(dg.AssetMaterialization(
+                asset_key=asset.key,
+                partition="2026-11-02",
+                metadata={"goldenshare/source_volume": source_volume},
+            ))
         for name, expected in [
             ("raw_major_index_mins_update_job", 5),
             ("silver_major_index_mins_update_job", 7),
@@ -335,6 +358,18 @@ def test_original_raw_then_silver_jobs_and_checks(tmp_path, monkeypatch):
             assert len(result.get_asset_materialization_events()) == expected
             checks = result.get_asset_check_evaluations()
             assert len(checks) == expected and all(c.passed for c in checks)
+        record = instance.fetch_materializations(dg.AssetRecordsFilter(
+            asset_key=SILVER_MAJOR_INDEX_MINS_ASSETS[3].key, asset_partitions=[DAY]
+        ), limit=1).records[0]
+        facts = record.asset_materialization.metadata["goldenshare/source_volume"].value
+        assert facts["000001.SH"] == [900.0, "lot"]
+        assert facts["399001.SZ"] == [900.0, "share"]
+    with duckdb.connect() as connection:
+        assert connection.execute(
+            "SELECT ts_code, sum(vol), sum(amount) FROM read_parquet(?, hive_partitioning=false) "
+            "WHERE ts_code IN ('000001.SH', '399001.SZ') GROUP BY ts_code ORDER BY ts_code",
+            [str(paths.silver_major_index_mins_path(lake, "30min", DAY))],
+        ).fetchall() == [("000001.SH", 90_000.0, 9_000.0), ("399001.SZ", 900.0, 9_000.0)]
     assert len(source.calls) == 50
     assert sum(p.stat().st_size for p in lake.rglob("*.parquet")) < 1024**2
 

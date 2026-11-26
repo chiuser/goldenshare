@@ -756,3 +756,53 @@ def test_invalid_existing_silver_target_is_not_overwritten(tmp_path: Path) -> No
             run_id="p3-invalid-existing",
         )
     assert target.read_bytes() == original
+
+
+def test_native_source_volume_switch_reuses_receipt_and_feeds_derived_bars(tmp_path: Path) -> None:
+    day = "2026-11-24"
+    raw = _write_raw(tmp_path, trade_date=day, freq="30min")
+    previous = {code: (450.0, "share") for code in effective_silver_codes_for_date(day)}
+    previous["000001.SH"] = (45_000.0, "share")
+    inputs = {
+        "lake_root_path": tmp_path,
+        "duckdb_resource": _MemoryDuckDB(),
+        "freq": "30min",
+        "partition_key": day,
+        "run_id": "index-volume",
+        "previous_source_volume": previous,
+    }
+    result = write_major_index_mins_silver_partition(**inputs)
+    assert result.source_volume["000001.SH"] == (450.0, "lot")
+    assert result.source_volume["399001.SZ"] == (450.0, "share")
+    assert _rows(raw, " 000001.sh ")[0][7:9] == (10.0, 100.0)
+    assert _rows(result.target_path, "000001.SH")[0][7:9] == (1_000.0, 100.0)
+    assert _rows(result.target_path, "399001.SZ")[0][7:9] == (10.0, 100.0)
+
+    retry = write_major_index_mins_silver_partition(**inputs)
+    assert retry.write_mode == "reuse_existing"
+    assert retry.source_volume == result.source_volume
+
+    derived = write_major_index_mins_silver_partition(
+        lake_root_path=tmp_path,
+        duckdb_resource=_MemoryDuckDB(),
+        freq="90min",
+        partition_key=day,
+        run_id="index-volume-90m",
+    )
+    assert sum(row[7] for row in _rows(derived.target_path, "000001.SH")) == 45_000.0
+
+    next_day = "2026-11-25"
+    raw = _write_raw(tmp_path, trade_date=next_day, freq="30min")
+    candidate = tmp_path / "new-source.parquet"
+    with duckdb.connect(":memory:") as connection:
+        relation = f"read_parquet('{raw.as_posix()}', hive_partitioning=false)"
+        connection.execute(copy_query_to_parquet(
+            f"SELECT * REPLACE (CASE WHEN upper(trim(ts_code)) = '000001.SH' THEN vol * 100 ELSE vol END AS vol) FROM {relation}",
+            candidate,
+        ))
+    candidate.replace(raw)
+    following = write_major_index_mins_silver_partition(
+        **{**inputs, "partition_key": next_day, "previous_source_volume": retry.source_volume}
+    )
+    assert following.source_volume["000001.SH"] == (45_000.0, "share")
+    assert _rows(following.target_path, "000001.SH")[0][7:9] == (1_000.0, 100.0)

@@ -1,8 +1,8 @@
 """DuckDB Silver writer for major-index minute bars."""
 
 import hashlib
-from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from time import perf_counter
 
@@ -67,6 +67,7 @@ class MajorIndexMinsSilverWriteResult:
     incomplete_window_count: int
     elapsed_ms: float
     scope_hash: str
+    source_volume: dict[str, tuple[float, str]] = field(default_factory=dict)
 
     def to_details(self) -> dict[str, object]:
         return {
@@ -85,6 +86,7 @@ class MajorIndexMinsSilverWriteResult:
             "incomplete_window_count": self.incomplete_window_count,
             "elapsed_ms": round(self.elapsed_ms, 3),
             "scope_hash": self.scope_hash,
+            **({"source_volume": self.source_volume} if self.source_volume else {}),
         }
 
 
@@ -235,6 +237,53 @@ def _normalized_source_sql(relation_sql: str) -> str:
      AND cleanup.source_time = CAST(price_corrected.trade_time AS TIME)
     WHERE price_corrected.ts_code <> '899050.BJ'
     """
+
+
+def _native_volume_in_shares(
+    connection,
+    *,
+    source_relation: str,
+    source_sql: str,
+    previous: Mapping[str, Sequence[float | str]],
+    codes: set[str],
+) -> tuple[str, dict[str, tuple[float, str]]]:
+    totals = connection.execute(
+        f"""
+        SELECT upper(trim(ts_code)) AS code, sum(vol) AS source_vol
+        FROM {source_relation}
+        GROUP BY code
+        """
+    ).fetchall()
+    source_volume = {}
+    multipliers = []
+    for code, total in totals:
+        if code not in codes:
+            continue
+        if code not in previous:
+            raise MajorIndexMinsSilverValidationError(
+                f"指数分钟成交量比较起点缺失：{code}"
+            )
+        previous_total, previous_unit = previous[code]
+        unit = _resolve_index_minute_volume_unit(float(previous_total), str(previous_unit), total)
+        source_volume[code] = (total, unit)
+        multipliers.append((code, 100 if unit == "lot" else 1))
+    if multipliers:
+        connection.execute("CREATE TEMP TABLE index_minute_volume_units (ts_code VARCHAR, multiplier INTEGER)")
+        connection.executemany("INSERT INTO index_minute_volume_units VALUES (?, ?)", multipliers)
+        source_sql = f"""
+            SELECT raw.* REPLACE (raw.vol * unit.multiplier AS vol)
+            FROM ({source_sql}) AS raw
+            JOIN index_minute_volume_units AS unit USING (ts_code)
+        """
+    return source_sql, source_volume
+
+
+def _resolve_index_minute_volume_unit(previous_total: float, previous_unit: str, source_total: float) -> str:
+    if source_total > previous_total * 50:
+        return "share"
+    if source_total * 50 < previous_total:
+        return "lot"
+    return previous_unit
 
 
 def _normalized_raw_validation_sql(relation_sql: str) -> str:
@@ -432,6 +481,7 @@ def _build_major_index_mins_silver_partition(
     historical_fallback_path: Path | None,
     historical_fallback_codes: Sequence[str],
     candidate_path: Path | None = None,
+    previous_source_volume: Mapping[str, Sequence[float | str]] | None = None,
 ) -> MajorIndexMinsSilverWriteResult:
     """Build a native or derived candidate, or validate an existing partition."""
 
@@ -508,6 +558,7 @@ def _build_major_index_mins_silver_partition(
         normalized_partition,
     )
 
+    source_volume: dict[str, tuple[float, str]] = {}
     with duckdb_resource.connect() as connection:
         source_relation = read_parquet(source_path, hive_partitioning=False)
         _assert_physical_schema(
@@ -544,6 +595,14 @@ def _build_major_index_mins_silver_partition(
             )
         _require_clean(source_validation, label="Silver source")
         source_sql = _normalized_source_sql(source_relation)
+        if not derived and previous_source_volume is not None and candidate_path is not None:
+            source_sql, source_volume = _native_volume_in_shares(
+                connection,
+                source_relation=source_relation,
+                source_sql=source_sql,
+                previous=previous_source_volume,
+                codes=set(expected_codes) - set(normalized_fallback_codes),
+            )
         if historical_fallback_path is not None:
             fallback_relation = read_parquet(
                 historical_fallback_path,
@@ -700,6 +759,7 @@ def _build_major_index_mins_silver_partition(
         incomplete_window_count=incomplete_window_count,
         elapsed_ms=_elapsed_ms(started_at),
         scope_hash=scope_hash,
+        source_volume=source_volume,
     )
 
 
@@ -712,6 +772,7 @@ def _write_major_index_mins_silver_partition(
     run_id: str,
     historical_fallback_path: Path | None,
     historical_fallback_codes: Sequence[str],
+    previous_source_volume: Mapping[str, Sequence[float | str]] | None = None,
 ) -> MajorIndexMinsSilverWriteResult:
     """Publish both daily and published historical-fallback candidates."""
 
@@ -745,6 +806,11 @@ def _write_major_index_mins_silver_partition(
                 {str(c).strip().upper() for c in historical_fallback_codes}
             ),
             "writer_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            **(
+                {"previous_source_volume": dict(previous_source_volume)}
+                if previous_source_volume is not None and not derived
+                else {}
+            ),
         },
     )
     kwargs = {
@@ -755,6 +821,7 @@ def _write_major_index_mins_silver_partition(
         "run_id": run_id,
         "historical_fallback_path": historical_fallback_path,
         "historical_fallback_codes": historical_fallback_codes,
+        "previous_source_volume": previous_source_volume,
     }
     if target.exists() and not (publication.directory / "receipt.json").exists():
         return _build_major_index_mins_silver_partition(**kwargs)
@@ -767,6 +834,7 @@ def _write_major_index_mins_silver_partition(
 
     data = publication.run(build)
     data.pop("row_count")
+    data["source_volume"] = {code: tuple(values) for code, values in data.get("source_volume", {}).items()}
     for key in ("source_path", "target_path", "staging_path"):
         data[key] = Path(data[key])
     if publication.reused:
@@ -781,8 +849,9 @@ def write_major_index_mins_silver_partition(
     freq: int | str,
     partition_key: str,
     run_id: str,
+    previous_source_volume: Mapping[str, Sequence[float | str]] | None = None,
 ) -> MajorIndexMinsSilverWriteResult:
-    """Write one ordinary native or derived Silver partition through staging."""
+    """Publish Silver. Daily native assets supply the preceding day’s source volume."""
 
     return _write_major_index_mins_silver_partition(
         lake_root_path=lake_root_path,
@@ -792,6 +861,7 @@ def write_major_index_mins_silver_partition(
         run_id=run_id,
         historical_fallback_path=None,
         historical_fallback_codes=(),
+        previous_source_volume=previous_source_volume,
     )
 
 
