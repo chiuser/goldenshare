@@ -15,7 +15,7 @@ export function EtfActivityRanking({ data, pending, failed, onRetry }: {
   const isLoading = pending && !data;
   const error = ranking?.status === "error";
   return (
-    <Panel title="ETF 成交额排行榜" className="etf-activity-panel" meta={hasRanks ? <span className="etf-panel-meta">前 50 名</span> : undefined}>
+    <Panel title="ETF 成交额排行榜" className="etf-activity-panel etf-rank-panel" meta={hasRanks ? <span className="etf-panel-meta">前 50 名</span> : undefined}>
       {hasRanks && (
         <div className="etf-rank-dates">
           <span>日线收盘 <time className="num" dateTime={data?.tradeDate ?? undefined}>{data?.tradeDate}</time></span>

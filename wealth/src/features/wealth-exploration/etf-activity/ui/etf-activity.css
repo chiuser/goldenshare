@@ -7,9 +7,6 @@
 }
 
 .wealth-exploration-shell--without-market-context > .shortcut-bar {
-  background: var(--cs-color-bg-panel);
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
   min-height: 80px;
 }
 
@@ -164,7 +161,8 @@
 .etf-rank-dates {
   display: flex;
   justify-content: space-between;
-  margin: 2px 0 7px;
+  line-height: 16px;
+  margin: 3px 0 7px;
 }
 
 .etf-rank-note {
@@ -172,10 +170,9 @@
 }
 
 .etf-rank-scroll {
-  border: 1px solid var(--cs-color-border-subtle);
-  border-radius: var(--cs-radius-card);
+  --cs-color-market-flat: var(--cs-color-text-secondary);
   min-height: 0;
-  max-height: 374px;
+  max-height: 372px;
   overflow: auto;
 }
 
@@ -203,8 +200,10 @@
 
 .etf-rank-scroll th {
   background: var(--cs-color-bg-panel-soft);
-  color: var(--cs-color-text-secondary);
-  font-weight: 400;
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
   height: 32px;
   position: sticky;
   top: 0;
@@ -225,6 +224,7 @@
 
 .etf-rank-scroll td.etf-name {
   font-size: 13px;
+  font-weight: 500;
   overflow-wrap: anywhere;
   white-space: normal;
 }
@@ -249,6 +249,7 @@
   display: flex;
   flex: 1;
   flex-direction: column;
+  margin-top: 3px;
   max-height: none;
   overflow: hidden;
 }
@@ -269,10 +270,23 @@
   text-align: center;
 }
 
-.etf-rank-empty {
+.etf-rank-panel .etf-state {
+  background: transparent;
   border: 0;
-  margin: 0;
+  border-radius: 0;
 }
+
+.etf-rank-panel > .etf-state {
+  gap: var(--cs-space-10);
+  margin-top: 3px;
+}
+
+.etf-rank-panel .etf-state button {
+  font-size: 12px;
+  height: 28px;
+}
+
+.etf-rank-empty { margin: 0; }
 
 .etf-state button { min-width: 84px; }
 .etf-state button:disabled { opacity: 0.6; }
