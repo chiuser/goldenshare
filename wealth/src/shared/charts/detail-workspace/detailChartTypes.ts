@@ -78,6 +78,7 @@ interface DetailChartWorkspaceBaseProps {
   mainLayerAccessory?: ReactNode;
   historyPhase?: "idle" | "loading" | "error";
   onHistoryViewport?: (viewport: DetailChartHistoryViewport) => void;
+  padLatestCandle?: boolean;
   mainPriceScalePaddingPx?: { top: number; bottom: number };
   mainPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;

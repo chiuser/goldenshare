@@ -158,6 +158,7 @@ export function IndexChartWorkspace({
       mainPrimitives={addon.primitives ? [...mainPrimitives, ...addon.primitives] : mainPrimitives}
       mainPriceScalePaddingPx={addon.padding}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
+      padLatestCandle
       points={points}
       quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
         ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,
@@ -228,6 +229,7 @@ export function IndexPeriodChartWorkspace({ period, dataKey, series, indicatorCo
     onHistoryViewport={series.onViewport}
     mainLines={mainLines}
     panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
+    padLatestCandle
     points={points}
     renderMainHeader={(point) => <IndexMainHeader overlay={overlay} point={point} />}
     renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}

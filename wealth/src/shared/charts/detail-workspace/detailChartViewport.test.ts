@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  padLatestCandleRange,
   DEFAULT_VISIBLE_BARS,
   MAX_VISIBLE_BARS,
   MIN_VISIBLE_BARS,
@@ -120,6 +121,16 @@ describe("detailChartViewport", () => {
   it("keeps the latest right edge fixed while zooming", () => {
     expect(resolveZoomedRange({ from: 180, to: 299 }, 105, 300)).toEqual({ from: 195, to: 299 });
     expect(resolveZoomedRange({ from: 180.25, to: 298.6 }, 135, 300)).toEqual({ from: 165, to: 299 });
+  });
+
+  it("reserves the right margin for a single candle within the chart's maximum spacing", () => {
+    const width = 1_137;
+    const range = padLatestCandleRange({ from: 0, to: 0 }, 1, width);
+    const spacing = width / (range.to - range.from + 1);
+
+    expect(range.from).toBe(-1);
+    expect(spacing).toBeLessThan(width / 2);
+    expect(range.to * spacing).toBeCloseTo(28.5);
   });
 
   it("keeps the historical center while zooming", () => {

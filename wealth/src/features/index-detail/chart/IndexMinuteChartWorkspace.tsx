@@ -100,6 +100,7 @@ function LoadedIndexMinuteChart({
       mainLines={mainLines}
       mainPrimitives={nineTurnChartLayer.mainPrimitives}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
+      padLatestCandle
       points={points}
       quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
         ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,

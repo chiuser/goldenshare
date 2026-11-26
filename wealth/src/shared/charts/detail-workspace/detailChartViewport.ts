@@ -5,6 +5,7 @@ export const DEFAULT_VISIBLE_BARS = 120;
 export const MIN_ADAPTIVE_DEFAULT_BARS = 75;
 export const MAX_ADAPTIVE_DEFAULT_BARS = 150;
 export const TARGET_PIXELS_PER_BAR = 9.5;
+const LATEST_CANDLE_RIGHT_PADDING_PX = 3 * TARGET_PIXELS_PER_BAR;
 export const RIGHT_PRICE_SCALE_WIDTH = 56;
 export const LATEST_RANGE_TOLERANCE = 0.5;
 
@@ -90,6 +91,20 @@ export function resolveInitialRange(
   const count = Math.min(Math.floor(pointCount), Math.floor(visibleCount));
   const to = Math.floor(pointCount) - 1;
   return { from: to - (count - 1), to };
+}
+
+export function padLatestCandleRange(
+  range: DetailChartLogicalRange,
+  pointCount: number,
+  plotWidth: number,
+): DetailChartLogicalRange {
+  const dataWidth = plotWidth - LATEST_CANDLE_RIGHT_PADDING_PX;
+  if (range.to !== pointCount - 1 || dataWidth <= 0) return range;
+
+  // Lightweight Charts limits the spacing to half the plot width when there is only one bar.
+  const from = Math.min(range.from, range.to - 1);
+  const barSpacing = dataWidth / (range.to - from + 1);
+  return { from, to: range.to + LATEST_CANDLE_RIGHT_PADDING_PX / barSpacing };
 }
 
 export function resolveVisibleCount(

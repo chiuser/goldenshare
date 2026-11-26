@@ -477,6 +477,64 @@ describe("DetailChartWorkspace", () => {
     expect(screen.getByLabelText("共享KDJ")).toBeInTheDocument();
   });
 
+  it("keeps the index right margin fixed in pixels across zoom, resize and return from history", () => {
+    vi.useFakeTimers();
+    let hostWidth = 1193;
+    let priceScaleWidth = 56;
+    const width = vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(() => hostWidth);
+    try {
+      const rendered = render(cloneElement(workspaceElement(makePoints(300), "daily", "index:day"), {
+        padLatestCandle: true,
+      }));
+      const charts = [...chartMock.charts];
+      const main = charts[0]!.timeScale();
+      const host = rendered.container.querySelector(".kline-panel .detail-chart-host")!;
+      const expectLatest = (firstIndex: number) => charts.forEach((chart) => {
+        const range = chart.timeScale().getVisibleLogicalRange();
+        expect(range.from).toBeCloseTo(firstIndex);
+        const plotWidth = hostWidth - priceScaleWidth;
+        const barSpacing = plotWidth / (range.to - range.from + 1);
+        expect((range.to - 299) * barSpacing).toBeCloseTo(28.5);
+      });
+
+      expectLatest(180);
+      fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+      expectLatest(195);
+
+      // Replaying the renderer's reported range must not count the blank area as K lines.
+      act(() => main.setVisibleLogicalRange(main.getVisibleLogicalRange()));
+      fireEvent.click(screen.getByRole("button", { name: "缩小K线，增加可见根数" }));
+      expectLatest(180);
+
+      hostWidth = 1500;
+      act(() => {
+        resizeObserverMock.instances.at(-1)!.trigger(host, hostWidth);
+        vi.runAllTimers();
+      });
+      expectLatest(180);
+
+      priceScaleWidth = 88;
+      charts[2]!.rightPriceScale.intrinsicWidth = priceScaleWidth;
+      act(() => {
+        resizeObserverMock.instances.at(-1)!.trigger(host, hostWidth);
+        vi.runAllTimers();
+      });
+      expectLatest(180);
+
+      act(() => main.setVisibleLogicalRange({ from: 100, to: 219 }));
+      fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+      charts.forEach((chart) => expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: 107.5, to: 211.5 }));
+      fireEvent.mouseDown(host, { button: 0, clientX: 1450 });
+      fireEvent.mouseMove(window, { clientX: 0 });
+      fireEvent.mouseUp(window);
+      expectLatest(195);
+      expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    } finally {
+      width.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it.each(["daily", "minute"] as const)("keeps the %s charts, range and bottom axis while hiding and restoring panes", async (timeMode) => {
     const points = makePoints(300).map((point) => {
       if (timeMode === "daily") return point;

@@ -52,6 +52,7 @@ import type {
 } from "./detailChartTypes";
 import {
   RIGHT_PRICE_SCALE_WIDTH,
+  padLatestCandleRange,
   resolveAdaptiveVisibleCount,
   resolveDetailChartPlotWidth,
   resolveInitialRange,
@@ -138,6 +139,7 @@ export function DetailChartWorkspace({
   mainLayerAccessory,
   mainPriceScalePaddingPx,
   mainPrimitives,
+  padLatestCandle = false,
   panelAriaLabels,
   points,
   quantitativeStructure,
@@ -246,7 +248,7 @@ export function DetailChartWorkspace({
         && (timeAxisPlacement === "each-pane" || panel === "kdj");
       const chart = createChart(
         container,
-        buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation, panel),
+        buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation, panel, padLatestCandle),
       );
       charts.push(chart);
       return chart;
@@ -489,9 +491,20 @@ export function DetailChartWorkspace({
     };
 
     let isSyncingVisibleRange = false;
+    const rangeForChart = (range: DetailChartLogicalRange) => padLatestCandle
+      ? padLatestCandleRange(range, plottedPoints.length, resolveDetailChartPlotWidth(
+          chartRefs.current.kline?.clientWidth ?? 0, sharedRightPriceScaleWidth,
+        ))
+      : range;
+    const rangeForData = (range: DetailChartLogicalRange) => {
+      const lastIndex = plottedPoints.length - 1;
+      if (!padLatestCandle || range.to <= lastIndex) return range;
+      return { from: lastIndex === 0 ? 0 : range.from, to: lastIndex };
+    };
     const applyVisibleRange = (range: DetailChartLogicalRange) => {
+      const renderedRange = rangeForChart(range);
       isSyncingVisibleRange = true;
-      charts.forEach((chart) => chart.timeScale().setVisibleLogicalRange(range));
+      charts.forEach((chart) => chart.timeScale().setVisibleLogicalRange(renderedRange));
       isSyncingVisibleRange = false;
       queueTimeAxisMarkerUpdate();
     };
@@ -580,7 +593,7 @@ export function DetailChartWorkspace({
           const range = viewportRef.current.range;
           if (range) {
             structure.applyRange(range);
-            structureChart.timeScale().setVisibleLogicalRange(range);
+            structureChart.timeScale().setVisibleLogicalRange(rangeForChart(range));
           }
           isSyncingVisibleRange = false;
           queuePriceScaleAlignment();
@@ -588,7 +601,10 @@ export function DetailChartWorkspace({
       } : undefined,
       applyRange: applyVisibleRange,
       applyIndicatorRanges,
-      getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
+      getRange: () => {
+        const range = klineChart.timeScale().getVisibleLogicalRange();
+        return range && rangeForData(range);
+      },
       queuePriceScaleAlignment,
       applyMainPriceScalePadding,
     };
@@ -603,7 +619,7 @@ export function DetailChartWorkspace({
         if (chart !== sourceChart) chart.timeScale().setVisibleLogicalRange(visibleRange);
       });
       isSyncingVisibleRange = false;
-      commitViewportRange(visibleRange, { applyToCharts: false });
+      commitViewportRange(rangeForData(visibleRange), { applyToCharts: false });
       queueTimeAxisMarkerUpdate();
     };
     charts.forEach((chart) => {
@@ -726,7 +742,7 @@ export function DetailChartWorkspace({
     const startDrag = (clientX: number, target: EventTarget | null, button: number, pointerId: number | null = null) => {
       if (dragState || button !== 0) return;
       if (target instanceof Element && target.closest("button,select,[data-detail-chart-interactive]")) return;
-      const startRange = klineChart.timeScale().getVisibleLogicalRange();
+      const startRange = runtime.getRange();
       if (!startRange) return;
       dragState = { pointerId, startRange, startX: clientX, lastX: clientX, gesture: Symbol() };
     };
@@ -810,15 +826,17 @@ export function DetailChartWorkspace({
         if (pendingKlineWidth === null) return;
         if (pendingKlineHeight !== null) applyMainPriceScalePadding(pendingKlineHeight);
         const viewport = viewportRef.current;
+        const widthChanged = pendingKlineWidth !== viewport.lastMeasuredHostWidth;
         viewport.lastMeasuredHostWidth = pendingKlineWidth;
-        if (viewport.dataKey === dataKey && !viewport.userAdjusted && viewport.pointCount > 0) {
-          const visibleCount = resolveAdaptiveVisibleCount(
-            pendingKlineWidth,
-            viewport.pointCount,
-            sharedRightPriceScaleWidth,
+        if (viewport.dataKey === dataKey && viewport.range) {
+          const visibleCount = resolveVisibleCount(viewport.range, viewport.pointCount);
+          const nextCount = viewport.userAdjusted ? visibleCount : resolveAdaptiveVisibleCount(
+            pendingKlineWidth, viewport.pointCount, sharedRightPriceScaleWidth,
           );
-          if (visibleCount !== resolveVisibleCount(viewport.range, viewport.pointCount)) {
-            commitViewportRange(resolveInitialRange(viewport.pointCount, visibleCount));
+          if (nextCount !== visibleCount) {
+            commitViewportRange(resolveInitialRange(viewport.pointCount, nextCount));
+          } else if (padLatestCandle && widthChanged && viewport.range.to === viewport.pointCount - 1) {
+            applyVisibleRange(viewport.range);
           }
         }
         pendingKlineWidth = null;
@@ -852,7 +870,7 @@ export function DetailChartWorkspace({
       charts.forEach((chart) => chart.remove());
     };
   }, [commitViewportRange, crosshairPresentation, dataKey, hasQuantitativeStructure, keepCharts,
-    keepCharts ? null : candleData,
+    padLatestCandle, keepCharts ? null : candleData,
     keepCharts ? null : mainLines, keepCharts ? null : points, keepCharts ? null : primitives, timeAxisPlacement, timeMode]);
 
   useLayoutEffect(() => {
@@ -953,6 +971,7 @@ function buildChartOptions(
   timeMode: "daily" | "minute",
   crosshairPresentation: DetailChartCrosshairPresentation,
   panel: WorkspacePanelKey,
+  padLatestCandle: boolean,
 ) {
   const isIndicatorPanel = panel === "macd" || panel === "quantitativeStructure" || panel === "kdj";
   const crosshair = crosshairPresentation === "native-axis-labels"
@@ -1002,6 +1021,7 @@ function buildChartOptions(
     },
     timeScale: {
       borderColor: DETAIL_CHART_COLORS.axis,
+      lockVisibleTimeRangeOnResize: padLatestCandle,
       rightOffset: 1,
       secondsVisible: false,
       tickMarkFormatter: timeMode === "minute"
