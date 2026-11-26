@@ -1,24 +1,17 @@
-"""Convert Tushare index minute volume before the normal raw upsert."""
+"""Normalize Tushare minute volume against the previous session's stored shares."""
+
+from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from math import fsum
 from typing import Any
 
-from sqlalchemy import select, tuple_
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
-from src.foundation.models.raw.index_mins_volume_evidence import IndexMinsVolumeEvidence
-
-
-def resolve_index_minute_volume_unit(previous_total: float, previous_unit: str, source_total: float) -> str:
-    if source_total > previous_total * 50:
-        return "share"
-    if source_total * 50 < previous_total:
-        return "lot"
-    return previous_unit
+from src.foundation.models.raw.raw_index_mins import RawIndexMins
 
 
 def normalize_index_minute_volumes(
@@ -39,46 +32,31 @@ def normalize_index_minute_volumes(
     first_previous = calendar.get_latest_open_date("SSE", first_day - timedelta(days=1))
     dates = calendar.get_open_dates("SSE", first_day, last_day) if first_day != last_day else [first_day]
     previous_dates = dict(zip(dates, [first_previous, *dates[:-1]]))
-    model = IndexMinsVolumeEvidence
-    lookup_keys = set(groups)
-    lookup_keys.update(
-        (code, freq, previous_dates[day])
-        for code, freq, day in groups
-        if previous_dates.get(day) is not None
-    )
-    recorded = {
-        (record.ts_code, record.freq, record.trade_date): (record.source_vol, record.source_unit)
-        for record in session.scalars(
-            select(model).where(tuple_(model.ts_code, model.freq, model.trade_date).in_(lookup_keys))
-        )
-    }
 
     output = []
-    evidence = []
+    share_totals: dict[tuple[str, str, date], float] = {}
     for key, day_rows in sorted(groups.items()):
         code, freq, day = key
-        previous = recorded.get((code, freq, previous_dates.get(day)))
-        source_total = fsum(row["vol"] for row in day_rows if row["vol"] is not None)
-        if previous is not None:
-            unit = resolve_index_minute_volume_unit(*previous, source_total)
-        elif key in recorded:
-            unit = recorded[key][1]
-        else:
+        previous_day = previous_dates.get(day)
+        previous_shares = share_totals.get((code, freq, previous_day)) if previous_day else None
+        if previous_day is not None and previous_shares is None:
+            start = datetime.combine(previous_day, time.min)
+            previous_shares = session.scalar(
+                select(func.sum(RawIndexMins.vol)).where(
+                    RawIndexMins.ts_code == code,
+                    RawIndexMins.freq == freq,
+                    RawIndexMins.trade_time >= start,
+                    RawIndexMins.trade_time < start + timedelta(days=1),
+                )
+            )
+        if previous_shares is None:
             raise ValueError(f"指数分钟成交量比较起点缺失：{code} {freq} {day}")
-        multiplier = 100 if unit == "lot" else 1
+
+        source_total = fsum(row["vol"] for row in day_rows if row["vol"] is not None)
+        multiplier = 100 if source_total * 50 < previous_shares else 1
         output.extend(
             {**row, "vol": row["vol"] * multiplier if row["vol"] is not None else None}
             for row in day_rows
         )
-        recorded[key] = (source_total, unit)
-        evidence.append(dict(ts_code=code, freq=freq, trade_date=day, source_vol=source_total, source_unit=unit))
-
-    statement = insert(model)
-    session.execute(
-        statement.on_conflict_do_update(
-            index_elements=[model.ts_code, model.freq, model.trade_date],
-            set_={"source_vol": statement.excluded.source_vol, "source_unit": statement.excluded.source_unit},
-        ),
-        evidence,
-    )
+        share_totals[key] = source_total * multiplier
     return output

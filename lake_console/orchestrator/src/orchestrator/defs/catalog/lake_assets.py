@@ -2970,8 +2970,9 @@ LAKE_ASSET_CATALOG += (
             event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
             bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
             notes=(
-                "Native frequencies preserve source vwap; 90m/120m use "
-                "exchange-aware complete windows and NULL vwap."
+                "Native frequencies preserve source vwap and aggregate vol from the previous "
+                "same-frequency Silver partition; 90m/120m use exchange-aware complete windows "
+                "and NULL vwap."
             ),
         )
         for freq in (1, 5, 15, 30, 60, 90, 120)

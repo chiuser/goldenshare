@@ -758,29 +758,43 @@ def test_invalid_existing_silver_target_is_not_overwritten(tmp_path: Path) -> No
     assert target.read_bytes() == original
 
 
-def test_native_source_volume_switch_reuses_receipt_and_feeds_derived_bars(tmp_path: Path) -> None:
+def test_native_volume_uses_previous_silver_and_feeds_derived_bars(tmp_path: Path) -> None:
     day = "2026-11-24"
     raw = _write_raw(tmp_path, trade_date=day, freq="30min")
-    previous = {code: (450.0, "share") for code in effective_silver_codes_for_date(day)}
-    previous["000001.SH"] = (45_000.0, "share")
+    previous = silver_major_index_mins_path(tmp_path, "30min", "2026-11-23")
+    previous.parent.mkdir(parents=True)
+    raw_relation = f"read_parquet('{raw.as_posix()}', hive_partitioning=false)"
+    with duckdb.connect(":memory:") as connection:
+        connection.execute(copy_query_to_parquet(
+            f"""
+            SELECT * REPLACE (
+                upper(trim(ts_code)) AS ts_code,
+                trade_time - INTERVAL 1 DAY AS trade_time,
+                CASE upper(trim(ts_code)) WHEN '000001.SH' THEN vol * 100
+                    WHEN '399006.SZ' THEN vol * 50 ELSE vol END AS vol
+            )
+            FROM {raw_relation}
+            """,
+            previous,
+        ))
+
     inputs = {
         "lake_root_path": tmp_path,
         "duckdb_resource": _MemoryDuckDB(),
         "freq": "30min",
         "partition_key": day,
         "run_id": "index-volume",
-        "previous_source_volume": previous,
+        "previous_silver_path": previous,
     }
     result = write_major_index_mins_silver_partition(**inputs)
-    assert result.source_volume["000001.SH"] == (450.0, "lot")
-    assert result.source_volume["399001.SZ"] == (450.0, "share")
     assert _rows(raw, " 000001.sh ")[0][7:9] == (10.0, 100.0)
     assert _rows(result.target_path, "000001.SH")[0][7:9] == (1_000.0, 100.0)
     assert _rows(result.target_path, "399001.SZ")[0][7:9] == (10.0, 100.0)
+    assert _rows(result.target_path, "399006.SZ")[0][7:9] == (10.0, 100.0)  # Exactly 50-fold.
 
     retry = write_major_index_mins_silver_partition(**inputs)
     assert retry.write_mode == "reuse_existing"
-    assert retry.source_volume == result.source_volume
+    assert _rows(retry.target_path, "000001.SH") == _rows(result.target_path, "000001.SH")
 
     derived = write_major_index_mins_silver_partition(
         lake_root_path=tmp_path,
@@ -792,7 +806,14 @@ def test_native_source_volume_switch_reuses_receipt_and_feeds_derived_bars(tmp_p
     assert sum(row[7] for row in _rows(derived.target_path, "000001.SH")) == 45_000.0
 
     next_day = "2026-11-25"
-    raw = _write_raw(tmp_path, trade_date=next_day, freq="30min")
+    _write_raw(tmp_path, trade_date=next_day, freq="30min")
+    second_lot_day = write_major_index_mins_silver_partition(
+        **{**inputs, "partition_key": next_day, "previous_silver_path": result.target_path}
+    )
+    assert _rows(second_lot_day.target_path, "000001.SH")[0][7:9] == (1_000.0, 100.0)
+
+    share_day = "2026-11-26"
+    raw = _write_raw(tmp_path, trade_date=share_day, freq="30min")
     candidate = tmp_path / "new-source.parquet"
     with duckdb.connect(":memory:") as connection:
         relation = f"read_parquet('{raw.as_posix()}', hive_partitioning=false)"
@@ -802,7 +823,6 @@ def test_native_source_volume_switch_reuses_receipt_and_feeds_derived_bars(tmp_p
         ))
     candidate.replace(raw)
     following = write_major_index_mins_silver_partition(
-        **{**inputs, "partition_key": next_day, "previous_source_volume": retry.source_volume}
+        **{**inputs, "partition_key": share_day, "previous_silver_path": second_lot_day.target_path}
     )
-    assert following.source_volume["000001.SH"] == (45_000.0, "share")
     assert _rows(following.target_path, "000001.SH")[0][7:9] == (1_000.0, 100.0)

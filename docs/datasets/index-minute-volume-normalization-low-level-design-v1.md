@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示 LLD v1
 
-更新于 2026-11-26。阶段 1 已验收。阶段 2 的 Prod 上证综指 30 分钟正式试点已通过，首批重刷、DG 文件发布及读数切换待推进。
+更新于 2026-11-26。阶段 1A 已完成代码修正和隔离复验，待正式切换与删表。阶段 2 的 Prod 正式试点和 DG 候选试点已通过，首批重刷、DG 文件发布及读数切换待推进。
 
 依据[专项方案](index-minute-volume-normalization-plan-v1.md)。历史范围、换算阈值和交付顺序以该方案为准。源接口为 Tushare `idx_mins`，见本地源文档 [doc_id 419](../sources/tushare/指数专题/0419_股票历史分钟行情.md)。
 
@@ -20,62 +20,83 @@
 
 ### 2.1 单位判定
 
-Prod 和 DG 主要指数分钟采用同一规则。以 `ts_code`、`freq`、上海时区下 `trade_time` 所属交易日分组，汇总当天收到的源 `vol`。当天有数据即按齐备计算。上一交易日用同源、同代码、同频率保存的**源成交量合计和单位**。首次启用用已经确认单位的合计作为比较起点。当天无行情时沿用各入口已有处理。
+以 `ts_code`、`freq` 和上海时区下的交易日分组。当天把源 `vol` 相加，上一交易日把同指数、同频率已经归一并入库的 `vol` 相加。当天有行情即按齐备计算。两端沿用同一乘数。
 
 ```python
-def resolve_index_minute_volume_unit(previous_total, previous_unit, source_total):
-    if source_total > previous_total * 50:
-        return "share"
-    if source_total * 50 < previous_total:
-        return "lot"
-    return previous_unit
+def index_minute_volume_multiplier(previous_share_total: float, source_total: float) -> int:
+    # 源合计比上一交易日的股数小超过 50 倍时，按手转股。
+    return 100 if source_total * 50 < previous_share_total else 1
 ```
 
-按上述结果对本组每根行情处理 `vol`。源单位是 `lot` 时乘 100，是 `share` 时沿用原值。等于 50 倍或 1／50 时沿用上一交易日的源单位。价格、成交额及时间沿用原值。
+同组每根 `vol` 应用一次乘数。成交额、价格和时间沿用源值。当日无行情时沿用现有处理。有当日行情但读不到上一交易日股数时，沿用现有的「指数分钟成交量比较起点缺失」错误。首次执行可从已核实存股的上一交易日行情直接汇总。
+
+<a id="prod-index-minute-volume-write"></a>
 
 ### 2.2 Prod：字段转换后、写表前
 
-1. `_build_index_mins_units`、`_idx_mins_params` 与 `_index_mins_row_transform` 沿用现有取数、分页和行转换。行转换产出的 `vol` 是源值。
-2. 在 `DatasetWriter.write` 的 `index_mins` 写表路径，按现有主键去重，然后按交易日依次汇总源 `vol`。通过现有 A 股交易日历定位前一交易日。区间请求的第一天读一次起点记录，后续日优先使用本批刚算出的前一交易日记录。有记录的交易日按顺序处理，已有确认起点用于开始比较。
-3. 将股数写入 `raw_tushare.index_mins`，复用原 DAO 批量 upsert。由 `IngestionExecutor._process_fetched_unit` 沿用现有提交边界，行情和单位记录同事务提交。重跑从本次收到的源值重新计算。服务视图、任务提交和状态沿用现有入口。
+1. `_build_index_mins_units`、`_idx_mins_params` 和 `_index_mins_row_transform` 沿用现有取数、分页和字段转换。
+2. `DatasetWriter.write` 进入 `index_mins` 写表路径后，按现有主键去重，汇总当天源成交量。使用现有交易日历定位上一交易日，在相同写入单元内按以下查询汇总上一交易日已存股数。时间边界为上海本地日期，对应 `trade_time` 的无时区字段。区间补数从早到晚处理，上一交易日已在本批计算时直接使用该股数合计，否则读取该交易日的行情。
+3. 现有 DAO 批量 upsert 写回 `raw_tushare.index_mins`，沿用原提交边界。重跑时从本次拉取的源值和上一交易日的股数重新计算。
 
-新增内部表 `raw_tushare.index_mins_volume_evidence` 保存计算所需的两项值。行情表写入后只有股数，因此前一交易日的源总量和单位从这张表读。首次启用时用已确认的源数据写入起点。Alembic 在开发时接实际迁移 head。
+```sql
+SELECT sum(vol)
+FROM raw_tushare.index_mins
+WHERE ts_code = :ts_code AND freq = :freq
+  AND trade_time >= :previous_day_start
+  AND trade_time < :previous_day_end
+```
 
-| 字段 | PostgreSQL 类型 | 含义 |
-| --- | --- | --- |
-| `ts_code`、`freq`、`trade_date` | `varchar(32)`、`varchar(16)`、`date` | 联合主键，来源固定为 Tushare `idx_mins`。 |
-| `source_vol` | `double precision` | 换算前的源成交量日合计。 |
-| `source_unit` | `varchar(5)` | `share` 或 `lot`。 |
+现有主键 `(ts_code, freq, trade_time)` 限定读取到一只指数、一个频率、一个交易日。日常单日同步每个写入单元最多一次这类汇总，结果只在本次计算中使用。清退范围和发布顺序见 [§2.6](#index-minute-volume-retirement)。原先准备的 2,650 条起点清单已作废。
 
-[取数计划](../../src/foundation/ingestion/unit_planner.py#L1912) · [行转换](../../src/foundation/ingestion/row_transforms.py#L1032) · [任务写入与提交](../../src/foundation/ingestion/executor.py#L786) · [交易日历 DAO](../../src/foundation/dao/trade_calendar_dao.py#L34)
+[取数计划](../../src/foundation/ingestion/unit_planner.py#L1912) · [行转换](../../src/foundation/ingestion/row_transforms.py#L1032) · [行情主键](../../src/foundation/models/raw/raw_index_mins.py#L20) · [交易日历 DAO](../../src/foundation/dao/trade_calendar_dao.py#L34)
 
 ### 2.3 DG：主要指数生成基础 Silver 时转换
 
-1. `major_index_mins_raw.py` 日常从 Tushare 直采，Raw 文件保留源值。日常 Silver 资产调用 `write_major_index_mins_silver_partition`。原生 Silver 构造输出前，用 DuckDB 对当前 Raw 分区按 `ts_code` 执行 `sum(vol)`，直接用收到的文件计算。
-2. 原生 Silver 只读依赖现有交易日历定位前一交易日。按原生 Silver 资产键及对应日期读取发布记录中的源合计和单位，按指数匹配。首次启用传入已确认的起点。复用 `MinutePartitionPublication` 的结果记录和现有资产发布元数据，保存每个指数当天的源合计和单位，供下一交易日使用。
-3. 将计算结果作为 `ts_code, multiplier` 临时关系，原生直采行的 Silver 投影用 `raw.vol * unit.multiplier AS vol`。既有历史补充如果来自已经归一的 DG 通用 Silver，直接取其中的股数。历史重刷使用阶段 2 的清单。
-4. 通用指数 Raw 通过 `write_raw_index_mins_partition_from_prod_db` 从 Prod 按日、按频率复制股数。通用 Silver、两套 90／120 分钟和 Gold 继续按原有流程使用股数。
+1. `major_index_mins_raw.py` 的今日 Raw 保留 Tushare 源值。`major_index_mins_silver.py` 用现有交易日历定位上一交易日，将同一原生频率的主要指数 Silver 分区路径交给 Silver 写入器。该路径作为本次候选的实际输入参与现有发布回执。
+2. `write_major_index_mins_silver_partition` 对当前 Raw 和上一交易日 Silver 分别按 `ts_code` 汇总 `vol`，两侧只处理本次写入的指数。按 §2.1 得到乘数后，原生直采行用 `raw.vol * multiplier AS vol`。取数范围为一份当天 Raw 和一份上一交易日同频率 Silver。旧资产发布元数据里的源合计和单位退出日常判断。
+3. 历史重刷使用阶段 2 的已验证清单。既有历史补充若来自已归一的 DG 通用 Silver，直接继承股数。通用指数 Raw 仍从 Prod 按日、按频率复制股数，通用 Silver、两套 90／120 分钟和 Gold 按原有规则使用股数。
 
-[DG 主要指数直采](../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_raw.py#L72) · [Silver 写入](../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_silver_writer.py#L425) · [DG 通用指数同步](../../lake_console/orchestrator/src/orchestrator/defs/assets/index_mins.py#L119) · [发布回执](../../lake_console/orchestrator/src/orchestrator/defs/io/minute_partition_writer.py#L112)
+[DG 主要指数直采](../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_raw.py#L72) · [Silver 写入](../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_silver_writer.py) · [DG 通用指数同步](../../lake_console/orchestrator/src/orchestrator/defs/assets/index_mins.py#L119) · [发布回执](../../lake_console/orchestrator/src/orchestrator/defs/io/minute_partition_writer.py#L112)
 
 ### 2.4 验收
 
 | 样本 | 预期 |
 | --- | --- |
-| 上证综指 30 分钟，2026-11-09 → 11-10 | 从 42,772,225,700 股到 404,865,177 手，第二天应存 40,486,517,700 股。 |
-| 沪市连续为手，含 2026-11-24 | 493,526,296 手应存 49,352,629,600 股。 |
-| 上证综指 30 分钟，2026-11-24 → 11-25 | 后一天源值 47,256,142,700 已是股，原值写入。 |
-| 深证成指与创业板指样本 | 连续为股，源值原样写入。 |
-| 同批重跑及 DG 派生 | 正式输出的股数相同。DG 直采 Raw 保持源值，通用同步和派生继承股数。 |
+| 上证综指 30 分钟，2026-11-09 → 11-10 | 上一交易日入库 42,772,225,700 股，11 月 10 日的源值 404,865,177 按手转为 40,486,517,700 股。 |
+| 连续按手返回 | 上一交易日入库 450 亿股，本次源合计 4.8 亿，写入 480 亿股。下一交易日仍按手返回 4.9 亿，和 480 亿股比较后写入 490 亿股。 |
+| 上证综指 30 分钟，2026-11-24 → 11-25 | 上一交易日归一后 49,352,629,600 股，11 月 25 日源合计 47,256,142,700 直接按股写入。 |
+| 阈值边界和深市连续存股 | 刚好缩小 50 倍时乘数为 1。深证成指和创业板指连续为股的样本原值写入。 |
+| 同批重跑及 DG 派生 | 重跑和顺序补数得到相同股数。DG 直采 Raw 保留源值，通用同步和派生继承股数。 |
 
-Prod 验收覆盖行情和单位记录同事务提交。DG 用原生 Silver 写入测试核对转换与重跑，并确认派生周期继续按原时段合计。[DG Silver 测试](../../lake_console/orchestrator/tests/test_major_index_mins_silver_writer.py)
+在隔离 PostgreSQL 验证实际写表、重跑和事务回滚。在隔离 DG 验证原生 Silver 以昨日 Silver 的股数为基准、派生按原时段合成。两处都使用现有行情作首个交易日的比较数据，验收复用 §3.1 的定向样本。
 
-### 2.5 阶段 1 实施与审计记录
+### 2.5 阶段 1 历史实施与审计记录
+
+以下是修正比较基准前的执行记录。新版日常入库行为以 §2.1 至 §2.4 为准。
 
 - Prod 在原有写入器内处理 `index_mins`，迁移 `20261126_000192` 增加源成交量与单位记录。隔离 PostgreSQL 验证了实际迁移、行情和单位记录同事务提交与回滚，以及同批重跑。Prod 相关回归通过 83 项。[写入转换](../../src/foundation/ingestion/index_minute_volume.py) · [迁移](../../alembic/versions/20261126_000192_add_index_mins_volume_evidence.py)
 - DG 复用主要指数的 Raw 与 Silver 作业，原生 Silver 读取前一交易日的计量记录，通用指数分钟继续同步 Prod。隔离 Dagster 和 DuckDB 相关回归通过 67 项。取 2026-11-24 和 11-25 的真实 30 分钟 Raw 分区副本分别核对 90 根，沪市 24 日手转股、25 日直接写股，深圳对照、成交额、时间、开高低收一致。两次隔离写入分别耗时 179.7 和 169.9 毫秒，仅用于记录本次样本。[原生 Silver 作业测试](../../lake_console/orchestrator/tests/test_major_index_mins_publication.py)
-- 按首批 11 个交易日的范围读取 DG 通用 Raw 镜像，整理了 189 只指数、10,395 组、667,359 个精确主键的预览，列出 363 个 DG 正式目标文件。同步整理 11 月 24 日已确认的源成交量与单位，其中 Prod 镜像 945 组、DG 主要指数 40 组。阶段 2 用实际 Prod 表值确认预览中的旧值，并按正式启用日期准备上一交易日的起点。
+- 按首批 11 个交易日的范围读取 DG 通用 Raw 镜像，整理了 189 只指数、10,395 组、667,359 个精确主键的预览，列出 363 个 DG 正式目标文件。同步整理 11 月 24 日已确认的源成交量与单位，其中 Prod 镜像 945 组、DG 主要指数 40 组。阶段 2 用实际 Prod 表值确认预览中的旧值。
 - 本轮使用隔离环境验证。正式迁移、文件发布及读端切换列入阶段 2。
+
+<a id="index-minute-volume-retirement"></a>
+
+### 2.6 清退旧辅助表和代码
+
+2026-11-26 23:12 北京时间，经 Prod 只读事务核实，`raw_tushare.index_mins_volume_evidence` 仍存在，`SELECT EXISTS` 返回无记录。该表来自已执行的迁移 `20261126_000192`。阶段 1A 开工前确认仓库 Alembic head 同为 `20261126_000192`，新迁移验收见 §2.7。[已部署的建表迁移](../../alembic/versions/20261126_000192_add_index_mins_volume_evidence.py)
+
+- **Prod 应用代码。** 在 `index_minute_volume.py` 改用 §2.2 的行情汇总，删除对 `IndexMinsVolumeEvidence` 的查询、写入和按上一源单位分支。删除该 ORM 模型和 `all_models.py` 注册项。保留 `DatasetWriter` 的指数分钟归一化入口。将旧测试改成以 `RawIndexMins` 中已有股数为基准，隔离测试环境仅建现有行情与交易日历表。[归一化入口](../../src/foundation/ingestion/index_minute_volume.py) · [现有写入入口](../../src/foundation/ingestion/writer.py#L2182) · [需替换的测试](../../tests/test_index_minute_volume_write.py)
+- **DG 日常代码。** 删除主要指数 Silver 资产中的 `_partition_source_volume` 和读取上一日资产事件的逻辑。计算基准按 §2.3 改从上一交易日 Silver 读取。删除 Silver 写入器及结果对象中的 `previous_source_volume`、`source_volume` 传递和旧单位判定分支，更新相关发布与写入测试。过往资产事件及文件回执留作历史记录。[Silver 资产](../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_silver.py#L45) · [旧计算](../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_silver_writer.py#L242)
+- **数据库迁移。** 保留已执行的 `20261126_000192`。新迁移接实际 head，仅删除 `raw_tushare.index_mins_volume_evidence`，用 PostgreSQL 默认的 RESTRICT 处理依赖，删除前再核实为空。若已产生记录或发现对象依赖，先核清来源及处理范围后再执行。正式验收用目录查询确认旧表消失，并在隔离环境验证已部署版本可升到新 head。原建表迁移保存了完整结构，可作为需要时的结构恢复依据。业务行情表和服务视图继续由原表提供。
+- **切换顺序。** 批准窗口内先暂停指数分钟自动任务并排空旧 worker。普通部署会先迁移再重启，故代码切换使用现有 `--skip-migration`，先让新版 worker 用已存股数做一次定向验收。确认活跃代码无旧依赖，且此次待执行的迁移只有已审定的单表清退后，再使用现有 `--maintenance-migration` 执行迁移并只读确认删表，随后恢复日常任务。DG 切换日常写入后用上一交易日 Silver 核对一次基础频率股数。旧版在表已删后不可直接作为回退版本。[发版顺序与迁移开关](../release/release-process-v1.md#3-发布动作与服务范围)
+
+### 2.7 阶段 1A 实施及独立审计
+
+- Prod 复用现有 `DatasetWriter`，按指数、频率和上一交易日的时间区间对 `index_mins.vol` 执行一次汇总。同批跨日直接使用已经计算过的股数。隔离 PostgreSQL 验证去重后计量、连续为手、切回股、50 倍边界、回滚与重跑，回读服务视图。旧模型和注册已删除。[Prod 入库规则](../../src/foundation/ingestion/index_minute_volume.py) · [写入与迁移测试](../../tests/test_index_minute_volume_write.py)
+- DG 日常资产用现有交易日历定位上一个开市日，读取同频率的上一交易日 Silver，路径写入现有候选输入回执。已撤掉旧单位事件及写入结果字段。隔离 DG 作业的五个原生频率和两个派生频率、现有阻断检查均通过。[DG 资产](../../lake_console/orchestrator/src/orchestrator/defs/assets/major_index_mins_silver.py) · [DG 取数与乘数](../../lake_console/orchestrator/src/orchestrator/defs/io/major_index_mins_silver_writer.py)
+- 独立运行两组真实 DG 30 分钟行情的隔离副本。上证综指 11 月 10 日由 404,865,177 手转为 40,486,517,700 股，11 月 25 日保留 47,256,142,700 股。每个分区发布 90 根，逐根核对上证综指与深证成指的时间、行情与成交额，两组重跑均复用。本次首次写入分别约 490 和 175 毫秒。另只读核实 DG 11 月 26 日十只主要指数、五个基础频率的 50 组合计和已确认的股数一致。
+- 新迁移 `20261126_000193` 接 `20261126_000192`。真实隔离 PostgreSQL 从已部署版本升级，空辅助表被删除且行情表、视图继续读写。有记录时升级拒绝，迁移版本仍在原 head。运行时代码中旧表及 DG 旧单位元数据无引用，相关表名只留在两条迁移及对应测试中。[清退迁移](../../alembic/versions/20261126_000193_drop_index_mins_volume_evidence.py)
+- Prod 写入与试点回归 5 项、主库架构和数据集回归 187 项、DG 回归 42 项通过。CodeGraph 和源码引用核实了 Prod 写入及 DG 日常与历史入口。正式部署、正式删表按 §2.6 待确认。
 
 ## 3. 阶段 2：定向重刷及读数切换
 
@@ -108,7 +129,7 @@ WHERE bars.ts_code = repair.ts_code
 RETURNING bars.ts_code, bars.freq, bars.trade_time, bars.vol;
 ```
 
-核对更新根数等于事务刚判定的待更新根数，按同组键读回并核对 `vol`、行情键和非成交量字段后提交。历史修复清单用于更新股数。用于日常判断的源成交量合计和单位，以已确认的源记录为准。续跑读回当前有限主键，确认已等于目标值即可跳过，无需再乘 100。每组保存完成事实并更新现有任务进度；数据库更新只涉及 `vol`，避免沿用普通行情 upsert 覆盖其他字段。
+核对更新根数等于事务刚判定的待更新根数，按同组键读回并核对 `vol`、行情键和非成交量字段后提交。历史修复清单用于更新股数。日常判断直接使用已有行情中的股数。续跑读回当前有限主键，确认已等于目标值即可跳过，无需再乘 100。每组保存完成事实并更新现有任务进度；数据库更新只涉及 `vol`，避免沿用普通行情 upsert 覆盖其他字段。
 
 #### Prod 后台入口与隔离试点
 
@@ -133,7 +154,7 @@ RETURNING bars.ts_code, bars.freq, bars.trade_time, bars.vol;
 - 2026-11-26 北京时间 22:12 至 22:13 在 Prod 执行。部署版本为 `7318d01a5`，实际迁移版本为 `20261126_000192`。试点对象为 `000001.SH / 30min / 2026-11-24`。首次提交前无排队或执行中的指数分钟任务，下次自动任务排在 2026-11-27 19:02。
 - 冻结清单 SHA-256 为 `55f9e9ac33f878701748ec2e38283f310985f77c3f2a451556b7e22a471cdbd3`。首次 TaskRun 21244、节点 35987 成功，核对 9 根、更新 9 根。用同一清单重跑 TaskRun 21245、节点 35988 成功，核对 9 根、更新 0 根。两次 worker 任务开始到结束分别为 67.2 和 31.0 毫秒。锁定查询的 `EXPLAIN` 计划为 Limit、LockRows、Index Scan。任务计时仅适用于本次试点。
 - 从 `raw_tushare.index_mins` 和 `core_serving.index_minute_bar` 独立逐根读回。两处成交量均由 493,526,296 手改为 49,352,629,600 股。时间键、开高低收、交易所、VWAP 及每根成交额均与更新前一致，成交额合计 771,861,010,308.9 元。重跑后再读回，结果一致。
-- DG 只读核对同日上证综指。通用 Raw 30 分钟、两套 Silver 30 分钟各为 9 根，两套 Silver 90 分钟各为 3 根，成交量合计仍为 493,526,296 手。本轮正式写入范围止于 Prod 这一组。首批重刷、DG 文件发布、按实际启用日补充日常同步的单位判断起点及读数切换均待后续推进。
+- DG 只读核对同日上证综指。通用 Raw 30 分钟、两套 Silver 30 分钟各为 9 根，两套 Silver 90 分钟各为 3 根，成交量合计仍为 493,526,296 手。本轮正式写入范围止于 Prod 这一组。首批重刷、DG 文件发布和读数切换均待后续推进。
 
 ### 3.3 DG 刷新文件及顺序
 
@@ -161,6 +182,22 @@ LEFT JOIN repaired_volume AS repair USING (ts_code, trade_time);
 
 Raw/Silver 沿用 `MinutePartitionPublication` 的候选、校验和逐文件回执；Gold 沿用现有 Gold 写入器的候选及同文件系统原子替换，将正式文件摘要与同一份重刷清单中的文件进度核对。已经发布的文件重跑先校验读回指纹，变化的输入或旧值冲突只复核该目标文件。只对清单内已验证旧版本使用显式覆盖。冻结一份发布记录关联数据集、日期、频率、旧与目标文件身份和已发布结果，阶段 2 结束时共核对 **363 个正式文件**，即 55 个通用 Raw 加 4×77 个 Silver／Gold。影响面包括用到这些文件的成交量读取。现有九转、技术指标、结构识别等只消费价格或 MACD 的输出，以及只消费成交额的统计，沿用现值。其他确实持久化成交量的结果要经引用审计列明后才可纳入变更清单。[分区路径](../../lake_console/orchestrator/src/orchestrator/defs/paths.py#L1088) · [Gold 窗口映射](../../lake_console/orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L11) · [Gold 写入器](../../lake_console/orchestrator/src/orchestrator/defs/io/cn_a_gold_minute_writer.py#L98) · [结构识别选列](../../src/biz/queries/wealth/market/index_detail_xxm/source.py#L252) · [成交额读取](../../src/foundation/clients/local_lake/major_index_turnover_reader.py#L238)
 
+#### DG 正式发布前的候选试点
+
+沿用 §3.1 的上证综指 2026-11-24 样本。取同一组 Prod 已提交的 9 个主键与股数生成通用 Raw 候选。主要指数从 DG 直采 Raw 中仅对同一指数的 9 根乘 100。用两套 30 分钟 Silver 候选及现有合成窗口生成各自的 90 分钟 Silver 和 Gold 候选。每份候选和正式原文件逐键核对，只替换这只指数的成交量。其他记录及非成交量字段通过差集检查。候选路径在正式 staging 下按本次执行区分。
+
+本次候选试点读取 7 个目标分区、1 个直采 Raw 分区和 9 根 Prod 源值，再使用生成的 30 分钟 Silver 计算派生量。预计生成 7 个候选，目标投影共 39 根，含 3 个基础文件各 9 根及 4 个派生文件各 3 根。DuckDB 每次处理单个分区，记录实际文件字节数、生成和验证总耗时。按既有候选回执重用已验证的 Raw／Silver 文件，并重新对照原分区。派生 Gold 重新对照并沿用已验证的候选。发生差异时保留该文件证据。正式目标、Dagster 记录和服务切换由后续批准窗口处理。
+
+<a id="dg-volume-candidate-result"></a>
+
+**候选试点结果（2026-11-26）。** 复用已经提交并读回的 Prod 试点明细，通过 `orchestrator.defs.bootstrap.index_minute_volume_pilot` 生成 7 个 staging 候选。独立逐根核对共 39 根目标记录，30 分钟与 Prod 的 9 个时间键和股数一致，90 分钟的 3 个窗口分别为 27,625,779,400、11,199,526,200 和 10,527,324,000 股。原文件的全部其他字段和其他指数保持原值，正式文件的大小与修改时间仍与原预览一致。7 个原文件共 610,606 字节，候选共 610,813 字节。候选生成和校验计时合计 504.4 毫秒，重跑对照计时 337.6 毫秒，7 个候选全部复用。计时仅覆盖本样本的文件处理。范围外的指数输入在生成候选前被拒绝。
+
+用现有本地 90 分钟查询对照。旧文件配旧换算与新候选直接读股，时间、价格、成交额和 3 根成交量逐项相同。新候选继续用旧换算，合计会成为 4,935,262,960,000 股，放大 100 倍。该结论仅验证候选和读取 SQL，实际服务切换待正式发布窗口。通用 DG／Prod 全历史 5 分钟单位仍按 §3.4 的已确认范围处理。
+
+<a id="prod-volume-reference-result"></a>
+
+**Prod 2026-11-26 已存股数核对。** 只读核对自动任务池内 530 只指数（沪市 189 只和深市 341 只）的五个基础频率，共 2,650 组。每只指数五个频率的成交量合计一致。516 只与 DG 同日日线的手数乘 100 后一致，其余 14 只与上一交易日已确认存股的 DG 通用 30 分钟镜像比较，比值为 0.8192 至 1.2033。上述结果用于确认 11 月 26 日 Prod 行情已经是股。正式启用时直接从当时上一交易日的已归一行情汇总。DG 主要指数同理读取自己的上一交易日 Silver。
+
 ### 3.4 撤转换时同时核对数据、算子和接口
 
 1. **DG 主要指数分钟。** 归一前，`_DG_RECENT_MINUTE_VOLUME` 针对 2026-11-10 至 11-24 的沪市记录执行 `vol * 100`。对应 DG 文件全部确认后，在 `dg_recent_index_minute_sql` 的直接读取路径用 `vol AS volume`，在 90／120 分钟合成路径用 `sum(vol) AS volume`。开高低收、成交额、时间窗口和分页 SQL 沿用现有实现。
@@ -174,7 +211,7 @@ Raw/Silver 沿用 `MinutePartitionPublication` 的候选、校验和逐文件回
 | 项目 | 实施要求 |
 | --- | --- |
 | Prod 执行入口与持久化 | 复用现有 `index_mins` 任务执行通道及 TaskRun／活动节点进度，定向重刷采用冻结清单执行。一个代码、交易日、原生频率是一笔提交，10,395 组串行分批。无需全历史事务或新工作进程。任务运行期间协调现有自动写入窗口。 |
-| Prod 内存和请求 | 日常保留现有源分页及已有请求窗口，单位保护复用同批内存行和上一开市日证据。冻结清单与正式重刷按组分页保存和读取，内存只保留当前组的行与摘要。试点 30 分钟为 9 根。按目前沪深原生时段，1／5／15／30／60 分钟每组分别为 241／49／17／9／5 根，包含开盘记录。试点实测扫描行数与 SQL 计划，避免把目标根数当成数据库实际扫描量。按计划首批的历史回读以 667,359 条目标键为范围，重刷无需重请求 Tushare。 |
+| Prod 内存和请求 | 日常保留现有源分页及已有请求窗口，单位判断汇总同批源值和上一交易日已存股数，读取范围见 §2.2 和 §2.3。冻结清单与正式重刷按组分页保存和读取，内存只保留当前组的行与摘要。试点 30 分钟为 9 根。按目前沪深原生时段，1／5／15／30／60 分钟每组分别为 241／49／17／9／5 根，包含开盘记录。试点实测扫描行数与 SQL 计划，避免把目标根数当成数据库实际扫描量。按计划首批的历史回读以 667,359 条目标键为范围，重刷无需重请求 Tushare。 |
 | 进度和取消 | Prod 显示阶段、当前代码／日期／频率、已完成组数、总组数、百分比和最后更新时间，使用现有运行状态与进度上报。每组前后检查取消，每组提交后上报；活跃运行的可见更新遵守现有 30 秒门禁，实测一个组事务或对账不能阻塞超过该窗口，耗时仍未知则不填写 ETA。终态同时校准 TaskRun 和活动节点。 |
 | 续跑与最后读回 | Prod 中断后从首个未确认组开始，只回读已冻结的相关主键确定进度。DG 按回执和正式文件摘要定位未完成文件，已完成文件直接核对摘要。最终验收读冻结范围的摘要与指定边界样本，无需增加一轮重新拉取或全历史扫描。 |
 | 试点与性能测量 | 第一批正式执行前测一组 Prod SQL 的计划、读写锁持有时长、更新根数与提交时长，并测实际取消、重新执行和读回。DG 测一个日期、基础频率的输入和目标文件数、Parquet 字节数、构造与发布用时，带上一个关联派生文件。按清单逐项汇总候选生成、续跑和最后验收开销后再排正式窗口。隔离试点实测见 §3.2。正式批次的累计时间按正式试点实测估算。 |
@@ -198,8 +235,9 @@ Prod 历史 APPLY 按长任务交付。已提交数据的续跑事实来自清�
 
 | 阶段 | 进入和完成条件 |
 | --- | --- |
-| 1. 入库保护 | 以本 LLD 和专项方案为开发依据。完成 Prod、DG 直采两处保护、隔离与有界样本验收，并生成可审查的 PG 主键、DG 文件清单及首次启用证据。 |
+| 1A. 修正入库代码 | 按 §2.1 至 §2.4 修正 Prod 与 DG 日常路径，删除旧辅助代码并准备 §2.6 的单表迁移。隔离验收使用已存股数，还原两次单位变化并验证回滚和重跑。 |
+| 1B. 正式切换和清退 | 获准后按 §2.6 切换日常入库，验证正常，再删除正式辅助表及恢复任务。验收新路径使用已存行情，表已清退。 |
 | 2. 定向重刷 | 先验证单组和受影响的 DG 窗口，批准后按冻结清单依次发布。目标数据、现行读数以及有界性能、续跑验收全部通过后恢复对应读者和自动任务。 |
 | 3. 页面展示 | 复用已归一的分钟接口，在页面以手显示并做浏览器验收。按现在方案范围核对 Prod 数据读取合同和股票图表回归。 |
 
-首次生效时使用已确认的源成交量合计和单位作为起点。阶段 2 按首批清单和 §3.4 发布数据及切换对应读数。
+原阶段 1 拆为 1A 和 1B。全部四步按表中顺序推进，阶段 2 继续使用已验收的试点与历史清单。正式写入、发布、部署和删表在对应步骤前确认。
