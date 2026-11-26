@@ -2,13 +2,17 @@
 
 **2026-11-26 管理员确认的范围纠正。** 阶段4只清理股票、上证页面已经不用的旧趋势通道接口及专用代码，并回归新链路。把 DG 数据生成、数据集停产或文件字段迁移纳入本需求，是此前方案的范围错误，现撤回；本次不处理 DG 工程、数据集、文件、生产任务及其检查，方向专项清理后续单独做。删除测试中仅用于拦截旧实现调用的导入、替换和断言，不为测试保留旧实现；固定历史行情样本和仍使用的共享绘图代码保留。以下现行范围按本条校准，历史验收记录保留当时事实。
 
-2026-11-25｜[专项方案](technical-indicator-trend-channel-plan-v1.md)记录最终需求。阶段一算子已实现，隔离验收和独立对照审计已完成，证据见 §9；提交管理员阶段 review。阶段二股票日线接入代码、隔离技术验收及对照审计已完成，提交管理员 review，证据见 §10；阶段三开发、技术验收及单独对照审计已完成，提交管理员 review，证据见 §12；阶段四尚未实施，未发包或部署。JSON 已取消、预热与接口处理等已确认口径保持不变。
+**2026-11-26 阶段四实施状态。** 已完成旧业务源码清理、隔离技术验收及与编码分开的LLD对照自审，提交管理员review；本轮代码和文档纳入阶段四提交，未发包或部署。现行清理状态和逐项证据见[§14](#trend-stage4-results)。
+
+历史进度（2026-11-25）｜[专项方案](technical-indicator-trend-channel-plan-v1.md)记录最终需求。阶段一算子已实现，隔离验收和独立对照审计已完成，证据见 §9；提交管理员阶段 review。阶段二股票日线接入代码、隔离技术验收及对照审计已完成，提交管理员 review，证据见 §10；阶段三开发、技术验收及单独对照审计已完成，提交管理员 review，证据见 §12；阶段四尚未实施，未发包或部署。JSON 已取消、预热与接口处理等已确认口径保持不变。
 
 固定前置 500 根、每轨绝对误差不超过 0.01、四轨输出、不迁入旧方向、方向专项后续单独清理和 MACD 保持现状均已确认，不需要重新拍板。阶段二、三设计已补齐，每步按其现行代码、合同和验收范围复核并单独 review。
 
 **2026-11-25 后续设计确认。** 管理员确认每个指标独立 build、公共组装复用、业务 `assemble()` 显式组合，并指定在第三阶段实施该组装架构修改。此处记录开发前设计：阶段二先完成股票日线接入及计算范围隔离；阶段三先整理公共组装，再接入上证；阶段四清理不变。本地和 Prod 各沿原有接法与环境，Prod 不新增本地式分页。以下 §4.2、§4.3 已按此补齐；本段记录开发前决定，阶段二实施现状与证据见 §10。
 
 ## 1. 当前代码与本期改动边界
+
+本表保留开发前代码依据与分阶段处理范围；其中旧模块已在阶段四删除，当前完成状态见§14，不能把历史路径当作仍有运行实现。
 
 | 对象 | 当前代码依据 | 本期处理 |
 | --- | --- | --- |
@@ -348,8 +352,8 @@ sequenceDiagram
 | 对象 | 当前实现依据 | 接入后 |
 | --- | --- | --- |
 | 股票、指数日 K 接口 | 现有日线 App 装配、计算清单、结果组装和前端 API 类型 | 保留入口及既有日 K 行为，在目标日线指标中增加四轨；图层与其他指标使用同批日期、复权和游标。 |
-| 股票旧独立接口 `/api/v1/wealth/market/stock-detail/trend-channel` | `stock_detail_trend_channel.py` → `StockDetailTrendChannelQueryService` → `StockDailyTrendChannelLakeReader` | 股票页面切换后不再调用。接口尚保留期间继续按原合同读结果文件；阶段四审计全部调用方后删除无消费者的路由、专用查询、schema 和读取器，不转调新日 K 接口或另造算子入口。 |
-| 上证旧独立接口 `/api/v1/quote/detail/trend-channel` | `src/biz/api/quote.py` → `QuoteTrendChannelQueryService._load_consistent_series()` → `load_all_rows()` 与专用计算器/缓存 | 页面切换后不再调用，页面所需结果改由算子库计算。阶段四按引用删除旧路由及其专用计算、查询、缓存、schema 和前端请求代码；不因移除通道接口而删除 `quote.py` 中其他接口。 |
+| 股票旧独立接口 `/api/v1/wealth/market/stock-detail/trend-channel` | 删除前为 `stock_detail_trend_channel.py` → `StockDetailTrendChannelQueryService` → `StockDailyTrendChannelLakeReader` | 阶段四已删除该路由、专用查询、schema、读取器及能力检查；隔离HTTP返回404，无代理或兼容入口。四轨由现有日K接口返回。 |
+| 上证旧独立接口 `/api/v1/quote/detail/trend-channel` | 删除前为 `src/biz/api/quote.py` → `QuoteTrendChannelQueryService` → 全历史查询、专用计算器及缓存 | 阶段四已删除该路由及专用查询、计算器、缓存、schema和前端请求；隔离HTTP返回404。`quote.py`其他四个路由/函数保持。 |
 | 股票日线趋势通道结果数据集 `gold/indicator/stock_daily_trend_channel` | 旧读取器按股票、截止日期和根数读取正式 Parquet 结果 | 新算子、新日 K 接入和新页面入口均不依赖它；本次不处理该 DG 数据集的字段、生产、检查或文件，也不决定停产。 |
 | 股票日线趋势通道续算状态数据集 `gold/indicator/stock_daily_trend_channel_state` | 旧数据生产需要数值续算；旧页面能力函数检查目录，但旧 API 读取器不读它 | 新算子在本请求内维护四个 EMA 数值，不读该文件；该 DG 数据集及其字段、生产、检查和文件均不在本次清理范围。 |
 | 股票、指数基础行情和股票复权因子数据 | 本环境现有日 K 来源和共享库读取装配；旧上证查询读取 `IndexDailyServing` 的 OHLC | 继续使用，保留现有读写职责；退出的是旧通道专用计算/成品读取，不能清理基础行情及复权因子数据。 |
@@ -399,6 +403,8 @@ sequenceDiagram
 
 ### 5.3 本轮先取消的测试检查
 
+本节记录阶段四开工前已取消的检查；随后已完成的接口、旧模块删除和完整验收见§14。
+
 本轮只落实管理员明确取消的三处后端测试拦截，不提前删除接口和旧业务模块：
 
 - `tests/app/technical_indicators/test_index_daily_kline_integration.py`：去掉对旧上证计算器和缓存的导入、报错函数及替换；保留本批计算、四轨、普通/debug、游标和九转断言。
@@ -414,6 +420,41 @@ sequenceDiagram
 业务配置只删除服务旧接口的开关，不新增开关。清理不新增源查询、文件写入、计算或复权，因此本次新增正式查询和正式文件写入均为0；测试使用工程外临时夹具，沿已有日 K 和算子预算，不为删除代码抬高阈值。失败时保留测试结果，只纠正本阶段变更；不存在正式数据回滚或迁移续跑步骤，不触发正式任务或部署。
 
 验收包括：旧专用模块运行引用清零；旧独立路由不再挂载；新股票及上证普通/debug日 K仍完整返回四轨，首批/续页、开关、摘要、失败和取消保持；股票日/周/月公共指标与非目标指数保持；固定行情误差样本、共享几何/primitive测试仍通过。相关后端定向测试、前端类型检查/相关测试及构建按原门禁执行，临时产物放工程外。DG生产、检查和正式文件均不作为本次验收或开工条件。
+
+#### 5.4.1 混合测试与测试输入的具体修改清单（2026-11-26 开工前补齐）
+
+当前代码中，下面的保留文件仍检查旧文件是否存在，或导入、模拟旧接口。只删除旧业务模块会使文件存在断言、模块导入或类型检查失败。因此，阶段四须在删除对应旧模块时同步完成下表修改；不能为这些测试保留旧实现，也不能整份删除仍验证其他功能的文件。
+
+| 当前文件与依据 | 删除内容 | 保留内容 |
+| --- | --- | --- |
+| `tests/architecture/test_lake_console_retirement_guardrails.py`：`test_current_lake_consumers_and_clickhouse_tools_are_present()` 的文件列表 | 仅移除 `src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py` 这一项。 | 该函数对其他现行文件的存在检查及本文件其余测试全部保留。这是仓库测试同步，不修改 DG 生产、数据集或检查实现。 |
+| `wealth/src/features/index-detail/controller/useIndexDetailController.test.tsx` | 删除 `fetchTrendChannel` 导入、`vi.mock`、旧回包配置、仅针对该替身的调用断言，以及随之无用途的 `trendCalls` 和 `makeTrendPayload` 导入。 | 新日 K 首批、续页及缓存合并，四轨、摘要、开关、迟到响应、失败重试和九转用例；继续断言日 K 请求参数与次数。 |
+| `wealth/src/features/index-detail/api/indexDailyHistoryRequests.test.tsx` | 删除 `fetchTrendChannel`、`makeTrendPayload` 导入，专门验证旧通道请求默认根数的整项用例，以及模拟 `/trend-channel` 返回的分支。 | 原日 K 请求参数、取消信号、首批500根与整页重试、四轨同批返回和原MACD映射用例；原研究路径的日 K 参数断言保持。 |
+| `wealth/src/features/index-detail/debug/IndexRecognitionDebug.test.tsx` | 删除 `makeTrendPayload` 导入和模拟 `/trend-channel` 返回的分支。 | debug日 K、波段核对、九转、历史范围及请求次数等原有用例。 |
+| `wealth/src/pages/index-detail/IndexDetailPage.test.tsx` | 删除 `makeTrendPayload` 导入、各处旧通道回包分支，以及 `mockFetch()` 的 `trend` 选项和调用方传入的旧请求报错函数。 | 页面首批、切指数/日期/周期、开关、摘要、日 K缺轨整页失败与重试、权限及其他模块的用例。 |
+| `wealth/src/pages/index-detail/IndexDetailDailyWave.test.tsx` | 删除 `makeTrendPayload` 导入和旧通道回包分支。 | 普通页面不展示或请求波段核对功能的原有用例，以及新日 K输入。 |
+| `wealth/src/features/index-detail/testing/indexDetailTestFixtures.ts` | 上述消费者同步清理后，删除 `TrendChannelRawResponse` 导入、`makeTrendPayload()` 和其专用 `rawBar()`。 | `makePageInit()`、`makeKline()`、`makeOrdinaryKline()`、`readyStatus()`；新日 K中的四轨输入继续保留。该文件只服务测试。 |
+| `wealth/src/features/stock-detail/controller/useStockDailyHistory.test.tsx` | 删除 `fetchStockTrendChannel` 导入、对应 `vi.mock` 和仅针对该替身的未调用断言。 | 首批/续页数据交接、四轨合并、游标、九转、取消、失败与重试用例。 |
+| `wealth/src/pages/stock-detail/StockDetailPage.test.tsx` | 删除只供旧独立通道请求使用的 `stockTrendChannel` 回包、成功/失败分支、`failTrend` 选项及调用方传参；相关用例名称按保留后实际验证的行为调整。 | 新日 K四轨、页面开关和摘要、首批/历史加载、日 K失败重试，以及页面其他功能的用例。 |
+
+旧模块自己的专用测试随模块删除：`wealth/src/features/index-detail/api/trendChannelAdapter.test.ts`、`wealth/src/features/stock-detail/trend-channel/api/stockTrendChannelViewModelAdapter.test.ts`、`wealth/src/features/stock-detail/trend-channel/controller/useStockTrendChannel.test.tsx`。后端旧计算器、查询服务、旧API、读取器和能力判断的专用测试仍按§5.2删除；§5.3已改动的三个后端测试纳入同次阶段四交付，不丢失原有修改。
+
+实际HTTP请求记录中已有的旧接口请求为零断言可以保留，它不要求导入或保留旧模块；不再通过旧模块替身验证新链路。固定历史行情JSON和 `tests/foundation/technical_indicators/test_trend_channel_calculation.py` 不属于上表待删样本：它们只在测试时校验算子数值、500根预热误差及分批处理，继续保留。股票、上证实际使用的通道点类型及画图实现也按§5.2保留。
+
+#### 5.4.2 对应验收与执行边界
+
+1. 删除对应模块后，按上表逐项复核导入、类型和字符串形式的模块替换；已删除模块在保留测试中不再有导入或替换，`makeTrendPayload/rawBar/failTrend/mockFetch.trend` 等旧专用构造无剩余引用。新四轨输入不改为旧独立接口回包。
+2. 运行 `tests/architecture/test_lake_console_retirement_guardrails.py`，确认其余文件存在检查和原有禁止项仍通过；不删除、跳过整个测试函数来消除旧读取器移除造成的失败。
+3. 回归上表保留的前端测试、股票和指数图表及共享通道画图测试，并完成前端类型检查和构建。后端沿§5.4、§6清单回归新算子误差、股票/上证日 K、普通/debug四轨、翻页、失败重试与资源释放；不能将已删除的旧测试计为通过。保留测试的预期继续来自新日 K合同、独立字面值或既有独立公式，不调用待测组装函数生成预期。
+4. 本补充只明确同次代码删除所需的测试修改，不新增正式读取、写入、数据迁移或性能阈值。执行和最终验收沿§5.4既有预算及工程外临时目录规则；失败先按新日 K合同检查本次删除和测试修改，中断后继续核对未完成清单，不恢复旧模块、不屏蔽失败，不扩大到DG工程。
+
+#### 5.4.3 删除后的路由与文档引用核验
+
+除上述回归外，以工程外临时脚本装配真实路由，验证两个旧独立通道地址不再挂载、请求返回404，新股票/上证普通及debug日 K路由仍存在；`quote.py` 的其他路由及函数与删除前逐项比较。该检查不调用正式数据来源，不为验证删除而重新导入旧模块或新增兼容实现。新日 K四轨由既有隔离来源HTTP用例验收。
+
+删除文件后，修正直接指向这些文件的文档链接。原上证专用计算方案/LLD、页面实施说明与门禁中的旧接口、旧测试命令标为对应历史阶段，现行入口指向本专项；涉及研究文档时只把旧代码链接改为删除前Git版本的固定链接，并注明旧趋势通道引用的适用范围，不修改研究结论。此次核对范围为本专项两份文档、`sse-daily-trend-channel-realtime-computation-*`、股票详情实施/门禁/本地日K方案与LLD、指数详情实施/门禁/日K接入方案与LLD，以及直接引用旧文件的三个 `docs/product/xxm-*` 文档；不修改DG方案、数据集合同或生产实现。历史内容保留，不能将当时的状态描述当作当前接口仍存在的证明。
+
+临时验证、构建输出、缓存和日志统一位于 `/private/tmp` 下本任务目录，不安装依赖、不启动正式应用或后台任务。结束后删除无用临时产物，实际结果和逐项对照审计写回本方案及LLD。
 
 ## 6. 测试与分阶段验收
 
@@ -690,3 +731,47 @@ CUA 连接超时后，使用本机已有 Playwright/Chromium 运行工程外入�
 旧接口和专用模块的整批删除尚未执行，继续按纠正后的§5推进。没有改动或审计DG生产链及数据集，没有方向专项清理、发包或部署；测试产物只在工程外临时目录，收尾删除。
 
 随后按管理员要求仅提交原方案和本LLD，三个测试文件的修改留在工作区，不混入文档提交。提交前以CodeGraph `codegraph_callers` 和当前代码确认通道画图函数的两个产品调用方，并在§5.2分开说明测试输入与产品画图代码；§6同步撤销残留的方向专项清理验收项。
+
+<a id="trend-stage4-results"></a>
+
+## 14. 阶段四实施、验收与独立对照自审（2026-11-26）
+
+### 14.1 执行范围与实际修改
+
+按§5及§5.4.1—5.4.3实施。删除前以CodeGraph `codegraph_explore/codegraph_impact/codegraph_callers`及当前import、路由和前端消费者核实引用；同名方法的无关命中不作为依赖依据。执行基线为 `75006c992c05239b79aeec6e93a126691b55c141` 加开工时已有的本需求文档、三个测试修改；其他并行工作区修改保留。
+
+| LLD硬口径 | 实际代码与保留边界 | 验收证据 |
+| --- | --- | --- |
+| 删除上证旧独立接口及专用实现 | `src/biz/api/quote.py`只删除旧通道路由及导入；旧calculator、query service、query、schema及专用测试删除，缓存随旧query service删除。 | 真实聚合路由装配后旧地址HTTP 404；`quote.py`其余四个函数的完整AST与删除前一致，原四个路由仍在。 |
+| 删除股票旧独立接口、读取器和配置 | 删除旧API/query/schema、Web成品reader/contract、capability、专用Settings字段、路由挂载及专用测试；旧query包的空 `__init__.py`一并删除，无空兼容模块。 | 全部旧模块在运行源码和保留测试中的import/替换引用清零；旧地址HTTP 404；仓库文件检查只去掉旧读取器这一项，其余架构检查通过。 |
+| 删除旧前端请求与专用类型 | 删除指数旧API client/adapter、股票旧API/types/adapter/hook及其专用测试；只删除指数model中无人使用的 `TrendChannelViewModel`，在用的 `TrendChannelPoint`保留。 | 前端类型检查通过；旧client、hook、回包构造及替换无剩余运行或测试引用；未添加兼容入口。 |
+| 混合测试同步清理 | §5.4.1所有列明文件已逐项处理，删除旧调用替身、旧回包分支、`makeTrendPayload/rawBar/failTrend/mockFetch.trend`；保留新日K、四轨、日期、游标、开关、摘要、失败重试与其他模块断言。 | 前端14个文件154项通过；删除的旧专用测试不计作通过。§5.3三个后端测试的先前修改也保留并通过回归。 |
+| 新链路及其他周期保持 | 没有改动新股票/上证的日K计算、取源、组装、控制器或图表实现；其他指数、股票周月线及原MA/BOLL/MACD/KDJ保持。 | 本地临时Parquet来源HTTP、Prod隔离PostgreSQL普通/debug及周月线接入、服务/映射/失败清理测试通过；171项后端及架构节点去重见§14.2。 |
+| 保留测试输入、数值验证与产品画图 | 共享包Python/SQL、日线调用装配、通道画图与测试输入等71个文件的SHA-256与开工前一致。原始行情输入、新算子独立Decimal参考测试均保留。 | 固定500根预热、四轨0.01绝对误差、分批和取消用例通过；画图的几何及绘制类测试通过。没有新增JSON、方向或组合状态。 |
+| 不新增重复读写、不改正式数据 | 没有新增源查询、文件读写、复权步骤或计算入口；本次正式查询和正式写入均为0。 | 既有同批读取和逐分区读取断言通过；验证只使用固定样本、临时Parquet、内存SQLite及新建隔离PostgreSQL。没有读取正式DG/Prod、操作DG任务、迁移数据或部署。 |
+
+两份固定JSON均无修改。`000001_sh_daily_input.json`仍由新算子测试读取，其SHA-256为 `ed585326d64fae260f14e7ec53b885037db31609726ed38cb20c1cbe772e42ad`。旧 `000001_sh_daily_expected_v1.json`还被已有研究记录作为历史数值证据引用，因此保留；新算子不读取它，也不把其中旧方向标签作为当前输出合同。
+
+文档处理按§5.4.3执行：原上证说明和股票/指数页面实施、门禁、日K说明注明旧通道部分的历史适用范围；三个研究文档只补历史引用说明并将旧源码链接固定到删除前Git版本，不改原有研究结论。原方案和本LLD同步当前完成状态；DG文档及工程未改动。
+
+### 14.2 测试、真实装配核验与执行费用
+
+后端全部使用现有 `.venv`，显式设置 `PYTHONDONTWRITEBYTECODE=1`、共享包源码 `PYTHONPATH`、工程外 `GOLDENSHARE_ENV_FILE`和pytest临时目录，并禁用pytest工程缓存，不自动读取仓库根 `.env`。
+
+- 首组为新算子、股票和上证日K、指数映射及四组架构检查，共118项。117项通过，一项架构扫描因本轮删除空包文件与扫描同时发生而报文件不存在，耗时29.86秒。这是本次执行顺序错误，不是业务通过证据。文件清理结束后重跑该检查。
+- 第二组为股票日线/周月线服务、逐指标映射、股票隔离接入、HTTP合同、指数临时DG来源及上述架构检查重跑，共53项通过，12.22秒，其中9项与首组重复。
+- 第三组为上证Prod普通/debug日K及指数周月线local/Prod接入，共9项通过，12.90秒。使用工程外新建PostgreSQL集群，未连接配置中的正式数据库；结束后集群均已关闭。
+- 按实际测试节点去重为 `(118−9)+53+9=171` 项，均已有通过结果；另作收集核对为171项。首轮失败及重复运行成本保留，不将执行次数当成独立测试数。
+- 前端14个保留文件154项全部通过，5.55秒，覆盖§5.4.1混合测试、两页图表、回包映射、摘要与通道绘制；154项不叠加此前单独运行的2项几何启动核验。
+
+前端使用现有Vitest 3.2.4、Vite 7.3.3和React插件5.2.0。Context7本次查询返回fetch failed；随后核对本机已安装工具的配置定义与实现。bundle和runner装载器在解析现有插件的可选 `vite/internal` 导入时启动失败，尚未运行测试；改用工具已支持的native装载器后通过，没有修改或安装项目依赖、修改插件、跳过失败用例。临时配置沿原根目录、React插件及setup，仅将缓存放工程外；前端原 `npm --prefix wealth run typecheck`通过，构建用继承原tsconfig的工程外配置完成 `tsc -b`，再沿原插件和 `/wealth/` base完成生产构建，输出在工程外，Vite构建1.42秒。
+
+工程外tsconfig首轮因无法从临时目录解析 `vitest/globals`而失败；临时目录引用项目已有node_modules后通过，没有安装依赖或修改项目tsconfig。构建保留工具的原有大包告警和工程外输出提示，没有为通过检查调整阈值。
+
+工程外ASGI脚本装配真实 `src.app.api.v1.router`，两个旧独立地址均返回404，股票日K、指数普通/debug日K及原quote其他路由仍存在；新日K的四轨数值、序列化与HTTP响应由前述隔离来源用例验收。该路由核验没有请求正式数据，也不代表鉴权、正式部署或生产完整页面验收。
+
+### 14.3 与编码分开的LLD对照自审
+
+编码与回归完成后，重新对照§5、§6、源码差异和本节执行结果，逐项核查删除对象、混合测试、保留算法/画图/输入、源读取边界、路由和文档引用。这里是另一次对照自审，不声称有第二位审计人员。旧通道模块引用已清零，未发现本阶段未处理偏离；`codegraph sync/status`确认索引已同步。没有新增跨子系统依赖或修改依赖矩阵。
+
+本次技术验收限定隔离来源、临时数据库和真实路由装配；未重读正式DG/Prod，未运行DG生产/检查任务、发包或部署。既有三个测试修改与两份指数文档的原有内容已核对保留；检查期间另有 `docs/README.md` 和指数成交量归一化方案发生并行变化，本任务未修改或覆盖它们。测试资源统一在工程外，临时数据库已关闭，无用产物已清除。阶段四源码和文档随本次提交交付，供管理员review；两份指数文档仅提交阶段四说明，其他需求的修改留在工作区，未推送、发包或部署。

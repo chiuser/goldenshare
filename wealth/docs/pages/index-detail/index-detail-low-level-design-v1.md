@@ -1,5 +1,7 @@
 # 指数详情页低层设计（LLD）v1
 
+> 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
+
 > 2026-11-25 趋势通道专项第三阶段开发、技术验收及单独对照审计已完成，待管理员 review，未部署：四轨随上证日 K 返回，旧独立通道加载与专用重试退出页面。逐指标公共组装、明确类型、普通/debug/OpenAPI、首批/续页/摘要交接、预算及验收见[本文 §30](#index-trend-channel-operator-lld)及[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。下文旧 `page-init -> kline -> trend` 等内容保留切换前语义，不作为新接入要求。
 
 > 2026-11-22 本地需求已验收并收尾。[全部支持指数的日线计算和向左翻页见 §28](#local-index-daily-library-expansion-lld)。§27 保留上证日线先行接入和当时的验收事实。

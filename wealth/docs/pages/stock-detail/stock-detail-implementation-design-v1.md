@@ -1,5 +1,7 @@
 # 股票详情页｜真实 API 接入技术实施方案 v1
 
+> 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
+
 > 2026-11-04数量合同修订：股票日线 `/api/v1/wealth/market/stock-detail/kline` 默认 `limit=500`，合法范围 `1～500`；超限沿原参数错误 HTTP 400、`code=400001`，不截断、不拆多次计算。现页面显式传300仍合法，本轮不改页面、请求时机或其他接口。其余技术指标内核与后续产品工作的状态以[股票日线专项LLD](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html)为准。
 
 > 2026-11-24｜股票前复权周、月线已接入股票详情并完成验收。接口增量合同见[§3.2.1](#stock-period-contract)，其余内容记录日线的实施口径。

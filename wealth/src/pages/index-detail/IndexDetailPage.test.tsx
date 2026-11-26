@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
 import type { IndexPeriodSeries } from "../../features/index-detail/controller/useIndexPeriodSeries";
-import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
+import { makeOrdinaryKline, makePageInit } from "../../features/index-detail/testing/indexDetailTestFixtures";
 import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import type { NineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
 import { NineTurnIndicatorToggle } from "../../features/nine-turn/ui/NineTurnIndicatorToggle";
@@ -390,7 +390,6 @@ describe("IndexDetailPage", () => {
       if (url.pathname.endsWith("/page-init")) return response(pageInit);
       if (url.pathname.endsWith("/kline")) return response(makeOrdinaryKline(tsCode));
       if (url.pathname.endsWith("/nine-turn")) return response(makeIndexNineTurnResponse(tsCode, "day"));
-      if (url.pathname.endsWith("/trend-channel")) return response(makeTrendPayload());
       return response({}, 404);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -678,7 +677,6 @@ describe("IndexDetailPage", () => {
         }
         return response(data);
       },
-      trend: () => { throw new Error("旧通道请求不得调用"); },
     });
     render(<IndexDetailPage search="" tsCode="000001.SH" />);
     expect(await screen.findByRole("button", { name: "重新加载" })).toBeInTheDocument();
@@ -740,7 +738,6 @@ describe("IndexDetailPage", () => {
       if (url.includes("tsCode=000001.SH") && url.includes("/page-init")) return response(makePageInit("000001.SH"));
       if (url.includes("tsCode=000001.SH") && url.includes("/kline")) return response(makeOrdinaryKline("000001.SH"));
       if (url.includes("tsCode=399001.SZ") && url.includes("/page-init")) return new Promise<Response>(() => undefined);
-      if (url.includes("/trend-channel")) return response(makeTrendPayload());
       return response({}, 404);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -760,7 +757,6 @@ interface MockFetchOptions {
   minuteIndicators?: (url: URL) => Response | Promise<Response>;
   minutes?: (url: URL) => Response | Promise<Response>;
   pageInit?: () => Response | Promise<Response>;
-  trend?: () => Response | Promise<Response>;
   weights?: () => Response | Promise<Response>;
 }
 
@@ -782,7 +778,6 @@ function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
     }
     if (url.includes("/index-detail/nine-turn")) return options.nineTurn?.(new URL(url)) ?? response(makeIndexNineTurnResponse(tsCode, "day"));
     if (url.includes("/index-detail/weights") || url.includes("/index-detail/debug/weights")) return options.weights?.() ?? response(weights);
-    if (url.includes("/trend-channel")) return options.trend?.() ?? response(makeTrendPayload());
     return new Response("{}", { status: 404 });
   });
   vi.stubGlobal("fetch", fetchMock);

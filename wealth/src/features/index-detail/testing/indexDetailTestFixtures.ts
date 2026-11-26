@@ -1,5 +1,4 @@
 import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto } from "../api/indexDetailApiTypes";
-import type { TrendChannelRawResponse } from "../api/trendChannelApiClient";
 
 type DailyKlineResponse = Extract<IndexDetailKlineResponseDto, { period: "day" }>;
 
@@ -34,20 +33,6 @@ export function makeOrdinaryKline(tsCode = "000001.SH"): DailyKlineResponse {
   const response = makeKline(tsCode);
   const meta = { ...response.meta, startDate: null, limit: 500 };
   return { ...response, meta: tsCode === "000001.SH" ? { ...meta, nextEndDate: null } : meta };
-}
-
-export function makeTrendPayload(): TrendChannelRawResponse {
-  return {
-    instrument: { ts_code: "000001.SH", name: "上证指数", security_type: "index" }, period: "day", adjustment: "none",
-    formula: { key: "high-low-ema-hysteresis", version: "sse-daily-trend-channel-v1", short_period: 25, long_period: 90, seed: "first_observation", state_rule: "strict_close_breakout_inside_retention" },
-    data_status: { status: "READY", observed_trade_date: "2026-07-31", as_of_time: "2026-07-31T16:00:00+08:00", is_provisional: false, note: null },
-    bars: [rawBar("20260730", "9", "12", "10", "14", "8"), rawBar("20260731", "11", "13", "10", "15", "12")],
-    meta: { bar_count: 2, limit: 300, start_date: "2026-07-30", end_date: "2026-07-31", has_more_history: false, next_end_date: null },
-  };
-}
-
-function rawBar(trade_date: string, close: string, shortUpper: string, shortLower: string, longUpper: string, longLower: string): TrendChannelRawResponse["bars"][number] {
-  return { trade_date, open: close, high: shortUpper, low: longLower, close, short_channel: { upper: shortUpper, lower: shortLower, position: "INSIDE", state: "UP" }, long_channel: { upper: longUpper, lower: longLower, position: "INSIDE", state: "UP" }, combined_state: "UP_UP", is_provisional: false };
 }
 
 function readyStatus() { return { status: "READY" as const, expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" }; }

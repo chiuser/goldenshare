@@ -106,12 +106,6 @@ export interface TrendChannelPoint {
   longLower: number;
 }
 
-export interface TrendChannelViewModel {
-  points: TrendChannelPoint[];
-  droppedCount: number;
-  status: "READY" | "EMPTY" | "PARTIAL";
-}
-
 export interface IndexQuoteDisplay {
   point: number | null;
   change: number | null;

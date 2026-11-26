@@ -1,5 +1,7 @@
 # 徐小明 MACD 钝化与结构算法研究记录
 
+> 2026-11-26 趋势通道历史引用说明：本文引用的旧趋势通道计算器和股票Web读取合同已从当前源码清理，相关代码链接固定到清理前的Git版本，仅作为当时研究依据。现行股票/上证日线由算子库计算四轨，不输出旧方向标签，见[趋势通道专项方案](../architecture/technical-indicator-trend-channel-plan-v1.md)。本文其余研究内容和结论保持原记录。
+
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
 > 当前实现、验收范围和未解决问题汇总在[当前交接](xxm-research-and-implementation-v0.6.md#xxm-current-handoff)。下方原始研究按记录日期阅读。
@@ -58,7 +60,7 @@
 
 | 层次 | 当前认识 | 实现与证据边界 |
 | --- | --- | --- |
-| 趋势方向 | 财势乾坤已有短期 25、长期 90 周期高低价 EMA 通道；收盘严格突破上沿为 UP，跌破下沿为 DOWN，通道内保留此前方向 | 已核对 [TrendChannelCalculator](/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py)。用户此前确认与作者趋势定义一致；不等于作者软件历史通道逐日数值已对账，见 §8.1、§8.7—§8.11 |
+| 趋势方向 | 财势乾坤已有短期 25、长期 90 周期高低价 EMA 通道；收盘严格突破上沿为 UP，跌破下沿为 DOWN，通道内保留此前方向 | 已核对 [TrendChannelCalculator](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/services/quote_trend_channel_calculator.py)。用户此前确认与作者趋势定义一致；不等于作者软件历史通道逐日数值已对账，见 §8.1、§8.7—§8.11 |
 | 钝化、结构与历史消失 | 普通钝化／结构检测、严格 DIF 参照突破取消、历史结构撤销分别研究；当前状态 NONE 不自动代表历史结构消失 | 离线候选与诊断，见 §8.38—§8.43。历史绿色字仍有事件身份、时间映射及软件数值条件，不能全部归为原候选 CANCEL |
 | 是否采用及后续纠错 | 信号存在、作者是否采用、追加减仓与整次防守纠错是不同判断；趋势突破与结构机会可提供不同路径 | 已有讲解支持这种分层，但协调性、趋势距离、速度、时间及钝化大小没有统一可执行阈值，见 §8.5、§8.13—§8.16、§8.28—§8.31。历史仓位陈述不转成本系统交易规则 |
 
@@ -87,7 +89,7 @@
 | 本文 §1—§3、§5、§8 | 来源、截图观察、候选形成与逐轮核查；§4 是首轮版本，§8.38、§8.43 是最新基线与工作候选 |
 | [V0.1 算法方案](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md) | 四项取舍已确认；上证四周期算法、读数对账及页面已实现并通过技术验收；待用户验收，未部署 |
 | [页面展示基准](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)、[实施方案与 LLD](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md) | 新增 MACD 图层、来源/API、单一内核及编码门禁；待评审，不把方案写成已接入 |
-| [趋势计算器](/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py)、[股票日线趋势合同](/Users/congming/github/goldenshare/src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py) | 现有趋势方向实现与合同；不是钝化／结构公式 |
+| [趋势计算器](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/services/quote_trend_channel_calculator.py)、[股票日线趋势合同](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py) | 现有趋势方向实现与合同；不是钝化／结构公式 |
 | replay_frozen_25_points.py（原记录：`reports/xxm_macd_structure_20261011/replay_frozen_25_points.py`）、replay.py（原记录：`reports/xxm_macd_structure_20261011/replay.py`） | 首轮冻结候选与早期回放；保留失败路径，不作为最新工作候选入口 |
 | replay_color_flip.py（原记录：`reports/xxm_macd_structure_20261011/replay_color_flip.py`）、validate_stage2.py（原记录：`reports/xxm_macd_structure_20261011/validate_stage2.py`） | 第二阶段普通检测及该阶段验证；验证脚本自己的样本和配置不自动代表后续全部研究 |
 | active_reference_candidate.py（原记录：`reports/xxm_macd_structure_20261011/active_reference_candidate.py`）、reference_retirement_candidate.py（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_candidate.py`） | 隔离比较活动参照重选及额外淘汰，不把备选实现混为已经确认的规则 |
@@ -1411,7 +1413,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 2026 年 10 月 12 日，用户明确确认：作者视频中的长期趋势、短期趋势与财势乾坤使用的定义完全一致。本研究以此为语义依据，不另行拟合趋势公式；它不是逐日软件通道数值已经对账的证明。
 
-当前上证日线计算依据为 [TrendChannelCalculator](/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py)：短期 25、长期 90 周期，分别递推最高价、最低价 EMA 作为通道边界；收盘严格高于上沿进入 UP，严格低于下沿进入 DOWN，通道内部保留此前方向，包括恰好等于边界的情况。比较使用未量化的内部边界，输出边界量化至四位小数。以上只核对了现有计算实现，不宣称前端、生产部署或全部标的的数值一致性已验收。股票日线合同也声明同名公式及 25／90 参数，见 [合同](/Users/congming/github/goldenshare/src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py)，其全链路不在本轮审查范围。
+当前上证日线计算依据为 [TrendChannelCalculator](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/services/quote_trend_channel_calculator.py)：短期 25、长期 90 周期，分别递推最高价、最低价 EMA 作为通道边界；收盘严格高于上沿进入 UP，严格低于下沿进入 DOWN，通道内部保留此前方向，包括恰好等于边界的情况。比较使用未量化的内部边界，输出边界量化至四位小数。以上只核对了现有计算实现，不宣称前端、生产部署或全部标的的数值一致性已验收。股票日线合同也声明同名公式及 25／90 参数，见 [合同](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py)，其全链路不在本轮审查范围。
 
 后续区分三层：原软件信号识别；信号在趋势、速度、时间与周期背景下的解释；事后检验。作者历史仓位选择只用于理解其条件与顺序，不直接生成本系统交易规则。
 

@@ -1,5 +1,7 @@
 # 上证指数日线趋势通道维护说明（含 LLD、决策与扩展边界）
 
+> 历史实现与验收记录。2026-11-26趋势通道专项阶段四已清理本专题的旧独立接口、专用计算器、缓存和前端旧请求；下文合同、方向状态、旧测试命令及当时实施状态只描述历史版本。现行日K四轨及清理验收以[专项方案](technical-indicator-trend-channel-plan-v1.md)和[专项LLD §5](technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)为准，未发包或部署。
+
 状态：后端和 Wealth 前端已实现；生产需求于 2026-09-05 按管理员确认结案。旧草案中的“待创建/未接入”不再作为开发任务。
 最近代码审计：2026-09-10。
 2026-09-12 合并上位方案：决策与理由见 §11，未实施扩展见 §12–13；现行合同 §1–10 不变。[M4 历史验收](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-m4-readonly-performance-validation-2026-08-10.md)。

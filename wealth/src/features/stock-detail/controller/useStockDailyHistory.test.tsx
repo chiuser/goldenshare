@@ -7,12 +7,10 @@ import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
 import type { StockDetailDailyKlineResponseDto, StockDetailKlineResponseDto, StockDailyKlineBarDto } from "../api/stockDetailApiTypes";
 import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
-import { fetchStockTrendChannel } from "../trend-channel/api/stockTrendChannelApiClient";
 import { useStockDailyHistory } from "./useStockDailyHistory";
 
 vi.mock("../api/stockDetailApiClient");
 vi.mock("../../nine-turn/api/nineTurnApiClient");
-vi.mock("../trend-channel/api/stockTrendChannelApiClient");
 
 const code = "600519.SH";
 const anchor = "2026-11-19";
@@ -75,12 +73,10 @@ it("prepends candles and nine-turn together, and retries trend separately", asyn
   );
   expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
   expect(result.current.visible?.candles.map(candle => candle.fullDate)).toEqual([start, end, first, anchor]);
-  expect(fetchStockTrendChannel).not.toHaveBeenCalled();
   expect(result.current.visible?.pages[0]?.trendPoints).toEqual([
     { time: start, close: 10.5, shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 },
     { time: end, close: 10.5, shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 },
   ]);
-  expect(fetchStockTrendChannel).not.toHaveBeenCalled();
   act(() => result.current.onViewport(viewport({ firstDate: start })));
   expect(fetchStockDetailKline).toHaveBeenCalledTimes(1);
   expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();

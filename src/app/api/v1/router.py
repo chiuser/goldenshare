@@ -50,9 +50,6 @@ from src.foundation.config.local_minute_capability import (
     resolve_local_minute_capability,
 )
 from src.foundation.config.settings import Settings, get_settings
-from src.foundation.config.stock_daily_trend_channel_capability import (
-    resolve_stock_daily_trend_channel_capability,
-)
 from src.ops.api.router import router as ops_router
 
 
@@ -192,20 +189,6 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
 
 
 _include_local_minute_router(router)
-
-
-def _include_local_stock_daily_trend_channel_router(
-    target_router: APIRouter,
-) -> None:
-    capability = resolve_stock_daily_trend_channel_capability(get_settings())
-    if not capability.enabled:
-        return
-    from src.biz.api.wealth.market import stock_detail_trend_channel
-
-    target_router.include_router(stock_detail_trend_channel.router)
-
-
-_include_local_stock_daily_trend_channel_router(router)
 
 
 include_data_center(router)

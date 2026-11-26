@@ -1,5 +1,7 @@
 # 股票详情首屏与本地 DG 取数迁移 LLD v1
 
+> 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
+
 **2026-11-25 后续趋势通道专项（阶段二实现及技术验收完成，未部署）。** 阶段二实现由同一次算子库调用取得行情、原指标和四轨，并在 `/kline` 的每根日 K 中返回必有 `factors.trendChannel`。字段、日线/周月线类型隔离、原函数消费者和测试以[专项 LLD §4.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#42-阶段二股票日线)为准；本文件下方旧接口、独立图层与性能记录保留历史语义，不再作为新实现的取数要求。阶段二代码、隔离技术验收、正式 DG 有界及浏览器核验和对照审计见[专项 LLD §10](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)；常用服务、共享包和 Prod 未切换。
 
 阶段二的具体交接为：`StockDetailPage.loadStockDetail()` 由日 K 生成首批通道点并与 candles 一同保存；`useStockDailyHistory.loadPage()` 先完成 K 线、四轨和九转等转换，成功后才一起提交页数组及 `nextEndDate`，失败保留原图、原游标并重试原批。`StockChartWorkspace` 合并首批和历史页通道点，保留原画法/着色，开关只切绘制；移除新页面的 `useStockTrendChannel()` 调用和历史 `loadTrend/ensureTrend/retryTrend`、独立请求及其重试 UI。保留现有取消和迟到响应处理。
@@ -350,13 +352,13 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 #### 第一步 修复本地股票趋势通道取数
 
-[`StockDailyTrendChannelLakeReader.read`](../../../../src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py#L68) 原先按文件数提前截断，再按股票代码读取。现统一为与日 K 相同的计数口径。`limit` 表示指定股票的实际结果条数。沿用 `/trend-channel` 的 `tsCode`、`endDate` 和 `limit`，默认 300 条、最大 2,000 条，回包字段、日期解析、空态和错误包络沿用现行实现。阶段一的修改落在读取器、已有业务查询和测试，首屏仍使用现有请求。
+[`StockDailyTrendChannelLakeReader.read`](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py#L68) 原先按文件数提前截断，再按股票代码读取。现统一为与日 K 相同的计数口径。`limit` 表示指定股票的实际结果条数。沿用 `/trend-channel` 的 `tsCode`、`endDate` 和 `limit`，默认 300 条、最大 2,000 条，回包字段、日期解析、空态和错误包络沿用现行实现。阶段一的修改落在读取器、已有业务查询和测试，首屏仍使用现有请求。
 
-1. 复用现有正式目录发现和路径校验，按 `endDate` 截止（含当天）排列日期，由近到远。[`StockDetailTrendChannelQueryService.read`](../../../../src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py#L56) 将已取得的证券 `list_date` 传给 `StockDailyTrendChannelReadRequest` 作为内部读取下限，包含上市当天。上市日缺失时以最早正式分区为界。读到某一批时才校验该批对应的正式文件，按股票代码筛选 `gold/indicator/stock_daily_trend_channel` 的已产出结果。 [正式数据的上市日规则](../../../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md#L34)
+1. 复用现有正式目录发现和路径校验，按 `endDate` 截止（含当天）排列日期，由近到远。[`StockDetailTrendChannelQueryService.read`](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py#L56) 将已取得的证券 `list_date` 传给 `StockDailyTrendChannelReadRequest` 作为内部读取下限，包含上市当天。上市日缺失时以最早正式分区为界。读到某一批时才校验该批对应的正式文件，按股票代码筛选 `gold/indicator/stock_daily_trend_channel` 的已产出结果。 [正式数据的上市日规则](../../../../lake_console/docs/design/dagster-stock-daily-trend-channel-dataset-onboarding-low-level-design-v1.md#L34)
 2. 第一批文件数最多为 `limit`，后续每批只选至多等于剩余结果条数的文件。对该批复用现有字段投影、分区和日期一致性、单日唯一性、公式版本及数值校验。只有指定股票通过校验的记录计数。有效文件里无该股票时继续向前。已选中的正式文件缺失、格式非法或查询失败时沿用原错误路径。
 3. 找满 `limit` 条或读完该股票能取的日期即停止。按交易日期升序组装响应，最新日期和 `meta.count` 取实际结果。少于 `limit` 时返回现有记录。市场有可读正式分区但该股票尚未上市或没有结果时返回原 `EMPTY`，截止日内无正式分区时沿用源未就绪。整个请求复用现有单连接，成功或失败均由路由关闭。原请求重试从同一截止日重新读取。
 
-**读取预算与验收。** 有连续记录的普通请求仍只读一批。遇到停牌或无该股票记录时，后续按剩余条数逐批往前读，最多读上市日至截止日内可用的正式文件，上市日未知时使用数据集的现有覆盖。记录实际查询的文件数、结果条数和耗时，分别核对连续样本、停牌样本和历史不足时的开销。旧性能实测的每个文件都有该股票记录，只用来对照连续样本。第一步用[读取器测试](../../../../tests/test_stock_daily_trend_channel_reader.py)和[真实路由测试](../../../../tests/web/test_wealth_stock_trend_channel_api.py)验证停牌和其他股票的文件不占名额，覆盖查够即停、新上市历史不足、截止日在上市前、已有源错误和同参数重试。验收用有界 DG 样本核对返回记录和实际读取开销。开工前实测万科 A 截至 2016-07-05 请求 5 条只返回 2 条，2015-12-18 有更早结果。另有 `920309.BJ` 于 2026-11-17 上市，截至 11-19 只有 3 条，上市前有 3,128 个市场日期分区。修复后以这两个样本验证跨缺口和上市日停止，并核对回包字段及连接归还。 [原性能实测范围](../../../../lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md#7-本地-api-读取)
+**读取预算与验收。** 有连续记录的普通请求仍只读一批。遇到停牌或无该股票记录时，后续按剩余条数逐批往前读，最多读上市日至截止日内可用的正式文件，上市日未知时使用数据集的现有覆盖。记录实际查询的文件数、结果条数和耗时，分别核对连续样本、停牌样本和历史不足时的开销。旧性能实测的每个文件都有该股票记录，只用来对照连续样本。第一步用[读取器测试](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/tests/test_stock_daily_trend_channel_reader.py)和[真实路由测试](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/tests/web/test_wealth_stock_trend_channel_api.py)验证停牌和其他股票的文件不占名额，覆盖查够即停、新上市历史不足、截止日在上市前、已有源错误和同参数重试。验收用有界 DG 样本核对返回记录和实际读取开销。开工前实测万科 A 截至 2016-07-05 请求 5 条只返回 2 条，2015-12-18 有更早结果。另有 `920309.BJ` 于 2026-11-17 上市，截至 11-19 只有 3 条，上市前有 3,128 个市场日期分区。修复后以这两个样本验证跨缺口和上市日停止，并核对回包字段及连接归还。 [原性能实测范围](../../../../lake_console/docs/design/dagster-stock-daily-trend-channel-m0-readonly-performance-validation-2026-09-01.md#7-本地-api-读取)
 
 ##### 第一步实施与审计
 
@@ -387,7 +389,7 @@ def build_quote_from_kline_bar(bar: StockKlineBarDto) -> StockQuoteSnapshotDto:
 
 - [`StockDetailPage`](../../../src/pages/stock-detail/StockDetailPage.tsx#L128) 保留首屏快照。本地日线首批有 `meta.nextEndDate` 时，用股票详情的续页状态管理当前游标和页结果。`StockChartWorkspace` 接入共享 `DetailChartWorkspace` 的 `onHistoryViewport` 和 `historyPhase`。沿用上证综指的触发条件，向左拖到已加载行情左端剩 100 根时请求下一批。同一批在途时合并重复触发，按日期将更早行情和指标接到左侧，保持当前视野。失败时保留图表，下次向左拖重试同一截止日。切换证券、日期或离开日线时取消旧请求并丢弃迟到结果。`nextEndDate` 为 `null` 后停止续取。右侧盘口、顶部指数和新闻继续使用首屏数据及日期。
 - **九转。** 续页日 K 返回后，沿用 [`fetchStockNineTurnSeries`](../../../src/features/nine-turn/api/nineTurnApiClient.ts#L40)，使用日线能力、股票代码、该批最早和最晚的实际日 K 日期作为 `startDate/endDate`，`limit` 沿用日 K 页大小。续页使用日 K 提供的日期窗口，沿用九转已有数据来源、日期匹配和缺失检查。按日期将结果交给原九转图层。
-- **趋势通道。** 沿用现有能力开关和选择指标后加载的时机。对于已经加载的历史日 K 批次，复用 [`fetchStockTrendChannel`](../../../src/features/stock-detail/trend-channel/api/stockTrendChannelApiClient.ts#L13)，传股票代码、该批最后一根日 K 的日期作为 `endDate`、本批实际根数作为 `limit`。图层用该批已有的日 K 日期对齐趋势结果，只画对应日期的点。DG 缺少某日的趋势结果时该日留空，查询补足数量而返回的更早结果依日期排除在本批图层之外。首屏继续使用页面日期发出原请求。
+- **趋势通道。** 沿用现有能力开关和选择指标后加载的时机。对于已经加载的历史日 K 批次，复用 [`fetchStockTrendChannel`](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/wealth/src/features/stock-detail/trend-channel/api/stockTrendChannelApiClient.ts#L13)，传股票代码、该批最后一根日 K 的日期作为 `endDate`、本批实际根数作为 `limit`。图层用该批已有的日 K 日期对齐趋势结果，只画对应日期的点。DG 缺少某日的趋势结果时该日留空，查询补足数量而返回的更早结果依日期排除在本批图层之外。首屏继续使用页面日期发出原请求。
 - 每批各图层使用自己的加载状态，任一失败保留日 K 和已成功图层。重试只补该批失败的图层。首屏的两路图层和分钟周期的加载方式沿用现有路径。
 
 ##### 开发和验收

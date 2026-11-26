@@ -442,14 +442,8 @@ def test_invalid_latest_basis_is_rejected_outside_page_window(source_client, fac
 
 
 @pytest.mark.parametrize("failure", ["missing rail", "nonfinite rail"])
-def test_trend_contract_failure_releases_request_and_retries_without_old_source(source_client, monkeypatch, failure):
+def test_trend_contract_failure_releases_request_and_retries(source_client, monkeypatch, failure):
     from dataclasses import replace
-    from src.foundation.clients.local_lake.stock_daily_trend_channel_reader import StockDailyTrendChannelLakeReader
-
-    def reject_old(*args, **kwargs):
-        pytest.fail("daily trend integration must never read old calculated channel files")
-
-    monkeypatch.setattr(StockDailyTrendChannelLakeReader, "read", reject_old)
     calculate = TechnicalIndicatorService.calculate_with_source
     broken = True
 

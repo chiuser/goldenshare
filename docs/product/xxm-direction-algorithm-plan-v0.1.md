@@ -1,5 +1,7 @@
 # 徐小明方向识别研究算法方案 V0.1
 
+> 2026-11-26 趋势通道历史引用说明：本文引用的旧趋势通道计算器和股票Web读取合同已从当前源码清理，相关代码链接固定到清理前的Git版本，仅作为当时研究依据。现行股票/上证日线由算子库计算四轨，不输出旧方向标签，见[趋势通道专项方案](../architecture/technical-indicator-trend-channel-plan-v1.md)。本文其余研究内容和结论保持原记录。
+
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
 ## 当前阅读入口（2026-10-22，四项澄清后的文档修订）
@@ -64,7 +66,7 @@
 2. 事件采用哪个历史参照，价格与 DIF 的比较是否满足？
 3. 已确认的顶部结构是否仍有一份待跟踪的历史记录；其比较窗口为何结束？
 
-趋势方向另作背景：现有日线短期 25、长期 90 周期高低价 EMA 通道继续提供自己的方向。顶部结构不自动把趋势改成 DOWN，底部结构也不自动把趋势改成 UP；两条通道内部保留此前方向的规则不变。既有实现见 [TrendChannelCalculator](/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py)，本方案不重写或扩展它。
+趋势方向另作背景：现有日线短期 25、长期 90 周期高低价 EMA 通道继续提供自己的方向。顶部结构不自动把趋势改成 DOWN，底部结构也不自动把趋势改成 UP；两条通道内部保留此前方向的规则不变。既有实现见 [TrendChannelCalculator](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/services/quote_trend_channel_calculator.py)，本方案不重写或扩展它。
 
 ### 1.2 已确认的 V0.1 范围
 

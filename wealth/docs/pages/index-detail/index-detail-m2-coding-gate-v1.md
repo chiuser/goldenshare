@@ -1,5 +1,7 @@
 # 指数详情页 M2 编码前门禁 v1
 
+> 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
+
 > 2026-11-25。本地指数日 K 九转接入按 [API 合同 §5.7](./index-detail-api-contract-v1.md#local-index-daily-kline-api)及[九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)验收。下方为 M2 历史记录。
 
 > 上证日K接入另按[LLD §27](./index-detail-low-level-design-v1.md#sse-daily-kline-integration)推进。Figma 已确认，[上证日K 1.4.0](./index-detail-api-contract-v1.md#sse-daily-kline-api)与[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)已定稿，待核定有界验收样本及读取上限后编码。下方 M2 门禁记录对应原阶段。

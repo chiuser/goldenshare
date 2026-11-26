@@ -1,5 +1,7 @@
 # 上证指数详情页日线接入方案 v1
 
+> 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
+
 > 2026-11-25 后续趋势通道设计已补齐、未实施：专项第三阶段四轨随上证日 K 同批返回，页面不再单独请求旧通道；DG/Prod 各沿原调用和分页，其他指数/周期及九转现行方式保持。详见[§10](#index-daily-trend-channel-operator)；下文已验收的独立通道加载记录保留历史语义。
 
 > 2026-11-22 本地需求已验收并收尾。当前支持的全部指数已接入日线算子计算和向左翻页，见 [§9](#local-index-daily-library-expansion)。以下 §1–8 保留原上证阶段的设计和验收记录。
@@ -83,7 +85,7 @@
 
 日K的成功回包用于判断到头。历史空页不触发图层。历史图层按页面、日期范围和图层登记，在途和成功的请求由对应显示位置复用。九转或趋势单独失败时，在对应图层提示并重试原请求，已成功的日K和图层继续显示。
 
-参考 [九转查询](../../../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query.py#L23)、[趋势通道接口](../../../../src/biz/api/quote.py#L123)和[趋势通道计算与截取](../../../../src/biz/services/quote_trend_channel_query_service.py#L181)。
+参考 [九转查询](../../../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query.py#L23)、[趋势通道接口](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/api/quote.py#L123)和[趋势通道计算与截取](https://github.com/chiuser/goldenshare/blob/75006c992c05239b79aeec6e93a126691b55c141/src/biz/services/quote_trend_channel_query_service.py#L181)。
 
 ## 4. 缓存和图表如何衔接
 

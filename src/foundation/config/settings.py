@@ -68,10 +68,6 @@ class Settings(BaseSettings):
     )
     wealth_ta_credential_key_file: str = Field(default="", alias="WEALTH_TA_CREDENTIAL_KEY_FILE", repr=False)
     wealth_public_base_url: str = Field(default="", alias="WEALTH_PUBLIC_BASE_URL")
-    wealth_local_lake_stock_daily_trend_channel_api_enabled: bool = Field(
-        default=False,
-        alias="WEALTH_LOCAL_LAKE_STOCK_DAILY_TREND_CHANNEL_API_ENABLED",
-    )
     goldenshare_lake_root: str = Field(default="", alias="GOLDENSHARE_LAKE_ROOT")
     technical_indicator_max_concurrent_requests: int = Field(
         default=2, alias="TECHNICAL_INDICATOR_MAX_CONCURRENT_REQUESTS",

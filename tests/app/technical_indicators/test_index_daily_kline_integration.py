@@ -86,15 +86,6 @@ def dg_client(tmp_path, monkeypatch):
         calculated.append(args[0].request)
         return calculate(self, *args, **kwargs)
 
-    from src.biz.services.quote_trend_channel_calculator import TrendChannelCalculator
-    from src.biz.services.quote_trend_channel_query_service import TrendChannelSeriesCache
-
-    def reject_legacy(*args, **kwargs):
-        pytest.fail("Daily integration must not call the old trend calculator or cache")
-
-    monkeypatch.setattr(TrendChannelCalculator, "calculate", reject_legacy)
-    monkeypatch.setattr(TrendChannelSeriesCache, "get", reject_legacy)
-    monkeypatch.setattr(TrendChannelSeriesCache, "put", reject_legacy)
     monkeypatch.setattr(integration, "encode_response_utf8", observe_encoding)
     monkeypatch.setattr(integration.TechnicalIndicatorService, "_calculate_result", observe_calculation)
     @asynccontextmanager

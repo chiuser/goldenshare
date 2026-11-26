@@ -44,7 +44,6 @@ function majorIndicesResponse(hasQuotes = true) {
 describe("StockDetailPage", () => {
   function mockStockDetailFetch({
     fail = false,
-    failTrend = false,
     supportsMinute = false,
     supportsTrendChannel = false,
     isAdded = false,
@@ -56,7 +55,6 @@ describe("StockDetailPage", () => {
     missingLocalNineTurn = false,
   }: {
     fail?: boolean;
-    failTrend?: boolean;
     supportsMinute?: boolean;
     supportsTrendChannel?: boolean;
     isAdded?: boolean;
@@ -313,45 +311,6 @@ describe("StockDetailPage", () => {
         markerCount: 1,
       },
     };
-    const stockTrendChannel = {
-      stockRef: { tsCode: "603806.SH", name: "福斯特" },
-      period: "day",
-      adjustment: "forward",
-      sourceAdjustment: "qfq",
-      formula: {
-        key: "high-low-ema-hysteresis",
-        version: "stock-daily-trend-channel-v1",
-        shortPeriod: 25,
-        longPeriod: 90,
-        seed: "first_observation",
-        stateRule: "strict_close_breakout_inside_retention",
-      },
-      bars: [
-        {
-          tradeDate: "2026-05-28",
-          open: 18.1,
-          high: 18.9,
-          low: 17.9,
-          close: 18.5,
-          shortChannel: { upper: 19.2, lower: 17.8, position: "INSIDE", state: "UP" },
-          longChannel: { upper: 20.2, lower: 16.8, position: "INSIDE", state: "DOWN" },
-          combinedState: "UP_DOWN",
-        },
-        {
-          tradeDate: "2026-05-29",
-          open: 18.7,
-          high: 19.4,
-          low: 18.2,
-          close: 19.1,
-          shortChannel: { upper: 19.3, lower: 17.9, position: "INSIDE", state: "UP" },
-          longChannel: { upper: 20.3, lower: 16.9, position: "INSIDE", state: "DOWN" },
-          combinedState: "UP_DOWN",
-        },
-      ],
-      meta: { count: 2, limit: 300, endDate: "2026-05-29" },
-      dataStatus: { status: "READY", observedTradeDate: "2026-05-29", note: null },
-    };
-
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const url = String(input);
       const requestedCode = new URL(url).searchParams.get("tsCode");
@@ -365,9 +324,6 @@ describe("StockDetailPage", () => {
         return new Response(JSON.stringify(options?.method === "PUT"
           ? { tsCode: "603806.SH", isAdded: true, groupIds: JSON.parse(String(options.body)).groupIds, createdCount: isAdded ? 0 : 1, removedCount: 0 }
           : { tsCode: "603806.SH", isAdded, groups: [{ groupId: 1, name: "我的自选", isDefault: true, color: null, selected: isAdded }, { groupId: 2, name: "观察", isDefault: false, color: "#F7C76B", selected: false }] }));
-      }
-      if (url.includes("/trend-channel") && failTrend) {
-        return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
       }
       if (url.includes("/page-init")) {
         if (local) {
@@ -401,7 +357,6 @@ describe("StockDetailPage", () => {
           ...(otherStock ? { stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : {}),
         });
       }
-      if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
       if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
       if (url.includes("/nine-turn")) {
         return Response.json(otherStock ? { ...dailyNineTurn, tsCode: otherStock.tsCode } : dailyNineTurn);
@@ -811,8 +766,8 @@ describe("StockDetailPage", () => {
     expect(fetchMock.mock.calls.some(([input]) => String(input).includes("/trend-channel"))).toBe(false);
   });
 
-  it("does not depend on the old trend endpoint being available", async () => {
-    const fetchMock = mockStockDetailFetch({ failTrend: true, supportsTrendChannel: true });
+  it("draws the four rails returned in the daily Kline response", async () => {
+    const fetchMock = mockStockDetailFetch({ supportsTrendChannel: true });
     render(<StockDetailPage tsCode="603806.SH" />);
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));

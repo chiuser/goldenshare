@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { useDetailChartIndicatorControls } from "../../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
-import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
+import { makeOrdinaryKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { dailyWaveEndedKlineFixture, dailyWaveEndedFixture } from "../daily-wave/dailyWaveFixtures.test-support";
 import { DailyWavePrimitive } from "../daily-wave/DailyWavePrimitive";
 import { IndexRecognitionDebug } from "./IndexRecognitionDebug";
@@ -57,7 +57,6 @@ it("opens the wave with one request and overlays only dates loaded in the existi
     if (url.pathname.endsWith("/debug/page-init")) return json(makePageInit());
     if (url.pathname.endsWith("/debug/kline")) return json(makeOrdinaryKline());
     if (url.pathname.endsWith("/debug/daily-waves")) return json(dailyWaveEndedFixture());
-    if (url.pathname.endsWith("/trend-channel")) return json(makeTrendPayload());
     return new Response(null, { status: 404 });
   });
   vi.stubGlobal("fetch", fetcher);

@@ -2,13 +2,12 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useIndexDetailController } from "../controller/useIndexDetailController";
-import { makeKline, makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
+import { makeKline, makeOrdinaryKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { fetchIndexDetailKline } from "./indexDetailApiClient";
 import { buildIndexDetailViewModel, toCandlePoint } from "./indexDetailViewModelAdapter";
-import { fetchTrendChannel } from "./trendChannelApiClient";
 
-// Inputs follow the current Kline/PageInit DTO and the official trend response
-// used by these existing fixture builders. Expected request parameters below
+// Inputs follow the current Kline/PageInit DTO through the existing fixture
+// builders. Expected request parameters below
 // are literal values from LLD 15.4.1, not derived from the page constant.
 afterEach(() => vi.unstubAllGlobals());
 
@@ -30,25 +29,11 @@ describe("index daily history requests", () => {
     expect(options.signal).toBe(controller.signal);
   });
 
-  it("uses 1000 as the trend wrapper default while preserving an explicit limit", async () => {
-    const fetch = vi.fn().mockImplementation(async () => Response.json(makeTrendPayload()));
-    vi.stubGlobal("fetch", fetch);
-
-    await fetchTrendChannel({ endDate: "2026-10-21" });
-    await fetchTrendChannel({ endDate: "2026-10-20", limit: 250 });
-
-    expect(fetch.mock.calls.map(([input]) => Object.fromEntries(new URL(String(input)).searchParams))).toEqual([
-      { ts_code: "000001.SH", period: "day", end_date: "2026-10-21", limit: "1000" },
-      { ts_code: "000001.SH", period: "day", end_date: "2026-10-20", limit: "250" },
-    ]);
-  });
-
   it("gets four rails from the same 500 Klines on initial load and whole-page retry", async () => {
     const fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
       const path = new URL(String(input)).pathname;
       if (path.endsWith("/page-init")) return Response.json(makePageInit());
       if (path.endsWith("/kline")) return Response.json(makeOrdinaryKline());
-      if (path.endsWith("/trend-channel")) return Response.json(makeTrendPayload());
       throw new Error(`Unexpected request: ${path}`);
     });
     vi.stubGlobal("fetch", fetch);

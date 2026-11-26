@@ -224,7 +224,6 @@ def test_current_lake_consumers_and_clickhouse_tools_are_present():
         "src/biz/queries/wealth/market/stock_detail_minutes/stock_minute_calculation_reader.py",
         "src/foundation/clients/local_lake/index_nine_turn_reader.py",
         "src/foundation/clients/local_lake/major_index_turnover_reader.py",
-        "src/foundation/clients/local_lake/stock_daily_trend_channel_reader.py",
         "src/ops/models/ops/dataset_status_snapshot.py",
         "lake_console/bin/lake-clickhouse-start",
         "lake_console/bin/lake-prod-clickhouse-tunnel",

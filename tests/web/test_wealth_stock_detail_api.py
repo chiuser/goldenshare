@@ -164,23 +164,11 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     ]
 
 
-def test_stock_detail_page_init_exposes_trend_without_old_capability(
+def test_stock_detail_page_init_exposes_daily_trend_channel(
     app_client,
     db_session,
-    monkeypatch,
 ) -> None:
     _seed_stock_detail_data(db_session)
-    def reject_old_capability(*args, **kwargs):
-        pytest.fail("page-init must not inspect the old trend-channel capability")
-
-    monkeypatch.setattr(
-        "src.biz.queries.wealth.market.stock_detail.stock_detail_query_service.resolve_stock_daily_trend_channel_capability",
-        reject_old_capability, raising=False,
-    )
-    monkeypatch.setattr(
-        "src.foundation.config.stock_daily_trend_channel_capability.resolve_stock_daily_trend_channel_capability",
-        reject_old_capability,
-    )
 
     response = app_client.get(
         "/api/v1/wealth/market/stock-detail/page-init",
