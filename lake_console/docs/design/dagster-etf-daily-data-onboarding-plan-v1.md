@@ -1067,3 +1067,11 @@ uv run ruff check <本次新增和修改的 Python 文件>
 ## ETF 清算后的复权因子覆盖决定（2026-11-20）
 
 管理员已确认，从公告确认的清算生效日当天起，ETF 复权因子允许缺省。源端提供的有效因子按现有校验要求入库，已保存的有效因子应保留。首期通过 DG 登记表读取有公告依据且已生效的清算事实。对 `530080.SH`，从 11 月 16 日起适用。本次手动补齐先暂停 ETF 复权因子 Silver 的 sensor，再读回 16 日、重验 17 日，按现有单日任务依次补 18、19 日，完成后恢复该 sensor 原有状态。初次导入历史数据的 Bootstrap 及其计划由原结案记录管理。代码已完成隔离验证，待正式接入与验收。本节记录新决定，上节是 11 月 19 日按当时覆盖规则得出的审计结果。 [已确认的覆盖规则及实施方案](dagster-confirmed-business-facts-plan-v1.md#etf-adj-factor-coverage)
+
+## 2026-11-24 至 25 日 ETF 日频 Silver 补齐（2026-11-26 获准）
+
+与[五频分钟恢复](dagster-etf-market-data-prod-db-onboarding-plan-v1.md)共用逐日验收顺序。先完成 24 日全部下游，再完成 25 日。日频只包含这两个交易日的 ETF 日线和复权因子 Silver。使用对应同日 Raw 和 26 日已通过检查的最新 ETF 基础信息，分别调用现有日线和复权因子 Silver job。24 日输入已核实为 2,212 行基金日线 Raw 和 2,241 行基金复权因子 Raw。25 日按现行 Raw 就绪规则核验后再提交。
+
+每日两个 Silver job，各读取同日一份 Raw 小文件并独立校验、发布对应 Silver。按已确认的清算事实和现有覆盖规则验收。失败或中断保留运行与文件证据，核清同日状态后续跑。沿用已有的分区与配置，正式数据写入不涉及 Raw、Prod 或其他日期。工作目录、配置、恢复和验收沿用[日频原 LLD](dagster-etf-daily-data-onboarding-low-level-design-v1.md)本次补齐说明。
+
+执行结果（2026-11-26）。两日依次完成，4 个日频任务成功，对应 4 个 Silver 文件和 22 项阻塞检查均验收通过。ETF 日线两日仍各有 2 只代码的覆盖告警，按现行规则保留。详细行数与运行记录见[日频原 LLD](dagster-etf-daily-data-onboarding-low-level-design-v1.md)。

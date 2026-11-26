@@ -2361,3 +2361,22 @@ export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
 - 未修改正式Python实现、Prod、自动调度、分区、cursor、runless事件或配置项，未安装依赖、覆盖/删除历史业务文件、创建分支/worktree或提交Git变更。本次完成不声称自动调度已恢复。
 
 完整证据：[完成报告](../../reports/etf_mins_recovery_20261024/README.md)、[执行汇总](../../reports/etf_mins_recovery_20261024/execution-summary.json)、[70文件最终验收](../../reports/etf_mins_recovery_20261024/final-verified.json)。配置和逐run检查记录随报告保留；临时核验脚本仅归档为文本，不进入正式入口。B—E验收已闭合，不再停留在“Prod通过但DG文件缺失”的阶段。
+
+## 30. 2026-11-24 至 25 日 ETF 下游恢复执行细节
+
+工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式实例为 `/Users/congming/.goldenshare/dagster_home`。通过该实例 GraphQL 提交现有 job。请求使用正式 job 对目标交易日返回的分区标签和默认配置。分钟 Raw 另外使用 `build_etf_mins_raw_run_config()` 生成的五频同一份 ETF 基础信息和 Prod 覆盖引用。24 日覆盖沿用 26 日已核验的 1,741/1,741 五频结果，保留原观察时间并验证快照、目标对象及配置。25 日在 24 日通过后使用 `etf_mins_prod_source_ready_for_trade_date()` 按实际对象做一次覆盖查询。
+
+逐日串行提交 `raw_etf_mins_update_job`、`silver_etf_mins_update_job`、`silver_etf_daily_update_job`、`silver_etf_adj_factor_update_job`。每一步先核对目标日期、分区已注册、最新基础信息与核验版本一致、无并发写入。分钟 Silver 需五个 Raw 文件和 15 项对应阻塞检查均通过。两项日频 Silver 的配置与验收遵循[日频原 LLD](dagster-etf-daily-data-onboarding-low-level-design-v1.md)。现有成功且可读回的目标直接验收复用。禁止更改 sensor、分区、游标、历史快照或校验规则，禁止使用 Bootstrap、runless 或直接写 Parquet。
+
+每个目标日只读一组五频覆盖统计，24 日复用既有统计。分钟 Raw 上限为五条单日单频明细查询，Silver 只读本地 Raw。以 23 日已验收的每只 ETF 五频合计 321 行作为满格参考，24 日应有 1,741 只对应约 558,861 行。实际读取可能包含合同允许的其他源记录，参考值不作拒绝上限。10 月已验收恢复的单日分钟 Raw 最慢 48.79 秒、Silver 最慢 6.53 秒，只作同类历史耗时参考。每一步收尾查询对应 run 的物化和检查，并对目标文件做有界文件读回。每日最多 12 个输出文件，分钟等价性复用原 Silver 检查，不重复执行全字段差集或重查 Prod 明细。中断后先读回当日最多 12 个目标及当前运行状态，未完成的分钟 Raw 正常重跑至多再读取本日五频。已通过的步骤直接复用，其余按既有冲突规则停止。
+
+每日验收要求四个 job 终态及 12 个文件与当前物化相符。分钟按五频核对文件、行数、11 字段、交易日期与频率及对应检查版本，保留 N3 诊断。日频按原检查验收并保留告警或阻塞原因。运行、验收和下一日期之间只以实际文件与检查通过为推进依据。
+
+### 30.1 正式执行与验收
+
+| 日期 | 五频 Raw / Silver 各层行数 | Raw 运行 | Silver 运行 |
+| --- | ---: | --- | --- |
+| 2026-11-24 | 559,182 | `9c6fccee-9c08-4817-996b-39d531e5c891`，47.399 秒 | `c88187e3-322e-4d59-b82d-448686aaa835`，6.421 秒 |
+| 2026-11-25 | 559,182 | `82f9a2d2-1948-4561-95ae-cc837290f242`，45.736 秒 | `8b3e5b5e-9534-4fab-897d-2a94870881a3`，6.751 秒 |
+
+两日各五频均覆盖应有 1,741 只 ETF。正式文件每频有 1,742 个代码，额外 1 个是 N3 规则允许保留的已知非必需代码。原 N3 检查同时保留全天零成交告警。每个分钟 Raw job 的 15 项检查及 Silver job 的 25 项检查全部与相应当前物化绑定并通过。逐文件复核了 schema、日期、频率、行数和 SHA-256，Silver 双向等价沿用本次正式检查。24 日覆盖查询沿用本次前置审计结果，25 日重新查询一次。两项日频结果见[日频 LLD](dagster-etf-daily-data-onboarding-low-level-design-v1.md)。
