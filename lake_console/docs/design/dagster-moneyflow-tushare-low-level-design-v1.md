@@ -7915,3 +7915,49 @@ curl --fail-with-body -sS http://127.0.0.1:3000/graphql --max-time 25 -H 'Conten
 已对照本步硬口径：四个批准日期及原job/原检查落在真实运行；Raw先成功再Silver由逐步原生记录和输入摘要证明；原门槛/内存/两轮/字段/单位保持由未修改生产代码、原下载元数据及检查证明；20日未执行由最终运行清单证明；最终验收只读取目标文件，未扩成全历史或全目录审计。此前源端缺50的结论仍限前次10:04观测，本次未再请求20日。
 
 全部有效证据合并保存于/private/tmp/dg-moneyflow-ths-recovery-20261116-19-20261121/acceptance.json，包含前置状态、八个原生运行/物化与检查绑定、metadata名单及摘要、物理结果、请求计数和最终运行清单。原正式事件、日志及业务staging不清理；临时请求、响应、状态副本和执行辅助脚本在结果归档后删除。本轮仅新增原方案第87节及本节执行记录，随本次提交归档。
+
+<a id="moneyflow-ths-nov20-25-recovery"></a>
+
+## 84. 2026年11月20、23、24、25日同花顺个股资金流向补齐LLD（2026-11-26）
+
+### 84.1 范围与执行前检查
+
+本批按原方案第88节和管理员本轮授权，仅补2026-11-20、2026-11-23、2026-11-24、2026-11-25。11月26日17:02的代码投影核对分别缺0、2、3、20只，按原规则缺码少于25只可进入生产任务。两字段的检查用于判定能否推进；正式任务按当前代码重新验证完整源数据。执行前确认在线code location、原两任务及原检查、四个专属分区、队列现状、目标任务与文件冲突，以及正式Lake与staging同设备且可写。空间使用实测，不新增硬限制。不重复做源两字段探测或全历史审计。
+
+### 84.2 正式入口和写入顺序
+
+复用第83.2节。工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，HTTP接口 `http://127.0.0.1:3000/graphql` 的 `orchestrator/__repository__`。`jobs/moneyflow_ths.py` 原两个job均按本资产及其原blocking check定义选择。保持 `runConfigData={}`，按正式分区提交 `raw_tushare_moneyflow_ths_update_job`。该日期Raw已完整SUCCESS且物化及关联检查通过后，查同日 `silver_moneyflow_ths_update_job`，已有成功监听器提交时跟踪已有任务，暂无时人工经同一队列接续。任一次人工提交前再按原job、日期去重。Raw用原 `build_repair_attempt_run_key`，以该业务日、`attempt=1`、本次执行日2026-11-26为身份。Silver沿原 `build_asset_update_run_key`，以业务日与本次Raw的 `goldenshare/file_sha256` 为身份。运行终态与回执有歧义时按同日原job查询，避免重发。两层及验收通过后才进入下一日。
+
+人工提交使用原 `launchPipelineExecution`，请求和响应文件均放本次 `/private/tmp` 目录。每个原job的完整命令如下，其中 `<日期>` 和 `<层>` 替换为本节所列业务日及 `raw` 或 `silver`：
+
+```bash
+/usr/bin/curl --fail-with-body -sS http://127.0.0.1:3000/graphql --max-time 25 -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-moneyflow-ths-recovery-20261126.aNArdI/<日期>-<层>.launch.json --output /private/tmp/dg-moneyflow-ths-recovery-20261126.aNArdI/<日期>-<层>.launch-response.json
+```
+
+`io/moneyflow_daily_update.py` 读取当日生命周期、最终全日停牌事实、完整Tushare源数据和目标状态。原候选、逐文件checkpoint及锁继续使用。Silver沿 `io/moneyflow_ths_silver_update.py` 仅消费这份同日Raw。正式目标为 `/Volumes/datasource/data_lake/{raw/tushare,silver/moneyflow}/moneyflow_ths/trade_date=<日期>/part-000.parquet`，原业务staging为 `/Volumes/datasource/data_lake_staging/moneyflow/<run_id>/moneyflow_ths/<日期>`。候选完整校验后同文件系统逐文件原子提升，原Dagster任务、物化和检查正常登记。其他分区、开关、游标、代码位置、配置、Prod、数据库业务表和技术指标不在本次执行范围。
+
+### 84.3 成本、失败与验收
+
+按17:02实读的5,220、5,217、5,216、5,199个源股票代码估算，原2000行分页每轮3页、每次Raw正常两轮6次、四日共24次请求。按来源不变，两轮累计返回41,704条按日记录，两层各产出4份文件、每层预计20,852行。实际行数及缺码由正式运行记录。原每Raw累计64次请求、300秒总采集预算、至少60秒两轮间隔、512MB DuckDB单线程及768MiB任务内存约束继续生效。四次稳定等待串行合计至少240秒。第83.5节同链路Raw约74秒/日、Silver约5秒/日仅供观测参考，实际排队另计。Silver无源请求。末次对账读取八份目标文件的日期、代码及行数，读回八条物化和其对应的检查记录，按日期核对输入与输出摘要。期间状态查询固定本批job、partition或run ID；查找日志限本次失败run。
+
+遇到正式任务失败、取消、检查未通过或读回不一致，保留本次运行、正式成功文件、收据和staging，后续日期暂缓。续跑先复用已验收的日期和层，重新提交Raw时仍要付出同日期完整两轮、等待和检查，重新提交Silver只读同日Raw并执行本层候选和检查。HTTP回执不明先按任务与日期核对。每层验收要求原job SUCCESS、原blocking check通过且准确对应本次同日物化，正式文件日期一致、代码键唯一、行数和物化一致。Silver记录的 `goldenshare/raw_sha256` 对应同日已验收Raw。报告按实际记录Raw的缺码和字段NULL两个名单，以及源请求次数。复用原任务内的检查，不额外触发检查任务。四日全部通过才关闭该批，执行结果回填本节和原方案第88节。临时验收证据仅保存在本次 `/private/tmp` 目录。
+
+### 84.4 正式结果
+
+17:09:32确认四日专属分区均已登记、DG原队列没有活动任务、八份正式文件和对应任务都不存在。Lake、staging可读写且位于同一设备，实测可用空间2,714,682,036,224字节。code location处于LOADED，两原job在线。11月26日按下表的北京时间顺序执行，一天两层验收后推进下一天。
+
+| 交易日 | Raw运行时间 | Silver运行时间 | 各层行数 | Raw缺码 | Raw字段空值代码数 |
+| --- | --- | --- | ---: | ---: | ---: |
+| 2026-11-20 | 17:09:56–17:11:11 | 17:11:43–17:11:49 | 5,220 | 0 | 0 |
+| 2026-11-23 | 17:12:18–17:13:34 | 17:14:05–17:14:11 | 5,217 | 2 | 0 |
+| 2026-11-24 | 17:14:41–17:15:58 | 17:16:29–17:16:35 | 5,216 | 3 | 0 |
+| 2026-11-25 | 17:17:06–17:18:21 | 17:18:53–17:18:58 | 5,199 | 20 | 0 |
+
+| 交易日 | Raw运行ID | Silver运行ID | Raw物化／检查存储编号 | Silver物化／检查存储编号 |
+| --- | --- | --- | --- | --- |
+| 2026-11-20 | `63fe7ae8-815c-4517-b144-5db0d5a15b78` | `861b1a31-f59a-4de6-b245-73787f2dbc09` | 8421332／8421341 | 8421360／8421369 |
+| 2026-11-23 | `12a2419d-735a-4438-aad1-067bff60dfe6` | `d144b07d-91fd-4e0f-a295-a59fbdb66d10` | 8421388／8421397 | 8421416／8421425 |
+| 2026-11-24 | `8b95f69d-6ea9-4877-95dc-b43b98907d86` | `34891452-7ba1-4243-b7ad-b13c8ed3430f` | 8421460／8421469 | 8421628／8421637 |
+| 2026-11-25 | `2ce176fb-1745-4386-9daf-19af51f17bf3` | `129b3cb5-cec0-40ed-8385-0fb998290f7f` | 8421720／8421729 | 8421848／8421857 |
+
+八次原job均经原队列人工提交。四次Raw各6次源请求、0次重试，共24次，实际运行约75–77秒/日，Silver约5秒/日。逐层确认运行SUCCESS、原blocking check通过且对应本次分区物化、实际Parquet当日日期与行数正确且代码唯一、读前读后文件身份一致。原Silver逐字段对账通过且记录的Raw输入摘要与本次Raw最终摘要一致。实际八份文件共2,658,566压缩字节。17:19:22复查四日八个原运行均无重复，实际目标文件均在。缺码完整名单、原物化摘要、前置与最终证据位于本节的 `acceptance.json`。未修改代码、阈值及现行任务配置，本节和原方案记录本次结果。
