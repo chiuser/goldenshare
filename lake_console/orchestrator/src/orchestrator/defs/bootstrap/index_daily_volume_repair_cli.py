@@ -8,9 +8,8 @@ import json
 from pathlib import Path
 from time import monotonic
 
-import duckdb
-
 from orchestrator.defs.bootstrap import index_daily_volume_repair as repair
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT
 
 
@@ -32,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     lake_root = Path(DEFAULT_LAKE_ROOT)
     started = monotonic()
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         approved = repair.approved_dates(connection, lake_root)
         if args.action == "plan":
             plan = repair.build_plan(

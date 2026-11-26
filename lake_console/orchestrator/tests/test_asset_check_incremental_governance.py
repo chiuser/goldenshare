@@ -68,6 +68,7 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
 from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
     STRUCTURE_ASSET,
     STRUCTURE_CHECKS,
+    STRUCTURE_FREQUENCIES,
 )
 from orchestrator.defs.run_contracts.moneyflow_automation import (
     BOARD_DC_MONEYFLOW_AUTOMATION,
@@ -549,7 +550,7 @@ def _planned_index_technical_asset_rules() -> dict[
             IDX_FACTOR_PRO_SILVER_CHECKS,
             category=MOVE_TO_SENSOR_LAKE_READINESS,
             phase="IDX_FACTOR_PRO_M3",
-            readiness=False,
+            readiness=True,
             retention_allowed=True,
         )
     }
@@ -559,7 +560,7 @@ def _planned_index_technical_asset_rules() -> dict[
             major_index_mins_technical_checks(freq),
             category=MOVE_TO_SENSOR_LAKE_READINESS,
             phase="MAJOR_INDEX_TECHNICAL_M4",
-            readiness=False,
+            readiness=freq in STRUCTURE_FREQUENCIES,
             retention_allowed=True,
         )
         state_key = major_index_mins_technical_state_asset_key(freq)
@@ -683,6 +684,7 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         SILVER_TRADE_CALENDAR_CHECKS,
         category=MERGE_BLOCKING_DAGSTER,
         phase="P5",
+        readiness=True,
         retention_allowed=True,
     ),
     "raw_tushare_stock_basic": _rules(
