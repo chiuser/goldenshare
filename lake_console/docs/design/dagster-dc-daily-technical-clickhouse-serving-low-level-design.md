@@ -521,3 +521,30 @@ Confirmed: table name `goldenshare_serving.board_fact_technical_daily`; use the 
 两次运行均为 SUCCESS，核心检查绑定各自同日物化。按 `ts_code, trade_date, category` 比较，Gold、本机和 Prod 的 1,081 个主键及全部 24 个业务字段一致，包含 MA 和 BOLL 的 NULL。Prod 核心检查记录缺失、额外、重复、日期、版本及内容差异均为 0。Gold 文件身份执行前后相同。25 日两端计数前后同为 0。
 
 16:36 已读回两条 sensor 为 RUNNING，暂停和恢复时的游标与 lastRunKey 核对相同。运行回执、检查元数据和计数保存在本次临时目录的 `completion.json`。
+
+<a id="dc-technical-serving-20261125"></a>
+
+## 17. 2026-11-25 本机及 Prod 板块日线技术指标恢复
+
+对应方案第 15 节，管理员授权仅恢复 25 日两个 ClickHouse 副本。工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，原 GraphQL `http://127.0.0.1:3000/graphql`，代码位置 `orchestrator/__repository__`。提交前查询两个原 job 的 25 日原生分区配置和运行标签、既有同日 run、Gold 同日物化及原检查、实际文件和两端计数，再按已有运行状态决定提交或跟踪。只允许原 `ch_dc_daily_technical_update_job` 和原 `prod_ch_dc_daily_technical_sync_job`。临时请求及证据置于 `/private/tmp/dg-dc-technical-repair-20261125.YKwqT8`。
+
+单日执行使用现行 `launchPipelineExecution`、既有 job 完整选择与服务返回的分区标签。人工提交时使用以下命令，`<层>` 为 `local` 或 `prod`：
+
+```bash
+/usr/bin/curl --fail-with-body -sS http://127.0.0.1:3000/graphql --max-time 25 -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-dc-technical-repair-20261125.YKwqT8/<层>-launch.json --output /private/tmp/dg-dc-technical-repair-20261125.YKwqT8/<层>-launch-response.json
+```
+
+本机 sensor 的最近交易日窗口仍有 26 日 Gold 未就绪，25 日 Gold 独立通过且分区已注册。开关与游标保持原设定。先排除同日活跃、成功或待排查运行，再提交本机原 job。本机完整 SUCCESS 且同日核心检查准确绑定本次物化后，先跟踪现有 Prod sensor。Prod 如已有同日运行就复用，若仍需人工接续，先确认原 sensor 最新评估、同日实际行数及原 job 无活动运行，避免同一分区重复写入。正式 job 仅写各自目标日，原同步轻量删除、删后计数、插入与写后计数不改，Gold 文件只读。
+
+预期每端 1,081 行，来自本次 Gold 已通过的同日物化和实际文件。沿第 16 节，写后对这同一日期的 Gold、本机、Prod 按业务主键逐字段核对，24 个业务字段含 NULL，ClickHouse 每端明细限制 1,082 行并查询同日计数确认边界。24 日同 job 实测本机约 7.3 秒、Prod 约 8.7 秒，仅供观测，排队及原自动评估时间单列。失败或回执不清先按原 job、日期或 run ID 读回，不盲目重发；保留成功层及失败证据，续跑只处理尚未验收的一层，重复执行仍承担该日同规模写入、检查及读回。结果回填本节及原方案，最终要求两个正式运行成功、各自核心检查通过且绑定各自同日物化、两端行数各 1,081、三处全部业务字段一致。
+
+### 17.1 正式执行和验收
+
+18:26:17 只读确认 25 日分区已注册、Gold 物化 8423499 及绑定的核心检查 8423508 通过、文件 1,081 行、两个目标各 0 行、对应运行为空。经原入口人工提交本机 job。本机 SUCCESS、原检查通过后，原 Prod sensor 自动提交同步任务，随后 SUCCESS。两层均仅有一个同日运行。
+
+| 目标 | 触发方式 | 原运行 ID | 耗时（秒） | 物化 ID | 通过的核心检查 ID | 行数 |
+| --- | --- | --- | ---: | ---: | ---: | ---: |
+| 本机 ClickHouse | 人工提交原 job | `53f6f360-744a-4431-aa9d-489c40f45b3d` | 10.340 | 8423571 | 8423580 | 1,081 |
+| Prod ClickHouse | 原 sensor 自动接续 | `9bf98d4e-8dcd-48bf-8ad2-9fa641d01510` | 8.658 | 8423599 | 8423619 | 1,081 |
+
+2026-11-26 18:29:01（北京时间）只读终验完成。两项原检查均绑定对应的同日物化。Gold、本机、Prod 的 1,081 个主键无重复，24 个业务字段逐值相同，含 MA/BOLL 的 NULL。Gold 文件身份与执行前一致。两条 sensor 按既有设定运行，正式写入范围为 25 日两个 ClickHouse 副本。读回结果保存在 `/private/tmp/dg-dc-technical-repair-20261125.YKwqT8/completion.json`。
