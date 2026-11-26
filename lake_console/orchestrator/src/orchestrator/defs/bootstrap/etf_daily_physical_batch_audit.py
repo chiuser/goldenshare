@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -37,6 +37,7 @@ def audit_etf_daily_physical_batch(
     spec: EtfDailySilverSpec,
     basic_sql: str,
     basic_reference: EtfBasicSilverSnapshotReference,
+    liquidating_codes_by_date: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, Any]:
     """Read bounded detail in DuckDB and return only per-file evidence to Python."""
     if spec is not FUND_DAILY_SILVER_SPEC and spec is not FUND_ADJ_SILVER_SPEC:
@@ -160,6 +161,20 @@ def audit_etf_daily_physical_batch(
         differences_by_date = {row[0]: row[1:] for row in difference_rows}
 
         dates_sql = ", ".join(f"({duckdb_string(value)})" for value in dates)
+        liquidations = (
+            [
+                f"({duckdb_string(day)}, {duckdb_string(code)}, 'liquidating')"
+                for day in dates
+                for code in (liquidating_codes_by_date or {}).get(day, ())
+            ]
+            if spec is FUND_ADJ_SILVER_SPEC
+            else []
+        )
+        liquidation_sql = (
+            "UNION ALL SELECT * FROM (VALUES " + ", ".join(liquidations) + ")"
+            if liquidations
+            else ""
+        )
         coverage_rows = query(f"""
             WITH membership AS (
               SELECT dates.__partition_date, basic.ts_code, 'expected' AS kind
@@ -170,15 +185,17 @@ def audit_etf_daily_physical_batch(
                 AND basic.list_date IS NOT NULL
               UNION ALL SELECT __partition_date, ts_code, 'raw' FROM {_RAW}
               UNION ALL SELECT __partition_date, ts_code, 'silver' FROM {_SILVER}
+              {liquidation_sql}
             ), codes AS (
               SELECT __partition_date, ts_code, bool_or(kind = 'expected') AS expected,
-                bool_or(kind = 'raw') AS raw_present, bool_or(kind = 'silver') AS silver_present
+                bool_or(kind = 'raw') AS raw_present, bool_or(kind = 'silver') AS silver_present,
+                bool_or(kind = 'liquidating') AS liquidating
               FROM membership GROUP BY __partition_date, ts_code
             )
-            SELECT __partition_date, count(*) FILTER (WHERE expected),
-              count(*) FILTER (WHERE expected AND raw_present),
+            SELECT __partition_date, count(*) FILTER (WHERE expected AND NOT liquidating),
+              count(*) FILTER (WHERE expected AND NOT liquidating AND raw_present),
               count(*) FILTER (WHERE silver_present),
-              count(*) FILTER (WHERE expected AND NOT silver_present),
+              count(*) FILTER (WHERE expected AND NOT liquidating AND NOT silver_present),
               count(*) FILTER (WHERE raw_present AND NOT expected),
               count(*) FILTER (WHERE silver_present AND NOT expected)
             FROM codes GROUP BY __partition_date

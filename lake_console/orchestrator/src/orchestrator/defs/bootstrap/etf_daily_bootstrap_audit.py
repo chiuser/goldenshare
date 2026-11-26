@@ -52,15 +52,18 @@ def run_raw_audit(
     checkpoint_path: Path,
     latest_basic_reference: EtfBasicSilverSnapshotReference,
     output_path: Path,
+    first_batch: bool = False,
 ) -> dict[str, object]:
     """Audit all Raw files and profile latest-Basic coverage without binding Raw."""
 
     started = perf_counter()
+    dates = raw_plan.selected_dates(first_batch=first_batch)
     checkpoint_entries = _validate_checkpoint_scope(
         checkpoint_path=checkpoint_path,
         phase="raw",
         plan_hash=raw_plan.raw_plan_hash,
-        expected_count=2 * len(raw_plan.trade_dates),
+        expected_dates=dates if raw_plan.historical else None,
+        expected_count=2 * len(dates),
     )
     reference = validate_etf_daily_basic_reference(
         lake_root_path=lake_root,
@@ -73,11 +76,11 @@ def run_raw_audit(
     batches: list[dict[str, Any]] = []
     with duckdb_resource.connect() as connection:
         basic_sql = read_parquet(Path(reference.silver_uri), hive_partitioning=False)
-        for spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+        for spec, batch_dates in etf_daily_raw_batches(dates):
             batch = audit_etf_daily_raw_batch(
                 connection,
                 lake_root=lake_root,
-                trade_dates=dates,
+                trade_dates=batch_dates,
                 spec=spec,
                 basic_relation_sql=basic_sql,
             )
@@ -151,23 +154,35 @@ def run_physical_post_audit(
     duckdb_resource: DuckDBResource,
     checkpoint_path: Path,
     output_path: Path,
+    liquidating_codes_by_date: Mapping[str, Sequence[str]] | None = None,
 ) -> dict[str, object]:
     """Close the four-asset physical contract before any Dagster event write."""
 
     started = perf_counter()
-    if silver_plan.parent_raw_plan_hash != raw_plan.raw_plan_hash:
+    dates = silver_plan.trade_dates
+    if (
+        silver_plan.parent_raw_plan_hash != raw_plan.raw_plan_hash
+        or silver_plan.historical != raw_plan.historical
+        or dates != raw_plan.selected_dates(first_batch=dates != raw_plan.trade_dates)
+    ):
         raise EtfDailyBootstrapAuditError("Silver Plan is not a child of the Raw Plan")
+    if raw_plan.historical and liquidating_codes_by_date is None:
+        raise EtfDailyBootstrapAuditError(
+            "historical audit requires checked liquidation coverage"
+        )
     raw_checkpoint = _validate_checkpoint_scope(
         checkpoint_path=checkpoint_path,
         phase="raw",
         plan_hash=raw_plan.raw_plan_hash,
-        expected_count=2 * len(raw_plan.trade_dates),
+        expected_dates=dates if raw_plan.historical else None,
+        expected_count=2 * len(dates),
     )
     silver_checkpoint = _validate_checkpoint_scope(
         checkpoint_path=checkpoint_path,
         phase="silver",
-        plan_hash=silver_plan.silver_plan_hash,
-        expected_count=2 * len(raw_plan.trade_dates),
+        plan_hash=silver_plan.checkpoint_hash,
+        expected_dates=dates if raw_plan.historical else None,
+        expected_count=2 * len(dates),
     )
     reference = validate_etf_daily_basic_reference(
         lake_root_path=lake_root,
@@ -175,7 +190,13 @@ def run_physical_post_audit(
         basic_reference=silver_plan.basic_reference,
     )
     actual_files = _actual_dataset_files(lake_root)
-    expected_paths = _expected_paths(lake_root, raw_plan.trade_dates)
+    if raw_plan.historical:
+        actual_files = {
+            path
+            for path in actual_files
+            if dates[0] <= path.parent.name.removeprefix("trade_date=") <= dates[-1]
+        }
+    expected_paths = _expected_paths(lake_root, dates)
     missing_paths = sorted(str(path) for path in expected_paths - actual_files)
     extra_paths = sorted(str(path) for path in actual_files - expected_paths)
     file_evidence: list[dict[str, object]] = []
@@ -186,16 +207,17 @@ def run_physical_post_audit(
             basic_sql = read_parquet(
                 Path(reference.silver_uri), hive_partitioning=False
             )
-            for raw_spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+            for raw_spec, batch_dates in etf_daily_raw_batches(dates):
                 batch = audit_etf_daily_physical_batch(
                     connection,
                     lake_root=lake_root,
-                    trade_dates=dates,
+                    trade_dates=batch_dates,
                     spec=FUND_DAILY_SILVER_SPEC
                     if raw_spec is FUND_DAILY_RAW_SPEC
                     else FUND_ADJ_SILVER_SPEC,
                     basic_sql=basic_sql,
                     basic_reference=reference,
+                    liquidating_codes_by_date=liquidating_codes_by_date,
                 )
                 file_evidence.extend(batch["files"])
                 batches.append(batch["performance"])
@@ -230,6 +252,10 @@ def run_physical_post_audit(
         (item.phase, item.asset_key, item.trade_date): item
         for item in (*raw_checkpoint, *silver_checkpoint)
     }
+    for item in file_evidence:
+        entry = checkpoint_by_key.get(("raw", item["asset_key"], item["trade_date"]))
+        if entry is not None and entry.source is not None:
+            item["source"] = entry.source
     checkpoint_failures = [
         {
             "phase": phase,
@@ -247,19 +273,25 @@ def run_physical_post_audit(
         or checkpoint.target_path != item["target_path"]
         or checkpoint.row_count != item["row_count"]
         or checkpoint.content_hash != item["content_hash"]
+        or (
+            raw_plan.historical
+            and phase == "raw"
+            and (checkpoint.source or {}).get("row_count") != item["row_count"]
+        )
     ]
     payload: dict[str, object] = {
         "schema_version": "etf_daily_physical_post_audit_v1",
         "raw_plan_hash": raw_plan.raw_plan_hash,
         "silver_plan_hash": silver_plan.silver_plan_hash,
-        "trade_date_count": len(raw_plan.trade_dates),
-        "expected_file_count": 4 * len(raw_plan.trade_dates),
+        "trade_date_count": len(dates),
+        "expected_file_count": 4 * len(dates),
         "actual_file_count": len(actual_files),
         "missing_paths": missing_paths,
         "extra_paths": extra_paths,
         "staging_residuals": staging_residuals,
         "checkpoint_failures": checkpoint_failures,
         "file_evidence": file_evidence,
+        **({"liquidating_codes_by_date": liquidating_codes_by_date} if raw_plan.historical else {}),
         "basic_reference": reference.model_dump(mode="json"),
         "passed": not missing_paths
         and not extra_paths
@@ -321,8 +353,14 @@ def _validate_checkpoint_scope(
     phase: str,
     plan_hash: str,
     expected_count: int,
+    expected_dates: Sequence[str] | None = None,
 ) -> tuple[EtfDailyBootstrapCheckpointEntry, ...]:
-    entries = [item for item in load_checkpoint(checkpoint_path) if item.phase == phase]
+    entries = [
+        item
+        for item in load_checkpoint(checkpoint_path)
+        if item.phase == phase
+        and (expected_dates is None or item.trade_date in expected_dates)
+    ]
     if len(entries) != expected_count or any(
         item.phase_plan_hash != plan_hash for item in entries
     ):

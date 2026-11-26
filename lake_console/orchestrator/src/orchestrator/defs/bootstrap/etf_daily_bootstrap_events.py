@@ -20,6 +20,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
 )
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_audit import validate_report_hash
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
+    HISTORY_END,
     EtfDailySilverBootstrapPlan,
     atomic_write_json,
     hash_payload,
@@ -144,6 +145,10 @@ def build_event_plan(
     physical_report_path: Path,
     created_at: datetime | None = None,
 ) -> EtfDailyBootstrapEventPlan:
+    if silver_plan.historical and silver_plan.trade_dates[-1] != HISTORY_END:
+        raise EtfDailyBootstrapEventsError(
+            "historical event plan requires the full 2023–2024 audit"
+        )
     report = _load_physical_report(
         silver_plan=silver_plan,
         physical_report_path=physical_report_path,
@@ -507,6 +512,7 @@ def _materialization_specs(
         extra = {
             key: item[key]
             for key in (
+                "source",
                 "source_row_count",
                 "normalized_row_count",
                 "raw_row_count",

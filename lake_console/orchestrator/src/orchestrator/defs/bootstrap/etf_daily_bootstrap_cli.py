@@ -6,7 +6,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -14,9 +14,10 @@ import dagster as dg
 
 from orchestrator.defs.asset_guards.etf_basic_readiness import (
     EtfBasicReadinessError,
+    select_historical_etf_basic_snapshot_reference,
     select_latest_etf_basic_snapshot_reference,
 )
-from orchestrator.defs.assets.etf_basic import raw_tushare_etf_basic
+from orchestrator.defs.assets.etf_basic import raw_tushare_etf_basic, silver_etf_basic
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import (
     EtfDailyBootstrapApplyError,
     run_bounded_sample,
@@ -41,6 +42,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     BOOTSTRAP_STAGING_ROOT,
     FORMAL_LAKE_ROOT,
     EtfDailyBootstrapPlanError,
+    EtfDailyRawBootstrapPlan,
     EtfDailySilverBootstrapPlan,
     build_etf_daily_raw_bootstrap_plan,
     build_etf_daily_silver_bootstrap_plan,
@@ -50,7 +52,13 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     write_raw_bootstrap_plan,
     write_silver_bootstrap_plan,
 )
-from orchestrator.defs.resources import DuckDBResource, TushareResource
+from orchestrator.defs.bootstrap.etf_daily_history_source import prepare_history_source
+from orchestrator.defs.confirmed_business_facts import FactType
+from orchestrator.defs.resources import (
+    ConfirmedBusinessFactsResource,
+    DuckDBResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.etf_basic import EtfBasicSilverSnapshotReference
 from orchestrator.defs.run_contracts.etf_mins import etf_sensor_window_is_open
 
@@ -94,6 +102,14 @@ def _parser() -> argparse.ArgumentParser:
     raw_plan.add_argument("--code-revision", required=True)
     raw_plan.add_argument("--operation-id", required=True)
     raw_plan.add_argument("--confirm-raw-plan", action="store_true")
+    raw_plan.add_argument("--history-2023-2024", action="store_true")
+
+    source = commands.add_parser("history-source")
+    _raw_plan_args(source)
+    _common_roots(source)
+    source.add_argument("--prod-timeout-seconds", required=True, type=int)
+    source.add_argument("--tushare-daily-date", action="append", default=[])
+    source.add_argument("--confirm-prod-export", action="store_true")
 
     sample = commands.add_parser("bounded-sample")
     _raw_plan_args(sample)
@@ -109,6 +125,8 @@ def _parser() -> argparse.ArgumentParser:
     raw_apply.add_argument("--checkpoint", type=_absolute_path, required=True)
     raw_apply.add_argument("--output", type=_absolute_path, required=True)
     raw_apply.add_argument("--confirm-raw-apply", action="store_true")
+    raw_apply.add_argument("--first-batch", action="store_true")
+    raw_apply.add_argument("--tushare-daily-date", action="append", default=[])
 
     raw_audit = commands.add_parser("raw-audit")
     _raw_plan_args(raw_audit)
@@ -125,6 +143,11 @@ def _parser() -> argparse.ArgumentParser:
     silver_plan.add_argument("--coverage-policy-revision", required=True)
     silver_plan.add_argument("--confirm-silver-plan", action="store_true")
     silver_plan.add_argument("--confirm-coverage-review", action="store_true")
+
+    for command in (raw_audit, silver_plan):
+        command.add_argument("--first-batch", action="store_true")
+        command.add_argument("--first-silver-plan", type=_absolute_path)
+        command.add_argument("--expected-first-silver-plan-hash")
 
     silver_apply = commands.add_parser("silver-apply")
     _raw_plan_args(silver_apply)
@@ -219,9 +242,125 @@ def _latest_basic(
     return reference
 
 
+def _check_frozen_basic(
+    instance: dg.DagsterInstance,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    reference: EtfBasicSilverSnapshotReference,
+    storage_ids: tuple[int, int],
+) -> EtfBasicSilverSnapshotReference:
+    verified = select_historical_etf_basic_snapshot_reference(
+        instance=instance,
+        lake_root_path=lake_root,
+        duckdb_resource=duckdb,
+        trade_date=date.fromisoformat(reference.eligibility_as_of),
+        raw_storage_id=storage_ids[0],
+        silver_storage_id=storage_ids[1],
+    )
+    if verified.reference_fingerprint != reference.reference_fingerprint:
+        raise EtfDailyBootstrapPlanError("frozen Basic evidence has changed")
+    return verified
+
+
+def _planning_basic(
+    args: argparse.Namespace,
+    instance: dg.DagsterInstance,
+    duckdb: DuckDBResource,
+    raw_plan: EtfDailyRawBootstrapPlan,
+) -> tuple[EtfBasicSilverSnapshotReference, tuple[int, int] | None]:
+    first_plan_path = args.first_silver_plan
+    first_plan_hash = args.expected_first_silver_plan_hash
+    if bool(first_plan_path) != bool(first_plan_hash):
+        raise EtfDailyBootstrapPlanError(
+            "first Silver plan and hash must be provided together"
+        )
+    if not raw_plan.historical:
+        if first_plan_path or args.first_batch:
+            raise EtfDailyBootstrapPlanError(
+                "first batch options require the 2023–2024 plan"
+            )
+        return _latest_basic(
+            instance=instance, lake_root=args.lake_root, duckdb=duckdb
+        ), None
+    if first_plan_path:
+        if args.first_batch:
+            raise EtfDailyBootstrapPlanError(
+                "only the full plan can inherit the first Silver plan"
+            )
+        prior = load_etf_daily_silver_bootstrap_plan(
+            first_plan_path, expected_plan_hash=first_plan_hash
+        )
+        if (
+            not prior.historical
+            or prior.parent_raw_plan_hash != raw_plan.raw_plan_hash
+            or prior.trade_dates != raw_plan.selected_dates(first_batch=True)
+            or prior.basic_storage_ids is None
+        ):
+            raise EtfDailyBootstrapPlanError(
+                "first Silver plan does not match this historical operation"
+            )
+        return (
+            _check_frozen_basic(
+                instance,
+                args.lake_root,
+                duckdb,
+                prior.basic_reference,
+                prior.basic_storage_ids,
+            ),
+            prior.basic_storage_ids,
+        )
+    if not args.first_batch and raw_plan.trade_dates != raw_plan.selected_dates(
+        first_batch=True
+    ):
+        raise EtfDailyBootstrapPlanError(
+            "the full scope requires the first Silver plan"
+        )
+    records = []
+    for asset in (raw_tushare_etf_basic, silver_etf_basic):
+        latest = instance.fetch_materializations(
+            dg.AssetRecordsFilter(asset_key=asset.key), limit=1
+        ).records
+        if not latest:
+            raise EtfDailyBootstrapPlanError(
+                "historical plan requires checked ETF Basic evidence"
+            )
+        records.append(latest[0].storage_id)
+    storage_ids = (records[0], records[1])
+    reference = _latest_basic(
+        instance=instance, lake_root=args.lake_root, duckdb=duckdb
+    )
+    return _check_frozen_basic(
+        instance, args.lake_root, duckdb, reference, storage_ids
+    ), storage_ids
+
+
+def _historical_liquidating_codes(dates: tuple[str, ...]) -> dict[str, tuple[str, ...]]:
+    start = date.fromisoformat(dates[0])
+    end = date.fromisoformat(dates[-1]) + timedelta(days=1)
+    facts = ConfirmedBusinessFactsResource().read_facts(
+        subject_type="etf",
+        fact_types=(FactType.FUND_LIQUIDATION_STARTED,),
+        window_start=start,
+        window_end_exclusive=end,
+    )
+    result = {}
+    for key in dates:
+        day = datetime.combine(date.fromisoformat(key), time.min, tzinfo=_SHANGHAI)
+        codes = {
+            fact.subject_key
+            for fact in facts
+            if fact.effective_from < (day + timedelta(days=1))
+            and (fact.effective_until is None or fact.effective_until > day)
+        }
+        if codes:
+            result[key] = tuple(sorted(codes))
+    return result
+
+
 def _confirmation_error(args: argparse.Namespace) -> str | None:
     required = {
         "raw-plan": "confirm_raw_plan",
+        "history-source": "confirm_prod_export",
         "bounded-sample": "confirm_source_request",
         "raw-apply": "confirm_raw_apply",
         "silver-plan": "confirm_silver_plan",
@@ -329,9 +468,30 @@ def _run(
             duckdb_resource=duckdb,
             code_revision=args.code_revision,
             operation_id=args.operation_id,
+            historical=args.history_2023_2024,
         )
         write_raw_bootstrap_plan(plan, args.output)
         return plan.to_dict()
+    if args.command == "history-source":
+        _require_formal_roots(args.lake_root, args.staging_root)
+        plan = load_etf_daily_raw_bootstrap_plan(
+            args.raw_plan, expected_plan_hash=args.expected_raw_plan_hash
+        )
+        source = prepare_history_source(
+            staging_root=args.staging_root,
+            plan=plan,
+            duckdb=duckdb,
+            tushare_dates=args.tushare_daily_date,
+            timeout_seconds=args.prod_timeout_seconds,
+        )
+        return {
+            "source_path": str(source.path),
+            "source_fingerprint": source.fingerprint,
+            "row_count": sum(source.row_counts.values()),
+            "prod_day_count": len(source.row_counts),
+            "tushare_dates": sorted(source.tushare_dates),
+            "fetched_at": source.fetched_at,
+        }
     if args.command == "bounded-sample":
         _require_bounded_sample_roots(
             source_lake_root=args.source_lake_root,
@@ -367,6 +527,8 @@ def _run(
             checkpoint_path=args.checkpoint,
             output_path=args.output,
             confirm_raw_apply=True,
+            first_batch=args.first_batch,
+            tushare_dates=args.tushare_daily_date,
         )
     if args.command == "raw-audit":
         if args.lake_root.resolve() != FORMAL_LAKE_ROOT:
@@ -376,14 +538,14 @@ def _run(
         plan = load_etf_daily_raw_bootstrap_plan(
             args.raw_plan, expected_plan_hash=args.expected_raw_plan_hash
         )
+        basic, _ = _planning_basic(args, instance, duckdb, plan)
         return run_raw_audit(
             raw_plan=plan,
             lake_root=args.lake_root,
             duckdb_resource=duckdb,
             checkpoint_path=args.checkpoint,
-            latest_basic_reference=_latest_basic(
-                instance=instance, lake_root=args.lake_root, duckdb=duckdb
-            ),
+            latest_basic_reference=basic,
+            first_batch=args.first_batch,
             output_path=args.output,
         )
     if args.command == "silver-plan":
@@ -392,12 +554,13 @@ def _run(
             args.raw_plan, expected_plan_hash=args.expected_raw_plan_hash
         )
         raw_audit = load_json(args.raw_audit, label="ETF daily Raw audit")
+        basic, storage_ids = _planning_basic(args, instance, duckdb, raw_plan)
         plan = build_etf_daily_silver_bootstrap_plan(
             raw_plan=raw_plan,
             raw_audit_report=raw_audit,
-            basic_reference=_latest_basic(
-                instance=instance, lake_root=args.lake_root, duckdb=duckdb
-            ),
+            basic_reference=basic,
+            basic_storage_ids=storage_ids,
+            first_batch=args.first_batch,
             lake_root=args.lake_root,
             staging_root=args.staging_root,
             duckdb_resource=duckdb,
@@ -418,8 +581,18 @@ def _run(
         return run_silver_apply(
             silver_plan=silver_plan,
             raw_plan=raw_plan,
-            latest_basic_reference=_latest_basic(
-                instance=instance, lake_root=args.lake_root, duckdb=duckdb
+            latest_basic_reference=(
+                _check_frozen_basic(
+                    instance,
+                    args.lake_root,
+                    duckdb,
+                    silver_plan.basic_reference,
+                    silver_plan.basic_storage_ids,
+                )
+                if silver_plan.basic_storage_ids is not None
+                else _latest_basic(
+                    instance=instance, lake_root=args.lake_root, duckdb=duckdb
+                )
             ),
             lake_root=args.lake_root,
             staging_root=args.staging_root,
@@ -436,6 +609,18 @@ def _run(
         silver_plan = load_etf_daily_silver_bootstrap_plan(
             args.silver_plan, expected_plan_hash=args.expected_silver_plan_hash
         )
+        liquidating_codes = None
+        if silver_plan.historical:
+            if silver_plan.basic_storage_ids is None:
+                raise EtfDailyBootstrapPlanError("missing frozen Basic evidence")
+            _check_frozen_basic(
+                instance,
+                args.lake_root,
+                duckdb,
+                silver_plan.basic_reference,
+                silver_plan.basic_storage_ids,
+            )
+            liquidating_codes = _historical_liquidating_codes(silver_plan.trade_dates)
         return run_physical_post_audit(
             raw_plan=raw_plan,
             silver_plan=silver_plan,
@@ -444,6 +629,7 @@ def _run(
             duckdb_resource=duckdb,
             checkpoint_path=args.checkpoint,
             output_path=args.output,
+            liquidating_codes_by_date=liquidating_codes,
         )
     if args.command == "events-plan":
         silver_plan = load_etf_daily_silver_bootstrap_plan(

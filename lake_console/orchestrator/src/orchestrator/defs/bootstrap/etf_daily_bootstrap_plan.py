@@ -33,9 +33,11 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     validate_etf_daily_basic_reference,
 )
 from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.etf_basic import EtfBasicSilverSnapshotReference
 from orchestrator.defs.run_contracts.etf_daily import (
+    ETF_DAILY_BOOTSTRAP_BATCH_DAYS,
     ETF_DAILY_BOOTSTRAP_CONTRACT_REVISION,
     ETF_DAILY_BOOTSTRAP_START_DATE,
     ETF_DAILY_COVERAGE_POLICY_REVISION,
@@ -57,6 +59,9 @@ BOOTSTRAP_REPORT_ROOT = Path("/private/tmp/goldenshare-bootstrap/etf_daily")
 ETF_DAILY_BOOTSTRAP_SCHEMA_VERSION = "etf_daily_bootstrap_v1"
 _FUND_DAILY_ESTIMATED_FILE_BYTES = 95_801
 _FUND_ADJ_ESTIMATED_FILE_BYTES = 28_088
+HISTORY_START = "2023-01-03"
+HISTORY_END = "2024-12-31"
+HISTORY_TRADE_DAY_COUNT = 484
 _TARGET_STATES = {"missing", "existing_structurally_ready", "existing_invalid"}
 
 
@@ -175,6 +180,18 @@ class EtfDailyRawBootstrapPlan:
     required_free_bytes: int
     observed_free_bytes: int
     raw_plan_hash: str
+    historical: bool = False
+
+    def selected_dates(self, *, first_batch: bool) -> tuple[str, ...]:
+        if first_batch and not self.historical:
+            raise EtfDailyBootstrapPlanError(
+                "first batch is only available for 2023–2024"
+            )
+        return (
+            self.trade_dates[:ETF_DAILY_BOOTSTRAP_BATCH_DAYS]
+            if first_batch
+            else self.trade_dates
+        )
 
     @property
     def should_stop(self) -> bool:
@@ -184,6 +201,7 @@ class EtfDailyRawBootstrapPlan:
 
     def hash_payload(self) -> dict[str, object]:
         return {
+            **({"historical": True} if self.historical else {}),
             "schema_version": self.schema_version,
             "operation_id": self.operation_id,
             "created_at": self.created_at,
@@ -229,6 +247,21 @@ class EtfDailySilverBootstrapPlan:
     required_free_bytes: int
     observed_free_bytes: int
     silver_plan_hash: str
+    historical: bool = False
+    basic_storage_ids: tuple[int, int] | None = None
+
+    @property
+    def checkpoint_hash(self) -> str:
+        if not self.historical:
+            return self.silver_plan_hash
+        return hash_payload(
+            {
+                "raw_plan_hash": self.parent_raw_plan_hash,
+                "basic_reference": self.basic_reference.reference_fingerprint,
+                "coverage_policy_revision": self.coverage_policy_revision,
+                "basic_storage_ids": self.basic_storage_ids,
+            }
+        )
 
     @property
     def trade_dates(self) -> tuple[str, ...]:
@@ -243,6 +276,11 @@ class EtfDailySilverBootstrapPlan:
 
     def hash_payload(self) -> dict[str, object]:
         return {
+            **(
+                {"historical": True, "basic_storage_ids": self.basic_storage_ids}
+                if self.historical
+                else {}
+            ),
             "schema_version": self.schema_version,
             "operation_id": self.operation_id,
             "created_at": self.created_at,
@@ -307,6 +345,36 @@ def load_registered_bootstrap_dates(instance: Any) -> tuple[str, ...]:
             "registered ETF date set has no date on or after 2025-01-01"
         )
     return selected
+
+
+def load_historical_dates(
+    lake_root: Path, duckdb_resource: DuckDBResource
+) -> tuple[str, ...]:
+    calendar = read_parquet(
+        silver_trade_calendar_path(lake_root), hive_partitioning=False
+    )
+    with duckdb_resource.connect() as connection:
+        dates = tuple(
+            value
+            for (value,) in connection.execute(
+                f"SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) FROM {calendar} "
+                "WHERE exchange = 'SSE' AND is_open "
+                "AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE) ORDER BY 1",
+                [HISTORY_START, HISTORY_END],
+            ).fetchall()
+        )
+    if (
+        not dates
+        or dates[0] != HISTORY_START
+        or dates[-1] != HISTORY_END
+        or len(set(dates)) != len(dates)
+    ):
+        raise EtfDailyBootstrapPlanError(
+            "official calendar does not close the 2023–2024 scope"
+        )
+    if lake_root.resolve() == FORMAL_LAKE_ROOT and len(dates) != HISTORY_TRADE_DAY_COUNT:
+        raise EtfDailyBootstrapPlanError("official history calendar must contain the 484 reviewed days")
+    return dates
 
 
 def validate_roots(lake_root: Path, staging_root: Path) -> None:
@@ -410,11 +478,16 @@ def build_etf_daily_raw_bootstrap_plan(
     operation_id: str | None = None,
     created_at: datetime | None = None,
     observed_free_bytes: int | None = None,
+    historical: bool = False,
 ) -> EtfDailyRawBootstrapPlan:
     """Freeze a request-free Raw plan from the registered ETF partition set."""
 
     validate_roots(lake_root, staging_root)
-    dates = load_registered_bootstrap_dates(instance)
+    dates = (
+        load_historical_dates(lake_root, duckdb_resource)
+        if historical
+        else load_registered_bootstrap_dates(instance)
+    )
     targets = inspect_targets(
         duckdb_resource=duckdb_resource,
         lake_root=lake_root,
@@ -455,6 +528,7 @@ def build_etf_daily_raw_bootstrap_plan(
         required_free_bytes=required,
         observed_free_bytes=free,
         raw_plan_hash="",
+        historical=historical,
     )
     if not draft.code_revision:
         raise EtfDailyBootstrapPlanError("code_revision must be non-empty")
@@ -466,10 +540,13 @@ def build_raw_manifest(
     raw_plan: EtfDailyRawBootstrapPlan,
     lake_root: Path,
     duckdb_resource: DuckDBResource,
+    first_batch: bool = False,
 ) -> tuple[EtfDailyRawManifestEntry, ...]:
     entries: list[EtfDailyRawManifestEntry] = []
     with duckdb_resource.connect() as connection:
-        for spec, dates in etf_daily_raw_batches(raw_plan.trade_dates):
+        for spec, dates in etf_daily_raw_batches(
+            raw_plan.selected_dates(first_batch=first_batch)
+        ):
             batch = audit_etf_daily_raw_batch(
                 connection,
                 lake_root=lake_root,
@@ -511,10 +588,16 @@ def build_etf_daily_silver_bootstrap_plan(
     coverage_review_confirmed: bool,
     created_at: datetime | None = None,
     observed_free_bytes: int | None = None,
+    first_batch: bool = False,
+    basic_storage_ids: tuple[int, int] | None = None,
 ) -> EtfDailySilverBootstrapPlan:
     """Freeze Silver only after a green Raw audit and explicit coverage review."""
 
     validate_roots(lake_root, staging_root)
+    if raw_plan.historical and not basic_storage_ids:
+        raise EtfDailyBootstrapPlanError(
+            "historical Silver plan requires the two Basic event IDs"
+        )
     if not coverage_review_confirmed:
         raise EtfDailyBootstrapPlanError("fund_adj coverage review is not confirmed")
     if coverage_policy_revision != ETF_DAILY_COVERAGE_POLICY_REVISION:
@@ -524,6 +607,7 @@ def build_etf_daily_silver_bootstrap_plan(
         raw_plan=raw_plan,
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
+        first_batch=first_batch,
     )
     manifest_hash = hash_payload([entry.to_dict() for entry in manifest])
     if raw_audit_report.get(
@@ -540,7 +624,7 @@ def build_etf_daily_silver_bootstrap_plan(
     targets = inspect_targets(
         duckdb_resource=duckdb_resource,
         lake_root=lake_root,
-        trade_dates=raw_plan.trade_dates,
+        trade_dates=raw_plan.selected_dates(first_batch=first_batch),
         specs=(FUND_DAILY_SILVER_SPEC, FUND_ADJ_SILVER_SPEC),
     )
     raw_size_by_date_and_asset = {
@@ -581,6 +665,8 @@ def build_etf_daily_silver_bootstrap_plan(
         required_free_bytes=required,
         observed_free_bytes=free,
         silver_plan_hash="",
+        historical=raw_plan.historical,
+        basic_storage_ids=basic_storage_ids,
     )
     if not draft.code_revision:
         raise EtfDailyBootstrapPlanError("code_revision must be non-empty")
@@ -622,6 +708,7 @@ def load_etf_daily_raw_bootstrap_plan(
             required_free_bytes=int(payload["required_free_bytes"]),
             observed_free_bytes=int(payload["observed_free_bytes"]),
             raw_plan_hash=str(payload["raw_plan_hash"]),
+            historical=payload.get("historical") is True,
         )
     except (KeyError, TypeError, ValueError) as error:
         raise EtfDailyBootstrapPlanError("Raw Plan is structurally invalid") from error
@@ -660,6 +747,12 @@ def load_etf_daily_silver_bootstrap_plan(
             required_free_bytes=int(payload["required_free_bytes"]),
             observed_free_bytes=int(payload["observed_free_bytes"]),
             silver_plan_hash=str(payload["silver_plan_hash"]),
+            historical=payload.get("historical") is True,
+            basic_storage_ids=(
+                tuple(int(value) for value in payload["basic_storage_ids"])
+                if payload.get("basic_storage_ids") is not None
+                else None
+            ),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise EtfDailyBootstrapPlanError(
@@ -742,7 +835,11 @@ def _validate_raw_plan(
         or plan.contract_revision != ETF_DAILY_BOOTSTRAP_CONTRACT_REVISION
         or not dates
         or dates != tuple(sorted(set(dates)))
-        or dates[0] < ETF_DAILY_BOOTSTRAP_START_DATE.isoformat()
+        or (
+            (dates[0], dates[-1]) != (HISTORY_START, HISTORY_END)
+            if plan.historical
+            else dates[0] < ETF_DAILY_BOOTSTRAP_START_DATE.isoformat()
+        )
         or plan.watermark != dates[-1]
         or plan.trade_dates_hash != hash_payload(list(dates))
         or plan.source_contracts != source_contracts()
@@ -779,6 +876,16 @@ def _validate_silver_plan(
         or plan.contract_revision != ETF_DAILY_BOOTSTRAP_CONTRACT_REVISION
         or plan.coverage_policy_revision != ETF_DAILY_COVERAGE_POLICY_REVISION
         or not dates
+        or (
+            plan.historical
+            and (
+                dates[0] != HISTORY_START
+                or dates[-1] > HISTORY_END
+                or plan.basic_storage_ids is None
+                or len(plan.basic_storage_ids) != 2
+                or min(plan.basic_storage_ids) <= 0
+            )
+        )
         or {(item.asset_key, item.trade_date) for item in plan.raw_manifest}
         != raw_expected
         or len(plan.raw_manifest) != len(raw_expected)

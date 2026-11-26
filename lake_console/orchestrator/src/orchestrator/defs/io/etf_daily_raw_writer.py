@@ -515,6 +515,7 @@ def _write_etf_daily_raw_partition(
     tushare: TushareResource,
     partition_key: str,
     operation_id: str,
+    historical_source: Path | None = None,
 ) -> EtfDailyRawWriteResult:
     if not any(spec is approved for approved in _APPROVED_RAW_SPECS):
         raise ValueError("ETF daily Raw writer requires one frozen dataset spec")
@@ -600,17 +601,28 @@ def _write_etf_daily_raw_partition(
                 request = spec.request_builder(normalized_partition, offset)
                 return tushare.call(request.api_name, request.params, request.fields)
 
-            page_result = execute_bounded_pages(
-                request_page=request_page,
-                extract_rows=lambda result: _extract_rows(result, spec=spec),
-                page_size=spec.page_limit,
-                policy=spec.request_policy,
-                scope=f"{spec.api_name}:{normalized_partition}",
-                row_key=lambda row: (row.get("ts_code"), row.get("trade_date")),
-                consume_page=consume_page,
-                retain_rows=False,
-            )
-            _raise_for_request_failure(page_result, spec=spec)
+            if historical_source is None:
+                page_result = execute_bounded_pages(
+                    request_page=request_page,
+                    extract_rows=lambda result: _extract_rows(result, spec=spec),
+                    page_size=spec.page_limit,
+                    policy=spec.request_policy,
+                    scope=f"{spec.api_name}:{normalized_partition}",
+                    row_key=lambda row: (row.get("ts_code"), row.get("trade_date")),
+                    consume_page=consume_page,
+                    retain_rows=False,
+                )
+                _raise_for_request_failure(page_result, spec=spec)
+            else:
+                connection.execute(
+                    f"INSERT INTO etf_daily_raw_rows SELECT {_quoted_columns(spec)} "
+                    f"FROM {read_parquet(historical_source, hive_partitioning=False)} "
+                    "WHERE trade_date = ?",
+                    [expected_trade_date],
+                )
+                source_row_count = connection.execute(
+                    "SELECT count(*) FROM etf_daily_raw_rows"
+                ).fetchone()[0]
             if source_row_count <= 0:
                 raise EtfDailyRawValidationError(
                     f"{spec.api_name} source returned no rows for {normalized_partition}"
@@ -690,7 +702,7 @@ def _write_etf_daily_raw_partition(
         raise
 
     if (
-        page_result is None
+        (historical_source is None and page_result is None)
         or candidate_audit is None
         or candidate_audit.content_hash is None
     ):
@@ -708,14 +720,14 @@ def _write_etf_daily_raw_partition(
         normalized_row_count=source_row_count,
         candidate_row_count=candidate_audit.row_count,
         written_row_count=candidate_audit.row_count,
-        page_count=page_result.page_count,
-        page_offsets=page_result.page_offsets,
-        request_count=page_result.request_count,
-        retry_count=page_result.retry_count,
+        page_count=page_result.page_count if page_result is not None else 0,
+        page_offsets=page_result.page_offsets if page_result is not None else (),
+        request_count=page_result.request_count if page_result is not None else 0,
+        retry_count=page_result.retry_count if page_result is not None else 0,
         elapsed_ms=(perf_counter() - started_at) * 1000,
         content_hash=candidate_audit.content_hash,
         output_bytes=target_path.stat().st_size,
-        request_params=request_zero.params,
+        request_params=request_zero.params if historical_source is None else {},
         source_fields=spec.source_columns,
     )
 
@@ -728,6 +740,7 @@ def write_fund_daily_raw_partition(
     tushare: TushareResource,
     partition_key: str,
     operation_id: str,
+    historical_source: Path | None = None,
 ) -> EtfDailyRawWriteResult:
     return _write_etf_daily_raw_partition(
         spec=FUND_DAILY_RAW_SPEC,
@@ -737,6 +750,7 @@ def write_fund_daily_raw_partition(
         tushare=tushare,
         partition_key=partition_key,
         operation_id=operation_id,
+        historical_source=historical_source,
     )
 
 

@@ -20,11 +20,16 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     build_raw_manifest,
     hash_payload,
     inspect_targets,
+    load_historical_dates,
     load_json,
     load_registered_bootstrap_dates,
     required_free_bytes,
     validate_roots,
     write_immutable_json,
+)
+from orchestrator.defs.bootstrap.etf_daily_history_source import (
+    PROD_FUND_DAILY_TABLE,
+    load_history_source,
 )
 from orchestrator.defs.io.etf_daily_raw_writer import (
     FUND_ADJ_RAW_SPEC,
@@ -41,6 +46,7 @@ from orchestrator.defs.io.etf_daily_silver_writer import (
     write_etf_adj_factor_silver_partition,
     write_etf_daily_silver_partition,
 )
+from orchestrator.defs.partitions import cn_a_etf_mins_trade_days
 from orchestrator.defs.paths import (
     raw_etf_basic_snapshot_path,
     silver_etf_basic_snapshot_path,
@@ -73,9 +79,13 @@ class EtfDailyBootstrapCheckpointEntry:
     row_count: int
     write_mode: str
     completed_at: str
+    source: dict[str, object] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return asdict(self)
+        data = asdict(self)
+        if self.source is None:
+            data.pop("source")
+        return data
 
 
 RawWriter = Callable[..., EtfDailyRawWriteResult]
@@ -104,11 +114,14 @@ def load_checkpoint(path: Path) -> tuple[EtfDailyBootstrapCheckpointEntry, ...]:
                 row_count=int(item["row_count"]),
                 write_mode=str(item["write_mode"]),
                 completed_at=str(item["completed_at"]),
+                source=item.get("source"),
             )
             for item in entries_payload
         )
     except (KeyError, TypeError, ValueError) as error:
-        raise EtfDailyBootstrapApplyError("checkpoint is structurally invalid") from error
+        raise EtfDailyBootstrapApplyError(
+            "checkpoint is structurally invalid"
+        ) from error
     identities = {
         (item.phase, item.asset_key, item.trade_date, item.target_path)
         for item in entries
@@ -116,7 +129,9 @@ def load_checkpoint(path: Path) -> tuple[EtfDailyBootstrapCheckpointEntry, ...]:
     if len(identities) != len(entries) or any(
         item.phase not in {"raw", "silver", "events"} for item in entries
     ):
-        raise EtfDailyBootstrapApplyError("checkpoint contains duplicate or invalid entries")
+        raise EtfDailyBootstrapApplyError(
+            "checkpoint contains duplicate or invalid entries"
+        )
     return entries
 
 
@@ -165,6 +180,10 @@ def run_bounded_sample(
     output_path: Path,
 ) -> dict[str, object]:
     """Exercise all four public writers for at most first/middle/last dates."""
+    if raw_plan.historical:
+        raise EtfDailyBootstrapApplyError(
+            "the legacy Tushare sample cannot validate the historical Prod source"
+        )
 
     validate_roots(isolated_lake_root, isolated_staging_root)
     dates = _sample_dates(raw_plan.trade_dates)
@@ -246,32 +265,80 @@ def run_raw_apply(
     checkpoint_path: Path,
     output_path: Path,
     confirm_raw_apply: bool,
+    first_batch: bool = False,
+    tushare_dates: Sequence[str] = (),
 ) -> dict[str, object]:
     if not confirm_raw_apply:
         raise EtfDailyBootstrapApplyError("Raw apply confirmation is required")
     validate_roots(lake_root, staging_root)
     if raw_plan.should_stop:
-        raise EtfDailyBootstrapApplyError("Raw Plan contains an invalid existing target")
-    if load_registered_bootstrap_dates(instance) != raw_plan.trade_dates:
-        raise EtfDailyBootstrapApplyError("registered dates or watermark drifted after Raw Plan")
+        raise EtfDailyBootstrapApplyError(
+            "Raw Plan contains an invalid existing target"
+        )
+    dates = raw_plan.selected_dates(first_batch=first_batch)
+    if tushare_dates and (
+        not raw_plan.historical or set(tushare_dates) - set(raw_plan.trade_dates)
+    ):
+        raise EtfDailyBootstrapApplyError(
+            "Tushare fallback date is outside the historical plan"
+        )
+    history_source = None
+    if raw_plan.historical:
+        if load_historical_dates(lake_root, duckdb_resource) != raw_plan.trade_dates:
+            raise EtfDailyBootstrapApplyError(
+                "historical calendar drifted after Raw Plan"
+            )
+        registered = instance.get_dynamic_partitions(cn_a_etf_mins_trade_days.name)
+        if set(dates) - set(registered):
+            raise EtfDailyBootstrapApplyError(
+                "historical dates must be registered before apply"
+            )
+        history_source = load_history_source(staging_root, raw_plan)
+    elif load_registered_bootstrap_dates(instance) != raw_plan.trade_dates:
+        raise EtfDailyBootstrapApplyError(
+            "registered dates or watermark drifted after Raw Plan"
+        )
     entries = load_checkpoint(checkpoint_path)
     _validate_phase_checkpoint(entries, phase="raw", plan_hash=raw_plan.raw_plan_hash)
+    if history_source and any(
+        (item.source or {}).get("source_fingerprint") != history_source.fingerprint
+        for item in entries
+        if item.phase == "raw"
+    ):
+        raise EtfDailyBootstrapApplyError(
+            "historical source differs from Raw checkpoint"
+        )
+    fallback_dates = set(tushare_dates) | (
+        history_source.tushare_dates if history_source else set()
+    )
+    if any(
+        item.phase == "raw"
+        and item.asset_key == FUND_DAILY_RAW_SPEC.asset_key
+        and item.trade_date in fallback_dates
+        and (item.source or {}).get("name") == PROD_FUND_DAILY_TABLE
+        for item in entries
+    ):
+        raise EtfDailyBootstrapApplyError(
+            "Tushare fallback conflicts with an already published Prod file"
+        )
     current = inspect_targets(
         duckdb_resource=duckdb_resource,
         lake_root=lake_root,
-        trade_dates=raw_plan.trade_dates,
+        trade_dates=dates,
         specs=(FUND_DAILY_RAW_SPEC, FUND_ADJ_RAW_SPEC),
     )
     _validate_target_preflight(
-        frozen=raw_plan.raw_targets,
+        frozen=tuple(item for item in raw_plan.raw_targets if item.trade_date in dates),
         current=current,
         completed=entries,
         phase="raw",
     )
     _validate_space(staging_root, raw_plan.estimated_new_bytes)
-    completed = {(item.asset_key, item.trade_date) for item in entries if item.phase == "raw"}
+    completed = {
+        (item.asset_key, item.trade_date) for item in entries if item.phase == "raw"
+    }
     started = perf_counter()
-    for batch in _chunks(raw_plan.trade_dates, ETF_DAILY_BOOTSTRAP_BATCH_DAYS):
+    for batch in _chunks(dates, ETF_DAILY_BOOTSTRAP_BATCH_DAYS):
         for trade_date in batch:
             for writer, spec in (
                 (write_fund_daily_raw_partition, FUND_DAILY_RAW_SPEC),
@@ -279,6 +346,11 @@ def run_raw_apply(
             ):
                 if (spec.asset_key, trade_date) in completed:
                     continue
+                use_prod = (
+                    history_source is not None
+                    and spec is FUND_DAILY_RAW_SPEC
+                    and trade_date not in fallback_dates
+                )
                 result = writer(
                     lake_root_path=lake_root,
                     staging_root_path=staging_root,
@@ -286,17 +358,34 @@ def run_raw_apply(
                     tushare=tushare,
                     partition_key=trade_date,
                     operation_id=f"{raw_plan.operation_id}-raw-apply",
+                    **({"historical_source": history_source.path} if use_prod else {}),
                 )
+                source = None
+                if history_source is not None:
+                    source = {
+                        "name": PROD_FUND_DAILY_TABLE if use_prod else spec.api_name,
+                        "fetched_at": (
+                            history_source.fetched_at
+                            if use_prod
+                            else datetime.now().astimezone().isoformat()
+                        ),
+                        "trade_date": trade_date,
+                        "source_fingerprint": history_source.fingerprint,
+                        "row_count": result.source_row_count,
+                    }
                 append_checkpoint(
                     checkpoint_path,
-                    entry=_checkpoint_from_raw(raw_plan.raw_plan_hash, result),
+                    entry=_checkpoint_from_raw(
+                        raw_plan.raw_plan_hash, result, source=source
+                    ),
                 )
                 completed.add((spec.asset_key, trade_date))
     payload = _apply_report(
         phase="raw",
         plan_hash=raw_plan.raw_plan_hash,
         checkpoint_path=checkpoint_path,
-        expected_count=2 * len(raw_plan.trade_dates),
+        expected_count=2 * len(dates),
+        dates=dates,
         elapsed_ms=(perf_counter() - started) * 1000,
     )
     atomic_write_json(output_path, payload)
@@ -319,8 +408,16 @@ def run_silver_apply(
         raise EtfDailyBootstrapApplyError("Silver apply confirmation is required")
     validate_roots(lake_root, staging_root)
     if silver_plan.should_stop:
-        raise EtfDailyBootstrapApplyError("Silver Plan contains an invalid existing target")
-    if silver_plan.parent_raw_plan_hash != raw_plan.raw_plan_hash:
+        raise EtfDailyBootstrapApplyError(
+            "Silver Plan contains an invalid existing target"
+        )
+    dates = silver_plan.trade_dates
+    first_batch = dates != raw_plan.trade_dates
+    if (
+        silver_plan.parent_raw_plan_hash != raw_plan.raw_plan_hash
+        or silver_plan.historical != raw_plan.historical
+        or dates != raw_plan.selected_dates(first_batch=first_batch)
+    ):
         raise EtfDailyBootstrapApplyError("Silver Plan parent Raw hash does not match")
     if silver_plan.coverage_policy_revision != ETF_DAILY_COVERAGE_POLICY_REVISION:
         raise EtfDailyBootstrapApplyError("coverage policy revision drifted")
@@ -329,17 +426,28 @@ def run_silver_apply(
         duckdb_resource=duckdb_resource,
         basic_reference=latest_basic_reference,
     )
-    if latest.reference_fingerprint != silver_plan.basic_reference.reference_fingerprint:
-        raise EtfDailyBootstrapApplyError("latest ready Basic changed after Silver Plan")
+    if (
+        latest.reference_fingerprint
+        != silver_plan.basic_reference.reference_fingerprint
+    ):
+        raise EtfDailyBootstrapApplyError(
+            "latest ready Basic changed after Silver Plan"
+        )
     manifest = build_raw_manifest(
         raw_plan=raw_plan,
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
+        first_batch=first_batch,
     )
-    if hash_payload([item.to_dict() for item in manifest]) != silver_plan.raw_manifest_hash:
+    if (
+        hash_payload([item.to_dict() for item in manifest])
+        != silver_plan.raw_manifest_hash
+    ):
         raise EtfDailyBootstrapApplyError("Raw manifest drifted after Silver Plan")
     entries = load_checkpoint(checkpoint_path)
-    _validate_phase_checkpoint(entries, phase="silver", plan_hash=silver_plan.silver_plan_hash)
+    _validate_phase_checkpoint(
+        entries, phase="silver", plan_hash=silver_plan.checkpoint_hash
+    )
     current = inspect_targets(
         duckdb_resource=duckdb_resource,
         lake_root=lake_root,
@@ -353,7 +461,9 @@ def run_silver_apply(
         phase="silver",
     )
     _validate_space(staging_root, silver_plan.estimated_new_bytes)
-    completed = {(item.asset_key, item.trade_date) for item in entries if item.phase == "silver"}
+    completed = {
+        (item.asset_key, item.trade_date) for item in entries if item.phase == "silver"
+    }
     started = perf_counter()
     for batch in _chunks(silver_plan.trade_dates, ETF_DAILY_BOOTSTRAP_BATCH_DAYS):
         for trade_date in batch:
@@ -373,7 +483,7 @@ def run_silver_apply(
                 )
                 append_checkpoint(
                     checkpoint_path,
-                    entry=_checkpoint_from_silver(silver_plan.silver_plan_hash, result),
+                    entry=_checkpoint_from_silver(silver_plan.checkpoint_hash, result),
                 )
                 completed.add((spec.asset_key, trade_date))
     payload = _apply_report(
@@ -381,6 +491,7 @@ def run_silver_apply(
         plan_hash=silver_plan.silver_plan_hash,
         checkpoint_path=checkpoint_path,
         expected_count=2 * len(silver_plan.trade_dates),
+        dates=dates,
         elapsed_ms=(perf_counter() - started) * 1000,
     )
     atomic_write_json(output_path, payload)
@@ -542,7 +653,10 @@ def _validate_target_preflight(
 
 
 def _checkpoint_from_raw(
-    plan_hash: str, result: EtfDailyRawWriteResult
+    plan_hash: str,
+    result: EtfDailyRawWriteResult,
+    *,
+    source: dict[str, object] | None = None,
 ) -> EtfDailyBootstrapCheckpointEntry:
     return EtfDailyBootstrapCheckpointEntry(
         plan_hash,
@@ -554,6 +668,7 @@ def _checkpoint_from_raw(
         result.written_row_count,
         result.write_mode,
         datetime.now().astimezone().isoformat(),
+        source,
     )
 
 
@@ -580,8 +695,13 @@ def _apply_report(
     checkpoint_path: Path,
     expected_count: int,
     elapsed_ms: float,
+    dates: tuple[str, ...],
 ) -> dict[str, object]:
-    entries = [item for item in load_checkpoint(checkpoint_path) if item.phase == phase]
+    entries = [
+        item
+        for item in load_checkpoint(checkpoint_path)
+        if item.phase == phase and item.trade_date in dates
+    ]
     if len(entries) != expected_count:
         raise EtfDailyBootstrapApplyError(
             f"{phase} checkpoint is incomplete: expected={expected_count}, actual={len(entries)}"
