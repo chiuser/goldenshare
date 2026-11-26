@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { PointerEventHandler, ReactNode } from "react";
 
 import type { DetailChartAxisFloatLabelState } from "./detailChartTypes";
 
@@ -9,6 +9,7 @@ interface DetailChartPaneProps {
   header: ReactNode;
   hidden?: boolean;
   hostRef: (node: HTMLDivElement | null) => void;
+  onPointerMoveCapture?: PointerEventHandler<HTMLDivElement>;
   overlay?: ReactNode;
 }
 
@@ -19,6 +20,7 @@ export function DetailChartPane({
   header,
   hidden,
   hostRef,
+  onPointerMoveCapture,
   overlay,
 }: DetailChartPaneProps) {
   return (
@@ -27,6 +29,7 @@ export function DetailChartPane({
       className={["detail-chart-panel", className].filter(Boolean).join(" ")}
       data-hidden={hidden || undefined}
       inert={hidden || undefined}
+      onPointerMoveCapture={onPointerMoveCapture}
     >
       <div className="detail-chart-panel-header">{header}</div>
       <div className="detail-chart-host" ref={hostRef} />

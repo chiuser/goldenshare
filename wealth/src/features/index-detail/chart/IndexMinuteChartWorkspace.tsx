@@ -84,6 +84,7 @@ function LoadedIndexMinuteChart({
         indicatorVersion={data.indicatorVersion} indicatorsPending={phase === "loading"} enabled={recognitionEnabled}>
       {xxm => <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
+      autoHideZoomControls
       bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} nineTurnControl={nineTurnControl} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
       dataKey={dataKey}

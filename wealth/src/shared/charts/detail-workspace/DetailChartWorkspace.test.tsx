@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { UTCTimestamp } from "lightweight-charts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { cloneElement } from "react";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { DetailChartWorkspace } from "./DetailChartWorkspace";
@@ -910,6 +911,38 @@ describe("DetailChartWorkspace", () => {
     expect(zoomOut).toBeDisabled();
     expect(zoomIn).toBeEnabled();
     expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual({ from: 120, to: 299 });
+  });
+
+  it("shows the opted-in zoom controls until three seconds after the last main-chart mouse movement", () => {
+    vi.useFakeTimers();
+    const rendered = render(cloneElement(workspaceElement(makePoints(300), "daily", "index:day"), {
+      autoHideZoomControls: true,
+    }));
+    const controls = screen.getByRole("group", { name: "K线缩放" });
+    const mainChart = screen.getByLabelText("共享K线主图");
+    const indicatorChart = screen.getByLabelText("共享MACD");
+
+    expect(controls).toHaveAttribute("data-auto-hidden", "true");
+    fireEvent.pointerMove(indicatorChart, { pointerType: "mouse" });
+    fireEvent.pointerMove(mainChart, { pointerType: "touch" });
+    expect(controls).toHaveAttribute("data-auto-hidden", "true");
+
+    fireEvent.pointerMove(mainChart, { pointerType: "mouse", clientX: 20 });
+    expect(controls).not.toHaveAttribute("data-auto-hidden");
+    act(() => vi.advanceTimersByTime(2_000));
+    fireEvent.pointerMove(controls, { pointerType: "mouse", clientX: 80 });
+    act(() => vi.advanceTimersByTime(2_999));
+    expect(controls).not.toHaveAttribute("data-auto-hidden");
+    fireEvent.pointerMove(indicatorChart, { pointerType: "mouse" });
+    act(() => vi.advanceTimersByTime(1));
+    expect(controls).toHaveAttribute("data-auto-hidden", "true");
+
+    fireEvent.pointerMove(mainChart, { pointerType: "mouse", clientX: 30 });
+    expect(controls).not.toHaveAttribute("data-auto-hidden");
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    rendered.unmount();
+    expect(vi.getTimerCount()).toBe(0);
+    vi.useRealTimers();
   });
 
   it("shows disabled controls for short data and no controls for empty data", () => {

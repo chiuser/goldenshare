@@ -71,6 +71,7 @@ export interface DetailChartQuantitativeStructure {
 interface DetailChartWorkspaceBaseProps {
   dataKey: string;
   ariaLabel: string;
+  autoHideZoomControls?: boolean;
   crosshairPresentation?: DetailChartCrosshairPresentation;
   hiddenIndicatorPanels?: ReadonlySet<DetailChartIndicatorPanelKey>;
   mainLines: DetailChartLineDefinition[];

@@ -127,6 +127,7 @@ export function IndexChartWorkspace({
         {addon =>
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
+      autoHideZoomControls
       bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
         <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend} />
         {addon.controls}
@@ -213,6 +214,7 @@ export function IndexPeriodChartWorkspace({ period, dataKey, series, indicatorCo
 
   return <DetailChartWorkspace
     ariaLabel={ariaLabel}
+    autoHideZoomControls
     bottomBar={<>
       <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={false} />
       {phase === "delayed" || phase === "partial" ? <span className="index-period-status-message" role="status">

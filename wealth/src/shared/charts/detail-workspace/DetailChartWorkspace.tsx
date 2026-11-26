@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -121,10 +121,12 @@ interface DetailChartHistoryData {
 }
 
 const HISTORY_GUTTER_PX = 74;
+const ZOOM_CONTROLS_IDLE_MS = 3_000;
 const EMPTY_MAIN_PRIMITIVES: NonNullable<DetailChartWorkspaceProps["mainPrimitives"]> = [];
 
 export function DetailChartWorkspace({
   ariaLabel,
+  autoHideZoomControls = false,
   bottomBar,
   bottomBarAriaLabel,
   crosshairPresentation = "synchronized-overlay",
@@ -182,6 +184,17 @@ export function DetailChartWorkspace({
   const zoomAvailability = viewportUi.dataKey === dataKey && viewportUi.visibleCount > 0
     ? resolveZoomAvailability(viewportUi.visibleCount, points.length)
     : { canZoomIn: false, canZoomOut: false };
+  const [zoomControlsVisible, setZoomControlsVisible] = useState(false);
+  const zoomControlsHideTimer = useRef<number | undefined>(undefined);
+
+  useEffect(() => () => window.clearTimeout(zoomControlsHideTimer.current), []);
+
+  function handleMainChartPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "mouse") return;
+    if (!zoomControlsVisible) setZoomControlsVisible(true);
+    window.clearTimeout(zoomControlsHideTimer.current);
+    zoomControlsHideTimer.current = window.setTimeout(() => setZoomControlsVisible(false), ZOOM_CONTROLS_IDLE_MS);
+  }
 
   const commitViewportRange = useCallback((
     range: DetailChartLogicalRange | null,
@@ -879,6 +892,7 @@ export function DetailChartWorkspace({
           className="kline-panel"
           header={renderMainHeader(latest)}
           hostRef={(node) => { chartRefs.current.kline = node; }}
+          onPointerMoveCapture={autoHideZoomControls && points.length > 0 ? handleMainChartPointerMove : undefined}
           overlay={(
             <>
               {mainLayerAccessory}
@@ -892,6 +906,7 @@ export function DetailChartWorkspace({
               {latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}
               {points.length > 0 ? (
                 <DetailChartZoomControls
+                  autoHidden={autoHideZoomControls && !zoomControlsVisible}
                   canZoomIn={zoomAvailability.canZoomIn}
                   canZoomOut={zoomAvailability.canZoomOut}
                   onZoomIn={() => zoom("in")}
