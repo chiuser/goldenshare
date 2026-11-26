@@ -203,9 +203,13 @@ class OperationsWorker:
         )
         stock_period_adj = isinstance(execution_context, dict) and execution_context.get('contract_kind') == 'stock_period_adj/v1'
         financial_statement = "financial_statement" in (task_run.plan_snapshot_json or {})
+        index_minute_volume_repair = (
+            task_run.task_type == "dataset_action" and task_run.resource_key == "index_mins"
+            and "index_minute_volume_repair" in (task_run.plan_snapshot_json or {})
+        )
         preserve_business_progress = (
             announcement or weekly_adj or index_period_raw or stock_period_adj
-            or financial_statement
+            or financial_statement or index_minute_volume_repair
             or (index_period_serving and outcome.ingestion_diagnostics is None)
         )
         maintenance_incomplete = task_run.task_type == "maintenance_action" and final_status in {"failed", "canceled"}

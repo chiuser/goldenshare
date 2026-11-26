@@ -103,12 +103,102 @@ class TaskRunDispatcher:
                 status_reason_code=outcome.status_reason_code,
             )
         if task_run.task_type == "dataset_action":
+            if task_run.resource_key == "index_mins" and "index_minute_volume_repair" in (task_run.request_payload_json or {}):
+                return self._dispatch_index_minute_volume_repair(session, task_run)
             return self._dispatch_dataset_action(session, task_run)
         if task_run.task_type == "workflow":
             return self._dispatch_workflow(session, task_run)
         if task_run.task_type == "maintenance_action":
             return self._dispatch_maintenance_action(session, task_run)
         raise WebAppError(status_code=422, code="validation_error", message="不支持的任务类型")
+
+    def _dispatch_index_minute_volume_repair(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
+        from pathlib import Path
+
+        from src.foundation.ingestion.index_minute_volume_repair import (
+            apply_volume_repair_group,
+            iter_frozen_volume_repair,
+            verify_frozen_volume_repair,
+        )
+
+        if task_run.action != "maintain" or task_run.trigger_source not in {"system", "retry"}:
+            raise ValueError("指数分钟成交量重刷仅接受后台提交的冻结清单")
+        payload = task_run.request_payload_json["index_minute_volume_repair"]
+        path = Path(payload["manifest"])
+        with path.open("rb") as stream:
+            header = verify_frozen_volume_repair(stream, payload["sha256"])
+            total = header["unit_total"]
+            run_id = task_run.id
+            node = self._create_node(
+                session, task_run_id=run_id, node_key=payload["sha256"],
+                node_type="dataset_plan", sequence_no=1, title="指数分钟成交量重刷",
+                resource_key="index_mins", time_input=dict(task_run.time_input_json or {}),
+                context={"scope": header["scope"]},
+            )
+            task_run.current_node_id = node.id
+            task_run.unit_total = total
+            task_run.plan_snapshot_json = {"index_minute_volume_repair": {**header, **payload}}
+            session.commit()
+
+            observer = TaskRunIngestionContext(session, independent_cancel=True, timeout_seconds=30)
+            done = checked = updated = 0
+            status = "success"
+            issue = None
+
+            def check_cancel():
+                if observer.is_cancel_requested(run_id=run_id):
+                    raise IngestionCanceledError("指数分钟成交量重刷已停止")
+
+            def report(group):
+                observer.update_progress(
+                    run_id=run_id, unit_done=done, unit_failed=0, total=total,
+                    message="按清单重刷成交量",
+                    rows_fetched=checked, rows_saved=updated,
+                    current_object={
+                        "entity": {"code": group.ts_code},
+                        "time": {"point": group.trade_date.isoformat()},
+                        "attributes": {"frequency": group.freq, "stage": "按清单重刷",
+                                       "updated_at": datetime.now(timezone.utc).isoformat()},
+                    },
+                )
+
+            try:
+                for group in iter_frozen_volume_repair(stream, header["scope"]):
+                    check_cancel()
+                    report(group)
+                    with Session(bind=session.get_bind()) as business:
+                        business.execute(text("SET LOCAL statement_timeout = '30s'"))
+                        changed = apply_volume_repair_group(business, group)
+                        business.commit()
+                    done += 1
+                    checked += len(group.rows)
+                    updated += changed
+                    report(group)
+                    check_cancel()
+            except IngestionCanceledError:
+                status = "canceled"
+            except Exception as exc:
+                status = "failed"
+                issue = self._record_issue(
+                    session, task_run=task_run, node_id=node.id, code="ingestion_failed",
+                    title="指数分钟成交量重刷失败", operator_message=str(exc),
+                    suggested_action="核对冻结清单和失败分组，再用同一清单重试。",
+                    technical_message=str(exc), source_phase="execute", severity="error",
+                )
+
+            task_run.rows_fetched = checked
+            task_run.rows_saved = updated
+            task_run.unit_done = done
+            task_run.unit_failed = int(status == "failed")
+            task_run.progress_percent = int(done / total * 100)
+            self._finish_node(node, status=status, rows_fetched=checked, rows_saved=updated)
+            session.commit()
+            return TaskRunDispatchOutcome(
+                status=status, rows_fetched=checked, rows_saved=updated,
+                summary_message=f"已完成 {done}/{total} 组，核对 {checked} 根，更新 {updated} 根",
+                issue_id=issue.id if issue else None,
+                status_reason_code=issue.code if issue else ("ingestion_canceled" if status == "canceled" else None),
+            )
 
     def _dispatch_dataset_action(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
         node = None
