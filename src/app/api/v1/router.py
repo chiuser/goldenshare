@@ -196,13 +196,16 @@ def _include_local_etf_activity(target_router: APIRouter, settings: Settings) ->
     if not etf_activity_enabled(settings):
         return
 
-    from src.biz.api.wealth.market import etf_activity
+    from src.biz.api.wealth.market import etf_activity, major_etf_monitor
     from src.foundation.clients.local_lake.etf_daily_reader import EtfDailyLakeReader
 
     configured_root = settings.goldenshare_lake_root.strip()
     root = Path(configured_root).expanduser().resolve() if configured_root else None
     reader = EtfDailyLakeReader(root if root == FORMAL_LAKE_ROOT.resolve() else None)
     target_router.include_router(etf_activity.build_router(
+        reader=reader, auth_dependency=require_quote_access, error_factory=WebAppError,
+    ))
+    target_router.include_router(major_etf_monitor.build_router(
         reader=reader, auth_dependency=require_quote_access, error_factory=WebAppError,
     ))
 

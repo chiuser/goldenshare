@@ -291,6 +291,7 @@ docs/
 
 ## 6. 前端、业务与发布（S4）
 
+- 财势探查「主要ETF（国家队）监测」（第 1 阶段真实 DG 对账完成，待验收确认） [技术实施方案 v1](../wealth/docs/pages/wealth-exploration/major-etf-monitor-implementation-design-v1.md) · [低层设计 v1](../wealth/docs/pages/wealth-exploration/major-etf-monitor-low-level-design-v1.md)
 - [上证指数详情页日线接入方案 v1（四组指标、分页与图层日期对齐，待评审）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-daily-kline-integration-implementation-design-v1.md)
 - [指数详情页周线、月线实施方案 v1（阶段三本机真实页面验收通过）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-weekly-monthly-implementation-design-v1.md)
 - [指数详情页周线、月线 LLD v1（接口与真实页面验收）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-weekly-monthly-low-level-design-v1.md)

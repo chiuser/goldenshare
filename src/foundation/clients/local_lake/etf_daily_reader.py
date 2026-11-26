@@ -53,7 +53,7 @@ class EtfDailyLakeReader:
         self.root = root
         self.calendar = LakeTradeCalendarReader(root, connection_config=_DUCKDB_CONFIG)
 
-    def daily_files(self, *, through: date, deadline: float) -> dict[date, Path]:
+    def daily_files(self, *, through: date, deadline: float, require_directory: bool = False) -> dict[date, Path]:
         root = self.root
         if root is None:
             raise EtfDailyReadError("ETF 动态未配置正式 DG 根目录")
@@ -64,6 +64,8 @@ class EtfDailyLakeReader:
             try:
                 partitions = list(directory.iterdir())
             except FileNotFoundError:
+                if require_directory:
+                    raise
                 # The calendar read still distinguishes an empty lake from an unavailable mount.
                 return {}
             files = {}

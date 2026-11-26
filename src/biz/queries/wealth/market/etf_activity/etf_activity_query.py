@@ -1,11 +1,11 @@
 """Query a bounded set of DG ETF daily partitions for the Wealth ETF module."""
 
-from calendar import monthrange
 from datetime import date
 import logging
 from pathlib import Path
 from time import monotonic
 
+from src.biz.queries.wealth.market.date_windows import months_before
 from src.biz.schemas.wealth.market.etf_activity import (
     EtfActivityRankErrorDto,
     EtfActivityRankRowDto,
@@ -103,12 +103,6 @@ ORDER BY rank
 """
 
 
-def _months_before(day: date, months: int) -> date:
-    year, zero_based_month = divmod(day.year * 12 + day.month - 1 - months, 12)
-    month = zero_based_month + 1
-    return date(year, month, min(day.day, monthrange(year, month)[1]))
-
-
 def _rank(
     reader: EtfDailyLakeReader,
     files: dict[date, Path],
@@ -158,7 +152,7 @@ def query_etf_activity(reader: EtfDailyLakeReader, *, today: date) -> EtfActivit
         return EtfActivityResponseDto(ranking=EtfActivityRankingDto(status="empty"))
 
     trade_date = latest.trade_date
-    three_month_start = _months_before(trade_date, 3)
+    three_month_start = months_before(trade_date, 3)
     warmup = reader.calendar.recent_open_rows(
         exchange=_EXCHANGE, bound=three_month_start, include_bound=False, limit=19,
         timeout_seconds=remaining_etf_read_seconds(deadline),
@@ -189,7 +183,7 @@ def query_etf_activity(reader: EtfDailyLakeReader, *, today: date) -> EtfActivit
     return EtfActivityResponseDto(
         tradeDate=trade_date,
         previousTradeDate=previous_date,
-        oneMonthStartDate=_months_before(trade_date, 1),
+        oneMonthStartDate=months_before(trade_date, 1),
         trend=[
             EtfActivityTrendPointDto(tradeDate=day, amountYuan=amount, ma5Yuan=ma5, ma20Yuan=ma20)
             for day, amount, ma5, ma20 in rows

@@ -450,3 +450,13 @@ HTTP异常仍复用已登记XXMF_*，没有新增HTTP异常码。200响应的rea
 | --- | --- | --- |
 | `ETF_ACTIVITY_SOURCE_UNAVAILABLE` | 503 | 正式根目录、交易日历或趋势读取失败或超时。可手动重试。 |
 | `ETF_ACTIVITY_RANKING_UNAVAILABLE` | 200，`ranking.error.code` | 趋势可用，榜单日线、名称快照或同日 DG 物化引用不可用，或榜单查询超时。保留趋势，榜单可手动重试。 |
+
+<a id="major-etf-monitor-local-api"></a>
+
+## 主要ETF（国家队）监测本地 API（2026-11-27）
+
+适用于 `GET /api/v1/wealth/market/major-etf-monitor`。依据[主要ETF（国家队）监测 LLD](../pages/wealth-exploration/major-etf-monitor-low-level-design-v1.md)。
+
+| 错误码 | HTTP | 语义 |
+| --- | --- | --- |
+| `MAJOR_ETF_MONITOR_SOURCE_UNAVAILABLE` | 503 | DG ETF 日线目录、同日基础信息引用、Parquet 内容或读取时限异常，可手动重试。可读空目录或无可用标的数据按成功空结果返回。 |

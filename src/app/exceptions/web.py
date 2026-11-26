@@ -22,6 +22,7 @@ def _response_headers(request: Request) -> dict[str, str]:
     if request.method == "GET" and request.url.path in {
         "/api/v1/wealth/market/index-detail/debug/daily-waves",
         "/api/v1/wealth/market/etf-activity",
+        "/api/v1/wealth/market/major-etf-monitor",
     }:
         return {"Cache-Control": "no-store"}
     return {}
