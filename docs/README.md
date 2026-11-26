@@ -177,6 +177,7 @@ docs/
 - [申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/sw-daily-sw2021-low-level-design-v1.md)
 - [A股市场温度/情绪与 Walk-forward 指标口径说明 v1](/Users/congming/github/goldenshare/docs/datasets/market-mood-metrics-and-walkforward-spec-v1.md)
 - [Prod 指数日线现行机制与周、月线切换及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)
+- [指数成交量归一化、展示与深证成指历史修复方案 v1（最近三年 DG 日线修复已验收）](/Users/congming/github/goldenshare/docs/datasets/index-volume-normalization-plan-v1.md)
 - [Prod 指数周线和月线低层设计 v1（待审阅）](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)
 - [DG 指数周线、月线数据集方案与低层设计 v1（周月分区、完整历史文件；复用 DG 日线 Silver，组件取得正式周期值；未开发）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-index-period-onboarding-plan-and-low-level-design-v1.md)
 - [指数基础信息维护说明（当前输入、日期存储与权重回退；market 来源口径差异单列）](/Users/congming/github/goldenshare/docs/datasets/index-basic-source-alignment-fix-plan-v1.md)
