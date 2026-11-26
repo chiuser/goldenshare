@@ -31,6 +31,7 @@ import {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
   window.history.replaceState({}, "", DEFAULT_WEALTH_PATH);
 });
 
@@ -69,6 +70,19 @@ describe("buildIndexDetailPath", () => {
 });
 
 describe("wealth exploration route", () => {
+  it.each([
+    { dev: false, mode: "production", kind: "not-exploration" },
+    { dev: true, mode: "production", kind: "not-exploration" },
+    { dev: false, mode: "development", kind: "not-exploration" },
+    { dev: true, mode: "development", kind: "etf-activity" },
+    { dev: false, mode: "local-dg", kind: "etf-activity" },
+  ])("resolves the ETF path only when enabled in $mode (DEV=$dev)", ({ dev, mode, kind }) => {
+    vi.stubEnv("DEV", dev);
+    vi.stubEnv("MODE", mode);
+    expect(resolveWealthExplorationRoute("/wealth/exploration/etf-activity")).toEqual({ kind });
+    expect(resolveWealthExplorationRoute("/wealth/exploration/etf-activity/extra")).toEqual({ kind: "not-exploration" });
+  });
+
   it("builds each exact route while preserving the query", () => {
     const params = new URLSearchParams({ market: "CN_A", tradeDate: "2026-08-21" });
     expect(buildWealthExplorationPath(params)).toBe(

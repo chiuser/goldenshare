@@ -12,6 +12,7 @@ import { IndexDetailPage, type IndexDetailPageProps } from "../../pages/index-de
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
 import { WatchlistPage } from "../../pages/watchlist/WatchlistPage";
 import { TradingAssistantPage } from "../../pages/trading-assistant/TradingAssistantPage";
+import { EtfActivityPage } from "../../pages/wealth-exploration/EtfActivityPage";
 import { SectorAnalysisPage } from "../../pages/wealth-exploration/SectorAnalysisPage";
 import { TurnoverInsightPage } from "../../pages/wealth-exploration/TurnoverInsightPage";
 import { WealthExplorationLandingPage } from "../../pages/wealth-exploration/WealthExplorationLandingPage";
@@ -78,6 +79,7 @@ export function WealthRouter() {
   const explorationRoute = resolveWealthExplorationRoute(location.pathname);
   if (explorationRoute.kind === "landing") return <WealthExplorationLandingPage search={location.search} />;
   if (explorationRoute.kind === "turnover-insight") return <TurnoverInsightPage search={location.search} />;
+  if (explorationRoute.kind === "etf-activity") return <EtfActivityPage />;
   if (explorationRoute.kind === "sector-analysis-redirect") {
     return <ExplorationRedirect search={location.search} />;
   }

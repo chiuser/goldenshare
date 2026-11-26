@@ -1,6 +1,6 @@
 import { ShortcutBar } from "../../../shared/ui/shortcut-bar/ShortcutBar";
 import {
-  explorationShortcutItems,
+  getExplorationShortcutItems,
   type ExplorationShortcutKey,
 } from "./explorationNavigation";
 
@@ -10,5 +10,5 @@ interface ExplorationShortcutBarProps {
 }
 
 export function ExplorationShortcutBar({ activeKey, onNavigate }: ExplorationShortcutBarProps) {
-  return <ShortcutBar activeKey={activeKey} items={explorationShortcutItems} onNavigate={onNavigate} />;
+  return <ShortcutBar activeKey={activeKey} items={getExplorationShortcutItems()} onNavigate={onNavigate} />;
 }

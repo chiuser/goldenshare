@@ -35,7 +35,7 @@ function readRouteSearch(search: string | undefined): string {
   return typeof window === "undefined" ? "" : window.location.search;
 }
 
-export function useWealthExplorationShell(search?: string): WealthExplorationShellState {
+export function useWealthExplorationShell(search?: string, enabled = true): WealthExplorationShellState {
   const routeSearch = readRouteSearch(search);
   const contextRequest = useMemo(() => readMarketContextRequest(routeSearch), [routeSearch]);
   const [contextAttempt, setContextAttempt] = useState(0);
@@ -46,6 +46,7 @@ export function useWealthExplorationShell(search?: string): WealthExplorationShe
   const retryContext = useCallback(() => setContextAttempt((value) => value + 1), []);
 
   useEffect(() => {
+    if (!enabled) return;
     let canceled = false;
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), PAGE_CONTEXT_TIMEOUT_MS);
@@ -80,9 +81,10 @@ export function useWealthExplorationShell(search?: string): WealthExplorationShe
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [contextRequest.debug, contextRequest.market, contextRequest.tradeDate, contextAttempt]);
+  }, [contextRequest.debug, contextRequest.market, contextRequest.tradeDate, contextAttempt, enabled]);
 
   useEffect(() => {
+    if (!enabled) return;
     if (!pageContext) {
       setTickers([]);
       return;
@@ -111,7 +113,7 @@ export function useWealthExplorationShell(search?: string): WealthExplorationShe
       controller.abort();
       window.clearTimeout(timeoutId);
     };
-  }, [contextRequest.debug, pageContext?.market, pageContext?.tradeDate]);
+  }, [contextRequest.debug, pageContext?.market, pageContext?.tradeDate, enabled]);
 
   return {
     model: { contextState, pageContext, tickers, retryContext },

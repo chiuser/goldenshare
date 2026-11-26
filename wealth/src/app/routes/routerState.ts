@@ -1,10 +1,12 @@
 import type { TopMarketNavKey } from "../../shared/ui/top-market-bar/topMarketBarTypes";
 import {
+  EXPLORATION_ETF_ACTIVITY_PATH,
   EXPLORATION_SECTOR_DAILY_INSIGHT_PATH,
   EXPLORATION_SECTOR_DUAL_MOMENTUM_PATH,
   EXPLORATION_SECTOR_MOMENTUM_PATH,
   EXPLORATION_SECTOR_RELATIVE_ROTATION_PATH,
   EXPLORATION_TURNOVER_PATH,
+  isEtfActivityEnabled,
 } from "../../features/wealth-exploration/navigation/explorationNavigation";
 
 export const DEFAULT_WEALTH_PATH = "/wealth/market/overview";
@@ -92,6 +94,7 @@ export function buildIndexDetailPath(tsCode: string): string {
 export type WealthExplorationRoute =
   | { kind: "landing" }
   | { kind: "turnover-insight" }
+  | { kind: "etf-activity" }
   | { kind: "sector-analysis-redirect" }
   | { kind: "sector-analysis-daily-insight" }
   | { kind: "sector-analysis-momentum" }
@@ -142,6 +145,7 @@ export function buildSectorAnalysisPriceVolumePath(search?: RouteSearch): string
 export function resolveWealthExplorationRoute(pathname: string): WealthExplorationRoute {
   if (pathname === WEALTH_EXPLORATION_PATH) return { kind: "landing" };
   if (pathname === WEALTH_EXPLORATION_TURNOVER_PATH) return { kind: "turnover-insight" };
+  if (pathname === EXPLORATION_ETF_ACTIVITY_PATH && isEtfActivityEnabled()) return { kind: "etf-activity" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_PATH) return { kind: "sector-analysis-redirect" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_DAILY_INSIGHT_PATH) return { kind: "sector-analysis-daily-insight" };
   if (pathname === WEALTH_EXPLORATION_SECTOR_MOMENTUM_PATH) return { kind: "sector-analysis-momentum" };

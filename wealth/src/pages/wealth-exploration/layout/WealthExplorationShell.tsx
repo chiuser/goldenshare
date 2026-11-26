@@ -28,6 +28,7 @@ interface WealthExplorationShellProps {
   children?: (props: WealthExplorationShellRenderProps) => ReactNode;
   currentPageLabel?: string;
   search?: string;
+  showMarketContext?: boolean;
 }
 
 export function WealthExplorationShell({
@@ -35,8 +36,9 @@ export function WealthExplorationShell({
   children,
   currentPageLabel,
   search,
+  showMarketContext = true,
 }: WealthExplorationShellProps) {
-  const { model, contextErrorMessage } = useWealthExplorationShell(search);
+  const { model, contextErrorMessage } = useWealthExplorationShell(search, showMarketContext);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -75,13 +77,13 @@ export function WealthExplorationShell({
         activeNav="exploration"
         onNavigate={handleTopNavigate}
         onTickerSelect={(tsCode) => navigateWealth(buildIndexDetailPath(tsCode))}
-        tickers={model.tickers}
+        tickers={showMarketContext ? model.tickers : []}
       />
-      <main className="page-shell wealth-exploration-shell">
+      <main className={`page-shell wealth-exploration-shell${showMarketContext ? "" : " wealth-exploration-shell--without-market-context"}`}>
         <PageBreadcrumb
           items={breadcrumbItems}
           onNavigate={navigateWealth}
-          sessionStatus={model.pageContext?.sessionStatus ?? "CLOSED"}
+          sessionStatus={showMarketContext ? model.pageContext?.sessionStatus ?? "CLOSED" : undefined}
         />
         <ExplorationShortcutBar activeKey={activeShortcutKey} onNavigate={navigateWealth} />
         {children?.({ model, contextErrorMessage, showToast })}

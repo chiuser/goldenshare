@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_WEALTH_PATH } from "../../app/routes/routerState";
@@ -22,11 +22,18 @@ function majorIndicesPayload() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
   window.history.replaceState({}, "", DEFAULT_WEALTH_PATH);
 });
 
 describe("WealthExplorationLandingPage", () => {
-  it("loads only shared context and tickers and renders two unselected entry cards", async () => {
+  it.each([
+    { dev: false, mode: "production", local: false },
+    { dev: true, mode: "development", local: true },
+    { dev: false, mode: "local-dg", local: true },
+  ])("loads only existing data and shows the expected shortcuts in $mode", async ({ dev, mode, local }) => {
+    vi.stubEnv("DEV", dev);
+    vi.stubEnv("MODE", mode);
     const urls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
@@ -41,9 +48,14 @@ describe("WealthExplorationLandingPage", () => {
     await waitFor(() => expect(urls).toHaveLength(2));
     expect(urls.some((url) => url.includes("turnover-insight"))).toBe(false);
     expect(urls.some((url) => url.includes("sector-analysis"))).toBe(false);
+    expect(urls.some((url) => url.includes("etf-activity"))).toBe(false);
     expect(screen.getByText("财势探查", { selector: ".current" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /成交额洞察/ })).not.toHaveClass("selected");
     expect(screen.getByRole("button", { name: /板块分析/ })).not.toHaveClass("selected");
+    const shortcuts = within(screen.getByRole("region", { name: /页面内快捷入口/ }));
+    expect(shortcuts.getAllByRole("button")).toHaveLength(local ? 3 : 2);
+    if (local) expect(shortcuts.getAllByRole("button")[2]).toHaveTextContent("ETF 动态");
+    else expect(shortcuts.queryByRole("button", { name: /ETF 动态/ })).not.toBeInTheDocument();
   });
 
   it("navigates to a module only after its entry is selected", async () => {

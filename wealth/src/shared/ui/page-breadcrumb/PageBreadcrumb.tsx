@@ -11,7 +11,7 @@ export type PageSessionStatus = "PRE_OPEN" | "TRADING" | "BREAK" | "CLOSED";
 
 interface PageBreadcrumbProps {
   items: readonly PageBreadcrumbItem[];
-  sessionStatus: PageSessionStatus;
+  sessionStatus?: PageSessionStatus;
   onNavigate: (path: string) => void;
   centerSlot?: ReactNode;
 }
@@ -43,11 +43,13 @@ export function PageBreadcrumb({
   centerSlot,
 }: PageBreadcrumbProps) {
   const [now, setNow] = useState(() => new Date());
+  const showTime = sessionStatus !== undefined;
 
   useEffect(() => {
+    if (!showTime) return;
     const timer = window.setInterval(() => setNow(new Date()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [showTime]);
 
   return (
     <div className="breadcrumb-row" aria-label="Breadcrumb">
@@ -67,7 +69,7 @@ export function PageBreadcrumb({
         })}
       </div>
       {centerSlot ? <div className="breadcrumb-center">{centerSlot}</div> : null}
-      <div className="breadcrumb-meta" aria-label="页面时间状态">
+      {sessionStatus !== undefined && <div className="breadcrumb-meta" aria-label="页面时间状态">
         <span>{formatDateText(now)}</span>
         <span>{weekdays[now.getDay()]}</span>
         <span className="num">{formatTimeText(now)}</span>
@@ -75,7 +77,7 @@ export function PageBreadcrumb({
           <span className="status-dot ready" />
           {formatSessionStatus(sessionStatus)}
         </span>
-      </div>
+      </div>}
     </div>
   );
 }

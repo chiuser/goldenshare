@@ -10,6 +10,7 @@ export function RangeSwitch({ value, options, onChange, ariaLabel }: RangeSwitch
     <div className="range-switch" aria-label={ariaLabel}>
       {options.map((option) => (
         <button
+          aria-pressed={value === option.value}
           className={option.value === value ? "active" : ""}
           key={option.value}
           type="button"
