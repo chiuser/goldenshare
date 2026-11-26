@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示方案 v1
 
-更新于 2026-11-26。阶段 1 已验收。阶段 2 的按清单重刷入口与隔离试点已验收，待正式部署及写入。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
+更新于 2026-11-26。阶段 1 已验收。阶段 2 的 Prod 上证综指 30 分钟正式试点已通过，首批重刷、DG 文件发布及读数切换待推进。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
 
 ## 1. 目标和范围
 
@@ -48,6 +48,8 @@ Prod 先按当时维护的指数范围核对 11 月 9、10、24、25 日的 30 �
 分钟技术指标、分钟九转和结构识别只消费价格或 MACD，单纯的成交量单位切换无需回算这些结果。市场成交额分析继续消费元；文件依赖发生变化时用已校验的行情候选确认相应任务状态。若有实际保存成交量的其他成品，按消费方核对后加入清单。[现有两处分钟单位逻辑](../../src/foundation/clients/technical_indicator_index_minutes.py#L8) · [结构识别读取列](../../src/biz/queries/wealth/market/index_detail_xxm/source.py#L252) · [成交额分析读取列](../../src/foundation/clients/local_lake/major_index_turnover_reader.py#L238)
 
 阶段 2 先实现 Prod 按冻结清单重刷的后台入口，复用现有指数分钟 worker、TaskRun 和任务节点。先在隔离 PostgreSQL 用上证综指 2026-11-24 的 9 根 30 分钟行情验证更新、读回和同清单重跑。隔离验收后停在部署及正式写入之前。
+
+2026-11-26 经确认完成 Prod 正式试点。上证综指同批 9 根成交量从 493,526,296 手改为 49,352,629,600 股，复核表和服务视图一致，同一清单重跑更新 0 根。DG 试点样本仅作只读对照。首批重刷及后续读数切换按本节执行。[正式试点记录](index-minute-volume-normalization-low-level-design-v1.md#prod-pilot-result)
 
 ## 3. 后续分钟写入保护
 

@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示 LLD v1
 
-更新于 2026-11-26。阶段 1 已验收。阶段 2 的按清单重刷入口与隔离试点已验收，待正式部署及写入。
+更新于 2026-11-26。阶段 1 已验收。阶段 2 的 Prod 上证综指 30 分钟正式试点已通过，首批重刷、DG 文件发布及读数切换待推进。
 
 依据[专项方案](index-minute-volume-normalization-plan-v1.md)。历史范围、换算阈值和交付顺序以该方案为准。源接口为 Tushare `idx_mins`，见本地源文档 [doc_id 419](../sources/tushare/指数专题/0419_股票历史分钟行情.md)。
 
@@ -125,6 +125,15 @@ RETURNING bars.ts_code, bars.freq, bars.trade_time, bars.vol;
 - 独立流式核对阶段 1 的本地预览，包含 189 个确认代码、10,395 组、667,359 根，最大单组 241 根。代码集合变化时拒绝准备或执行。本轮到部署及正式写入前停止。
 
 [后台入口](../../src/scripts/index_minute_volume_repair.py) · [更新与读回](../../src/foundation/ingestion/index_minute_volume_repair.py) · [隔离 PostgreSQL 验收](../../tests/test_index_minute_volume_repair_postgres.py)
+
+<a id="prod-pilot-result"></a>
+
+#### Prod 正式试点和独立审计
+
+- 2026-11-26 北京时间 22:12 至 22:13 在 Prod 执行。部署版本为 `7318d01a5`，实际迁移版本为 `20261126_000192`。试点对象为 `000001.SH / 30min / 2026-11-24`。首次提交前无排队或执行中的指数分钟任务，下次自动任务排在 2026-11-27 19:02。
+- 冻结清单 SHA-256 为 `55f9e9ac33f878701748ec2e38283f310985f77c3f2a451556b7e22a471cdbd3`。首次 TaskRun 21244、节点 35987 成功，核对 9 根、更新 9 根。用同一清单重跑 TaskRun 21245、节点 35988 成功，核对 9 根、更新 0 根。两次 worker 任务开始到结束分别为 67.2 和 31.0 毫秒。锁定查询的 `EXPLAIN` 计划为 Limit、LockRows、Index Scan。任务计时仅适用于本次试点。
+- 从 `raw_tushare.index_mins` 和 `core_serving.index_minute_bar` 独立逐根读回。两处成交量均由 493,526,296 手改为 49,352,629,600 股。时间键、开高低收、交易所、VWAP 及每根成交额均与更新前一致，成交额合计 771,861,010,308.9 元。重跑后再读回，结果一致。
+- DG 只读核对同日上证综指。通用 Raw 30 分钟、两套 Silver 30 分钟各为 9 根，两套 Silver 90 分钟各为 3 根，成交量合计仍为 493,526,296 手。本轮正式写入范围止于 Prod 这一组。首批重刷、DG 文件发布、按实际启用日补充日常同步的单位判断起点及读数切换均待后续推进。
 
 ### 3.3 DG 刷新文件及顺序
 
