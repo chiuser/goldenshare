@@ -15,6 +15,10 @@ from orchestrator.defs.assets.dc_board_raw import (
     raw_tushare_dc_index,
     raw_tushare_dc_member,
 )
+from orchestrator.defs.checks.daily_audit_coverage import (
+    BOARD_CLASSIFICATION_FILE_VERSION,
+    board_classification_file_version,
+)
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
@@ -219,19 +223,23 @@ def _core_check(
                 )
                 samples = _sample_rows(connection, sample_query, identity_columns)
             if relation_mode is not None:
+                index_path = raw_dc_index_path(lake_root.root(), partition_key)
+                index_version = board_classification_file_version(index_path) if relation_mode == "index_subset_daily" else None
                 coverage_by_date = batch_board_relation_coverage(
                     connection, lake_root=lake_root.root(), duckdb_resource=duckdb_resource,
-                    paths_by_date={partition_key: (path, raw_dc_index_path(lake_root.root(), partition_key))},
+                    paths_by_date={partition_key: (path, index_path)},
                 ) if relation_mode == "index_subset_daily" else {}
                 relation_result = audit_raw_board_relation(
                     connection,
                     source_path=path,
-                    index_path=raw_dc_index_path(lake_root.root(), partition_key),
+                    index_path=index_path,
                     mode=relation_mode,
                     coverage=coverage_by_date.get(partition_key),
                 )
                 relation_failed_count, relation_samples = relation_result
                 quote_metadata = relation_result.metadata()
+                if index_version and board_classification_file_version(index_path) == index_version:
+                    quote_metadata[BOARD_CLASSIFICATION_FILE_VERSION] = index_version
                 if relation_failed_count:
                     failed_rules.append("same_day_board_relation_integrity")
                     failed_row_count += relation_failed_count
@@ -254,6 +262,8 @@ def _core_check(
                 ),
             )
 
+    if not failed_rules and classification_codes is not None:
+        quote_metadata[BOARD_CLASSIFICATION_FILE_VERSION] = board_classification_file_version(path)
     return dg.AssetCheckResult(
         passed=not failed_rules,
         metadata=build_check_metadata(

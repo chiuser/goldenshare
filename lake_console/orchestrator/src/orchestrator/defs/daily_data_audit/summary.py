@@ -2,7 +2,10 @@ import json
 from datetime import date, datetime, time, timedelta
 
 from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET
-from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
+from orchestrator.defs.catalog.lake_assets import (
+    RAW_NAMECHANGE_CHECKS,
+    SILVER_STOCK_DAILY_CHECKS,
+)
 from orchestrator.defs.daily_data_audit.evidence import (
     SHANGHAI,
     DeliveryEvidence,
@@ -19,17 +22,45 @@ from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET,
 )
 from orchestrator.defs.run_contracts.index_period import INDEX_PERIOD_COVERAGE_RULE
+from orchestrator.defs.run_contracts.major_index_mins import (
+    MAJOR_INDEX_MINS_GOLD_ASSET_KEYS,
+    MAJOR_INDEX_MINS_SILVER_ASSET_KEYS,
+)
+from orchestrator.defs.run_contracts.major_index_mins_technical import (
+    MAJOR_INDEX_MINS_TECHNICAL_FREQS,
+    major_index_mins_technical_state_asset_key,
+)
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_ASSET,
+)
 
 STATUSES = ("complete", "gap", "pending", "not_applicable")
 CALENDAR_RAW = "raw_tushare_trade_calendar"
 CALENDAR_SILVER = "silver_trade_calendar"
-DC_MEMBER = {"raw_tushare_dc_member", "silver_dc_member"}
 DC_CLASSIFICATION = {"raw_tushare_dc_index", "silver_dc_index"}
 INDEX_BASIC = {"raw_tushare_index_basic", "silver_index_basic"}
 STOCK_DAILY_SILVER = "silver_stock_daily"
 STOCK_DAILY_QFQ_GOLD = "gold_stock_daily_qfq"
 LOCAL_TECHNICAL = "ch_dc_daily_technical"
 STOCK_BASIC_RAW = "raw_tushare_stock_basic"
+PUBLICATION_CHECK_REASONS = {
+    "silver_dc_industry_hierarchy": "当次行业层级快照通过固定基线与分类参照对账",
+    "raw_tushare_stock_daily": "当次股票日线通过当前上市且应交易股票的覆盖检查",
+    STOCK_DAILY_SILVER: "当次股票日线通过生命周期及应交易股票的覆盖检查",
+    "raw_index_daily": "当次指数日线通过登记指数名单的覆盖检查",
+    STRUCTURE_ASSET: "当日量化结构计算完成，原 Check 通过",
+    "silver_dc_member": "现有生产 Check 通过",
+    "gold_market_major_indices_daily": "当次主要指数日线通过固定名单覆盖检查",
+    "raw_tushare_idx_factor_pro": "当次指数技术因子通过有效指数名单的覆盖检查",
+    **dict.fromkeys(
+        (*MAJOR_INDEX_MINS_SILVER_ASSET_KEYS, *MAJOR_INDEX_MINS_GOLD_ASSET_KEYS),
+        "当次主要指数分钟线通过适用名单及本频度时点检查",
+    ),
+    **dict.fromkeys(
+        (major_index_mins_technical_state_asset_key(freq) for freq in MAJOR_INDEX_MINS_TECHNICAL_FREQS),
+        "当次主要指数分钟技术指标状态通过名单、最后时点及连续性检查",
+    ),
+}
 STOCK_MINUTE_QFQ_INPUTS = {
     f"gold_stk_mins_qfq_{target}m": f"silver_stk_mins_{source}m"
     for target, source in CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET.items()
@@ -265,6 +296,24 @@ def _checks_passed(names, checks):
     )
 
 
+def _stock_snapshot_input_matches(asset, input_version, rows):
+    if asset == "股票身份映射规则":
+        return True
+    source = rows.get(asset)
+    if not source or source["version"]["target_version"] != input_version:
+        return False
+    if asset == "raw_tushare_namechange":
+        passed = {
+            proof["check_name"]
+            for proof in source["completeness"]["evidence"]
+            if proof["type"] == "check" and proof["passed"]
+        }
+        return source["update"]["status"] == "updated" and passed.issuperset(
+            RAW_NAMECHANGE_CHECKS
+        )
+    return source["completeness"]["status"] == "complete"
+
+
 def _moneyflow_source(key, details, bundle, rows):
     raw = rows.get(MONEYFLOW_SILVER_INPUTS[key])
     check = bundle.checks.get(f"{key}_standardization_check")
@@ -429,7 +478,7 @@ def _reuse(target, day, actual, details, bundle, rows):
             return _reason(
                 "check_passed", "已复用该日技术因子源覆盖和同版键值对账"
             ), inputs
-    if key in DC_MEMBER:
+    if key == "raw_tushare_dc_member":
         return _reason("check_passed", "现有生产 Check 通过"), []
     if (
         key == ANNOUNCEMENT_ASSET
@@ -687,7 +736,7 @@ def _etf_daily(key, evidence, rows, recalculated):
         )
 
 
-def _row(target, day, observed_at, evidence, built, previous_stock_basic):
+def _row(target, day, observed_at, evidence, built, previous_stock_basic, stock_basic_runs_succeeded):
     key = target.asset_key
     details = materialization_fields(evidence) if evidence else {}
     record = evidence.materialization if evidence else None
@@ -806,12 +855,7 @@ def _row(target, day, observed_at, evidence, built, previous_stock_basic):
             status == "complete"
             and version["rule_version"] == "stock_snapshot_projection_v1"
             and any(
-                asset != "股票身份映射规则"
-                and (
-                    asset not in built
-                    or built[asset]["completeness"]["status"] != "complete"
-                    or built[asset]["version"]["target_version"] != input_version
-                )
+                not _stock_snapshot_input_matches(asset, input_version, built)
                 for asset, input_version in production_coverage["inputs"].items()
             )
         ):
@@ -819,22 +863,31 @@ def _row(target, day, observed_at, evidence, built, previous_stock_basic):
             reason = _reason(
                 "upstream_parity_only", "与本次输入转换一致，来源范围齐备待确认"
             )
-    elif key == STOCK_BASIC_RAW and update["status"] == "updated" and target_version:
-        counts_are_comparable = (
+    elif key == STOCK_BASIC_RAW and update["status"] == "updated":
+        reason = _reason("not_verified", "缺少两日同口径的股票基础信息成功发布及 Check")
+        if (
             previous_stock_basic
-            and previous_stock_basic.materialization
+            and stock_basic_runs_succeeded
             and _checks_passed(target.check_names, checks)
             and _checks_passed(target.check_names, previous_stock_basic.checks)
-        )
-        if counts_are_comparable:
+        ):
             previous_details = materialization_fields(previous_stock_basic)
-            previous_version = _target_version(previous_details)
             count = details.get("dagster/row_count")
             previous_count = previous_details.get("dagster/row_count")
-            if previous_version and count is not None and previous_count is not None:
-                version["inputs"] = [
-                    _versioned_input("上一交易日股票基础信息 Raw", previous_version)
-                ]
+            if (
+                all(
+                    (item.get("params") or {}).get("list_status") == "L,D,P,G"
+                    for item in (details, previous_details)
+                )
+                and count is not None
+                and previous_count is not None
+            ):
+                previous_version = _target_version(previous_details)
+                proof.append(_publication_ref(previous_stock_basic.materialization, previous_version))
+                if previous_version:
+                    version["inputs"] = [
+                        _versioned_input("上一交易日股票基础信息 Raw", previous_version)
+                    ]
                 if abs(count - previous_count) <= 20:
                     status = "complete"
                     reason = _reason(
@@ -844,6 +897,14 @@ def _row(target, day, observed_at, evidence, built, previous_stock_basic):
                     reason = _reason(
                         "not_verified", "股票基础信息全状态数量净增减超过 20 条"
                     )
+    elif record and key in PUBLICATION_CHECK_REASONS:
+        if key == "raw_index_daily" and not details.get("expected_code_set_hash"):
+            reason = _reason("not_verified", "缺少当次登记指数名单的范围记录")
+        elif _checks_passed(target.check_names, checks):
+            status = "complete"
+            reason = _reason("check_passed", PUBLICATION_CHECK_REASONS[key])
+        else:
+            reason = _reason("not_verified", "当次发布缺少通过的必需 Check")
     elif (
         target_version
         and record
@@ -1148,6 +1209,7 @@ def make_summary(
     stock_daily_qfq_file_exists=None,
     qfq_successful_deliveries=(),
     previous_stock_basic=None,
+    stock_basic_runs_succeeded=False,
     index_minute_results=None,
 ):
     prior_rows = (
@@ -1162,7 +1224,8 @@ def make_summary(
             built[key] = prior_rows[key]
         else:
             built[key] = _row(
-                target, day, observed_at, evidence.get(key), built, previous_stock_basic
+                target, day, observed_at, evidence.get(key), built, previous_stock_basic,
+                stock_basic_runs_succeeded,
             )
     recalculated = set(changed) if prior_rows else set(built)
     for key, raw_keys in STOCK_MINUTE_SILVER_INPUTS.items():

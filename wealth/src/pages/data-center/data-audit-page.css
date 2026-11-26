@@ -1,7 +1,7 @@
 .dc-audit-title h1 { font-size: 22px; line-height: 1.25; }
 .dc-audit-title { align-items: flex-end; }
 .dc-audit-title input { color-scheme: dark; }
-.dc-audit-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--cs-space-12); }
+.dc-audit-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--cs-space-12); }
 .dc-audit-metric { display: flex; flex-direction: column; align-items: flex-start; gap: var(--cs-space-8); padding: var(--cs-space-16); border-radius: var(--cs-radius-card); border: 1px solid var(--cs-color-border-subtle); background: var(--cs-color-bg-panel-soft); color: var(--cs-color-text-secondary); font-size: 13px; cursor: pointer; }
 .dc-audit-metric strong { color: var(--audit-status, var(--cs-color-text-secondary)); font-size: 28px; line-height: 1; }
 .dc-audit-metric[aria-pressed="true"] { border-color: var(--audit-status, var(--cs-color-border-default)); }

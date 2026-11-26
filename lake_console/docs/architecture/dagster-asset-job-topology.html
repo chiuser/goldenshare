@@ -1314,6 +1314,7 @@
       </div>
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
+        <p><code>daily_data_audit_index_minute_job_sensor</code> 默认停止，按最近已收盘交易日的通用指数分钟线正式发布和已有审计结果提交独立只读任务。分类为 <code>platform_observability / platform / asset_update</code>。结果由原日报刷新传感器读取。</p>
         <code>raw_index_daily_update_job_sensor</code> 与 <code>silver_index_daily_sensor</code> 的门禁只读最近 10 个交易日的 raw by-date 文件事实和 latest check 状态：raw 先验证 prod source 覆盖 DG 管理代码集合；silver 再验证同日 raw 文件契约与 code coverage。<code>market_major_indices_daily_sensor</code> 只查主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备。<code>idx_factor_pro</code> 的 Raw/Silver sensor 更严格地只评估当前开放交易日：Raw 目标缺失时只发一次同日 source probe，Silver 只消费同日 Raw 物理文件及 blocking checks；三者都不读 event history、不扫历史窗口、不自动 repair。ETF 日线与复权因子四个 sensor 在 21:00 前不访问外部状态；窗口打开后最多检查 10 日，Raw 每个资产最多一次 materialization 查询和一次目标日发布探测，Silver 合计最多两次资产 materialization 查询。readiness 在一个 DuckDB 连接中复算 blocking 规则，coverage WARN 不阻断；已有坏文件不自动覆盖。
       </div>
       <div class="card">

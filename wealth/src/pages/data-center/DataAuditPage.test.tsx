@@ -95,6 +95,30 @@ describe("local data audit", () => {
     expect(screen.queryByRole("table")).toBeNull();
   });
 
+  it("counts only explicit manual reviews and keeps waiting for production separate", async () => {
+    const system = row("股票分钟前复权", "pending", "updated");
+    system.completeness.reason = { code: "upstream_pending", message: "等待股票分钟线 Check" };
+    const manual = boardRow(DC_CLASSIFICATION_RAW, "raw");
+    manual.completeness.components[0].reason = { code: "manual_review", message: "名单有增减" };
+    vi.spyOn(dataAuditApi, "day").mockResolvedValue({
+      ...ready,
+      summary: { complete: 1, gap: 0, pending: 2, not_applicable: 0 },
+      rows: [ready.rows[0], system, manual],
+    });
+    render(<DataAuditPage />);
+    const table = await screen.findByRole("table");
+    fireEvent.click(screen.getByRole("button", { name: "待人工确认 1" }));
+    expect(screen.getByLabelText("齐备状态")).toHaveValue("pending");
+    expect(within(table).getByText("东方财富概念板块")).toBeInTheDocument();
+    expect(within(table).queryByText("股票分钟前复权")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "待系统核验 1" }));
+    expect(screen.getByLabelText("齐备状态")).toHaveValue("system_pending");
+    expect(within(table).getByText("股票分钟前复权")).toBeInTheDocument();
+    expect(within(table).getByText("已更新")).toBeInTheDocument();
+    expect(within(table).getByText("等待股票分钟线 Check")).toBeInTheDocument();
+    expect(within(table).queryByText("东方财富板块分类")).toBeNull();
+  });
+
   it("shows the DG independent audit evidence in the existing result detail", async () => {
     const minute = row("通用指数 1 分钟 Raw", "complete", "updated");
     vi.spyOn(dataAuditApi, "day").mockResolvedValue({ ...ready, rows: [minute] });

@@ -8,6 +8,7 @@ from tempfile import gettempdir
 
 import dagster as dg
 import duckdb
+from dagster._core.storage.tags import RUN_KEY_TAG
 
 from orchestrator.defs.catalog.lake_assets import get_lake_asset_catalog_entry
 from orchestrator.defs.checks.daily_audit_coverage import stat_version
@@ -34,6 +35,7 @@ from orchestrator.defs.paths import (
     silver_index_mins_path,
 )
 from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
+    CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET,
     cn_a_derived_minute_target_times,
     cn_a_derived_minute_window_map_sql,
 )
@@ -45,6 +47,8 @@ from orchestrator.defs.run_contracts.index_mins import (
     index_mins_code_set_hash,
     source_freq_for_index_mins_derived_freq,
 )
+from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 
 RAW_ASSETS = {f"raw_index_mins_{frequency}m" for frequency in INDEX_MINS_ASSET_FREQS}
 SILVER_INPUTS = {
@@ -58,6 +62,10 @@ SILVER_INPUTS = {
     },
 }
 INDEX_MINUTE_ASSETS = RAW_ASSETS | SILVER_INPUTS.keys()
+INDEX_MINUTE_GOLD_INPUTS = {
+    f"gold_index_mins_{target}m": f"silver_index_mins_{source}m"
+    for target, source in CN_A_GOLD_MINUTE_SOURCE_FREQ_BY_TARGET.items()
+}
 RULE_VERSION = "index_mins_time_keys_v1"
 APPROVED_SOURCE_EMPTY = "source_probe_target_frequency_empty"
 
@@ -105,16 +113,24 @@ def _input_asset(asset_key, fields):
     return None
 
 
-def _delivery(instance, asset_key, day, observed_at):
+def _audit_target(asset_key, day):
     entry = get_lake_asset_catalog_entry(asset_key)
-    target = AuditTarget(
+    return AuditTarget(
         entry, day.isoformat(), day, True, entry.blocking_check_names, False, None
     )
+
+
+def _delivery(instance, asset_key, day, observed_at):
+    target = _audit_target(asset_key, day)
     return load_evidence(instance, (target,), day, observed_at).get(asset_key)
 
 
 def _receipt(instance, publication, path, asset_key, day):
     run = instance.get_run_by_id(publication.run_id) if publication.run_id else None
+    return _publication_receipt(run, path, asset_key, day)
+
+
+def _publication_receipt(run, path, asset_key, day):
     if run is None or run.status != dg.DagsterRunStatus.SUCCESS:
         return None
     dataset = "raw_index_mins" if asset_key in RAW_ASSETS else "silver_index_mins"
@@ -186,6 +202,76 @@ def matching_index_minute_result(
         ):
             return None
     return stored
+
+
+def index_minute_audit_requests(instance, day, observed_at, root):
+    targets = tuple(_audit_target(key, day) for key in sorted(INDEX_MINUTE_ASSETS))
+    evidence = load_evidence(instance, targets, day, observed_at)
+    publications = {}
+    for target in targets:
+        delivery = evidence.get(target.asset_key)
+        if delivery and delivery.materialization and delivery.materialization.run_id and all(
+            name in delivery.checks and delivery.checks[name].evaluation.passed
+            for name in target.check_names
+        ):
+            publications[target.asset_key] = delivery.materialization
+    run_ids = {publication.run_id for publication in publications.values()}
+    if not run_ids:
+        return []
+    runs = {
+        run.run_id: run for run in instance.get_runs(
+            filters=dg.RunsFilter(run_ids=list(run_ids), statuses=[dg.DagsterRunStatus.SUCCESS]),
+            limit=len(run_ids),
+        )
+    }
+    identities = {}
+    results = {
+        key: stored[1] for key, publication in publications.items()
+        if publication.run_id in runs
+        and (stored := matching_index_minute_result(
+            instance, key, day, publication, observed_at, root, identities,
+        )) is not None
+    }
+    requests = []
+    for key, publication in publications.items():
+        if results.get(key, {}).get("completeness", {}).get("status") in {"complete", "gap"}:
+            continue
+        path = _asset_path(root, key, day)
+        receipt = _publication_receipt(runs.get(publication.run_id), path, key, day)
+        if receipt is None or _file_version(path, identities) is None:
+            continue
+        input_key = _input_asset(key, metadata(publication.asset_materialization))
+        if key in SILVER_INPUTS:
+            upstream = results.get(input_key)
+            if not upstream or upstream["completeness"]["status"] != "complete":
+                continue
+            source = _asset_path(root, input_key, day)
+            if receipt["inputs"].get("sources", {}).get(str(source)) != upstream["files"][input_key]:
+                continue
+        digest = receipt["sha256"]
+        config = IndexMinuteAuditConfig(
+            asset_key=key, business_date=day.isoformat(), frequency=_frequency(key),
+            target_version=digest,
+        )
+        requests.append(build_run_request(
+            run_key=build_asset_update_run_key(
+                subject=INDEX_MINUTE_JOB,
+                unit_id=f"{day}:{key}:{publication.run_id}:{digest}",
+            ),
+            run_config=dg.RunConfig(ops={"audit_index_minute": config}).to_config_dict(),
+        ))
+    if not requests:
+        return []
+    submitted = {
+        run.tags.get(RUN_KEY_TAG) for run in instance.get_runs(
+            filters=dg.RunsFilter(
+                job_name=INDEX_MINUTE_JOB,
+                tags={RUN_KEY_TAG: [request.run_key for request in requests]},
+            ),
+            limit=len(requests),
+        )
+    }
+    return [request for request in requests if request.run_key not in submitted]
 
 
 def _minute_times(day, frequency):

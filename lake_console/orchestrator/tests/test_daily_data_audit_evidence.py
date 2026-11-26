@@ -1,8 +1,10 @@
+import json
 from datetime import date, datetime, timedelta
 from types import SimpleNamespace
 
 import dagster as dg
 import duckdb
+import pytest
 
 from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
 from orchestrator.defs.checks.daily_audit_coverage import stat_version
@@ -19,6 +21,7 @@ from orchestrator.defs.daily_data_audit.dc_index_review import (
 )
 from orchestrator.defs.daily_data_audit.evidence import (
     SHANGHAI,
+    find_audit_changes,
     get_completeness,
     load_evidence,
     read_summary,
@@ -52,7 +55,7 @@ DIGEST = "a" * 64
 def _materialize(
     instance,
     *,
-    digest,
+    digest=None,
     checks=(),
     key=RAW,
     partition=PARTITION,
@@ -65,9 +68,10 @@ def _materialize(
 
     @dg.asset(name=key, partitions_def=partitions)
     def example():
-        return dg.MaterializeResult(
-            metadata={"goldenshare/file_sha256": digest, **(published or {})}
-        )
+        metadata = dict(published or {})
+        if digest is not None:
+            metadata["goldenshare/file_sha256"] = digest
+        return dg.MaterializeResult(metadata=metadata)
 
     definitions = []
     for check_name, passed in checks:
@@ -97,6 +101,86 @@ def _materialize(
 def _targets(day=DAY):
     result = targets_for_day(day, CALENDAR)
     return {target.asset_key: target for target in result}
+
+
+def test_refresh_reuses_native_daily_index_input_and_rejects_another_release(tmp_path, monkeypatch):
+    raw, silver = "raw_index_daily", "silver_index_daily"
+    targets = _targets()
+    monkeypatch.setattr(jobs, "read_calendar", lambda *_: CALENDAR)
+    monkeypatch.setattr(jobs, "DEFAULT_LAKE_ROOT", str(tmp_path))
+
+    @dg.asset(name=silver, deps=[raw], partitions_def=dg.StaticPartitionsDefinition([PARTITION]))
+    def silver_output():
+        return dg.MaterializeResult(metadata={"dagster/row_count": 1})
+
+    def silver_check(name):
+        @dg.asset_check(asset=silver_output, name=name)
+        def check():
+            return dg.AssetCheckResult(passed=True)
+        return check
+
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}},
+    ) as instance:
+        def publish_raw():
+            return _materialize(
+                instance, key=raw, partition=PARTITION,
+                checks=[(name, True) for name in targets[raw].check_names],
+                published={"goldenshare/expected_code_set_hash": DIGEST, "dagster/row_count": 1},
+            )
+
+        def summary(*changed):
+            assert jobs.daily_data_audit_summary_job.execute_in_process(
+                instance=instance,
+                run_config={"ops": {"generate_data_audit_summary": {"config": {
+                    "business_date": PARTITION, "changed_asset_keys": list(changed),
+                }}}},
+            ).success
+            return {row["scope"]["asset_key"]: row for row in read_summary(instance, DAY)["rows"]}
+
+        assert publish_raw().success
+        assert dg.materialize(
+            [dg.AssetSpec(raw, partitions_def=silver_output.partitions_def), silver_output,
+             *(silver_check(name) for name in targets[silver].check_names)],
+            selection=[silver], partition_key=PARTITION, instance=instance,
+        ).success
+        before = summary()[silver]
+        assert before["completeness"]["status"] == "complete"
+        assert before["version"]["target_version"] is None
+        assert any(item.get("asset_key") == raw for item in before["completeness"]["evidence"])
+
+        assert publish_raw().success
+        after = summary(raw)[silver]
+        assert after["update"] == before["update"]
+        assert after["completeness"]["reason"]["code"] == "version_mismatch"
+        assert after["completeness"]["status"] == "pending"
+
+
+def test_change_query_uses_actual_as_of_date_not_shared_week_partition(tmp_path):
+    day = date(2026, 11, 19)
+    key = "silver_index_weekly"
+    target = _targets(day)[key]
+    check = target.check_names[0]
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}},
+    ) as instance:
+        def publish(as_of, passed=True):
+            return _materialize(
+                instance, key=key, partition=PARTITION, checks=[(check, passed)],
+                published={"goldenshare/trade_date": as_of.isoformat()},
+            )
+
+        assert publish(day).success
+        observed = datetime.now(SHANGHAI)
+        rows = {key: make_summary(day, observed, (target,), load_evidence(
+            instance, (target,), day, observed,
+        ))["rows"][0]}
+        assert publish(DAY).success
+        assert find_audit_changes(instance, (target,), rows, day, datetime.now(SHANGHAI)) == {}
+        assert publish(day, passed=False).success
+        changes = find_audit_changes(instance, (target,), rows, day, datetime.now(SHANGHAI))
+        assert list(changes) == [key]
+        assert changes[key] > observed.timestamp()
 
 
 def test_due_dates_keep_partition_and_business_date_separate():
@@ -268,43 +352,195 @@ def test_moneyflow_coverage_uses_the_check_for_the_published_file_version(tmp_pa
         assert row_for([5, 60, 7, 8, 9])["completeness"]["status"] == "pending"
 
 
-def test_stock_basic_tolerance_uses_previous_trading_day_not_previous_run(tmp_path):
+@pytest.mark.parametrize("raw_namechange_state", ["ready", "missing", "unchecked", "failed", "different_version"])
+def test_namechange_snapshot_reuses_update_only_raw(
+    tmp_path, raw_namechange_state,
+):
+    raw_basic = "raw_tushare_stock_basic"
+    basic = "silver_stock_basic"
+    lifecycle = "silver_stock_lifecycle"
+    raw_names = "raw_tushare_namechange"
+    names = "silver_namechange"
+    identity = "silver_stock_identity_map"
+    targets = _targets()
+    assets = (raw_basic, basic, lifecycle, raw_names, names, identity)
+    versions = {key: [1, number, 100, 200, 200] for number, key in enumerate(assets, 1)}
+    previous_day = date(2026, 11, 19)
+
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        def publish(key, *, day=DAY, checks=None, version=None, inputs=None):
+            file_version = versions[key] if version is None else version
+            coverage = {
+                "status": "complete",
+                "file_version": file_version,
+                "inputs": inputs,
+                "expected_count": 3,
+                "actual_count": 3,
+                "missing_count": 0,
+                "extra_count": 0,
+                "samples": [],
+                "rule_version": "stock_snapshot_projection_v1",
+            }
+            return _materialize(
+                instance,
+                key=key,
+                partition=None,
+                checks=[(name, True) for name in targets[key].check_names] if checks is None else checks,
+                published={
+                    "goldenshare/trade_date": day.isoformat(),
+                    "goldenshare/audit_file_version": file_version,
+                    "goldenshare/params": {"list_status": "L,D,P,G"},
+                    "dagster/row_count": 3,
+                },
+                check_metadata={"goldenshare/audit_coverage": coverage} if inputs is not None else None,
+            )
+
+        publish(raw_basic, day=previous_day)
+        publish(raw_basic)
+        upstream = {raw_basic: json.dumps(versions[raw_basic], separators=(",", ":"))}
+        publish(basic, inputs=upstream)
+        publish(lifecycle, inputs=upstream)
+        checks = [(name, True) for name in targets[raw_names].check_names]
+        if raw_namechange_state == "unchecked":
+            checks.pop()
+        elif raw_namechange_state == "failed":
+            checks[-1] = (checks[-1][0], False)
+        if raw_namechange_state != "missing":
+            publish(
+                raw_names, checks=checks,
+                version=[1, 99, 100, 200, 200] if raw_namechange_state == "different_version" else None,
+            )
+        publish(names, inputs={
+            key: json.dumps(versions[key], separators=(",", ":")) for key in (raw_names, basic)
+        })
+        publish(identity, inputs={
+            **{key: json.dumps(versions[key], separators=(",", ":")) for key in (names, lifecycle)},
+            "股票身份映射规则": "stock_identity_mappings.cn_a.v1",
+        })
+        selected = tuple(targets[key] for key in assets)
+        observed = datetime.now(SHANGHAI)
+        evidence = load_evidence(instance, selected, DAY, observed)
+        previous = load_evidence(
+            instance, (_targets(previous_day)[raw_basic],), previous_day, observed
+        )[raw_basic]
+        report = make_summary(
+            DAY, observed, selected, evidence,
+            previous_stock_basic=previous, stock_basic_runs_succeeded=True,
+        )
+
+    rows = {row["scope"]["asset_key"]: row for row in report["rows"]}
+    assert rows[raw_names]["completeness"]["status"] == "not_applicable"
+    assert rows[basic]["completeness"]["status"] == "complete"
+    assert rows[lifecycle]["completeness"]["status"] == "complete"
+    expected = "complete" if raw_namechange_state == "ready" else "pending"
+    assert rows[names]["completeness"]["status"] == expected
+    assert rows[identity]["completeness"]["status"] == expected
+
+
+def test_stock_basic_tolerance_uses_previous_trading_day_not_previous_run(tmp_path, monkeypatch):
     key = "raw_tushare_stock_basic"
     prior_day = date(2026, 11, 19)
     target = _targets()[key]
-    prior_target = _targets(prior_day)[key]
+    monkeypatch.setattr(jobs, "read_calendar", lambda root, day: CALENDAR)
     with dg.DagsterInstance.local_temp(
         str(tmp_path), overrides={"telemetry": {"enabled": False}}
     ) as instance:
 
-        def publish(day, count):
-            _materialize(
+        def publish(day, count, scope="L,D,P,G", checks_pass=True):
+            return _materialize(
                 instance,
-                digest=DIGEST,
                 key=key,
                 partition=None,
-                checks=[(name, True) for name in target.check_names],
+                checks=[(name, checks_pass) for name in target.check_names],
                 published={
                     "goldenshare/trade_date": day.isoformat(),
+                    "goldenshare/params": {"list_status": scope},
                     "dagster/row_count": count,
                 },
+                fail_run=not checks_pass,
             )
 
-        publish(prior_day, 6000)
-        for count, status in ((6020, "complete"), (6021, "pending"), (5979, "pending")):
-            publish(DAY, count)
-            now = datetime.now(SHANGHAI)
-            previous = load_evidence(instance, (prior_target,), prior_day, now)[key]
-            evidence = load_evidence(instance, (target,), DAY, now)
-            row = make_summary(
-                DAY,
-                now,
-                (target,),
-                evidence,
-                previous_stock_basic=previous,
-            )["rows"][0]
+        prior = publish(prior_day, 6000)
+        for count, scope, checks_pass, status in (
+            (6020, "L,D,P,G", True, "complete"),
+            (6021, "L,D,P,G", True, "pending"),
+            (5979, "L,D,P,G", True, "pending"),
+            (6000, "L", True, "pending"),
+            (6000, "L,D,P,G", False, "pending"),
+        ):
+            delivery = publish(DAY, count, scope, checks_pass)
+            assert delivery.success is checks_pass
+            result = jobs.daily_data_audit_summary_job.execute_in_process(
+                instance=instance,
+                run_config={"ops": {"generate_data_audit_summary": {"config": {"business_date": PARTITION}}}},
+            )
+            assert result.success
+            row = next(row for row in read_summary(instance, DAY)["rows"] if row["scope"]["asset_key"] == key)
             assert row["update"]["status"] == "updated"
             assert row["completeness"]["status"] == status
+            assert row["version"]["target_version"] is None
+            if status == "complete":
+                assert any(proof["run_id"] == prior.run_id for proof in row["completeness"]["evidence"])
+
+
+@pytest.mark.parametrize(
+    ("key", "partition", "metadata", "expected_update"),
+    [
+        ("gold_major_index_quantitative_structure", PARTITION, {"goldenshare/event_count": 0}, "updated"),
+        ("silver_dc_member", PARTITION, {}, "updated"),
+        ("silver_dc_industry_hierarchy", None, {"goldenshare/code_reference_trade_date": "2026-07-31"}, "not_required"),
+        ("gold_major_index_mins_5m", PARTITION, {"goldenshare/expected_code_count": 10}, "updated"),
+        ("gold_major_index_mins_technical_state_5m", PARTITION, {}, "updated"),
+        ("raw_index_daily", PARTITION, {"goldenshare/expected_code_set_hash": "a" * 32}, "updated"),
+    ],
+)
+def test_daily_summary_reuses_checks_on_the_exact_publication(
+    tmp_path, key, partition, metadata, expected_update,
+):
+    audit_day = DAY if partition is not None else datetime.now(SHANGHAI).date()
+    target = _targets(audit_day)[key]
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        original = _materialize(
+            instance, key=key, partition=partition, published=metadata,
+            checks=[(name, True) for name in target.check_names],
+        )
+
+        def latest_row():
+            now = datetime.now(SHANGHAI)
+            evidence = load_evidence(instance, (target,), audit_day, now)
+            return make_summary(audit_day, now, (target,), evidence)["rows"][0]
+
+        row = latest_row()
+        assert row["update"]["status"] == expected_update
+        assert row["completeness"]["status"] == "complete"
+        assert row["version"]["target_version"] is None
+        assert {proof["run_id"] for proof in row["completeness"]["evidence"]} == {original.run_id}
+
+        _materialize(instance, key=key, partition=partition, published=metadata)
+        assert latest_row()["completeness"]["status"] == "pending"
+
+
+def test_daily_summary_keeps_raw_index_coverage_with_missing_scope_or_failed_check_pending(tmp_path):
+    key = "raw_index_daily"
+    target = _targets()[key]
+    coverage = "raw_index_daily_code_coverage_check"
+    with dg.DagsterInstance.local_temp(
+        str(tmp_path), overrides={"telemetry": {"enabled": False}}
+    ) as instance:
+        for metadata, checks in (
+            ({}, [(name, True) for name in target.check_names]),
+            ({"goldenshare/expected_code_set_hash": "a" * 32}, [(name, name != coverage) for name in target.check_names]),
+        ):
+            _materialize(instance, key=key, published=metadata, checks=checks)
+            now = datetime.now(SHANGHAI)
+            evidence = load_evidence(instance, (target,), DAY, now)
+            row = make_summary(DAY, now, (target,), evidence)["rows"][0]
+            assert row["update"]["status"] == "updated"
+            assert row["completeness"]["status"] == "pending"
 
 
 def test_minute_qfq_follows_actual_silver_input_without_reading_annual_files(tmp_path):
@@ -540,6 +776,7 @@ def test_native_summary_and_exact_version_consumption(tmp_path, monkeypatch):
     ) as instance:
         check = "raw_tushare_dc_member_core_check"
         delivery = _materialize(instance, digest=DIGEST, checks=[(check, True)])
+        _materialize(instance, key="silver_dc_member", checks=[("silver_dc_member_core_check", True)])
         config = {
             "ops": {
                 "generate_data_audit_summary": {"config": {"business_date": PARTITION}}
@@ -559,6 +796,10 @@ def test_native_summary_and_exact_version_consumption(tmp_path, monkeypatch):
             get_completeness(instance, row["scope"], row["version"])
             == row["completeness"]
         )
+        silver = next(row for row in summary["rows"] if row["scope"]["asset_key"] == "silver_dc_member")
+        assert silver["completeness"]["status"] == "complete"
+        assert silver["version"]["target_version"] is None
+        assert get_completeness(instance, silver["scope"], silver["version"]) is None
         assert (
             get_completeness(
                 instance, row["scope"], {**row["version"], "target_version": "b" * 64}
@@ -627,6 +868,8 @@ def test_native_evidence_retains_failed_check_and_does_not_infer_gap(tmp_path):
 
 
 def test_midnight_schedule_uses_previous_natural_day():
+    assert jobs.daily_data_audit_summary_schedule.cron_schedule == "0 0 * * *"
+    assert jobs.daily_data_audit_summary_schedule.execution_timezone == "Asia/Shanghai"
     evaluation = jobs.daily_data_audit_summary_schedule.evaluate_tick(
         dg.build_schedule_context(
             scheduled_execution_time=datetime(2026, 11, 21, tzinfo=SHANGHAI),
@@ -637,6 +880,10 @@ def test_midnight_schedule_uses_previous_natural_day():
         jobs.daily_data_audit_summary_schedule.default_status
         == dg.DefaultScheduleStatus.STOPPED
     )
+
+
+def test_summary_refresh_sensor_uses_a_ten_minute_minimum_interval():
+    assert jobs.daily_data_audit_summary_refresh_sensor.minimum_interval_seconds == 600
     assert (
         jobs.daily_data_audit_summary_refresh_sensor.default_status
         == dg.DefaultSensorStatus.STOPPED
@@ -960,6 +1207,33 @@ def test_board_confirmation_and_late_check_refresh_only_the_selected_day(tmp_pat
         assert rejected["completeness"]["evidence"][0]["passed"] is False
         assert all(
             row == rows(result)[key] for key, row in rows(updated_failure).items() if key != RAW_MONEYFLOW
+        )
+
+
+def test_board_baseline_reports_manual_confirmation(tmp_path, monkeypatch):
+    raw = "raw_tushare_dc_index"
+    baseline = date(2026, 11, 19)
+    monkeypatch.setattr(jobs, "read_calendar", lambda _root, _day: CALENDAR)
+    with dg.DagsterInstance.local_temp(str(tmp_path), overrides={"telemetry": {"enabled": False}}) as instance:
+        assert _materialize(
+            instance, digest=DIGEST, key=raw, partition=baseline.isoformat(),
+            checks=[(BOARD_CHECKS[raw], True)],
+            published={"goldenshare/tushare_source_fingerprint": DIGEST},
+            check_metadata={"goldenshare/board_classification_codes": [
+                {"category": "概念板块", "code": "BK0301.DC", "name": "概念样本"},
+            ]},
+        ).success
+        assert jobs.daily_data_audit_summary_job.execute_in_process(
+            instance=instance, run_config={"ops": {"generate_data_audit_summary": {"config": {
+                "business_date": baseline.isoformat(), "use_board_history": True,
+            }}}},
+        ).success
+        rows = read_summary(instance, baseline)["rows"]
+        result = next(row for row in rows if row["scope"]["asset_key"] == raw)
+        assert result["completeness"]["status"] == "pending"
+        assert any(
+            component["reason"]["code"] == "manual_review"
+            for component in result["completeness"]["components"]
         )
 
 

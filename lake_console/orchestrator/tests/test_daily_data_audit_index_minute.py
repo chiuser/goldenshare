@@ -32,6 +32,9 @@ from orchestrator.defs.duckdb_connection import (
 from orchestrator.defs.io import minute_partition_writer
 from orchestrator.defs.partitions import cn_a_index_mins_trade_days
 from orchestrator.defs.prod_db.index_mins import IndexMinsActivePool
+from orchestrator.defs.sensors import (
+    daily_data_audit_index_minute_sensor as automatic_audit,
+)
 from tests.test_index_mins_replace_existing import (
     CODE,
     FakeProd,
@@ -285,28 +288,31 @@ def test_wrong_clock_same_count_and_upstream_gap_reads_no_silver(isolated, monke
 
 def test_original_producers_cover_all_twelve_audit_assets(isolated):
     instance, root, publish = isolated
+    day = date.fromisoformat(DAY)
     expected = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5, 90: 3, 120: 2}
-    for frequency in (1, 5, 15, 30, 60):
-        asset = f"raw_index_mins_{frequency}m"
-        publish(asset)
-        result = _run_audit(instance, root, asset)
-        assert result["completeness"]["status"] == "complete", asset
-        assert result["completeness"]["expected_count"] == expected[frequency]
-        assert result["read_volume"]["key_files"] == 1
-    for frequency, expected_count in expected.items():
-        asset = f"silver_index_mins_{frequency}m"
-        publish(asset)
-        result = _run_audit(instance, root, asset)
-        assert result["completeness"]["status"] == "complete", (
-            asset,
-            result["completeness"],
-        )
-        assert result["completeness"]["expected_count"] == expected_count
-        assert result["read_volume"]["key_files"] == 2
-        if frequency in (90, 120):
-            assert result["version"]["inputs"][0]["asset_key"] == (
-                "silver_index_mins_30m" if frequency == 90 else "silver_index_mins_60m"
-            )
+    ready_batches = (
+        {f"raw_index_mins_{freq}m" for freq in (1, 5, 15, 30, 60)},
+        {f"silver_index_mins_{freq}m" for freq in (1, 5, 15, 30, 60)},
+        {"silver_index_mins_90m", "silver_index_mins_120m"},
+    )
+    for assets in ready_batches:
+        for asset in sorted(assets):
+            publish(asset)
+    for assets in ready_batches:
+        requests = index_minute_audit.index_minute_audit_requests(instance, day, datetime.now(SHANGHAI), root)
+        configs = [request.run_config["ops"]["audit_index_minute"]["config"] for request in requests]
+        assert {config["asset_key"] for config in configs} == assets
+        for config in configs:
+            asset, frequency = config["asset_key"], config["frequency"]
+            result = _run_audit(instance, root, asset, requested_version=config["target_version"])
+            assert result["completeness"]["status"] == "complete", (asset, result["completeness"])
+            assert result["completeness"]["expected_count"] == expected[frequency]
+            assert result["read_volume"]["key_files"] == (1 if asset.startswith("raw_") else 2)
+            if frequency in (90, 120):
+                assert result["version"]["inputs"][0]["asset_key"] == (
+                    "silver_index_mins_30m" if frequency == 90 else "silver_index_mins_60m"
+                )
+    assert index_minute_audit.index_minute_audit_requests(instance, day, datetime.now(SHANGHAI), root) == []
     report = _summary(instance)
     assert len(index_minute_audit.INDEX_MINUTE_ASSETS) == 12
     assert all(
@@ -393,6 +399,89 @@ def test_late_audit_result_refreshes_its_historical_report_once(isolated, monkey
     )
     assert not tick(evaluation.cursor).run_requests
     assert date.fromisoformat(DAY) < datetime.now(SHANGHAI).date()
+
+
+def test_automatic_audit_waits_for_upstream_and_refreshes_published_gold(isolated, monkeypatch):
+    instance, root, publish = isolated
+    day = date.fromisoformat(DAY)
+    gold_key = "gold_index_mins_1m"
+    publish(RAW)
+    publish(SILVER)
+
+    @dg.asset(
+        name=gold_key, deps=[SILVER], partitions_def=cn_a_index_mins_trade_days,
+    )
+    def gold():
+        return dg.MaterializeResult(metadata={"dagster/row_count": 241})
+
+    @dg.asset_check(asset=gold, name="gold_index_mins_1m_core_check")
+    def core_check():
+        return dg.AssetCheckResult(passed=True)
+
+    assert dg.materialize(
+        [dg.AssetSpec(SILVER, partitions_def=cn_a_index_mins_trade_days), gold, core_check],
+        selection=[gold_key], partition_key=DAY, instance=instance,
+    ).success
+    initial = _summary(instance)
+    assert initial[gold_key]["completeness"]["status"] == "pending"
+    monkeypatch.setattr(automatic_audit, "DEFAULT_LAKE_ROOT", str(root))
+    monkeypatch.setattr(automatic_audit, "read_calendar", lambda *_: {day: True})
+    sensor = automatic_audit.daily_data_audit_index_minute_job_sensor
+    assert sensor.default_status == dg.DefaultSensorStatus.STOPPED
+    assert sensor.minimum_interval_seconds == 600
+    repository = dg.Definitions(
+        jobs=[index_minute_audit.daily_data_audit_index_minute_job, jobs.daily_data_audit_summary_job],
+        sensors=[sensor, jobs.daily_data_audit_summary_refresh_sensor],
+    ).get_repository_def()
+
+    def tick():
+        return sensor.evaluate_tick(dg.build_sensor_context(instance=instance, repository_def=repository))
+
+    def execute(request):
+        assert index_minute_audit.daily_data_audit_index_minute_job.execute_in_process(
+            instance=instance, run_config=request.run_config, tags={"dagster/run_key": request.run_key},
+        ).success
+
+    [raw_request] = tick().run_requests
+    assert raw_request.run_config["ops"]["audit_index_minute"]["config"]["asset_key"] == RAW
+    execute(raw_request)
+    [silver_request] = tick().run_requests
+    assert silver_request.run_config["ops"]["audit_index_minute"]["config"]["asset_key"] == SILVER
+    execute(silver_request)
+    assert not tick().run_requests
+
+    [refresh] = jobs.daily_data_audit_summary_refresh_sensor.evaluate_tick(
+        dg.build_sensor_context(instance=instance, repository_def=repository)
+    ).run_requests
+    assert refresh.run_config["ops"]["generate_data_audit_summary"]["config"]["changed_asset_keys"] == [
+        gold_key, RAW, SILVER,
+    ]
+    assert jobs.daily_data_audit_summary_job.execute_in_process(
+        instance=instance, run_config=refresh.run_config,
+    ).success
+    rows = {row["scope"]["asset_key"]: row for row in read_summary(instance, day)["rows"]}
+    assert all(rows[asset]["completeness"]["status"] == "complete" for asset in (RAW, SILVER, gold_key))
+    assert rows[gold_key]["version"]["inputs"][0]["asset_key"] == SILVER
+
+    publish(RAW, replace=True)
+    after = _summary(instance)
+    assert after[gold_key]["completeness"]["status"] == "pending"
+
+
+def test_automatic_audit_skips_an_already_submitted_version(isolated):
+    instance, root, publish = isolated
+    day = date.fromisoformat(DAY)
+    publish(RAW)
+    [request] = index_minute_audit.index_minute_audit_requests(
+        instance, day, datetime.now(SHANGHAI), root,
+    )
+    instance.create_run_for_job(
+        index_minute_audit.daily_data_audit_index_minute_job,
+        run_config=request.run_config, tags={"dagster/run_key": request.run_key},
+    )
+    assert index_minute_audit.index_minute_audit_requests(
+        instance, day, datetime.now(SHANGHAI), root,
+    ) == []
 
 
 def test_missing_promotion_receipt_cannot_use_unbound_counts(isolated, monkeypatch):

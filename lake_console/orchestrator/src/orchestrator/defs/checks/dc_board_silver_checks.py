@@ -25,7 +25,11 @@ from orchestrator.defs.assets.dc_board_silver import (
     silver_dc_index,
     silver_dc_member,
 )
-from orchestrator.defs.checks.daily_audit_coverage import stat_version
+from orchestrator.defs.checks.daily_audit_coverage import (
+    BOARD_CLASSIFICATION_FILE_VERSION,
+    board_classification_file_version,
+    stat_version,
+)
 from orchestrator.defs.duckdb_sql import describe_parquet_query, read_parquet
 from orchestrator.defs.partitions import (
     cn_a_dc_daily_trade_days,
@@ -255,25 +259,30 @@ def _core_check(
             failed_row_count += numeric_failed_count
             samples.extend(_sample_rows(connection, relation, expected_columns[:5], numeric_condition))
         if relation_mode is not None:
+            index_path = silver_dc_index_path(lake_root.root(), partition_key)
+            index_version = board_classification_file_version(index_path) if relation_mode == "index_subset_daily" else None
             coverage_by_date = batch_board_relation_coverage(
                 connection, lake_root=lake_root.root(), duckdb_resource=duckdb_resource,
-                paths_by_date={partition_key: (path, silver_dc_index_path(lake_root.root(), partition_key))},
+                paths_by_date={partition_key: (path, index_path)},
             ) if relation_mode == "index_subset_daily" else {}
             relation_result = audit_silver_board_relation(
                 connection,
                 source_path=path,
-                index_path=silver_dc_index_path(lake_root.root(), partition_key),
+                index_path=index_path,
                 mode=relation_mode,
                 coverage=coverage_by_date.get(partition_key),
             )
             relation_failed_count, relation_samples = relation_result
             quote_metadata = relation_result.metadata()
+            if index_version and board_classification_file_version(index_path) == index_version:
+                quote_metadata[BOARD_CLASSIFICATION_FILE_VERSION] = index_version
             if relation_failed_count:
                 failed_rules.append("same_day_board_relation_integrity")
                 failed_row_count += relation_failed_count
                 samples.extend(relation_samples)
 
     if not failed_rules and classification_codes is not None and stat_version(path) == target_version:
+        quote_metadata[BOARD_CLASSIFICATION_FILE_VERSION] = target_version
         quote_metadata["board_classification_codes"] = classification_codes
         parity = _board_parity(context, partition_key, target_version, classification_codes)
         if parity is not None:

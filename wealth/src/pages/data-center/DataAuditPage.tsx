@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useRef, useState } from "react";
 import {
   completenessLabels, dataAuditApi, DC_CLASSIFICATION_RAW, DC_CLASSIFICATION_SILVER, updateLabels,
-  type AuditDay, type AuditDetail, type AuditRow, type CompletenessStatus, type UpdateStatus,
+  type AuditDay, type AuditDetail, type AuditRow, type UpdateStatus,
 } from "../../features/data-center/api/dataAuditApi";
 import { clientPolicy } from "../../features/data-center/api/clientPolicy";
 import { errorMessage } from "../../features/data-center/api/dataCenterApi";
@@ -10,7 +10,13 @@ import { Button, Empty, Field, Notice, Pagination, Panel } from "../../features/
 import { DataCenterShell } from "./DataCenterShell";
 import "./data-audit-page.css";
 
-const completenessStates = Object.keys(completenessLabels) as CompletenessStatus[];
+const displayLabels = {
+  ...completenessLabels,
+  pending: "待人工确认",
+  system_pending: "待系统核验",
+};
+type DisplayStatus = keyof typeof displayLabels;
+const completenessStates = Object.keys(displayLabels) as DisplayStatus[];
 const updateStates = Object.keys(updateLabels) as UpdateStatus[];
 const PAGE_SIZE = clientPolicy.resultLimit;
 const layers: Record<string, string> = { raw: "Raw", silver: "Silver", gold: "Gold", serving: "Serving" };
@@ -28,13 +34,23 @@ function previousShanghaiDay() {
     .format(new Date(Date.now() - 24 * 60 * 60 * 1000));
 }
 
+function displayStatus(
+  value: Pick<AuditRow["completeness"], "status" | "reason"> & Partial<Pick<AuditRow["completeness"], "components">>,
+): DisplayStatus {
+  if (value.status !== "pending") return value.status;
+  if (value.reason.code === "manual_review" || value.components?.some(
+    (component) => component.status === "pending" && component.reason.code === "manual_review",
+  )) return "pending";
+  return "system_pending";
+}
+
 export function DataAuditPage() {
   const [day, setDay] = useState(previousShanghaiDay);
   const [observed, setObserved] = useState<AuditDay>();
   const [requestId, setRequestId] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>();
-  const [completeness, setCompleteness] = useState<CompletenessStatus | "">("");
+  const [completeness, setCompleteness] = useState<DisplayStatus | "">("");
   const [update, setUpdate] = useState<UpdateStatus | "">("");
   const [page, setPage] = useState(0);
   const [selection, setSelection] = useState<{ row: AuditRow; run: string; board?: boolean }>();
@@ -59,8 +75,14 @@ export function DataAuditPage() {
   }, [day, requestId]);
 
   const result = observed?.business_date === day ? observed : undefined;
+  const manualCount = result?.rows.filter((row) => displayStatus(row.completeness) === "pending").length ?? 0;
+  const counts = result?.summary && {
+    ...result.summary,
+    pending: manualCount,
+    system_pending: result.summary.pending - manualCount,
+  };
   const matched = (result?.rows ?? []).filter((row) =>
-    (!update || row.update.status === update) && (!completeness || row.completeness.status === completeness));
+    (!update || row.update.status === update) && (!completeness || displayStatus(row.completeness) === completeness));
   const pageCount = Math.max(1, Math.ceil(matched.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount - 1);
 
@@ -96,12 +118,12 @@ export function DataAuditPage() {
       <Panel title="每日总结" action={<span className="dc-secondary">生成时间 {timestamp(result.generated_at)}</span>}>
         <div className="dc-audit-metrics">
           {completenessStates.map((status) => <button type="button" key={status} className={`dc-audit-metric ${status}`}
-            aria-label={`${completenessLabels[status]} ${result.summary?.[status]}`}
+            aria-label={`${displayLabels[status]} ${counts?.[status]}`}
             aria-pressed={completeness === status} onClick={() => {
               setCompleteness(status); setUpdate(""); goToPage(0);
               detailHeading.current?.scrollIntoView?.({ block: "nearest" });
             }}>
-            <span>{completenessLabels[status]}</span><strong className="num">{result.summary?.[status]}</strong>
+            <span>{displayLabels[status]}</span><strong className="num">{counts?.[status]}</strong>
           </button>)}
         </div>
       </Panel>
@@ -112,9 +134,9 @@ export function DataAuditPage() {
         }}><option value="">全部更新状态</option>{updateStates.map((status) =>
           <option key={status} value={status}>{updateLabels[status]}</option>)}</select>
         <select aria-label="齐备状态" value={completeness} onChange={(event) => {
-          setCompleteness(event.target.value as CompletenessStatus | ""); goToPage(0);
+          setCompleteness(event.target.value as DisplayStatus | ""); goToPage(0);
         }}><option value="">全部齐备状态</option>{completenessStates.map((status) =>
-          <option key={status} value={status}>{completenessLabels[status]}</option>)}</select>
+          <option key={status} value={status}>{displayLabels[status]}</option>)}</select>
       </div>}>
         {matched.length ? <div ref={table} className="dc-table-scroll dc-audit-table">
           <table className="dc-table">
@@ -126,7 +148,7 @@ export function DataAuditPage() {
               <Fragment key={row.scope.asset_key}>
                 <AuditTableRow row={row} onOpen={() => openDetails(row)} />
                 {row.completeness.components.filter((component) =>
-                  component.name === "东方财富概念板块" && (!completeness || component.status === completeness)).map((component) =>
+                  component.name === "东方财富概念板块" && (!completeness || displayStatus(component) === completeness)).map((component) =>
                   <AuditTableRow key={component.name} row={row} component={component}
                     onOpen={() => openDetails(row, [DC_CLASSIFICATION_RAW, DC_CLASSIFICATION_SILVER].includes(row.scope.asset_key))} />)}
               </Fragment>)}</tbody>
@@ -153,11 +175,12 @@ function AuditTableRow({ row, component, onOpen }: {
   const status = component ?? row.completeness;
   const name = component?.name ?? row.dataset_name;
   const regular = !component && status.status === "complete" && row.scope.coverage_scope === "regular_session";
+  const label = displayStatus(status);
   return <tr>
     <td>{name}</td><td>{layers[row.layer] ?? row.layer}</td><td>{row.scope.frequency ?? "—"}</td>
     <td className="dc-audit-time">{row.scope.as_of_date ?? "—"}</td>
     <td><span className={`dc-audit-status ${row.update.status}`}>{updateLabels[row.update.status]}</span></td>
-    <td><span className={`dc-audit-status ${status.status}`}>{completenessLabels[status.status]}{regular && "（常规时段）"}</span></td>
+    <td><span className={`dc-audit-status ${label}`}>{displayLabels[label]}{regular && "（常规时段）"}</span></td>
     <td className="dc-audit-time">{timestamp(row.update.published_at)}</td>
     <td className="dc-audit-time">{timestamp(row.completeness.checked_at)}</td>
     <td className="dc-secondary">{status.reason.message}</td>
@@ -187,7 +210,7 @@ function Details({ day, assetKey, name, run, onClose, onBoardStandard }: {
     {error ? <Notice>{error}</Notice> : !detail ? <Empty title="正在读取审计详情…" /> : <>
       <dl className="dc-audit-detail">
         <dt>更新状态</dt><dd>{updateLabels[detail.update.status]} · {detail.update.reason.message}</dd>
-        <dt>齐备状态</dt><dd>{completenessLabels[detail.completeness.status]} · {detail.completeness.reason.message}</dd>
+        <dt>齐备状态</dt><dd>{displayLabels[displayStatus(detail.completeness)]} · {detail.completeness.reason.message}</dd>
         <dt>适用截至</dt><dd>{detail.scope.as_of_date ?? "—"}</dd>
         <dt>频度 / 分区</dt><dd>{detail.scope.frequency ?? "未记录"} / {detail.scope.partition_key ?? "未记录"}</dd>
         <dt>核验范围</dt><dd>{detail.scope.coverage_scope === "regular_session" ? "常规交易时段" : detail.scope.coverage_scope === "listed_sh_sz_etf" ? "当天上市的沪深 ETF" : "该数据集适用范围"}</dd>
@@ -200,7 +223,7 @@ function Details({ day, assetKey, name, run, onClose, onBoardStandard }: {
           <div key={input.asset_key}>{input.asset_key} · {input.target_version}</div>)}</dd></>}
       </dl>
       {detail.completeness.components.map((component) => <p key={component.name}>
-        {component.name} · {completenessLabels[component.status]} · {component.reason.message}
+        {component.name} · {displayLabels[displayStatus(component)]} · {component.reason.message}
       </p>)}
       {detail.completeness.evidence.length > 0 && <ul className="dc-audit-evidence">{detail.completeness.evidence.map((item) =>
         <li key={`${item.type}-${item.record_id}`}><a href={`http://127.0.0.1:3000/runs/${encodeURIComponent(item.run_id)}`} target="_blank" rel="noreferrer">

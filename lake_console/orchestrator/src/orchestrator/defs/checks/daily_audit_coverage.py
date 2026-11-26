@@ -12,6 +12,7 @@ from orchestrator.defs.duckdb_sql import read_parquet
 
 logger = logging.getLogger(__name__)
 TARGET_VERSION_TAG = "audit/target_file_version"
+BOARD_CLASSIFICATION_FILE_VERSION = "audit_board_classification_file_version"
 REGULAR_STOCK_MINUTE_ROWS = {1: 241, 5: 49, 15: 17, 30: 9, 60: 5}
 
 
@@ -55,6 +56,13 @@ def stat_version(path):
         return None
     info = path.stat()
     return [info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns]
+
+
+def board_classification_file_version(path):
+    try:
+        return stat_version(path)
+    except OSError:
+        return None
 
 
 def version_string(value):

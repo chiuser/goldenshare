@@ -96,6 +96,29 @@ def _delivery_date_matches(connection, target):
     )
 
 
+def _publication_at_date(connection, scoped, midnight, snapshot_cutoff):
+    return sa.and_(
+        Events.c.asset_key == scoped.c.asset_key,
+        Events.c.partition.is_not_distinct_from(scoped.c.partition),
+        Events.c.dagster_event_type == "ASSET_MATERIALIZATION",
+        Events.c.timestamp <= scoped.c.cutoff,
+        sa.or_(
+            scoped.c.as_of.is_(None),
+            _delivery_date_matches(connection, scoped),
+            sa.and_(
+                scoped.c.day_snapshot,
+                Events.c.timestamp >= midnight,
+                Events.c.timestamp < snapshot_cutoff,
+            ),
+        ),
+    )
+
+
+def _audit_day_bounds(day):
+    start = datetime.combine(day, time.min, SHANGHAI).astimezone(UTC).replace(tzinfo=None)
+    return start, start + timedelta(days=1)
+
+
 def load_evidence(
     instance: dg.DagsterInstance,
     targets: tuple[AuditTarget, ...],
@@ -121,11 +144,7 @@ def load_evidence(
         return {}
     keys = {dg.AssetKey(item.asset_key).to_string(): item for item in eligible}
     cutoff = observed_at.astimezone(UTC).replace(tzinfo=None)
-    next_midnight = datetime.combine(day + timedelta(days=1), time.min, SHANGHAI)
-    midnight = (
-        datetime.combine(day, time.min, SHANGHAI).astimezone(UTC).replace(tzinfo=None)
-    )
-    snapshot_cutoff = next_midnight.astimezone(UTC).replace(tzinfo=None)
+    midnight, snapshot_cutoff = _audit_day_bounds(day)
     scoped = (
         sa.values(
             sa.column("asset_key", sa.Text),
@@ -158,21 +177,7 @@ def load_evidence(
     with storage.index_connection() as connection:
         last_event = (
             sa.select(Events.c.id)
-            .where(
-                Events.c.asset_key == scoped.c.asset_key,
-                Events.c.partition.is_not_distinct_from(scoped.c.partition),
-                Events.c.dagster_event_type == "ASSET_MATERIALIZATION",
-                Events.c.timestamp <= scoped.c.cutoff,
-                sa.or_(
-                    scoped.c.as_of.is_(None),
-                    _delivery_date_matches(connection, scoped),
-                    sa.and_(
-                        scoped.c.day_snapshot,
-                        Events.c.timestamp >= midnight,
-                        Events.c.timestamp < snapshot_cutoff,
-                    ),
-                ),
-            )
+            .where(_publication_at_date(connection, scoped, midnight, snapshot_cutoff))
             .order_by(Events.c.id.desc())
             .limit(1)
             .correlate(scoped)
@@ -270,6 +275,87 @@ def load_evidence(
             ):
                 current.checks[row["check_name"]] = record
     return evidence
+
+
+def find_audit_changes(instance, targets, rows, day, observed_at):
+    """Read only changed asset keys and observation times from the event index."""
+    cutoff = observed_at.astimezone(UTC).replace(tzinfo=None)
+    midnight, snapshot_cutoff = _audit_day_bounds(day)
+    day_scope = []
+    check_scope = []
+    keys = {}
+    for target in targets:
+        asset = target.asset_key
+        row = rows[asset]
+        partition = row["scope"]["partition_key"]
+        expected = row["update"]["expected_date"]
+        if asset in OUTSIDE_LOCAL or (
+            partition is None and asset not in FIXED_SNAPSHOTS
+            and not (target.exact_as_of and target.frequency == "日更")
+        ):
+            continue
+        native_key = dg.AssetKey(asset).to_string()
+        keys[native_key] = asset
+        day_scope.append((
+            native_key, partition,
+            min(cutoff, snapshot_cutoff) if asset in FIXED_SNAPSHOTS else cutoff,
+            expected if target.exact_as_of else None,
+            asset in DAILY_SNAPSHOTS, asset in SILVER_INDEX_PERIOD,
+            datetime.fromisoformat(row["observed_at"]).astimezone(UTC).replace(tzinfo=None),
+        ))
+        check_scope.extend((native_key, name) for name in target.check_names)
+    if not day_scope:
+        return {}
+    scope = sa.values(
+        sa.column("asset_key", sa.Text), sa.column("partition", sa.Text),
+        sa.column("cutoff", sa.DateTime), sa.column("as_of", sa.Text),
+        sa.column("day_snapshot", sa.Boolean), sa.column("trade_date_only", sa.Boolean),
+        sa.column("observed_at", sa.DateTime),
+    ).data(day_scope).cte("audit_refresh_scope")
+    with instance.event_log_storage.index_connection() as connection:
+        latest = (
+            sa.select(Events.c.id)
+            .where(_publication_at_date(connection, scope, midnight, snapshot_cutoff))
+            .order_by(Events.c.id.desc()).limit(1).correlate(scope).scalar_subquery()
+        )
+        publications = sa.select(
+            scope.c.asset_key, scope.c.observed_at, scope.c.partition,
+            scope.c.trade_date_only, Events.c.id, Events.c.timestamp, Events.c.run_id,
+        ).select_from(scope.join(Events, Events.c.id == latest)).cte("audit_refresh_publications")
+        changes = sa.select(
+            publications.c.asset_key, publications.c.timestamp.label("changed_at"),
+        ).where(publications.c.timestamp > publications.c.observed_at)
+        if check_scope:
+            names = sa.values(
+                sa.column("asset_key", sa.Text), sa.column("check_name", sa.Text),
+            ).data(check_scope).cte("audit_refresh_checks")
+            checks = sa.select(
+                publications.c.asset_key, Checks.c.evaluation_event_timestamp.label("changed_at"),
+            ).select_from(publications.join(names, names.c.asset_key == publications.c.asset_key).join(
+                Checks,
+                sa.and_(
+                    Checks.c.asset_key == names.c.asset_key,
+                    Checks.c.check_name == names.c.check_name,
+                    Checks.c.materialization_event_storage_id == publications.c.id,
+                    sa.or_(Checks.c.partition.is_(None), Checks.c.partition == publications.c.partition),
+                    sa.or_(
+                        publications.c.trade_date_only.is_(False),
+                        Checks.c.run_id == publications.c.run_id,
+                        Checks.c.check_name.in_(tuple(LATE_STOCK_DAILY_COVERAGE_CHECKS.values())),
+                    ),
+                ),
+            )).where(
+                Checks.c.execution_status.in_(("SUCCEEDED", "FAILED")),
+                Checks.c.evaluation_event_timestamp > publications.c.observed_at,
+                Checks.c.evaluation_event_timestamp <= cutoff,
+            )
+            changes = changes.union_all(checks)
+        hits = changes.subquery()
+        query = sa.select(hits.c.asset_key, sa.func.max(hits.c.changed_at)).group_by(hits.c.asset_key)
+        return {
+            keys[key]: timestamp.replace(tzinfo=UTC).timestamp()
+            for key, timestamp in connection.execute(query)
+        }
 
 
 def verified_stock_daily(instance, root, day):

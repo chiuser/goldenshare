@@ -174,6 +174,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/index_mins_partition_sensor.py:index_mins_trade_day_sensor",
         "sensors/index_mins_sensor.py:raw_index_mins_update_job_sensor",
         "sensors/index_mins_sensor.py:silver_index_mins_update_job_sensor",
+        "sensors/daily_data_audit_index_minute_sensor.py:daily_data_audit_index_minute_job_sensor",
         "sensors/index_trade_day_sensor.py:index_trade_day_sensor",
         "sensors/major_index_mins_gold_sensor.py:gold_major_index_mins_update_job_sensor",
         "sensors/major_index_mins_partition_sensor.py:major_index_mins_trade_day_sensor",

@@ -63,11 +63,13 @@ def _raw_classification(row, review, standard, publication_fields):
                 "published_coverage",
                 "Tushare 已确认本地板块名单有缺口",
             )
-        elif review.get("added") or review.get("removed"):
+        elif review.get("reason") == "manual_review":
             concept_status = (
                 "pending",
                 "manual_review",
-                "概念板块名单有增减，需要人工核查",
+                "概念板块名单有增减，需要人工核查"
+                if reference
+                else "需要确认首份东方财富板块分类标准集",
             )
         elif reference:
             concept_status = "pending", "not_verified", "等待保存当天标准集"

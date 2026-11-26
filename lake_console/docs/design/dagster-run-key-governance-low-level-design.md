@@ -286,7 +286,9 @@ Dagster 事件编号只用来读取、关联和判断记录先后。保留常规
 
 ### 数据审计阶段五运行去重
 
-通用指数分钟线独立审计完成后的日报刷新使用 `build_asset_update_run_key`，`subject=daily_data_audit_summary_job`，`unit_id=index-minute:<业务日>:<审计运行 ID>`。执行日期和资产键仍来自显式汇总配置，运行完成时间只用于发现新记录。现有日报传感器默认关闭，独立审计自动提交另行评审。 [数据审计 LLD §7.2](dagster-daily-data-audit-low-level-design-v1.md#72-日报读取独立审计结论)
+通用指数分钟线独立审计自动提交使用 `build_asset_update_run_key`，`subject=daily_data_audit_index_minute_job`，`unit_id=<业务日>:<资产键>:<正式发布运行 ID>:<目标文件摘要>`。业务日期、资产、频度和摘要通过现有任务配置传递。
+
+独立审计完成后的日报刷新沿用 `subject=daily_data_audit_summary_job`、`unit_id=index-minute:<业务日>:<审计运行 ID>`。同轮同日的多个结果合并，末段使用按字典序排列、用逗号连接的参与审计运行 ID。执行日期和资产键来自显式汇总配置，运行完成时间用于发现新记录。两项传感器默认关闭，事件编号不参与去重。 [数据审计 LLD §16.2](dagster-daily-data-audit-low-level-design-v1.md#162-让通用指数分钟线自动审计并带动日报刷新)
 
 ### 6.1 基础事实两阶段刷新增量口径
 
