@@ -353,3 +353,13 @@ P5B-3 和 P5B-4 已按 LLD 完成。下一阶段只处理 sensor 启用与运行
 已确认：表名 `goldenshare_serving.board_fact_technical_daily`、两阶段 serving 架构、`updated_at` serving 字段、materialization 全历史补齐与 check event 最近 20 日保留口径。
 
 **13节恢复结果。** 18日本地/Prod原job均SUCCESS，各1,081行，两项原核心检查准确绑定并通过，两条sensor恢复RUNNING。实际运行与物化证据见原LLD第15节执行结果；未修改自动选日逻辑，不以本次人工成功证明后续自动任务不再出现同类遗漏。
+
+## 14. 2026-11-24 本机及 Prod 板块日线技术指标恢复
+
+管理员已确认恢复 11 月 24 日本机及 Prod ClickHouse 的 `goldenshare_serving.board_fact_technical_daily`。正式目标仅为 24 日的两个服务副本。24 日 Gold 已发布 1,081 行，原核心检查通过且绑定当前物化，两端计数均为 0。现行本机 sensor 因 25 日 Gold 缺文件而跳过，Prod sensor 等待 24 日本机数据。单日 job 直接使用 24 日 Gold 及本机副本，可以独立恢复该日。
+
+复用 18 日同类恢复的两阶段顺序。先保存两条发布 sensor 的状态和游标，再临时暂停，确认没有并发运行。先提交 24 日本机更新，原核心检查通过后再提交 24 日 Prod 同步。两端文件或数据以现行同日来源和检查为准。自动选日规则、25 日和其他业务范围继续依原流程。失败保留相应运行和已发布结果，核清原运行及物理状态后才处理剩余步骤。
+
+验收要求两个正式运行均成功，24 日 Gold、本机和 Prod 各 1,081 行，两项原核心检查均与本次同日物化绑定且通过。另按业务主键核对三份 24 日数据的全部业务字段（含 NULL）。完成后恢复两个 sensor 原状态并核对。执行范围、读写、预算和恢复见[原 LLD](dagster-dc-daily-technical-clickhouse-serving-low-level-design.md) §16。
+
+执行结果（2026-11-26 16:36）。24 日两端各从 0 行恢复至 1,081 行，两个正式 job 和各自核心检查均通过。24 个业务字段逐主键与 Gold 完全相同，重复主键为 0。25 日两端前后均为 0 行。两个 sensor 已恢复运行，游标与 lastRunKey 在暂停、恢复时均保留。运行与检查编号见原 LLD §16。

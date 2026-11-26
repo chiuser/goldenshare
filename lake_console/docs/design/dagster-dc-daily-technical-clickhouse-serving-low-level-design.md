@@ -500,3 +500,24 @@ Confirmed: table name `goldenshare_serving.board_fact_technical_daily`; use the 
 执行记录待实际完成后追加；方案本身不代表已补齐。
 
 **15节执行结果（2026-11-19）。** 原本地任务4ee547c7-0632-4b61-a46e-598bc63a1a71 SUCCESS，运行7.267208秒，物化8197411、核心check8197420通过并绑定同run/物化；原Prod任务c265f8aa-26c1-4884-a18c-1a12c855ae4f SUCCESS，运行6.883053秒，物化8197439、check8197448通过并准确绑定。两份服务表18日各1,081行，原完整内容/NULL一致性检查通过，缺失、额外、重复、无效、内容与元数据错误均0。原两条sensor已恢复RUNNING，未改游标或代码。此为18日恢复结果，不表示19日Gold已就绪或自动选日逻辑已修复。
+
+## 16. 2026-11-24 本机及 Prod 板块日线技术指标恢复
+
+执行日期固定为 `2026-11-24`。工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式实例为 `/Users/congming/.goldenshare/dagster_home`。沿用 `http://127.0.0.1:3000/graphql` 及正式代码位置 `orchestrator`。读取服务为两个 job 返回的分区配置和标签，用现有 GraphQL 提交 `ch_dc_daily_technical_update_job`、`prod_ch_dc_daily_technical_sync_job`。运行输入取当前注册的 24 日分区，不运行 25 日任务。
+
+临时材料置于 `/private/tmp/dg-dc-technical-repair-20261124.nvRpKw`。只保存并暂停 `ch_dc_daily_technical_update_job_sensor` 与 `prod_ch_dc_daily_technical_continuity_sensor`。暂停后复核开关及游标，确认没有提交中或运行中的冲突。以当前 Gold 物化 8367438（run `29174130-9994-4bce-911d-62f462568853`）及 1,081 行为输入，物理审计和原检查均通过。两端在执行前必须仍为 0 行。先提交本机 job，检查与本次物化绑定且通过后提交 Prod job。恢复 sensor 原开关，原游标由 Dagster 保留，不调用 Reset。
+
+现行 writer 仅按目标日做同步轻量删除、删后计数、显式列插入及写后计数。每端预期写入 1,081 行。业务读取限 24 日 Gold 文件和两端当日服务数据，正式检查会重读该日行用于比对。只读核验按日期统计 24、25 日，并记录 Gold 文件身份。18 日同类本机/Prod 运行分别用时 7.267 和 6.883 秒，仅作已验收历史参考。本机原检查比对主键与行数，Prod 原检查比对本机及 Prod 的全部业务字段。为验收 Gold 至本机的值和 NULL，额外按业务主键精确比较三处 24 日记录。每处读取既有 24 个业务字段、预期 1,081 行，ClickHouse 查询按交易日过滤并限制返回 1,082 行，以便发现异常多行。复核 25 日两端行数与执行前一致，不扫描其他日期。
+
+失败或中断先按已记录的运行 ID 查终态、目标行数和检查，保留已经通过的一端，继续时只处理当日未完成的阶段。单端需要重跑时仍以同日 1,081 行为读取和写入范围。提交结果不明确先查运行记录。业务任务终态后按原状态恢复两条 sensor，保留失败及恢复证据。实绩以正式 job、核心检查和写后只读核验为准。
+
+### 16.1 正式执行与写后验收
+
+| 24 日目标 | 正式运行 | 耗时 | 物化 ID | 通过的核心检查 ID | 行数 |
+| --- | --- | ---: | ---: | ---: | ---: |
+| 本机 ClickHouse | `14beedb8-02c7-42c9-bfc8-705485df9560` | 7.304 秒 | 8421080 | 8421089 | 1,081 |
+| Prod ClickHouse | `d4e2bb99-ea40-4a17-91b0-5a7e93999c2e` | 8.671 秒 | 8421108 | 8421117 | 1,081 |
+
+两次运行均为 SUCCESS，核心检查绑定各自同日物化。按 `ts_code, trade_date, category` 比较，Gold、本机和 Prod 的 1,081 个主键及全部 24 个业务字段一致，包含 MA 和 BOLL 的 NULL。Prod 核心检查记录缺失、额外、重复、日期、版本及内容差异均为 0。Gold 文件身份执行前后相同。25 日两端计数前后同为 0。
+
+16:36 已读回两条 sensor 为 RUNNING，暂停和恢复时的游标与 lastRunKey 核对相同。运行回执、检查元数据和计数保存在本次临时目录的 `completion.json`。
