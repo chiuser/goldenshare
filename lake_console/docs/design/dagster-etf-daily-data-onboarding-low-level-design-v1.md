@@ -2111,3 +2111,66 @@ Silver 续跑以当前历史计划冻结的引用验证文件和原检查证据�
 阶段 3 提交审批时，将一次完整日期范围的 Prod 只读导出与首次写入 20 日分开说明。正式导出超时参数和空间检查按审批后的实际预算执行。首批只推进日频文件与物理验收，完整区间的正式物化和检查事件留到阶段 5。阶段 2 未操作正式 Prod、Tushare、Lake 或 Dagster 实例。
 
 固定回归结果。包含 ETF 日频、基础信息、分钟历史保护和可收集治理用例的回归为 352 项通过、7 个子用例通过。三个失败落在本轮未修改的全局治理范围，分别涉及主要指数定量结构的检查矩阵、指数及交易日历的 readiness 检查矩阵和指数日线成交量修复入口的 DuckDB 连接。另一个治理文件 `test_asset_governance_contracts.py` 在收集时无法从指数基础信息模块导入 `INDEX_BASIC_RAW_COLUMN_TYPES`，测试文件和被导入文件在本轮开始前的提交中已经是这一状态。ETF 的隔离功能、首批容量及静态检查完成。固定治理回归未全绿，阶段 3 正式开工仍待准入评审。
+
+<a id="etf-daily-2023-2024-phase3"></a>
+
+### 阶段 3 正式首批执行细案（2026-11-26）
+
+本阶段用正式数据校准历史补录，完成首批基金日线 Raw、ETF 日线 Silver、基金复权因子 Raw、ETF 复权因子 Silver 共 80 个文件。已批准的正式写入日期为 2023-01-03、04、05、06、09、10、11、12、13、16、17、18、19、20、30、31 和 2023-02-01、02、03、06。Prod 读取覆盖整个 484 日冻结范围，由后续批次复用。其余 464 日的正式分区注册与写入在阶段 4，物化及检查事件在阶段 5。阶段 3 不执行 Dagster job、asset check、sensor 或分钟线写入。
+
+**阶段 3 启动时的准入依据。** 首批入口直接读取交易日历 Silver。正式文件有 13,527 行，必填字段空值和重复键均为 0，目标区间有 484 个唯一上交所开市日。历史 ETF 入口使用该文件和自身的检查。阶段 2 隔离验收覆盖范围外日期、整日回源、冲突、续跑、覆盖和事件边界。正式开工先重核目标路径、活动写入冲突、正式分区集、同盘可用空间和 ETF 基础信息，再核对只读业务事实连接。当时的全局治理结果见[后续复验记录](#etf-daily-2023-2024-governance-closeout)。
+
+| 环节 | 正式读写范围、预算与验收 |
+| --- | --- |
+| 基金日线来源 | 由 `scripts/psql-remote.sh` 走现有 Prod 连接。一次 `BEGIN READ ONLY` 和一次 `COPY TO STDOUT`，只查 `raw_tushare.fund_daily` 的 `ts_code, trade_date, pre_close, open, high, low, close, change, pct_chg, vol, amount`，日期范围为 `[2023-01-03, 2025-01-01)`，最终回滚。查询关闭并行扫描，阶段 1 的两日查询已测 1.404 秒，预计输出 647,723 行、59.8 MB CSV。SQL 超时采用仓库同类有界 Prod 历史导出单次 120 秒上限（`MONEYFLOW_HISTORY_SQL_TIMEOUT_SECONDS`），命令自身另计 8 秒连接预算。按两日固定开销估算，120 秒内完成约需 0.51 MB/s 的平均传输速度，正式吞吐以实测为准。CSV 聚合校验和排序转换各扫描一次，成功生成 Parquet、各日计数和指纹后删候选 CSV，复用已通过的来源。超时停止，未发布来源时只在原边界内恢复一次；若需改变查询预算或读取范围，先复核方案。 |
+| 基金复权因子与日线回源 | Tushare `fund_adj` 只查首批 20 日，显式取 `ts_code, trade_date, adj_factor, discount_rate`。两日实测都是短页，首批预期 20 次首请求，现有上限为每日期 4 次网络尝试，共 80 次。只在 Prod 缺整日或确认异常的首批日期整日回源 `fund_daily`，每日期至多 2 次。现有请求策略每日期每接口 30 秒，SDK 单次网络超时 30 秒，已发出的请求可能跨过单日策略窗口。中断按未完成文件计剩余请求，完成的文件走指纹复验。两日较大样本推算 20 日基金日线 Raw 约 29,040 行、基金复权因子 Raw 约 30,020 行，Silver 按冻结名单和实际来源行数对账。 |
+| 空间与文件写入 | 先检查 Lake 与 staging 同文件系统。来源峰值同时有预计 59.8 MB CSV 和来源 Parquet，参考日线 Raw 文件估算 `95,801 × 484 ≈ 46.4 MB`，两项合计约 106.2 MB。全范围 Raw Plan 现有检查按全部文件缺失计算 `(95,801 + 28,088) × 484 × 2.5 = 149,905,690` 字节。首批及清点分别查空间，Silver 直接用首批实际对应 Raw 大小套同一规则。来源约 65 万行，首批两类 Raw 合计约 6 万行，来源转换、正式文件和审计串行，DuckDB 使用正式共用内存和临时磁盘设置。每个文件先验候选再原子提升，逐文件写进度。同内容可复用，不同内容或范围外文件冲突时停下并保留现场。 |
+| 验收与续跑 | 同一个 Raw Plan、来源指纹和 checkpoint 贯穿全程。正式历史计划选取交易日历最早 20 日作为首批。分区写入前后各查一次共享分区、只新增缺失的 20 日差集。Raw 审计、Silver Plan 和物理验收复核 ETF 基础信息两层的物化和各 3 个阻塞检查，先固定两个物化 ID 与指纹再发布 Silver，日常刷新后续跑继续复验已冻结版本。物理验收查一次清算事实，按原语义执行四资产各 3、3、5、6 项阻塞检查口径，20 日共 340 项文件检查覆盖，另留每日日线覆盖告警。阶段 2 的同批验收用 30 条批量 SQL、0.221 秒，已完成 Raw 续跑核对 0.208 秒。正式读回记录完成 80/80、行数、日期、主键、价格和贴水率字段对账、复权因子缺口与日线告警、报告指纹和耗时。上述检查写入 0 条 Dagster 事件。 |
+
+**运行命令。** 工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`，解释器 `.venv/bin/python3 -B`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。只从本机 `~/.bash_profile` 注入 `TUSHARE_TOKEN`，从 orchestrator 的 `.env` 仅注入已配置的 `LAKE_META_POSTGRES_URL` 用于读取清算事实。报告和 checkpoint 位于 `/private/tmp/goldenshare-bootstrap/etf_daily/etf-history-2023-2024-phase3`，校验通过的来源位于 `/Volumes/datasource/data_lake_staging/etf_daily/operation_id=etf-history-2023-2024-phase3-prod-source`。按下列命令串行执行，同一操作持有独占锁。变量 `rhash`、`shash` 分别由对应计划自产的哈希得出，登记阶段另复验 Raw Plan 哈希和首批完整日期清单。
+
+```bash
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+L=/Volumes/datasource/data_lake
+S=/Volumes/datasource/data_lake_staging
+W=/private/tmp/goldenshare-bootstrap/etf_daily/etf-history-2023-2024-phase3
+rev=$(git rev-parse HEAD)
+cli() { .venv/bin/python3 -B -m orchestrator.defs.bootstrap.etf_daily_bootstrap_cli "$@"; }
+cli raw-plan --history-2023-2024 --confirm-raw-plan --operation-id etf-history-2023-2024-phase3 --code-revision "$rev" --lake-root "$L" --staging-root "$S" --output "$W/raw-plan.json"
+cli history-source --confirm-prod-export --prod-timeout-seconds 120 --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --lake-root "$L" --staging-root "$S"
+# 使用同一 .venv/bin/python3 -B，以下文的分区登记调用登记获准日期。
+cli raw-apply --confirm-raw-apply --first-batch --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --lake-root "$L" --staging-root "$S" --checkpoint "$W/checkpoint.jsonl" --output "$W/raw-apply.json"
+cli raw-audit --first-batch --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --lake-root "$L" --checkpoint "$W/checkpoint.jsonl" --output "$W/raw-audit.json"
+cli silver-plan --confirm-silver-plan --confirm-coverage-review --first-batch --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --lake-root "$L" --staging-root "$S" --raw-audit "$W/raw-audit.json" --code-revision "$rev" --coverage-policy-revision fund_daily_warn__fund_adj_blocking_v3 --output "$W/silver-plan.json"
+cli silver-apply --confirm-silver-apply --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --silver-plan "$W/silver-plan.json" --expected-silver-plan-hash "$shash" --lake-root "$L" --staging-root "$S" --checkpoint "$W/checkpoint.jsonl" --output "$W/silver-apply.json"
+cli physical-post-audit --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "$rhash" --silver-plan "$W/silver-plan.json" --expected-silver-plan-hash "$shash" --lake-root "$L" --staging-root "$S" --checkpoint "$W/checkpoint.jsonl" --output "$W/physical-audit.json"
+```
+
+分区登记在来源准备完成后执行。用 `load_etf_daily_raw_bootstrap_plan(..., expected_plan_hash=rhash)` 和 `plan.selected_dates(first_batch=True)` 验证首批，比较上文 20 日白名单。在 `daily_basic_event_instance(writable=True)` 取得 `instance.get_dynamic_partitions("cn_a_etf_mins_trade_days")`，计算首批尚未登记的差集，调用一次 `instance.add_dynamic_partitions("cn_a_etf_mins_trade_days", missing)`，再读回注册结果。已存在时复用。同一报告目录中的锁、计划及进度用于续跑，已通过的来源、计划和文件不重建。读取报表只聚合状态，新的失败验收证据使用新文件名保留原报表。
+
+<a id="etf-daily-2023-2024-phase3-result"></a>
+
+### 阶段 3 正式首批验收（2026-11-26）
+
+首批 20 个交易日已登记。正式读回确认 80 个目标文件、80 条文件进度记录均与验收报告一致，后续 464 日仍无本次目标文件或新增分区。在 484 日冻结范围内查询四个资产，未查到物化记录，本次写入物化和检查事件均为 0。首批 ETF 基础信息冻结在 11 月 26 日快照，对应 Raw/Silver 物化 ID 为 `8420230` / `8420278`；首批清算事实无重叠。
+
+| 数据集 | 文件数 | 读回行数 | 文件字节数 | 验收 |
+| --- | ---: | ---: | ---: | --- |
+| 基金日线 Raw | 20 | 23,277 | 810,587 | 20 日全部取自 Prod 原始基金日线，每日行数与冻结来源一致，未请求 Tushare 日线回源 |
+| ETF 日线 Silver | 20 | 14,175 | 542,267 | 阻塞校验通过，18 日有覆盖告警，合计 62 个代码与交易日组合；缺口成因未逐个核验 |
+| 基金复权因子 Raw | 20 | 24,329 | 215,609 | 20 日全部取自 Tushare `fund_adj`，原有 20 个贴水率空值均保存 |
+| ETF 复权因子 Silver | 20 | 14,237 | 130,211 | 覆盖无缺口，贴水率值与 Raw 对账通过；Raw 中贴水率为空的 20 条记录均未进入 Silver |
+
+Prod 一次只读导出得 618,664 行、484 日。冻结来源 Parquet 为 19,518,388 字节，`history-source` 从启动到完成为 30.187 秒，包含命令启动、读取、转换和校验。首次写入 Raw 命令 4.173 秒、Raw 审计 1.396 秒、Silver Plan 1.365 秒。临时执行脚本随后误读 Silver 计划的序列化字段，停止在 Silver 写入前。改用现有计划加载器后从原计划续跑，来源本地复验 0.991 秒，未再次读取 Prod 或请求已完成的 Tushare Raw。Silver 写入命令 5.438 秒，最终物理验收 1.387 秒，其中批量文件核验 0.293 秒、30 条 SQL。首批正式输出共 1,698,674 字节，未采集 DuckDB 临时磁盘峰值。
+
+后续预算以本次 20 日实测为对照，阶段 4 尚有 464 日、1,856 个文件，应复用已冻结 Prod 来源。按本批同等单日规模，正式文件量基准为 `1,698,674 × 464 ÷ 20 ≈ 39.4 MB`。复权因子预计 464 次首请求，现行策略最多 1,856 次网络尝试；中断后从未完成日期重新计数。按本批核心写入耗时 2.460 秒和 4.223 秒线性换算，剩余文件写入及当期 Tushare 请求基准约 155 秒；全 484 日基础物理核验按 `0.293 × 484 ÷ 20 ≈ 7.1` 秒换算。这两个时间只用于对照，不包含更大的历史样本、完整计划验证、最终源和文件指纹读回以及进度文件增长的额外成本。现行进度每增加一份文件都会重写前面全部条目，实测首批 80 条为 53,568 字节。若条目均长与首批相同，阶段 4 重写进度的累计输出约为 `(53,568 ÷ 80) × (81 + 1,936) × 1,856 ÷ 2 ≈ 1.25 GB`，还会反复读取和校验旧条目。这是累计写出量，不是同时占用空间；阶段 4 的正式总耗时和续跑预算须据此另行确认。
+
+阶段 4 续用同一 Raw Plan、首批 Silver Plan、checkpoint 和 Prod 来源。操作目录为 `/private/tmp/goldenshare-bootstrap/etf_daily/etf-history-2023-2024-phase3`。Raw Plan 为 `06ec5f974d50d5fb453e5d1e5072aaa86d1706571195a1be68bf464d9711c782`，Silver Plan 为 `6b63e6df5fbcb35c0ddee42e97ce16aa8caf2b41f03397863741b29e0b8fbcd0`，来源指纹为 `6d1544a91528660d33e8c5f702e8eb8f4a2c4accae7a6bf663558de8913c2f80`，物理验收报告 `physical-audit.json` 指纹为 `c30065a51ac19f0e25a4c633efc80050d90f9a26266004272515bd954a7f3537`。
+
+<a id="etf-daily-2023-2024-governance-closeout"></a>
+
+### 固定治理回归复验（2026-11-27）
+
+`8ec3d20b2` 补齐主要指数定量结构的检查登记，并修正资产治理测试对指数基础信息旧常量的导入。`894377105` 校准了此前不一致的 29 项 sensor 就绪检查登记，包含主要指数分钟技术数据、指数日线技术因子和交易日历，同时将指数日线成交量修复入口切换到统一的 `connect_configured_duckdb()`。
+
+在 `a8ab63dfa` 的代码基线上，通过专用隔离入口复跑资产治理合同 12 项、检查增量治理 6 项和运行合同静态检查 113 项，合计 131 项全部通过。ETF 日频、ETF 基础信息就绪和 ETF 分钟历史保护合计 236 项通过，交易日历更新与指数日线成交量修复共 22 项通过，Ruff 的语法及严重错误检查通过。上述治理问题已关闭。

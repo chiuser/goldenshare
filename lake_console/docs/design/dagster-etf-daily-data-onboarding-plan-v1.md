@@ -1037,13 +1037,12 @@ metadata 必须通过项目统一 builder 生成，不裸写无命名空间字�
 固定回归必须从 `lake_console/orchestrator` 执行：
 
 ```bash
-uv run python -m pytest -q \
-  tests/test_etf_daily_*.py \
-  tests/test_asset_governance_contracts.py \
-  tests/test_asset_check_incremental_governance.py \
-  tests/test_run_contract_static_gates.py
-uv run ruff check --select E9,F63,F7,F82 src tests
-uv run ruff check <本次新增和修改的 Python 文件>
+.venv/bin/python3 -B -m pytest -q tests/test_etf_daily_*.py
+for suite in test_asset_governance_contracts.py test_asset_check_incremental_governance.py test_run_contract_static_gates.py; do
+  .venv/bin/python3 -B tests/stock_suspend_confirmed_test_runner.py --scope regression --suite "$suite" || exit 1
+done
+.venv/bin/ruff check --select E9,F63,F7,F82 src tests
+# 有新增或修改的 Python 文件时，再对这些文件执行完整 Ruff 检查。
 ```
 
 只运行 `tests/test_etf_daily_*.py` 不构成治理验收完成。上述测试是隔离代码回归，不需要访问正式 Dagster instance、正式 Lake、数据库或 Tushare。
@@ -1094,7 +1093,7 @@ uv run ruff check <本次新增和修改的 Python 文件>
 | --- | --- | --- |
 | 1. 有界只读核验和定稿 | 核对日历、目标路径、动态分区消费者和清算事实，抽样对账，摸清 Prod 读库和 Tushare 分页开销 | 冻结拟执行的日期、来源白名单、差异处理、性能预算及阶段 2 的实施范围。详细步骤见[本次补录 LLD](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase1) |
 | 2. 历史入口及隔离验收 | 给历史计划加入明确的日期上、下界和来源记录，复用现有候选、审计和逐文件进度。核对批量复权因子覆盖与日常口径 | 隔离验证覆盖范围外日期、字段差异和回源、清算例外、断点及冲突。代码、计划与 LLD 审计一致 |
-| 3. 正式首批 | 获准后注册本次缺少的交易日，按现有每批 20 个交易日完成首批两份 Raw 及两份 Silver | 首批四资产完成读回、按日对账和检查，以实耗复算剩余批次、续跑和最后验收开销 |
+| 3. 正式首批 | 一次只读导出涵盖 484 个交易日的 Prod 基金日线，冻结来源。只注册和写入 2023-01-03 至 2023-02-06 的首批 20 个交易日 | 首批四资产的 80 个文件完成物理读回和按日对账，记录实际来源、耗时和体积，为阶段 4 复算预算。执行边界和命令见[阶段 3 细案](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase3) |
 | 4. 完成正式历史文件 | 沿用同一计划和 ETF 基础信息快照继续其余批次。484 日按每批 20 日计算，含首批共 25 批 | 四资产日期集合、主键、文件指纹和 Raw 到 Silver 字段对账通过。日线覆盖告警和复权因子覆盖结果均留证 |
 | 5. 登记 Dagster 与验收 | 根据已验收的物理文件单独生成并执行事件计划 | 冻结范围内的物化与文件证据匹配，检查事件绑定对应物化。抽查历史分区，确认读取路径和覆盖报告一致 |
 
@@ -1102,4 +1101,10 @@ uv run ruff check <本次新增和修改的 Python 文件>
 
 状态（2026-11-26）。**阶段 1 只读核验已完成，可进入阶段 2 的实现评审。** 两个样本日共 2,603 行日线，Prod 与 Tushare 的代码集合及九项数值字段完全一致。Prod 按交易日查会扫表，阶段 2 按一次限定 2023–2024 年的流式导出设计，日期拆分在本地完成。复权因子两日实测均返回贴水率，各有一条源端空值。目标 484 日目前均未注册，登记库中没有与本次历史范围重叠的 ETF 清算事实。 [阶段 1 结果、预算和实施准入](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase1-result)
 
-阶段 2 已实现历史入口，并完成按源样本行数构造的隔离首批容量核验。ETF 功能回归通过，全局固定治理回归未全绿，阶段 3 尚未通过正式开工准入。 [阶段 2 实现、隔离证据和治理结果](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase2-result)
+阶段 2 已实现历史入口，并完成按源样本行数构造的隔离首批容量核验。阶段 2 收尾时，ETF 功能回归通过，全局治理回归有失败，阶段 3 当时仍待准入复核。 [阶段 2 实现与隔离证据](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase2-result)
+
+阶段 3 准入复核（2026-11-26）。已获准按上述范围导出 Prod 日线、从 Tushare 拉取首批基金复权因子、登记首批交易日并发布 DG 文件。首批以正式日历数据、ETF 基础信息和四个日频资产自身的文件核验作为开工及验收依据。
+
+阶段 3 已完成（2026-11-26）。Prod 一次只读导出 484 日共 618,664 行；DG 登记首批 20 日，四个日频资产的 80 个正式文件通过物理验收。ETF 复权因子无缺口。ETF 日线的 18 日覆盖告警共涉及 62 个代码与交易日组合。后续 464 日留待阶段 4，物化与检查事件留待阶段 5。 [阶段 3 验收记录与后续预算依据](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase3-result)
+
+治理回归复验通过（2026-11-27）。阶段 2 到阶段 3 期间记录的治理失败均已修复并关闭。 [治理修复及复验证据](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-governance-closeout)
