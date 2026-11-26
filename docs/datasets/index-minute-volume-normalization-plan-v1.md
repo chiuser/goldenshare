@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示方案 v1
 
-更新于 2026-11-27。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成。DG 已加载新版，待核对重载后首批日常 Silver 行情。阶段 2 的 Prod 正式试点和 DG 候选试点已通过，首批重刷、DG 文件发布及读数切换待推进。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
+更新于 2026-11-27。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成。DG 已加载新版，待核对重载后首批日常 Silver 行情。阶段 2 已完成首批 Prod 只读清单冻结、DG 文件清单核对和隔离候选演练，正式重刷、DG 文件发布及读数切换待推进。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
 
 ## 1. 目标和范围
 
@@ -52,6 +52,8 @@ Prod 先按当时维护的指数范围核对 11 月 9、10、24、25 日的 30 �
 2026-11-26 经确认完成 Prod 正式试点。上证综指同批 9 根成交量从 493,526,296 手改为 49,352,629,600 股，复核表和服务视图一致，同一清单重跑更新 0 根。DG 试点样本仅作只读对照。首批重刷及后续读数切换按本节执行。[正式试点记录](index-minute-volume-normalization-low-level-design-v1.md#prod-pilot-result)
 
 DG 已用同日样本验证通用 Raw、两套 30／90 分钟 Silver 和两套 90 分钟 Gold 共 7 个候选文件，重跑全部复用。正式文件和读取代码在同一维护窗口切换。[候选试点与切换核对](index-minute-volume-normalization-low-level-design-v1.md#dg-volume-candidate-result)
+
+2026-11-27 完成首批历史处理的准备。Prod 在只读事务中核对 11 个交易日的 10,395 组、667,359 根，已修试点的 9 根通过目标值判定。DG 核清 363 个待刷新文件和 55 个额外直采源文件，并用同一试点演练候选、重跑以及 90／120 分钟对照。正式处理先提交 Prod 清单，确认读回股数后再准备对应 DG 正式候选。 [阶段 2 准备记录](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-first-batch-prep)
 
 Prod 已只读核实 2026-11-26 的 530 只指数、五个基础频率均已存股。该日行情可直接作为下一交易日的比较基准。[Prod 股数基准核对](index-minute-volume-normalization-low-level-design-v1.md#prod-volume-reference-result)
 
