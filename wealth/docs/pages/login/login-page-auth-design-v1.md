@@ -1,12 +1,12 @@
 # 财势天下登录页视觉改版与鉴权接入技术方案 v1
 
-更新日期：2026-09-04
+更新日期：2026-11-27。[共享客户端并发续期修复](#wealth-concurrent-auth-refresh-plan)已实现并通过本机回归和独立审计，结果待管理员确认。以下登录页和交易助手段落保留各自的实施记录。
 
 ### 2026-09-12：交易助手 M2 已批准的共享认证扩展
 
 依据交易助手技术方案 §4.15.1、§11.11：`wealthFetch` 的独立第三参数增加 `replayAfterRefresh`，默认 true，现有调用方保持刷新一次、重发一次；交易助手业务写入固定 false，刷新成功也返回首次响应，由领域层只核对原操作。选项不进入 fetch 参数或请求头，不新增后端认证字段、存储 key 或运营配置。
 
-会话代次由 authStorage 集中管理：登录／退出推进身份代次；有效刷新只更新当前身份的凭据。刷新返回、登录返回和第二次请求处理前核对发起会话，退出或换用户后不得回写旧凭据、清理新会话或带新用户身份重发旧操作。跨窗口凭据变化使旧窗口在下次读取时失效旧代次。现有登录 10 秒截止、取消和错误反馈不变；不新增并发刷新去重。此段是获准的 M2 实施约束，以下登录改版执行记录仍按原日期理解。
+会话代次由 authStorage 集中管理：登录／退出推进身份代次；有效刷新只更新当前身份的凭据。刷新返回、登录返回和第二次请求处理前核对发起会话，退出或换用户后不得回写旧凭据、清理新会话或带新用户身份重发旧操作。跨窗口凭据变化使旧窗口在下次读取时失效旧代次。现有登录 10 秒截止、取消和错误反馈不变。当时的 M2 范围未包含并发续期合并。后续获准的共享修复见 [§7.5](#wealth-concurrent-auth-refresh-plan)。
 
 状态：LLD 修订至 v1.2，开发与本地自动化检查完成，包含用户批准的登录校验错误脱敏。沿用当前背景、登录默认 10 秒超时、标签显示财势天下与新印章图标、错误提示保留 2.6 秒。未部署，正式验收由用户执行；当前素材不能标为 Retina 原生像素或已完成浏览器视觉验收。
 
@@ -278,7 +278,7 @@ TokenResponse 保持 `token`、可空 `refresh_token`、可空 `access_token_exp
 
 - localStorage key 保持 `wealth.auth.access-token`、`wealth.auth.refresh-token`、`wealth.auth.expires-at`、`wealth.auth.username`、`wealth.auth.display-name`。不存明文密码，不复用运营后台存储命名。
 - AuthProvider 从本地 session 初始化；access token 存在即进入前端 authenticated 状态，不是已向服务器验证 token 有效。
-- `wealthFetch` 在 Authorization 注入 Bearer；收到 401 时，有 refresh token 则尝试一次刷新并重放一次。缺 refresh token、刷新失败或重放仍 401 时清会话并发认证失效事件；不引入循环重试。
+- `wealthFetch` 在 Authorization 注入 Bearer。收到 401 后，同一会话的请求按 [§7.5](#wealth-concurrent-auth-refresh-plan) 共用续期，并按 `replayAfterRefresh` 决定是否重发一次。缺刷新令牌、续期失败或重发仍为 401 时按会话检查清理并派发认证失效事件。
 - 入口仍为 `/wealth/login`，默认回跳 `/wealth/market/overview`。已有 `/login` 识别不在此任务增删范围。
 - `readRedirectPath` 当前接受以单个 `/` 开头的值，缺省、非 `/` 开头或以 `//` 开头时回到默认页。本次不声称已有完整的 Wealth 路由白名单，也不扩展回跳规则。
 - 行情端真实访问保护由后端 `require_quote_access` 和 `QUOTE_API_AUTH_REQUIRED` 决定，不以页面角落文案为依据。当前 Settings 默认 False；若环境要求登录后访问行情，必须单独核验运行值为 True。本次未核验生产运行值、不修改配置，也不新增 `quote.read` 权限检查。
@@ -295,6 +295,22 @@ TokenResponse 保持 `token`、可空 `refresh_token`、可空 `access_token_exp
 ### 7.4 用户拍板：浏览器标签名称与印章图标
 
 在 `wealth/index.html` 设置唯一 title 为“财势天下”，并引用新印章 32/64px PNG favicon。图标使用原印章同一有效裁切，保留字形/金线/底色，交给 Vite 生成带 hash 的资源 URL；不继续引用旧图标、不下载原始大印章作为 favicon。共用入口设置覆盖登录和登录后的 Wealth 页面，不增加路由切换时的 head 修改/恢复，不涉及运营后台、其他页面正文或 TopMarketBar 品牌。构建产物与实际浏览器图标均需检查。
+
+<a id="wealth-concurrent-auth-refresh-plan"></a>
+
+### 7.5 共享客户端并发续期修复
+
+2026-11-27，管理员确认将本修复列为[主要ETF（国家队）监测阶段 2 的开工前置](../wealth-exploration/major-etf-monitor-implementation-design-v1.md#major-etf-monitor-phase-2-prerequisite)。目标是同一浏览器标签页内，同一登录会话的多个业务请求遇到旧访问令牌失效时共用一次续期，每个请求按原规则处理自己的结果。
+
+修复前，`wealthFetch` 对每个首次 `401` 各发一次 `POST /api/v1/auth/refresh`。`AuthService.refresh` 签发新令牌后撤销旧刷新令牌。用市场总览真实的客观总结、涨跌分布客户端和隔离 HTTP 响应复现，两条请求发送了两次刷新。成功响应先到时，另一模块仍收到 `401`。失败先到时，两条请求均返回 `401`，并清除前端登录状态。隔离结果用于证明触发条件，实际发生频率未核实。
+
+只改 Wealth 共享请求客户端与对应测试。用现有会话代次识别登录身份，只协调同一标签页内使用同一批凭据的请求。先到的 `401` 发起续期，其余请求等同一次结果。迟到的 `401` 发现同一会话的凭据已经更新时直接使用新凭据。续期成功后，每个允许重发且仍在等待的请求最多各重发一次，交易助手写请求按既有 `replayAfterRefresh: false` 返回首次响应。单个请求取消只结束自己的等待，最后一个等待者取消才中止共享续期。会话已退出或换用户时，旧请求结果作废。
+
+所有 `wealthFetch` 调用方复用修复，页面无需适配。交付边界仅为标签页内的请求协调，沿用现有登录、退出与续期 HTTP 合同、`wealth.auth.*` 存储键、首次响应与重发规则、各调用方自己的时限。ETF 前端两模块仍独立请求和取消，续期等待计入各自既有的 5 秒时限。全过程使用现有运行环境及本机隔离测试，禁止连接 Prod 或改动 ETF 数据接口、DG 读取及服务端认证。
+
+验收须证明两个行情 GET 同时收到 `401` 时只发一次续期，并各自收到成功结果。还须覆盖迟到 `401`、取消、真实续期失败、退出或切用户、写请求不重发及有效令牌原路径。通过共享客户端回归后写回结果，再进入 ETF 桌面前端。[实现和验收细节](./login-page-auth-low-level-design-v1.md#wealth-concurrent-auth-refresh-lld)
+
+本机验证及独立审计已经完成，证据见[认证 LLD §11.4](./login-page-auth-low-level-design-v1.md#wealth-concurrent-auth-refresh-result)。ETF 阶段 2 等待管理员确认本次结果后开始。
 
 ## 8. 实施范围与分步交付
 

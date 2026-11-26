@@ -1,10 +1,10 @@
 # 财势天下登录页视觉改版低层设计（LLD）v1
 
-更新日期：2026-09-04
+更新日期：2026-11-27。[共享客户端并发续期修复](#wealth-concurrent-auth-refresh-lld)已实现并通过本机验证，结果待管理员确认。此前登录页改版及交易助手记录按原范围保留。
 
 ### 2026-09-12：交易助手 M2 共享认证承接
 
-按交易助手技术方案 §4.15.1／§11.11 实施：`wealthFetch(input, init, {replayAfterRefresh})` 的默认值为 true，旧调用方行为不变，交易助手写入显式 false；不新增后端接口、存储键、并发刷新去重或运行配置。authStorage 提供身份代次读取，普通登录保存及退出推进代次，刷新在旧凭据及代次仍匹配时写回且不更换身份代次。AuthProvider.login 在原取消／10 秒检查之外增加身份代次检查；退出后迟到登录不能恢复旧会话。跨窗口存储变化在读取代次时检测，不将凭据写到日志。
+按交易助手技术方案 §4.15.1／§11.11 实施：`wealthFetch(input, init, {replayAfterRefresh})` 的默认值为 true，旧调用方行为不变，交易助手写入显式 false。当时范围未包含并发续期合并，后续获准修复见 [§11](#wealth-concurrent-auth-refresh-lld)。authStorage 提供身份代次读取，普通登录保存及退出推进代次，刷新在旧凭据及代次仍匹配时写回且不更换身份代次。AuthProvider.login 在原取消／10 秒检查之外增加身份代次检查；退出后迟到登录不能恢复旧会话。跨窗口存储变化在读取代次时检测，不将凭据写到日志。
 
 新增验收覆盖：禁止重发时仅原写入和 refresh 两次请求；默认路径仍至多重发一次；原请求等待期间退出／换用户、refresh 成功或失败迟到、第二次 401 迟到均不污染新会话。下面 U10／L08 的“storage／refresh 未改”保留为 9 月 4 日登录改版的历史范围，不约束本次已批准扩展；登录视觉和其他认证合同不变。
 
@@ -301,9 +301,9 @@ top  = max(S, min(H × 264 / 1080, H - B - S))
 | 不持久化项 | 明文密码、is_admin 不新增持久化；不引入 cookie 或运营后台 key |
 | 错误解析 | `AuthApiError` 沿用 code/message；非 JSON 沿用 `请求失败：<status>` / `HTTP_<status>`；页面非 Error fallback 为“登录失败，请检查用户名或密码” |
 | 已有 session | 读到 access token 即 authenticated；不额外检查 expires-at、不新增 `/me` 恢复请求 |
-| 业务 401 | `wealthFetch` 注入 Bearer；最多一次 refresh 和一次重放；缺 refresh、refresh 失败或重放 401 则清会话并发 `wealth-auth-required` |
+| 业务 401 | `wealthFetch` 注入 Bearer。同会话的并发请求共用一次续期，每个允许的请求最多重发一次。缺刷新令牌、续期失败或重发 `401` 时按会话检查清理并派发 `wealth-auth-required`。详见 [§11](#wealth-concurrent-auth-refresh-lld) |
 | 路由 | `/wealth/login`，保留现有 `/login` 识别；缺省回跳 `/wealth/market/overview`；单 `/` 开头的 redirect 按现有逻辑接收，`//` 或非 `/` 回默认页 |
-| 请求取消/超时 | 当前 authApi 已支持可选 signal；本次 Provider 传入请求 signal 并增加 10 秒期限，页面提供卸载取消 signal；不新增并发 refresh 去重 |
+| 请求取消/超时 | 登录页改版中 Provider 传入请求 signal 并增加 10 秒期限，页面提供卸载取消 signal。共享业务续期的取消规则见 [§11](#wealth-concurrent-auth-refresh-lld) |
 
 TokenResponse 中 token 是会话凭证，不是登录页可见字段；`username/display_name` 的核验使用测试账号，页面品牌不从账户字段替换。不新增 `ITI_*` 或其他登录专用异常码；ITI 属于成交额洞察，与本页无关。
 
@@ -522,3 +522,63 @@ uv run pytest -q tests/web/test_auth_api.py tests/web/test_auth_registration_api
 | v1 | 2026-09-04 | 基于当前 Figma 与真实 auth 代码补齐 LLD、硬口径映射、编码门禁、例外及核心测试；待评审 |
 | v1.1 | 2026-09-04 | 同步三项用户拍板：登录默认 10 秒及迟到结果保护、共用标签名/印章图标、保留 2.6 秒反馈；未编码 |
 | v1.2 | 2026-09-04 | 用户批准登录校验错误脱敏；完成登录改版、10秒期限、资源与字体/光学校准、U/A及构建；部署与V/R交由用户 |
+
+<a id="wealth-concurrent-auth-refresh-lld"></a>
+
+## 11. 共享客户端并发续期修复
+
+2026-11-27，管理员确认修复作为主要ETF（国家队）监测阶段 2 开工前置。目标、复现过程和范围见[原认证方案 §7.5](./login-page-auth-design-v1.md#wealth-concurrent-auth-refresh-plan)。本次结果见 [§11.4](#wealth-concurrent-auth-refresh-result)。
+
+### 11.1 代码落点和调用方
+
+| 位置 | 实现和边界 |
+| --- | --- |
+| `wealth/src/shared/api/wealthApiClient.ts` | 在 `wealthFetch` 内集中协调续期。以现有 `getAuthEpoch()`、首次使用的刷新令牌和当前凭据识别能否共用一次续期。共享请求的 Promise、AbortController 和等待者只存于当前标签页的运行内存。 |
+| `wealth/src/features/auth/api/authApi.ts`、`wealth/src/features/auth/model/authStorage.ts` | 分别复用 `refreshToken` 发送现有 HTTP 请求和 `getAuthEpoch`、`readAuthSession`、`saveAuthSession(..., "refresh")`、`clearAuthSession` 读写当前会话。现有 HTTP 字段、存储键、登录代次和 `wealth-auth-required` 事件沿用。后端认证、账户数据库和配置在实现范围外。 |
+| `wealth/src/shared/api/wealthApiClient.test.ts` | 补并发、先后顺序、取消、会话切换和写请求的回归。沿用真实客户端及 `authApi`，用受控 HTTP 响应控制请求返回顺序。 |
+
+CodeGraph `codegraph_explore` 与 `codegraph_callers` 核对了 `wealthFetch`、`refreshToken`、会话存储、AuthProvider 和交易助手调用，另用源码引用核对全量调用入口。市场总览、个股及指数详情、自选、数据中心、财势探查、交易助手等现有调用方沿用原方法和选项。交易助手 `tradingAssistantApi.ts` 对写请求明确传 `replayAfterRefresh: false`，其业务恢复规则继续按原方案。直接 `fetch` 集中在基础认证 API 和共享客户端的发送层。标签页之间只走现有存储变化和代次检查。所有核验在本机隔离环境执行，禁止连接 Prod。
+
+### 11.2 请求行为
+
+1. 首次发送时记录实际使用的访问令牌、刷新令牌和会话代次。非 `401` 原样返回。收到首次 `401` 后，调用已取消或会话代次变化时返回首次响应。仍是同一会话且凭据已更新时，复用更新后的凭据，进入第 4 步。仍是旧会话凭据且缺刷新令牌时，按现有规则清理当前会话并通知重新登录。
+2. 需要续期时先查当前标签页里是否已有同一代次、同一刷新令牌的续期请求。已有则加入等待，否则先登记该次续期，再调用 `refreshToken`，使同一批请求只发一次。共享续期使用自身的 AbortController。每个调用单独监听原 signal，取消后立即结束本请求的等待并返回首次响应。其他调用仍可继续等待。最后一个等待者取消时中止共享续期并移除该次记录。任何等待结束都清理该调用的取消监听。早先取消的续期迟到完成时不得写回或删除后发请求的记录。
+3. 共享续期响应解析完成后，仅由共享流程提交一次结果。结果对应的会话代次与原刷新令牌仍匹配，并且该次续期仍有效时，成功则保存新凭据，真实失败则清理会话并派发一次认证失效事件。退出、重新登录、切换用户、标签页外部存储变化或全部等待者取消时废弃该次迟到结果。结束时只释放本次续期记录。调用方在失败时各自收到首次响应，可按现有流程重新登录或由用户重新发起业务请求。
+4. 续期成功，或迟到的首次 `401` 识别到同一会话已换新凭据后，确认该调用仍有效，再按原 `replayAfterRefresh` 决定是否重发。允许时以当前访问令牌和原 URL／method／body／headers／signal 重发一次。禁止重发时返回首次 `401`。重发仍为 `401` 时，只在会话和重发实际使用的凭据仍匹配时清理并通知。若凭据已再次更新或调用已取消则保留当前会话。重发路径到此结束。
+
+请求规模按现有行为推导。使用有效凭据的两条 GET 仍是两次请求。两条 GET 同时遇到 `401`，续期成功且均允许重发时，合计 5 次 HTTP 调用（2 次首次 GET、1 次续期、2 次 GET 重发）。续期失败时只发首次请求和该次共享续期。用户再次触发操作时按当下会话重新判断。ETF 两模块沿用已确认的 5 秒请求截止时间，覆盖等待续期、可能的重发和首次可用响应的解析。其他调用沿用各自已有 signal 和时限。共享客户端不新增统一计时器或自动续期重试。
+
+<a id="wealth-concurrent-auth-refresh-tests"></a>
+
+### 11.3 验收与阶段 2 开工条件
+
+| 验收项 | 可执行断言 |
+| --- | --- |
+| 正常授权 | 有效会话下两条 GET 各发送一次、没有 `/auth/refresh`。已有非 `401`、单条续期和请求参数回归通过。 |
+| 并发与迟到 `401` | 用全市场和主要 ETF 两条 GET 的 URL 调用真实 `wealthFetch`，受控地让两条旧请求同时返回 `401`，或在首次续期成功后再返回第二条 `401`。两种顺序都只发一次刷新，新令牌重发各一次，两个调用都成功，登录状态保持。该用例应能在修复前复现失败。 |
+| 取消与超时 | 分别取消先发请求和后加入请求，另一条仍成功，取消方不重发。全部取消时共享网络信号中止，迟到成功和失败都不得写回或清会话。之后使用当前会话重新发起的正常请求不受旧 Promise 阻塞。 |
+| 续期失败与重发失败 | 当前会话的续期请求拒绝或网络失败时共享调用只有一次，各业务请求返回自己的首次响应，认证失效事件只派发一次，无自动循环。重发仍 `401` 时验证现行清理与迟到 `401` 保护。 |
+| 退出或切用户 | 覆盖首次 `401`、共享续期成功或失败、重发 `401` 三类迟到响应。它们不得为旧操作使用新用户凭据、覆写存储或清理新会话。 |
+| 交易助手写请求 | 让允许重发的 GET 与 `replayAfterRefresh: false` 的写请求共用一次成功续期。GET 用新令牌重发一次，原写仅发送一次并取得首次响应。保持第三参数在请求头和原生 `RequestInit` 以外。 |
+
+前端通过 `npm --prefix wealth run typecheck` 和 `npm --prefix wealth run test -- --no-cache --configLoader runner src/shared/api/wealthApiClient.test.ts src/features/auth/api/authApi.test.ts src/features/auth/model/authStorage.test.ts src/features/auth/model/AuthProvider.test.tsx src/features/trading-assistant/api/tradingAssistantApi.test.ts src/pages/wealth-exploration/EtfActivityPage.test.tsx`，再运行 Wealth 全量测试与构建。后端轮换合同以 `tests/web/test_auth_api.py::test_real_login_refresh_rotation_and_logout_revocation` 的真实路由和内存 SQLite 回归核对。测试结果按受控前端响应、本机隔离真实认证分别记录。ETF 两模块同页的真实浏览器接入在阶段 2／3 按原验收范围检查。
+
+2026-11-27 修复前的基线中，上述六个前端测试文件共 50 项通过，后端令牌轮换回归 1 项通过。新增并发用例在修复前复现了重复续期，最终结果见 §11.4。
+
+把实现位置、测试结果、两组并发请求的请求次数及登录状态写回本节，并在 [ETF LLD 的阶段 2 开工条件](../wealth-exploration/major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-gate) 记录通过证据。前置项通过后才开始 ETF 桌面模块编码。
+
+<a id="wealth-concurrent-auth-refresh-result"></a>
+
+### 11.4 实现与本机审计结果
+
+2026-11-27，本次代码范围为 [`wealthApiClient.ts`](../../../src/shared/api/wealthApiClient.ts) 和 [`wealthApiClient.test.ts`](../../../src/shared/api/wealthApiClient.test.ts)。使用 CodeGraph `codegraph_explore`、`codegraph_callers` 和源码引用对账，确认市场总览、详情、自选、数据中心、财势探查和交易助手继续通过现有公开签名调用，交易助手仍按 `replayAfterRefresh: false` 发送写操作。调用方、认证后端、ETF 前端和 DG 数据路径均沿用原实现。
+
+| 审计项 | 实现与验证结果 |
+| --- | --- |
+| 请求及令牌 | `wealthFetch` 捕获原会话代次及实际发送的访问令牌。`getPendingRefresh` 按会话代次与原刷新令牌复用请求，`runRefresh` 一次提交续期结果。新增用例用两条 ETF URL 核对有效凭据、同时 `401` 和迟到 `401`。修复前的同时 `401` 用例实际发了两次续期，修复后只发一次。 |
+| 取消与新会话 | `waitForRefresh` 单独响应各调用取消，末位等待者退出时中止共享请求。测试覆盖先发与后加入者分别取消、全部取消后成功或失败迟到、旧请求结束时已有后发续期、退出及换用户。会话代次与凭据守卫确保迟到操作无法覆盖或清理当前会话。 |
+| 失败与写请求 | 共享续期被拒绝或网络失败时，只派发一次认证失效事件，各调用取得其首次响应。回归覆盖重发仍为 `401` 及迟到响应保护。与 GET 共用续期的交易助手写请求只发送一次。 |
+| 独立认证链路 | 在临时进程中将实际前端客户端请求转发至本机进程内的真实 FastAPI 登录、刷新及 `/auth/me` 路由，账户库为内存 SQLite。两个验证 GET 同时或先后收到真实的过期 `401` 时，请求顺序均为 `401、401、200（唯一续期）、200、200`，会话保持。已撤销刷新令牌时顺序为 `401、401、401（唯一续期）`，只触发一次认证失效。3 项独立用例通过。GET 探针使用认证读路由，ETF 两模块同页展示随阶段 2／3 验收。 |
+| 回归与构建 | Wealth 类型检查、六个相关测试文件 65 项、全量 189 个文件 1,717 项通过。隔离 SQLite 的真实令牌轮换回归 1 项通过。常规与 `local-dg` 构建在临时目录完成，保留现有大包提示。验证使用本机进程和测试数据，未连接 Prod。 |
+
+共享修复的技术开工条件已验证。结果待管理员确认后，再开始 ETF 桌面模块。
