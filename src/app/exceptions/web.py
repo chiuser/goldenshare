@@ -19,7 +19,10 @@ def _request_id(request: Request) -> str | None:
 
 
 def _response_headers(request: Request) -> dict[str, str]:
-    if request.method == "GET" and request.url.path == "/api/v1/wealth/market/index-detail/debug/daily-waves":
+    if request.method == "GET" and request.url.path in {
+        "/api/v1/wealth/market/index-detail/debug/daily-waves",
+        "/api/v1/wealth/market/etf-activity",
+    }:
         return {"Cache-Control": "no-store"}
     return {}
 

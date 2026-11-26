@@ -49,11 +49,13 @@ def _read(
     columns: tuple[tuple[str, str], ...],
     *,
     timeout_seconds: float | None = None,
+    connection_config: dict[str, str] | None = None,
 ) -> list[tuple]:
     if root is None:
         raise ReferenceDataReadError(f"本地 DG 根目录未配置，无法读取 {location}")
     try:
-        with duckdb.connect(database=":memory:") as connection:
+        options = {"config": connection_config} if connection_config is not None else {}
+        with duckdb.connect(database=":memory:", **options) as connection:
             timer = None
             if timeout_seconds is not None:
                 timer = Timer(timeout_seconds, connection.interrupt)
@@ -72,6 +74,7 @@ def _read(
             finally:
                 if timer is not None:
                     timer.cancel()
+                    timer.join()
     except duckdb.InterruptException as exc:
         raise TimeoutError(f"本地 DG 读取超时：{location}") from exc
     except duckdb.Error as exc:
@@ -79,8 +82,11 @@ def _read(
 
 
 class LakeTradeCalendarReader:
-    def __init__(self, root: Path | None) -> None:
+    def __init__(
+        self, root: Path | None, *, connection_config: dict[str, str] | None = None,
+    ) -> None:
         self.root = root
+        self._connection_config = connection_config
 
     def _rows(
         self, statement, params, *, timeout_seconds=None
@@ -98,6 +104,7 @@ class LakeTradeCalendarReader:
             )
             ORDER BY trade_date
         """
+        options = {"connection_config": self._connection_config} if self._connection_config is not None else {}
         rows = _read(
             self.root,
             TRADE_CALENDAR_LOCATION,
@@ -105,6 +112,7 @@ class LakeTradeCalendarReader:
             params,
             _CALENDAR_COLUMNS,
             timeout_seconds=timeout_seconds,
+            **options,
         )
         keys = {(exchange, day) for exchange, day, _, _ in rows}
         if len(keys) != len(rows) or any(
@@ -145,6 +153,7 @@ class LakeTradeCalendarReader:
         limit: int,
         include_bound: bool = True,
         start: date | None = None,
+        timeout_seconds: float | None = None,
     ) -> tuple[TradeCalendarRow, ...]:
         boundary = "<=" if include_bound else "<"
         return self._rows(
@@ -154,7 +163,20 @@ class LakeTradeCalendarReader:
                     ORDER BY trade_date DESC LIMIT ?
                 ) ORDER BY trade_date""",
             [exchange, start or date.min, bound, limit],
+            timeout_seconds=timeout_seconds,
         )
+
+    def latest_open_among(
+        self, *, exchange: str, days: Sequence[date], timeout_seconds: float,
+    ) -> TradeCalendarRow | None:
+        rows = self._rows(
+            f"""SELECT {_CALENDAR_SELECT} FROM calendar_source
+                WHERE exchange = ? AND is_open AND trade_date IN (SELECT unnest(?::DATE[]))
+                ORDER BY trade_date DESC LIMIT 1""",
+            [exchange, list(days)],
+            timeout_seconds=timeout_seconds,
+        )
+        return rows[0] if rows else None
 
     def context_rows(
         self,

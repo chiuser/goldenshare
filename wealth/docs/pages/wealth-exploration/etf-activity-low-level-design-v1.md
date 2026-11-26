@@ -1,0 +1,166 @@
+# 财势探查｜ETF 动态低层设计 v1
+
+2026-11-26。桌面 Figma 和本 LLD 已确认。第 1 阶段本地后端与 API 已实现，真实 DG 对账见 §8。桌面前端待管理员确认第 1 阶段验收结果后开发。[需求与交互基线](./etf-activity-benchmark-requirement-v1.md) · [技术实施方案](./etf-activity-implementation-design-v1.md)
+
+## 1. 文件与调用链
+
+| 层 | 计划落点与职责 |
+| --- | --- |
+| App 装配 | `src/app/api/v1/router.py` 在显式本地环境挂载 ETF 路由，注入行情认证、统一错误构造和正式 Lake 根目录。`src/app/web/app.py` 给非本地静态页面请求返回 404。两个入口共用同一本地环境判定。 |
+| Biz API 和 DTO | `src/biz/api/wealth/market/etf_activity.py` 定义 GET 模块路由。`src/biz/schemas/wealth/market/etf_activity.py` 声明日期、趋势行、榜单行、状态和错误结构。 |
+| Biz 查询 | `src/biz/queries/wealth/market/etf_activity/etf_activity_query.py` 查日期并执行趋势、榜单 SQL，将结果映射到 DTO。业务查询只调用 Foundation 的本地文件及 DG 元数据读取，不依赖 SQLAlchemy Session 或行情数据库。 |
+| Foundation 只读来源 | `src/foundation/clients/local_lake/etf_daily_reader.py` 解析正式日线及基础信息路径、读取指定日期的 DG 元数据并建立本机 DuckDB 连接。复用 `LakeTradeCalendarReader` 的日历范围和前序开市日查询。运行时无需导入 `orchestrator`。 |
+| Wealth 前端 | `wealth/src/app/routes/routerState.ts` 和 `WealthRouter.tsx` 注册 `/wealth/exploration/etf-activity`。`explorationNavigation.ts` 维护本地快捷卡片。`wealth/src/pages/wealth-exploration/EtfActivityPage.tsx` 复用 Shell 并装配页面。`wealth/src/features/wealth-exploration/etf-activity/` 放模块请求、状态、图表、排名表和格式化。 |
+
+通过 CodeGraph `codegraph_explore` 核对 `WealthRouter → resolveWealthExplorationRoute → WealthExplorationShell → ExplorationShortcutBar`、本地路由装配及本地交易日历消费者，并核对 Shell 请求、Web 页面入口和 DG 生产者。`useWealthExplorationShell` 还服务数据中心，新增选项默认走现有读取。ETF 子页显式关闭市场上下文和主要指数请求，顶栏展示品牌、一级导航和账户入口，面包屑只展示路径。现有调用通过共享组件默认显示原有行情与页面时间信息。入口画板用于核对新增卡片的位置与交互。服务依赖保持 App 注入认证和读取依赖、Biz 组合业务结果、Foundation 提供本地读取。
+
+## 2. 本地文件与查询
+
+1. **确定日期。** 枚举正式 `silver/quote/etf_daily/` 下的日期分区，按标准文件名定位 `part-000.parquet`，仅保留上海自然日当天及以前的候选。使用正式 `silver/calendar/trade_calendar/full/part-000.parquet` 中 SSE 开市日与候选日期相交，选择最近的日期。上一开市日取日历中早于该日的最近开市日。选定的 `tradeDate` 和 `previousTradeDate` 在一次请求内固定。盘中、周末或当天尚未落盘时显示已有数据日期。文件读失败时报告错误，区别于尚未落盘或确实无日线。
+2. **建立交易日序列。** 用实际日期回推 1、3 个自然月，月底不足时使用目标月的最后一天，开始日与结束日均包含。用 SSE 日历生成 3 个月内的开市日序列，再向前补最多 19 个开市日。日期和文件路径来自同一请求的本地文件清单，逐块只选需要的分区。
+3. **查询趋势。** 向 DuckDB 传入有界日线路径列表，关闭 Hive 路径列推断，投影文件内部 `trade_date`（`DATE`）、`ts_code`（`VARCHAR`）和 `amount`（`DOUBLE`）。先以日期聚合成交额并转为元，再以开市日序列左连接。两个窗口分别为含当日的最近 5、20 个开市日，只有 `count(amount) = 5` 或 `20` 才返回相应均线。裁去用于计算的前序行后按日期升序返回。没有文件的开市日保留 null，实际零成交额保留 0。
+4. **查询排名。** 当日文件投影 `trade_date`、`ts_code`、`amount`、`close` 和 `pct_chg`。前一开市日文件只需 `trade_date`、`ts_code` 和 `amount`。两天各以 `row_number() over (partition by trade_date order by amount desc, ts_code asc)` 排全榜，当前日截取前 50，再通过代码左连接上一开市日名次。成交额为零可以参与排名，同额按代码排序。用「上一开市日排名 − 当日排名」计算名次变化。前一日整日缺文件或没有同一只 ETF 时为 null，当日 `pct_chg` 照常读取。文件日期、主键及必需数值沿用 DG 现行日线合同。核验只涉及本次投影字段，发现损坏或非法关键数据按所属查询报错。
+5. **补名称。** 对选定日发一次本机只读 GraphQL 查询 `assetNodeOrError → assetMaterializations(partitions: [tradeDate], limit: 1)`。核对返回分区及 `dagster/uri`，以 `goldenshare/basic_raw_snapshot_hash` 构造 `silver/basic/etf_basic/snapshot_id=<hash>/part-000.parquet`，核对 `goldenshare/basic_silver_uri` 同一路径并位于正式根目录。对当日前 50 只左连接该文件中的 `ts_code`、`csname`、`extname`、`cname`，依序选第一个非空名称。单个代码缺名称时保留它的行情和排名。文件或物化引用不可读时标记榜单失败。前一日仅查询行情和名次，无需第二份基础信息或第二条物化记录。
+6. **资源与中断。** 日历处理访问同一份本机文件，按候选日期取最近开市日，再读取 3 个月展示及前序开市日区间。趋势和榜单各用一次有界批量计算查询，计算前批量核对所投影字段的 Parquet 类型，读取文件元数据时不会加载行情列的明细。榜单单独读取一份 ETF 基础信息和一条 DG 元数据。DuckDB 使用单线程内存查询，关闭临时落盘。以技术方案的 5 秒端到端请求预算为依据，日历、SQL 和本机 HTTP 共用请求剩余时间，超时关闭给定请求的读取资源。读取无持久化状态，手动重试重新确定日期和依赖文件。验收记录首次请求、故障后的单次重试和最终真实展示各自的耗时与文件数。
+
+## 3. API 合同
+
+新接口 `GET /api/v1/wealth/market/etf-activity` 无业务参数，响应不跨请求缓存。日期使用 `YYYY-MM-DD`。金额字段均为人民币元，价格字段为每份 ETF 人民币元。涨跌幅以百分比数值传输。
+
+| 字段 | 语义 |
+| --- | --- |
+| `tradeDate` | 最近有日线的交易日，空态为 null。 |
+| `previousTradeDate` | `tradeDate` 的前一开市日。无可比较日期时为 null。即使该日缺失行情文件，仍返回日历确定的日期。 |
+| `oneMonthStartDate` | 选择 1 个月时的起始自然日，空态为 null。 |
+| `trend[]` | 3 个月内的开市日升序。每项包含 `tradeDate`、`amountYuan`、`ma5Yuan`、`ma20Yuan`。缺行情时 `amountYuan` 为 null，均线窗口缺值时对应均线为 null。 |
+| `ranking.status` | `ready` 或 `partial` 仍有榜单。前一日整日缺文件或日历没有可比较历史时为 `partial`。个别 ETF 缺名称或缺前一日名次时仍为 `ready`，用对应字段的 null 表达。无当日数据为 `empty`。当日有趋势但榜单读取失败为 `error`。 |
+| `ranking.rows[]` | 今日名次升序，最多 50 条。页面列序对应 `rank`、`tsCode`、`name`、`closePrice`、`priceChangePct`、`amountYuan`、`rankChange`。`priceChangePct` 为当日日线 `pct_chg` 的有限数值，单位为百分比。缺名称和前一日名次分别以 null 表示。 |
+| `ranking.error` | 榜单失败时为 `{code, message}`，其余为 null。使用 `ETF_ACTIVITY_RANKING_UNAVAILABLE`。 |
+
+正常响应示例节选，省略其余日期和排名行。
+
+```json
+{
+  "tradeDate": "2026-11-25",
+  "previousTradeDate": "2026-11-24",
+  "oneMonthStartDate": "2026-10-25",
+  "trend": [
+    {"tradeDate": "2026-11-25", "amountYuan": 540028802036.00, "ma5Yuan": 558434645419.22, "ma20Yuan": 553704175757.925}
+  ],
+  "ranking": {
+    "status": "ready",
+    "rows": [
+      {"rank": 3, "tsCode": "510330.SH", "name": "华夏沪深300ETF", "closePrice": 4.136, "priceChangePct": -1.57, "amountYuan": 12575059866, "rankChange": 31}
+    ],
+    "error": null
+  }
+}
+```
+
+日历、正式根目录或趋势查询不可用时，使用统一 Web 错误响应 HTTP 503，沿用 `{code, message, request_id}`，使用 `ETF_ACTIVITY_SOURCE_UNAVAILABLE`。没有日线时 HTTP 200，日期为 null，趋势和榜单为空数组，`ranking.status=empty`。当趋势可用而榜单失败时 HTTP 200，保留趋势与已选日期，`ranking.status=error`、`rows=[]` 并返回 `ranking.error`。认证和未挂载使用既有 HTTP 401/404。两项 ETF 异常码见 [异常码注册表](../../system/exception-code-registry.md)。
+
+## 4. 已确认的 Figma 与前端实现
+
+### 4.1 桌面组成和交互
+
+| 节点 | 实现与验收 |
+| --- | --- |
+| [财势探查入口](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2282-456) | 「ETF 动态」是成交额洞察和板块分析之后的第三张快捷卡片。点击进入 ETF 子页，子页同一卡片选中。面包屑「财势探查」返回入口。 |
+| [1 个月默认](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2282-538) 和 [3 个月](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2282-1451) | 1600 × 700 px 为评审画板。工作区宽 1564 px，两栏间隔 12 px。左栏 680 px，右栏 872 px，两栏高 448 px。在现有桌面容器中按此比例排版，右栏七列同屏。表头固定，表体独立滚动，画板行高 34 px、表体高 340 px，首屏可见前 10 行，继续滚动到第 50 行。画板高度用于验收布局，页面可随桌面窗口正常纵向滚动。 |
+| [图表读数](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2282-2364) | 「ETF 日成交额趋势」，副标题「沪深场内 ETF · 亿元」。蓝色成交额、金色 MA5、紫色 MA20。X 轴按开市日等距，标签为 `MM-DD`。Y 轴从 0 开始，正向上限和刻度随数据调整。悬停或用左右方向键选中日期时显示日期 `YYYY-MM-DD`、成交额、MA5、MA20。 |
+
+使用现有 `WealthExplorationShell`、`ShortcutBar`、`Panel`、`RangeSwitch` 和 Wealth 主题 token。模块内的请求与状态控制负责加载和重试，图表负责渲染后端序列，表格负责展示后端已排序的行。现有 `MiniLineChart` 按连续数值作图，本页渲染需在 null 处显式断线。图表不按自然日补点，只有交易日历确定的开市日进入横轴。均线缺值用「—」作为读数，保留当日已有的其他系列。
+
+`wealthFetch` 初次进页请求一次，卸载取消。区间控制显示「1 个月」「3 个月」，默认 1 个月。在同一响应内按服务返回的 `oneMonthStartDate` 截取左图，表格节点、选中日期和滚动状态独立于范围切换。重试期间保留可用趋势及当前选择，收到新响应后统一更新同一数据日的两栏。前端不调用现有市场上下文和主要指数 API，也不自行推算业务日期、排名或均线。
+
+### 4.2 排行榜字段与格式
+
+榜单标题「ETF 成交额排行榜」，右上「前 50 名」。标题下「日线收盘」加 `tradeDate`，可比较时右侧「对比日」加 `previousTradeDate`。列序与画板设计如下。宽度是 848 px 表格内的画板实测值。
+
+| 列序 | 表头与画板宽度 | 字段与显示 |
+| --- | --- | --- |
+| 1 | 今日排名，72 px | `rank`，整数，居中。 |
+| 2 | ETF 代码，104 px | `tsCode`，带交易所后缀，左对齐。 |
+| 3 | ETF 名称，284 px | `name`，左对齐，长名称可换行，null 显示「—」。 |
+| 4 | 现价（元），86 px | `closePrice`，按日线收盘价格式化为三位小数，右对齐。 |
+| 5 | 涨跌幅，82 px | `priceChangePct`，以百分比保留两位小数，正值加号、负值负号，正红负绿。格式化为零时中性色显示 `0.00%`，右对齐。 |
+| 6 | 成交额（亿元），112 px | `amountYuan`，除以 100,000,000 转为亿元，保留两位小数，右对齐。 |
+| 7 | 较前一交易日，108 px | `rankChange`，正值显示「↑ n」，负值显示「↓ n」，零显示「持平」，null 显示「—」，右对齐。 |
+
+图表悬停金额同样转为亿元并保留两位小数。轴刻度只为坐标展示。价格和名次变化分别由各自的数值着色，统一在模块 formatter 映射。画板第 3 名 `510330.SH` 展示 `4.136`、`−1.57%`、`125.75`、`↑ 31`。
+
+### 4.3 状态与环境
+
+| 状态 | 展示与验证依据 |
+| --- | --- |
+| 初次加载 | 保持双栏。左侧「正在读取 ETF 日成交额…」，右侧「正在读取 ETF 榜单…」，保留七列表头和表体骨架。[加载画板](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2284-4164) |
+| 确实无历史日线 | 左侧「暂无可用的 ETF 日线数据」，右侧保留表头，显示「暂无成交额排行」。[空态画板](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2284-4182) |
+| 前一交易日缺文件 | 图表与当天榜单照常展示，右侧显示「前一交易日（YYYY-MM-DD）日线暂缺，名次变化显示 —。」并省略无法比较的对比日文本。如果日历尚无更早开市日，提示「暂无前一交易日可供比较」。[缺前日画板](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2284-4264) |
+| 榜单读取失败 | 保留完整左图。右侧「ETF 排行榜暂不可读取，请重试」和「重试」按钮。[榜单错误画板](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2284-4198) |
+| 整个请求失败或超时 | 沿用双栏面板布局和错误提示样式。来源失败提示「ETF 动态暂不可读取，请重试」，浏览器 5 秒内未读完响应时提示「ETF 动态请求超时，请重试」。按下重试发起一个新请求。 |
+
+用运行模式控制本地卡片和客户端子路由。常规构建走现有 `npm --prefix wealth run build`，本地入口由 Vite 开发环境及 `npm --prefix wealth run build -- --mode local-dg` 的本地构建启用。后端按进程启动时的 `APP_ENV` 与 `GOLDENSHARE_LAKE_ROOT` 生效，配置变化后重新启动。非本地后端对页面和 API 返回 404。本地根目录无效时显示来源不可用。复用既有环境变量。
+
+## 5. 编码门禁矩阵
+
+| [通用清单](../../system/module-delivery-checklist-v1.md) | 适用性、落地与验证 |
+| --- | --- |
+| 2.1 交付事实链 | 适用。§4 桌面 Figma 已确认。技术实施方案和本文通过评审后编码。 |
+| 2.2 后端事实 | 适用。§2 对应名次、均线、收盘价、涨跌幅、成交额、名称和交易日期的生产。测试逐字段核对。 |
+| 2.3 状态机 | 适用。§3 API 与 §4 前端明确加载、就绪、空、缺前日、错误及超时。 |
+| 2.4 显示语义 | 适用。验证涨跌幅的正负号、两位小数与红涨绿跌，验证名次变化的箭头、持平和无前日名次。用价格下跌但名次上升的实际样本区分两种方向。 |
+| 2.5 行为过程 | 适用。验证加载到展示、区间切换、错误到重试、桌面七列顺序和表体滚动。 |
+| 2.6 文档同步 | 适用。三份文档和测试同轮对齐。 |
+| 2.7 模块隔离 | 适用。独立 API 与控制器，原两张快捷卡和路由继续通过回归。 |
+| 2.8 契约 | 适用。§3 字段和异常，同轮核对 API 示例、真实路由和页面。 |
+| 2.9 图表 | 适用。交易日轴、0 基线、缺值断开、成交额与 MA5/MA20 颜色及交互读数，按 §4 画板和图表语义测试。 |
+| 2.10 统计与传输 | 适用。DuckDB 聚合和排名。隔离测试同样使用真实 Parquet 和 DuckDB。实测前端 5 秒内结束。 |
+| 2.11 策略中心配置 | 不适用。模块无策略配置。`APP_ENV`、正式根和本地构建按 §4 验证。 |
+| 2.12 映射矩阵 | 适用。本节逐条映射，按 §6 验证。 |
+| 2.13 例外与语义 | 适用。无例外。检查零基线、缺口和数值方向。 |
+| 2.14 图表参数 | 适用。图表显式 0 基线必须生效，有可执行断言。 |
+| 2.15 并排双图 | 双图对齐不适用，左栏为单图。坐标标签避让适用，验收桌面左栏中的日期和长金额标签。 |
+| 2.16 指标卡单行 | 不适用。本期没有指标卡副文案。 |
+| 2.17 核心用例 | 适用。§6 含真实 API 和前端展示。 |
+| 2.18 八项原则 | 适用。单一事实源和契约见 §2–3，配置见 §4，默认行为和排序见 §2–3，性能与异常见 §2–3，用户结果见 §6。以 §6 的同名用例验证。 |
+
+本模块例外白名单为空。
+
+## 6. 核心验收
+
+| 验证 | 命令或入口与通过条件 |
+| --- | --- |
+| 真实路由与本地边界 | 计划 `.venv/bin/python -m pytest -p no:cacheprovider tests/web/test_wealth_market_etf_activity_api.py`。临时 DG Parquet 依据已有资产 schema 与日期分区。认证和 DG 元数据响应可隔离，路由、查询及聚合排序均执行真实代码。验证 §3 全部字段，金额千元转元、涨跌幅保留源百分比、同额代码排序、前一日第 51 名以后的名次、周末及跨假期、缺前日仍有当日涨跌幅、同一代码未出现、缺名称行仍保留、基础信息引用错误时仅榜单失败、空数据和来源读错。Prod 不注册新接口，也不初始化 ETF 数据读取。 |
+| 趋势关键反例 | 独立可人工复算的日值验证首日 MA20 用到 19 个前序开市日。插入一个开市日文件缺口验证线段断开、MA5 与 MA20 分别在补足各自的窗口后恢复。核对零成交额仍有点、短月／月底回推和文件日期大于上海当天不参与选日。 |
+| Wealth 行为 | `npm --prefix wealth run typecheck`、`npm --prefix wealth run test`、`npm --prefix wealth run build` 和 §4.3 的本地构建。测试新增卡路由、加载和错误重试、3 个月切换后榜单数据及滚动位置、七列表头顺序、样本第 3 名价格跌而名次升。回归成交额洞察、板块分析、财势探查入口和数据中心的共享 Shell。 |
+| DG 和浏览器真实展示 | 确认验收实例使用本地认证配置。用本地 Wealth 请求真实新增 API，核对响应中的日期、每日合计、MA5/MA20 和排行榜七列与 DG 有界对账一致。在桌面验证图表和排行并排、七列按指定顺序完整显示、涨跌幅和名次变化各自正确、榜单滚动，以及切换 1/3 个月、零基线、标签、键盘选交易日和错误重试。核对 ETF 页面业务请求只读取 ETF 动态 API，区间切换不新增请求，并记录控制台与实测耗时。 |
+
+编码前最后核对有效交易日、DG 同日物化引用和窗口范围，发现与本方案产生业务冲突时先修订方案。测试临时资源位于 `/private/tmp` 下的独立目录。
+
+## 7. 第 1 阶段实施边界
+
+本阶段实现 §1 的 Foundation、Biz 和 App 后端。App 同时加上非本地的 ETF 页面路径 404，桌面页面和其他前端改动随第 2 阶段实施。按现有本地路由做装配隔离，继续复用统一错误响应和行情认证。本阶段以 §6 的真实路由及本机 DG 数据对账为验收门槛，浏览器展示随第 3 阶段验收。
+
+| 硬口径 | 代码落点和验收 |
+| --- | --- |
+| 本机 DG、正式根、只读 | App 环境判定、Foundation 文件定位和本机 DG 查询。验收本地可用，Prod、默认未指定环境和其他根不可读取。 |
+| 单数据日、窗口及排序 | Biz 查询编排和批量 SQL。独立样本断言日期选择、前序 19 天、均线缺口、零成交额、排名前 50 和前一日全榜。 |
+| 行情、名称与交易日语义 | 分别读 DG ETF 日线、同日引用的 ETF 基础信息、交易日历。测试同日元数据引用和榜单单独出错，验证缺前日不会让涨跌幅消失。 |
+| 有界资源及失败恢复 | 请求共用时限，正常最多 112 个趋势文件，榜单最多重读两个日线文件及一份名称文件，读取一条物化记录。请求失败后可从头重读，无日线、缺前日、文件坏或读超时各走合同状态。 |
+| 真实证据 | 通过正常 App 装配和真实路由访问 DG Parquet 与本机 DG GraphQL，使用隔离认证配置且不启动 Web 生命周期任务。验证趋势和全榜，报告实际日期、文件数、代表行及耗时。 |
+
+## 8. 第 1 阶段验收记录
+
+2026-11-26 19:23（上海时间），以隔离的本地配置请求正式 Web App 的 `GET /api/v1/wealth/market/etf-activity`，返回 HTTP 200 和 `Cache-Control: no-store`。本次使用进程内 HTTP 客户端、隔离账号数据库依赖，跳过 Web 启动任务。ETF 日线、交易日历、ETF 基础信息和同日物化引用均来自本机正式 DG。正常请求与重试各连一次 `127.0.0.1:3000`，验收期间未访问 Prod、写入数据或运行 DG 任务。真实账号登录和桌面页面展示留待后续页面验收。
+
+| 验收项 | 实际结果 |
+| --- | --- |
+| 数据日期与趋势 | 本次最新有日线的开市日为 2026-11-25，前一开市日为 2026-11-24。1 个月起始日为 2026-10-25，有 23 个交易日点。3 个月有 61 个交易日点，加 19 个用于首日均线的前序开市日，共读 80 份 ETF 日线文件。独立汇总日成交额并逐日重算均线，61 个点的日期、成交额、MA5 和 MA20 均一致，本次展示区间无缺口。最后一个点依次为 5,400.29、5,584.35、5,537.04 亿元。 |
+| 前 50 名及变化 | 两个交易日各有 1,739 只 ETF。按日线成交额独立重排两天全榜，API 前 50 名的七列逐行相符。12 只 ETF 的前一日名次在 50 名以外。`510310.SH` 从第 70 名升到第 11 名，排名升 59 位，当日收盘价 3.858 元，涨跌幅 −1.58%，成交额 95.45 亿元。 |
+| 名称与文件边界 | 榜单重读两个交易日的日线，并用所选日期的一条物化引用定位一份 ETF 基础信息。真实快照为 `silver/basic/etf_basic/snapshot_id=33c87f79313c7de2458c52872d3b678034e3f78e95a04f102f693bb025e0588e/part-000.parquet`。 |
+| 首次访问与重试 | HTTP 首次请求 528.3 毫秒，响应 15,035 字节，耗时最长的一步为确定最近开市日的日历查询，306.3 毫秒。模拟物化引用读取一次失败，57.4 毫秒返回并保留全部趋势，榜单返回 `ETF_ACTIVITY_RANKING_UNAVAILABLE`。恢复真实读取后重试 81.2 毫秒，完整结果与首次一致。以上是本次后端实测，5 秒浏览器预算随第 3 阶段验证。 |
+| Prod 路由隔离 | 单独以隔离的 `APP_ENV=prod` 装配同一 Web App，即使设置了正式 Lake 根，API 与页面路径仍分别返回 404。OpenAPI 无该接口，ETF 读取模块未加载，网络连接次数为零。 |
+
+`tests/web/test_wealth_market_etf_activity_api.py` 的 17 项隔离测试通过。使用临时 Parquet 和实际 DuckDB、Web 路由运行，DG 元数据和账号数据库依赖隔离。覆盖 §7 的日期窗口、同额排序、全榜名次、前日缺失、零成交额、均线缺口、基础信息引用、来源读取失败、请求超时、认证拒绝和环境边界。
+
+合并运行 ETF、指数本地路由、共享参考数据与分层约束测试，40 项通过，2 项失败。本地 PostgreSQL 集成用例排除在本次隔离运行之外。用本轮改动前的共享模块复跑，指数日线接口测试仍返回 HTTP 500，股票日线测试替身仍缺少 `runtime`。这两项失败在本轮改动前可复现。桌面入口、区间切换、七列展示和滚动随第 2、3 阶段实施与验收。

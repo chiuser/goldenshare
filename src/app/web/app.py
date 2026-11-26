@@ -15,6 +15,7 @@ from src.app.dependencies.stock_daily_technical_indicators import install_stock_
 from src.foundation.config.settings import get_settings
 from src.foundation.config.announcement_archive import announcements_enabled
 from src.foundation.config.data_audit import data_audit_enabled
+from src.foundation.config.etf_activity import etf_activity_enabled
 from src.app.web.lifespan import web_lifespan
 from src.app.web.middleware import AccessLogMiddleware, RequestIdMiddleware
 from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, WEALTH_DIST_DIR, get_web_settings
@@ -123,6 +124,8 @@ def wealth_app_subpath(subpath: str):  # type: ignore[no-untyped-def]
         return PlainTextResponse('当前部署不提供上市公司公告模块',status_code=404)
     if subpath.rstrip("/") == "data-center/data-audit" and not data_audit_enabled(get_settings()):
         return PlainTextResponse("当前部署不提供数据审计模块", status_code=404)
+    if subpath.rstrip("/") == "exploration/etf-activity" and not etf_activity_enabled(settings):
+        return PlainTextResponse("当前部署不提供 ETF 动态模块", status_code=404)
     return _wealth_app_response()
 
 

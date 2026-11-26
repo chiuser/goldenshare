@@ -441,3 +441,12 @@ HTTP异常仍复用已登记XXMF_*，没有新增HTTP异常码。200响应的rea
 | DAILY_WAVE_BUDGET_EXCEEDED | 503 | 同一次8秒、根数、输入/内存或最终响应字节超过原限制；不放宽、不截断 |
 
 认证错误沿用既有401/403，未分类错误沿用internal_error/500；取消继续传播，不新增499或计算失败包。该GET实际生成的成功/空/错误响应均禁止缓存，其他路径/方法不改变。
+
+## ETF 动态本地 API（2026-11-26）
+
+依据 [ETF 动态 LLD](../pages/wealth-exploration/etf-activity-low-level-design-v1.md)。作用范围为 `GET /api/v1/wealth/market/etf-activity`。
+
+| 异常码 | HTTP／位置 | 触发及恢复 |
+| --- | --- | --- |
+| `ETF_ACTIVITY_SOURCE_UNAVAILABLE` | 503 | 正式根目录、交易日历或趋势读取失败或超时。可手动重试。 |
+| `ETF_ACTIVITY_RANKING_UNAVAILABLE` | 200，`ranking.error.code` | 趋势可用，榜单日线、名称快照或同日 DG 物化引用不可用，或榜单查询超时。保留趋势，榜单可手动重试。 |

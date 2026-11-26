@@ -45,6 +45,7 @@ from src.biz.api.wealth.market import turnover_insight as wealth_market_turnover
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.clients.local_lake.reference_data_reader import LakeTradeCalendarReader
 from src.foundation.clients.local_lake.major_index_mins_contract import FORMAL_LAKE_ROOT
+from src.foundation.config.etf_activity import etf_activity_enabled
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
     resolve_local_minute_capability,
@@ -189,6 +190,24 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
 
 
 _include_local_minute_router(router)
+
+
+def _include_local_etf_activity(target_router: APIRouter, settings: Settings) -> None:
+    if not etf_activity_enabled(settings):
+        return
+
+    from src.biz.api.wealth.market import etf_activity
+    from src.foundation.clients.local_lake.etf_daily_reader import EtfDailyLakeReader
+
+    configured_root = settings.goldenshare_lake_root.strip()
+    root = Path(configured_root).expanduser().resolve() if configured_root else None
+    reader = EtfDailyLakeReader(root if root == FORMAL_LAKE_ROOT.resolve() else None)
+    target_router.include_router(etf_activity.build_router(
+        reader=reader, auth_dependency=require_quote_access, error_factory=WebAppError,
+    ))
+
+
+_include_local_etf_activity(router, _settings)
 
 
 include_data_center(router)
