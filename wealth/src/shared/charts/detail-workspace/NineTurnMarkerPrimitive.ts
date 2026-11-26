@@ -1,3 +1,4 @@
+import { MismatchDirection } from "lightweight-charts";
 import type {
   AutoscaleInfo,
   IPrimitivePaneRenderer,
@@ -62,8 +63,8 @@ export class NineTurnMarkerPrimitive implements ISeriesPrimitive<Time> {
     if (!this.visible || !attached || this.markers.length === 0) return;
     const visibleRange = attached.chart.timeScale().getVisibleLogicalRange();
     if (!visibleRange) return;
-    const firstBar = attached.series.dataByIndex(Math.ceil(visibleRange.from));
-    const lastBar = attached.series.dataByIndex(Math.floor(visibleRange.to));
+    const firstBar = attached.series.dataByIndex(Math.ceil(visibleRange.from), MismatchDirection.NearestRight);
+    const lastBar = attached.series.dataByIndex(Math.floor(visibleRange.to), MismatchDirection.NearestLeft);
     if (!firstBar || !lastBar || !("time" in firstBar) || !("time" in lastBar)) return;
     const visibleMarkers = sliceNineTurnMarkersByTime(
       this.markers,
