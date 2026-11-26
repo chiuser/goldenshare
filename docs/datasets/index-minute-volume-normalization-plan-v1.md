@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示方案 v1
 
-更新于 2026-11-26。阶段 1A 已完成代码修正和隔离复验，待正式切换与删表。阶段 2 的 Prod 正式试点和 DG 候选试点已通过，首批重刷、DG 文件发布及读数切换待推进。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
+更新于 2026-11-26。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成，DG 正式验收待完成。阶段 2 的 Prod 正式试点和 DG 候选试点已通过，首批重刷、DG 文件发布及读数切换待推进。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
 
 ## 1. 目标和范围
 
@@ -76,6 +76,8 @@ Prod 已只读核实 2026-11-26 的 530 只指数、五个基础频率均已存�
 2026-11-26 23:12 北京时间只读核实，Prod 已建立 `raw_tushare.index_mins_volume_evidence`，表内无记录。它是旧版同步使用的辅助表。清退对象是这张表、读写它的模型与代码、旧起点准备流程，以及 DG 从资产事件读写源成交量和单位的逻辑。指数分钟行情表、服务视图和 DG 行情分区仍供业务使用。
 
 新版已通过隔离写入、实际 DG 样本和隔离删表验收。正式窗口内先停用旧版指数分钟 worker，运行新版并确认能从已有行情读取基准，随后单独执行辅助表清退迁移。原建表迁移和已经发生的 Dagster 事件作为历史记录保留。[清退清单与发布顺序](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-retirement)
+
+2026-11-26，Prod 已部署 `4f1262d82` 并跳过迁移。新版常规同步复跑上证综指 11 月 26 日 30 分钟的 9 根，表和视图逐根对账一致。23:40 执行迁移 `20261126_000193` 删除旧辅助表。迁移后独立读回同一批 9 根，数据逐条一致。验收通过后恢复指数分钟自动任务 #31。DG 正式重载待同一代码位置的变更交接。[阶段 1B 执行记录](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-1b-result)
 
 ## 4. 指数页面显示
 
