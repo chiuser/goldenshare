@@ -1,6 +1,7 @@
-from src.biz.schemas.wealth.market.index_detail import LocalIndexDetailDailyKlineResponseDto
+from src.biz.schemas.wealth.market.index_detail import (LocalIndexDetailDailyKlineResponseDto,
+    IndexDetailSseDailyKlineResponseDto, LocalIndexDetailSseDailyKlineResponseDto)
 from src.biz.schemas.wealth.market.index_detail_debug import (
-    IndexDetailDebugInfoDto,
+    IndexDetailDebugInfoDto, IndexDetailSseDailyKlineDebugResponseDto, LocalIndexDetailSseDailyKlineDebugResponseDto,
     IndexDetailKlineDebugResponseDto,
     IndexDetailModuleDebugDto,
     IndexDetailPageInitDebugResponseDto,
@@ -82,7 +83,9 @@ def kline_response(response, missing_count, *, dg_daily=False):
             message = f"指数{period_name}行情尚未更新到预期交易日" if period_name else "指数因子观测日期落后于查询上界"
             exceptions.append(builder.source_delayed(module="indexDetailKline", message=message))
     response_type = (
-        LocalIndexDetailDailyKlineDebugResponseDto
+        LocalIndexDetailSseDailyKlineDebugResponseDto if isinstance(response, LocalIndexDetailSseDailyKlineResponseDto)
+        else IndexDetailSseDailyKlineDebugResponseDto if isinstance(response, IndexDetailSseDailyKlineResponseDto)
+        else LocalIndexDetailDailyKlineDebugResponseDto
         if isinstance(response, LocalIndexDetailDailyKlineResponseDto) else IndexDetailKlineDebugResponseDto
     )
     return response_type(

@@ -241,6 +241,33 @@ class LocalIndexDetailDailyKlineResponseDto(IndexDetailKlineResponseDto):
     nineTurnMarkers: list[NineTurnMarkerDto]
 
 
+class IndexTrendChannelFactorsDto(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+    shortUpper: float
+    shortLower: float
+    longUpper: float
+    longLower: float
+
+
+class IndexSseDailyKlineFactorsDto(IndexKlineFactorsDto):
+    trendChannel: IndexTrendChannelFactorsDto
+
+
+class IndexSseDailyKlineBarDto(IndexKlineBarDto):
+    factors: IndexSseDailyKlineFactorsDto
+
+
+class IndexDetailSseDailyKlineResponseDto(IndexDetailKlineResponseDto):
+    period: Literal["day"]
+    bars: list[IndexSseDailyKlineBarDto]
+    meta: IndexDetailSseKlineMetaDto
+
+
+class LocalIndexDetailSseDailyKlineResponseDto(LocalIndexDetailDailyKlineResponseDto):
+    bars: list[IndexSseDailyKlineBarDto]
+
+
 class IndexDetailWeightRowDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

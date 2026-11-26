@@ -137,6 +137,23 @@ export interface IndexKlineBarDto {
   };
 }
 
+export interface IndexTrendChannelFactorsDto {
+  shortUpper: number;
+  shortLower: number;
+  longUpper: number;
+  longLower: number;
+}
+
+export interface IndexSseDailyKlineBarDto extends IndexKlineBarDto {
+  factors: IndexKlineBarDto["factors"] & { trendChannel: IndexTrendChannelFactorsDto };
+}
+
+export type IndexDetailSseDailyKlineResponseDto = Omit<IndexDetailKlineResponseDto, "period" | "bars" | "indexRef"> & {
+  indexRef: { tsCode: "000001.SH"; name: string | null };
+  period: "day";
+  bars: IndexSseDailyKlineBarDto[];
+};
+
 interface IndexDailyKlineMeta {
   count: number;
   limit: number;

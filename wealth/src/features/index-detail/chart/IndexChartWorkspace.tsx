@@ -30,7 +30,7 @@ import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/tre
 import type {
   IndexDetailViewModel,
   IndexMainOverlay,
-  TrendChannelViewModel,
+  TrendChannelPoint,
 } from "../model/indexDetailTypes";
 
 interface IndexChartAddonView {
@@ -55,8 +55,7 @@ interface IndexChartWorkspaceProps {
   nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
-  trend: TrendChannelViewModel | null;
-  trendPhase: "unavailable" | "loading" | "ready" | "error";
+  initialTrendPoints: readonly TrendChannelPoint[];
   viewModel: IndexDetailViewModel;
   recognitionEnabled: boolean;
   SignalLayer?: ComponentType<XxmLayerProps>;
@@ -70,8 +69,7 @@ export function IndexChartWorkspace({
   nineTurnControl,
   nineTurnLayer: ordinaryNineTurn,
   onNineTurnRetry: ordinaryNineTurnRetry,
-  trend: ordinaryTrend,
-  trendPhase: ordinaryTrendPhase,
+  initialTrendPoints,
   viewModel,
   recognitionEnabled,
   SignalLayer = IndexXxmLayer,
@@ -93,20 +91,14 @@ export function IndexChartWorkspace({
     }
     return { ...ordinaryNineTurn, markers };
   }, [firstDate, lastDate, historical?.nineTurnMarkers, ordinaryNineTurn]);
-  const trend = useMemo(() => {
-    if (!firstDate || !lastDate) return ordinaryTrend;
-    if (!ordinaryTrend && !historical?.trendPoints.length) return null;
-    const initial = ordinaryTrend?.points.filter(point => firstDate <= point.time && point.time <= lastDate) ?? [];
-    return {
-      points: [...(historical?.trendPoints ?? []), ...initial],
-      droppedCount: ordinaryTrend?.droppedCount ?? 0,
-      status: ordinaryTrend?.status ?? "READY",
-    } satisfies TrendChannelViewModel;
-  }, [firstDate, lastDate, historical?.trendPoints, ordinaryTrend]);
-  const trendPhase = ordinaryTrendPhase;
+  const trendPoints = useMemo(() => {
+    const initial = !firstDate || !lastDate ? initialTrendPoints
+      : initialTrendPoints.filter(point => firstDate <= point.time && point.time <= lastDate);
+    return [...(historical?.trendPoints ?? []), ...initial];
+  }, [firstDate, lastDate, historical?.trendPoints, initialTrendPoints]);
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
   const [selection, setSelection] = useState<{ owner: string; overlay: IndexMainOverlay | null } | null>(null);
-  const overlay = selection?.owner === ownerKey ? selection.overlay : supportsTrend && ordinaryTrend ? "TREND_CHANNEL" : "MA";
+  const overlay = selection?.owner === ownerKey ? selection.overlay : supportsTrend && initialTrendPoints.length > 0 ? "TREND_CHANNEL" : "MA";
   const setOverlay = (overlay: IndexMainOverlay | null) => setSelection({ owner: ownerKey, overlay });
   const initialCandles = viewModel.chart.candles;
   const initialPoints = useMemo(() => initialCandles.map(toDetailChartPoint), [initialCandles]);
@@ -118,12 +110,12 @@ export function IndexChartWorkspace({
   const nineTurnChartLayer = useNineTurnChartLayer({
     dataKey, layer: nineTurnLayer, points, timeMode: "daily", visible: nineTurnControl.visible,
   });
-  const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
+  const trendByTime = useMemo(() => new Map(trendPoints.map((point) => [point.time, point])), [trendPoints]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
   const ordinaryTrendPrimitive = useMemo(() => new TrendChannelPanePrimitive([]), [dataKey]);
   useEffect(() => {
-    ordinaryTrendPrimitive.setLines(trend ? buildTrendChannelLines(trend.points, points.map(p => String(p.time))) : []);
-  }, [ordinaryTrendPrimitive, points, trend]);
+    ordinaryTrendPrimitive.setLines(buildTrendChannelLines(trendPoints, points.map(p => String(p.time))));
+  }, [ordinaryTrendPrimitive, points, trendPoints]);
   const ordinaryTrendPrimitives = useMemo(() => overlay === "TREND_CHANNEL" ? [ordinaryTrendPrimitive] : [], [overlay, ordinaryTrendPrimitive]);
   const mainPrimitives = useMemo(() => [...ordinaryTrendPrimitives, ...nineTurnChartLayer.mainPrimitives],
     [ordinaryTrendPrimitives, nineTurnChartLayer.mainPrimitives]);
@@ -136,7 +128,7 @@ export function IndexChartWorkspace({
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
       bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
-        <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (trendPhase === "ready")} />
+        <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend} />
         {addon.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
@@ -154,7 +146,7 @@ export function IndexChartWorkspace({
           <div className="index-history-layer-errors">
             {historical.failedLayers.map(({ page, layer }) => (
               <div className="index-history-layer-error" role="status" key={`${page.endDate}|${layer}`}>
-                <span>{layer === "nineTurn" ? "九转" : "趋势"}历史数据加载失败</span>
+                <span>九转历史数据加载失败</span>
                 <button type="button" onClick={() => activeHistory?.retryLayer(page, layer)}>重试</button>
               </div>
             ))}

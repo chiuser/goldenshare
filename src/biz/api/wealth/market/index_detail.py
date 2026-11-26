@@ -28,7 +28,7 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailKlineResponseDto,
     IndexDetailPageInitResponseDto,
     IndexDetailWeightsResponseDto,
-    LocalIndexDetailDailyKlineResponseDto,
+    LocalIndexDetailDailyKlineResponseDto, IndexDetailSseDailyKlineResponseDto, LocalIndexDetailSseDailyKlineResponseDto,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
@@ -136,8 +136,9 @@ def build_router(
 
     @router.get(
         "/kline",
-        response_model=(LocalIndexDetailDailyKlineResponseDto | IndexDetailKlineResponseDto
-                        if daily_lake is not None else IndexDetailKlineResponseDto),
+        response_model=(LocalIndexDetailSseDailyKlineResponseDto | LocalIndexDetailDailyKlineResponseDto
+                        | IndexDetailSseDailyKlineResponseDto | IndexDetailKlineResponseDto
+                        if daily_lake is not None else IndexDetailSseDailyKlineResponseDto | IndexDetailKlineResponseDto),
     )
     async def get_index_detail_kline(
         request: Request,

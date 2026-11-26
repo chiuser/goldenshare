@@ -10,7 +10,7 @@ from src.biz.queries.wealth.market.context.market_page_context_query import Mark
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailQueryService
 from src.biz.schemas.wealth.market.stock_detail import (
     LocalStockKlineMetaDto, StockDetailDataStatusDto, StockDetailDebugInfoDto,
-    StockDetailPeriodKlineResponseDto, StockDetailStockRefDto,
+    StockDetailPeriodKlineResponseDto, StockDetailStockRefDto, StockKlineFactorDto,
 )
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.technical_indicator_index_period import period_bounds
@@ -18,7 +18,7 @@ from src.foundation.clients.technical_indicator_stock_daily import scheduled_sto
 
 from .stock_daily_kline_calculations import stock_common_calculations
 from .stock_daily_kline_contracts import StockDailyKlineRow
-from .stock_daily_kline_service import _calculation_key, build_kline_factors
+from .stock_kline_factor_mapper import index_stock_calculation_results, build_stock_common_factors
 from .stock_detail_field_mapper import build_kline_bar, build_page_context
 
 
@@ -93,8 +93,7 @@ class StockPeriodKlineService:
                                coverage)
         bars, markers = [], []
         if result is not None:
-            fields = {_calculation_key(item.calculation_id, item.parameters): dict(item.fields)
-                      for item in result.calculations}
+            fields = index_stock_calculation_results(result.calculations)
             fixed = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
             price, nine_turn = fixed["price"], fixed["nineturn"]
             for index, (label, metadata) in enumerate(zip(result.source_as_of, result.period_bars, strict=True)):
@@ -105,7 +104,7 @@ class StockPeriodKlineService:
                     low_qfq=price["low"][index], close_qfq=price["close"][index], pct_chg=metadata.pct_chg,
                     vol=None if volume is None else volume / 100, amount=None if amount is None else amount / 1000,
                     pre_close=None, change=None, turnover_rate=None, volume_ratio=None,
-                ), build_kline_factors(fields, fixed, index)))
+                ), StockKlineFactorDto(**build_stock_common_factors(fields, index))))
                 marker = build_nine_turn_marker(trade_date=display, trade_time=None,
                                                up_count=int(nine_turn["up_count"][index]),
                                                down_count=int(nine_turn["down_count"][index]))

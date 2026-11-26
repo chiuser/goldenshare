@@ -43,7 +43,7 @@ describe("index daily history requests", () => {
     ]);
   });
 
-  it("requests 500 Klines and trend rows for ordinary loads and explicit retries", async () => {
+  it("gets four rails from the same 500 Klines on initial load and whole-page retry", async () => {
     const fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
       const path = new URL(String(input)).pathname;
       if (path.endsWith("/page-init")) return Response.json(makePageInit());
@@ -54,18 +54,14 @@ describe("index daily history requests", () => {
     vi.stubGlobal("fetch", fetch);
     const { result } = renderHook(() => useIndexDetailController("000001.SH", undefined));
     await waitFor(() => expect(result.current.phase).toBe("ready"));
-    await waitFor(() => expect(result.current.trendPhase).toBe("ready"));
-    act(() => result.current.retryTrend());
-    await waitFor(() => expect(requests("/trend-channel")).toHaveLength(2));
-    await waitFor(() => expect(result.current.trendPhase).toBe("ready"));
+    expect(result.current.dailyTrendPoints).toHaveLength(2);
     act(() => result.current.retry());
     await waitFor(() => expect(requests("/kline")).toHaveLength(2));
     await waitFor(() => expect(result.current.phase).toBe("ready"));
 
     expect(requests("/kline").map(url => [url.searchParams.get("limit"), url.searchParams.get("endDate")]))
       .toEqual([["500", "2026-07-31"], ["500", "2026-07-31"]]);
-    expect(requests("/trend-channel").map(url => [url.searchParams.get("limit"), url.searchParams.get("end_date")]))
-      .toEqual([["500", "2026-07-31"], ["500", "2026-07-31"], ["500", "2026-07-31"]]);
+    expect(requests("/trend-channel")).toHaveLength(0);
     expect(result.current.viewModel?.chart.candles).toHaveLength(2);
 
     function requests(suffix: string) {

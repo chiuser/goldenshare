@@ -11,10 +11,9 @@ from sqlalchemy.orm import Session
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailQueryService
 from src.biz.schemas.wealth.market.stock_detail import (
     LocalStockDetailFirstKlineResponseDto, LocalStockDetailPagedKlineResponseDto, LocalStockKlineMetaDto,
-    StockBollDto, StockDetailDebugInfoDto, StockDetailKlineResponseDto,
-    StockDetailStockRefDto, StockKdjDto, StockKlineFactorDto, StockKlineMetaDto,
-    StockDailyKlineBarDto, StockDailyKlineFactorDto, StockMacdDto, StockMovingAverageDto,
-    StockTrendChannelFactorsDto,
+    StockDetailDebugInfoDto, StockDetailKlineResponseDto,
+    StockDetailStockRefDto, StockKlineFactorDto, StockKlineMetaDto,
+    StockDailyKlineBarDto, StockDailyKlineFactorDto,
 )
 from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.reference_data import ReferenceData
@@ -28,7 +27,12 @@ from .stock_daily_kline_calculations import (
 )
 from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest
 from .stock_detail_field_mapper import (
-    build_data_status, build_kline_bar, build_page_context, build_quote_from_kline_bar, to_float,
+    build_data_status, build_kline_bar, build_page_context, build_quote_from_kline_bar,
+)
+
+from .stock_kline_factor_mapper import (
+    stock_calculation_key, index_stock_calculation_results, build_stock_common_factors,
+    build_stock_trend_channel_factors,
 )
 
 
@@ -36,36 +40,6 @@ def _contract_error(reason, *, calculation_index=None, **diagnostics):
     return OutputContractError(
         "Stock daily result does not match the response contract", reason=reason,
         stage="stock_daily_assemble", calculation_index=calculation_index, **diagnostics,
-    )
-
-
-def _calculation_key(calculation_id, parameters):
-    return calculation_id, tuple(sorted(dict(parameters).items()))
-
-
-def build_kline_factors(fields, fixed_fields, index):
-    return StockKlineFactorDto(
-        ma=StockMovingAverageDto(**{
-            f"ma{period}": to_float(fields[("ma", (("period", period),))]["value"][index])
-            for period in (5, 10, 20, 30, 60, 90, 250)
-        }),
-        boll=StockBollDto(**{name: to_float(fixed_fields["boll"][name][index])
-                           for name in ("upper", "middle", "lower")}),
-        macd=StockMacdDto(
-            dif=to_float(fixed_fields["macd"]["dif"][index]),
-            dea=to_float(fixed_fields["macd"]["dea"][index]),
-            macd=to_float(fixed_fields["macd"]["hist"][index]),
-        ),
-        kdj=StockKdjDto(**{name: to_float(fixed_fields["kdj"][name][index])
-                         for name in ("k", "d", "j")}),
-    )
-
-
-def build_stock_trend_channel_factors(results, index):
-    fields = results[("trend_channel", ())]
-    return StockTrendChannelFactorsDto(
-        shortUpper=fields["short_upper"][index], shortLower=fields["short_lower"][index],
-        longUpper=fields["long_upper"][index], longLower=fields["long_lower"][index],
     )
 
 
@@ -125,9 +99,9 @@ class StockDailyKlineService:
         if (result.range.count != len(times) or result.range.actual_start != times[0]
                 or result.range.actual_end != times[-1]):
             raise _contract_error("count_mismatch", expected=len(times), actual=result.range.count)
-        expected = {_calculation_key(item["calculation_id"], item["parameters"])
+        expected = {stock_calculation_key(item["calculation_id"], item["parameters"])
                     for item in stock_daily_calculations(include_nine_turn=include_nine_turn)}
-        keys = [_calculation_key(item.calculation_id, item.parameters) for item in result.calculations]
+        keys = [stock_calculation_key(item.calculation_id, item.parameters) for item in result.calculations]
         if len(keys) != len(expected) or set(keys) != expected:
             raise _contract_error("instances_mismatch", expected=len(expected), actual=len(keys))
         for index, item in enumerate(result.calculations):
@@ -169,9 +143,7 @@ class StockDailyKlineService:
             raise _contract_error("count_mismatch", expected=0,
                                   actual=len(result.times) if isinstance(result, CalculationResult) else 0)
         # Values remain references to validated, immutable tuples; no full-column copies.
-        fields = ({_calculation_key(item.calculation_id, item.parameters): dict(item.fields)
-                   for item in result.calculations}
-                  if result is not None else {})
+        fields = index_stock_calculation_results(result.calculations) if result is not None else {}
         issues = None
         try:
             bars = []
@@ -179,18 +151,18 @@ class StockDailyKlineService:
             fixed_fields = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
             nine_turn = fixed_fields.get("nineturn")
             for index, row in enumerate(source.bars):
-                factors = build_kline_factors(fields, fixed_fields, index)
+                factors = build_stock_common_factors(fields, index)
                 price = fixed_fields["price"]
                 volume, amount = price["volume"][index], price["amount"][index]
                 row = replace(row, **{name + "_qfq": price[name][index] for name in ("open", "high", "low", "close")},
                               vol=None if volume is None else volume / 100,
                               amount=None if amount is None else amount / 1000)
-                bar = build_kline_bar(row, factors)
+                bar = build_kline_bar(row, StockKlineFactorDto(**factors))
                 bars.append(StockDailyKlineBarDto(
                     **bar.model_dump(exclude={"factors"}),
                     factors=StockDailyKlineFactorDto(
-                        ma=factors.ma, boll=factors.boll, macd=factors.macd, kdj=factors.kdj,
-                        trendChannel=build_stock_trend_channel_factors(fields, index),
+                        **factors,
+                        trendChannel=build_stock_trend_channel_factors(fixed_fields["trend_channel"], index),
                     ),
                 ))
                 if nine_turn is not None:

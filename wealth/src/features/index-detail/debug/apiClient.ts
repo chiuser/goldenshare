@@ -1,7 +1,7 @@
 import {
   fetchIndexDetail,
   type fetchIndexDetailPageInit,
-  type fetchIndexDetailKline,
+  type IndexKlineLoader,
   type fetchIndexDetailWeights,
 } from "../api/indexDetailApiClient";
 import { IndexDetailRequestScheduler } from "../api/indexDetailRequestScheduler";
@@ -15,7 +15,7 @@ import { decodeDebugXxmResponse } from "./xxmAdapter";
 export const debugRequests = new IndexDetailRequestScheduler();
 export const fetchDebugPageInit: typeof fetchIndexDetailPageInit = (params, options = {}) =>
   fetchIndexDetail("debug/page-init", params, options);
-export const fetchDebugKline: typeof fetchIndexDetailKline = (params, options = {}) =>
+export const fetchDebugKline: IndexKlineLoader = (params, options = {}) =>
   fetchIndexDetail("debug/kline", params, options);
 export const fetchDebugWeights: typeof fetchIndexDetailWeights = (params, options = {}) =>
   fetchIndexDetail("debug/weights", params, options);

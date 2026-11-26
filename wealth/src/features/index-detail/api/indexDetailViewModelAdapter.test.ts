@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
-import { buildIndexDetailViewModel } from "./indexDetailViewModelAdapter";
+import { buildIndexDailyTrendChannelPoints, buildIndexDetailViewModel } from "./indexDetailViewModelAdapter";
 
 describe("buildIndexDetailViewModel", () => {
   it("keeps the frozen 15-field order and renders missing values as dash", () => {
@@ -37,5 +37,27 @@ describe("buildIndexDetailViewModel", () => {
     expect(supported()).toEqual(["day", "week"]);
     pageInit.chartDefaults.availablePeriods.push("month");
     expect(supported()).toEqual(["day", "week", "month"]);
+  });
+});
+
+describe("same-page SSE four rails", () => {
+  it("maps different literal rails in date order and allows common warmup nulls", () => {
+    expect(buildIndexDailyTrendChannelPoints(makeKline())).toEqual([
+      { time: "2026-07-30", close: 3930, shortUpper: 3951, shortLower: 3881, longUpper: 3971, longLower: 3861 },
+      { time: "2026-07-31", close: 3940, shortUpper: 3952, shortLower: 3882, longUpper: 3972, longLower: 3862 },
+    ]);
+    expect(buildIndexDailyTrendChannelPoints(makeKline("399001.SZ"))).toEqual([]);
+    expect(buildIndexDailyTrendChannelPoints({ ...makeKline(), bars: [] })).toEqual([]);
+  });
+
+  it.each(["missing", "null", "nan", "date", "order"])("rejects a %s rail page instead of dropping individual bars", fault => {
+    const data = structuredClone(makeKline());
+    const bar = data.bars[1]!;
+    if (fault === "date") bar.tradeDate = "bad-date";
+    else if (fault === "order") bar.tradeDate = data.bars[0]!.tradeDate;
+    else Object.assign(bar.factors, { trendChannel: fault === "missing" ? undefined : {
+      shortUpper: fault === "nan" ? NaN : null, shortLower: 1, longUpper: 3, longLower: 2,
+    } });
+    expect(() => buildIndexDailyTrendChannelPoints(data)).toThrow("趋势通道");
   });
 });

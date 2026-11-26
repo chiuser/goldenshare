@@ -17,6 +17,9 @@ function page(endDate: string, { count = 1, next = null, period = "week", code =
   const daily = makeKline(code);
   const bars = Array.from({ length: count }, (_, index) => ({
     ...daily.bars[0]!,
+    // Weekly/monthly producers return only the four common factor groups.
+    factors: { ma: daily.bars[0]!.factors.ma, boll: daily.bars[0]!.factors.boll,
+      macd: daily.bars[0]!.factors.macd, kdj: daily.bars[0]!.factors.kdj },
     // Dates here isolate ordering and paging. The real holiday dates are checked against the backend.
     tradeDate: new Date(Date.parse(endDate) - (count - index - 1) * 7 * 86_400_000).toISOString().slice(0, 10),
   }));

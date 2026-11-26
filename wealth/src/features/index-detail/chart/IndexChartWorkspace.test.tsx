@@ -44,7 +44,7 @@ describe("IndexChartWorkspace adapter", () => {
       indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"),
       onNineTurnRetry: vi.fn(), recognitionEnabled: false, viewModel, history,
     };
-    const view = render(<IndexChartWorkspace {...props} trend={null} trendPhase="loading" />);
+    const view = render(<IndexChartWorkspace {...props} initialTrendPoints={[]} />);
     const first = latestProps();
     expect(first.mainLines.map(line => line.id)).toEqual(["ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250"]);
     for (const text of ["MA5:3900.00", "MA10:3890.00", "MA20:3880.00", "MA30:3870.00", "MA60:3860.00", "MA90:3850.00", "MA250:3800.00"]) {
@@ -61,7 +61,7 @@ describe("IndexChartWorkspace adapter", () => {
       time: point.time, close: point.close ?? 0, shortUpper: 4000, shortLower: 3900, longUpper: 4050, longLower: 3850,
     })) };
     const olderCandle = { ...viewModel.chart.candles[0]!, time: "2026-07-29", fullDate: "2026-07-29" };
-    view.rerender(<IndexChartWorkspace {...props} trend={trend} trendPhase="ready" history={{ ...history,
+    view.rerender(<IndexChartWorkspace {...props} initialTrendPoints={trend.points} history={{ ...history,
       visible: { candles: [olderCandle, ...viewModel.chart.candles], failedLayers: [], nineTurnMarkers: [], trendPoints: [] },
     }} />);
     expect(latestProps().points).toHaveLength(3);
@@ -87,21 +87,21 @@ describe("IndexChartWorkspace adapter", () => {
     expect(history.onViewport).not.toHaveBeenCalled();
   });
 
-  it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
+  it("updates same-page trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     const props = { indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
-    const { rerender } = render(<IndexChartWorkspace recognitionEnabled {...props} trend={null} trendPhase="loading" />);
+    const { rerender } = render(<IndexChartWorkspace recognitionEnabled {...props} initialTrendPoints={[]} />);
     const first = latestProps();
     fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     const trend = { droppedCount: 0, status: "READY" as const, points: [{ time: "2023-10-26", close: 120,
       shortUpper: 122, shortLower: 115, longUpper: 125, longLower: 112 }] };
-    rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={trend} trendPhase="ready" />);
+    rerender(<IndexChartWorkspace recognitionEnabled {...props} initialTrendPoints={trend.points} />);
     expect(screen.getByRole("button", { name: "BOLL" })).toHaveClass("active");
     expect(latestProps().mainLines).toHaveLength(3);
     expect(latestProps().dataKey).toBe(first.dataKey);
     fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
     const selected = latestProps();
-    rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={{ ...trend, points: [{ ...trend.points[0]!, shortUpper: 123 }] }} trendPhase="ready" />);
+    rerender(<IndexChartWorkspace recognitionEnabled {...props} initialTrendPoints={[{ ...trend.points[0]!, shortUpper: 123 }]} />);
     expect(latestProps().mainPrimitives).toBe(selected.mainPrimitives);
     expect(latestProps().mainLines).toBe(selected.mainLines);
   });
@@ -109,7 +109,7 @@ describe("IndexChartWorkspace adapter", () => {
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexChartWorkspace recognitionEnabled indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    render(<IndexChartWorkspace recognitionEnabled indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} initialTrendPoints={[]} viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().hiddenIndicatorPanels).toEqual(new Set(["volume"]));
@@ -136,19 +136,14 @@ describe("IndexChartWorkspace adapter", () => {
         nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
-        trend={{
-          droppedCount: 0,
-          status: "READY",
-          points: viewModel.chart.candles.map((point) => ({
+        initialTrendPoints={viewModel.chart.candles.map((point) => ({
             time: point.time,
             close: point.close ?? 0,
             shortUpper: 4_000,
             shortLower: 3_900,
             longUpper: 4_050,
             longLower: 3_850,
-          })),
-        }}
-        trendPhase="ready"
+          }))}
         viewModel={viewModel}
       />,
     );
@@ -173,7 +168,7 @@ describe("IndexChartWorkspace adapter", () => {
     const controls = { ...defaultIndicatorControls, quantitativeStructureAvailable: true };
     const base = {
       nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel,
-      trend: null, trendPhase: "unavailable" as const,
+      initialTrendPoints: [],
       recognitionEnabled: true,
     };
     const history = {
@@ -224,7 +219,7 @@ describe("IndexChartWorkspace adapter", () => {
     };
     const props = {
       viewModel, history, indicatorControls: defaultIndicatorControls, recognitionEnabled: false,
-      trend: null, trendPhase: "unavailable" as const, onNineTurnRetry: vi.fn(),
+      initialTrendPoints: [], onNineTurnRetry: vi.fn(),
       nineTurnLayer: { ...idleNineTurnLayer("day"), phase: "READY" as const, markers: [marker("2023-01-12", 3)] },
     };
     const setMarkers = vi.spyOn(NineTurnMarkerPrimitive.prototype, "setMarkers");

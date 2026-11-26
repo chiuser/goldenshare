@@ -58,9 +58,7 @@ function renderTab(
     <IndexTechnicalTab
       nineTurnSummary={nineTurnSummary}
       onNineTurnRetry={onNineTurnRetry}
-      onTrendRetry={vi.fn()}
-      trend={null}
-      trendPhase="unavailable"
+      dailyTrendPoints={[]}
       viewModel={buildIndexDetailViewModel(makePageInit(), makeKline())}
     />,
   );

@@ -179,17 +179,10 @@ describe("ordinary index daily history", () => {
   ])("%s caches a short page, retains its layers and retries only the failed range", async (tsCode) => {
     const { result, move, olderEnd } = mountFirstPage(tsCode);
     const older = page(olderEnd, 2, null, tsCode);
-    const trendCalls = tsCode === code ? 2 : 0;
+    const trendCalls = 0;
     const startDate = older.bars[0]!.tradeDate;
     let complete!: (value: IndexDetailKlineResponseDto) => void;
     vi.mocked(fetchIndexDetailKline).mockImplementationOnce(() => new Promise(resolve => { complete = resolve; }));
-    const trend = makeTrendPayload();
-    // A trend page is allowed to have points for only some of the K-line dates.
-    const trendPart = {
-      ...trend, bars: [{ ...trend.bars[0]!, trade_date: olderEnd }],
-      meta: { ...trend.meta, bar_count: 1, limit: 500, start_date: olderEnd, end_date: olderEnd },
-    };
-    vi.mocked(fetchTrendChannel).mockResolvedValueOnce(trendPart);
     vi.mocked(loadIndexNineTurnSeries).mockRejectedValueOnce(new Error("九转读取失败"));
     const marker = { tradeDate: olderEnd, tradeTime: null, sequenceNumber: 7, direction: "UP", completed: false } as const;
     const nineTurn: NineTurnSeriesDto = {
@@ -219,16 +212,11 @@ describe("ordinary index daily history", () => {
       { signal: expect.any(AbortSignal) },
     );
     expect(fetchTrendChannel).toHaveBeenCalledTimes(trendCalls);
-    if (tsCode === code) {
-      expect(fetchTrendChannel).toHaveBeenLastCalledWith(
-        { startDate, endDate: olderEnd, limit: 500 }, { signal: expect.any(AbortSignal) },
-      );
-    }
     move(100, "history");
     const visible = result.current.history.visible;
     expect(visible?.candles).toHaveLength(502);
     expect(visible?.candles.slice(0, 2).map(bar => bar.time)).toEqual([startDate, olderEnd]);
-    expect(visible?.trendPoints.map(point => point.time)).toEqual(tsCode === code ? [olderEnd] : []);
+    expect(visible?.trendPoints.map(point => point.time)).toEqual(tsCode === code ? [startDate, olderEnd] : []);
     const failure = visible?.failedLayers[0]!;
     expect(failure.layer).toBe("nineTurn");
     await act(async () => result.current.history.retryLayer(failure.page, failure.layer));
@@ -245,6 +233,31 @@ describe("ordinary index daily history", () => {
       firstDate: startDate, leftDate: startDate, remaining: 1, direction: "history", beyondLeft: true, gesture: Symbol(),
     }));
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["missing", "nan", "date"])("keeps the old cursor and summary after a %s four-rail history page", async (fault) => {
+    const { result, move, olderEnd } = mountFirstPage(code, true);
+    const older = { ...page(olderEnd, 2, null), nineTurnMarkers: [] };
+    const invalid = structuredClone(older);
+    if (fault === "date") invalid.bars[0]!.tradeDate = "invalid";
+    else Object.assign(invalid.bars[0]!.factors, { trendChannel: fault === "missing" ? undefined : {
+      shortUpper: NaN, shortLower: 1, longUpper: 3, longLower: 2,
+    } });
+    vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(invalid).mockResolvedValueOnce(older);
+    await waitFor(() => expect(result.current.history.active).toBe(true));
+    const summary = result.current.dailyTrendPoints.at(-1);
+    move(100, "history");
+    await waitFor(() => expect(result.current.history.phase).toBe("error"));
+    expect(result.current.history.visible).toBeNull();
+    expect(result.current.dailyTrendPoints.at(-1)).toBe(summary);
+    move(100, "history", Symbol(), true);
+    await waitFor(() => expect(result.current.history.visible?.trendPoints).toHaveLength(2));
+    expect(result.current.dailyTrendPoints.at(-1)).toBe(summary);
+    expect(fetchIndexDetailKline).toHaveBeenLastCalledWith(
+      { tsCode: code, period: "day", limit: 500, endDate: olderEnd }, { signal: expect.any(AbortSignal) },
+    );
+    expect(fetchTrendChannel).not.toHaveBeenCalled();
+    expect(loadIndexNineTurnSeries).not.toHaveBeenCalled();
   });
 
   it("renders an old Prod response without history and stops immediately on a local first-page short response", async () => {

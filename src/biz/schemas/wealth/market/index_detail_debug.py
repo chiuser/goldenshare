@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict
 from .index_detail import (
     IndexDetailDataStatusValue,
     IndexDetailPageInitDataDto,
-    IndexDetailKlineDataDto,
+    IndexDetailKlineDataDto, IndexSseDailyKlineBarDto,
     IndexDetailSseKlineMetaDto,
     IndexDetailWeightsDataDto,
 )
@@ -80,3 +80,13 @@ class LocalIndexDetailDailyKlineDebugResponseDto(IndexDetailKlineDebugResponseDt
 
 class IndexDetailWeightsDebugResponseDto(IndexDetailWeightsDataDto):
     debugInfo: IndexDetailDebugInfoDto
+
+
+class IndexDetailSseDailyKlineDebugResponseDto(IndexDetailKlineDebugResponseDto):
+    period: Literal["day"]
+    bars: list[IndexSseDailyKlineBarDto]
+    meta: IndexDetailSseKlineMetaDto
+
+
+class LocalIndexDetailSseDailyKlineDebugResponseDto(LocalIndexDetailDailyKlineDebugResponseDto):
+    bars: list[IndexSseDailyKlineBarDto]

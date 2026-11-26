@@ -83,9 +83,18 @@ def dg_client(tmp_path, monkeypatch):
         return encode(*args, **kwargs)
 
     def observe_calculation(self, *args, **kwargs):
-        calculated.append(True)
+        calculated.append(args[0].request)
         return calculate(self, *args, **kwargs)
 
+    from src.biz.services.quote_trend_channel_calculator import TrendChannelCalculator
+    from src.biz.services.quote_trend_channel_query_service import TrendChannelSeriesCache
+
+    def reject_legacy(*args, **kwargs):
+        pytest.fail("Daily integration must not call the old trend calculator or cache")
+
+    monkeypatch.setattr(TrendChannelCalculator, "calculate", reject_legacy)
+    monkeypatch.setattr(TrendChannelSeriesCache, "get", reject_legacy)
+    monkeypatch.setattr(TrendChannelSeriesCache, "put", reject_legacy)
     monkeypatch.setattr(integration, "encode_response_utf8", observe_encoding)
     monkeypatch.setattr(integration.TechnicalIndicatorService, "_calculate_result", observe_calculation)
     @asynccontextmanager
@@ -146,6 +155,12 @@ def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client, monkeypa
     assert body["bars"][0]["volDisplay"] == "12.35万"
     assert body["bars"][0]["amount"] == 1000.0
     assert body["bars"][0]["factors"]["macd"]["dif"] > 0
+    assert body["bars"][0]["factors"]["trendChannel"] == pytest.approx({
+        "shortUpper": 13., "shortLower": 9., "longUpper": 13., "longLower": 9.,
+    }, abs=.01)
+    assert [item["calculation_id"] for item in calculated[0].calculations] == [
+        *(["ma"] * 7), "boll", "macd", "kdj", "price", "nineturn", "trend_channel",
+    ]
     assert body["debugInfo"]["modules"][0]["rowCount"] == 1
     assert not reads
     assert calendars == [(MON, MON)]
@@ -228,6 +243,7 @@ def test_dg_nine_turn_markers_follow_each_daily_page(dg_client, tmp_path):
     assert [marker["sequenceNumber"] for marker in previous_page["nineTurnMarkers"]] == [2, 3, 4, 5, 6]
     assert previous_page["debugInfo"]["modules"][0]["rowCount"] == 5
     assert len(calculated) == 2
+    assert "trendChannel" in previous_page["bars"][0]["factors"]
 
 
 def test_index_daily_nine_turn_openapi_only_declares_markers_for_local_daily(tmp_path):
@@ -237,6 +253,13 @@ def test_index_daily_nine_turn_openapi_only_declares_markers_for_local_daily(tmp
         app.include_router(build_debug_router(daily_lake=lake), prefix="/api/v1")
         schema = app.openapi()
         add_openapi_responses(schema)
+        components = schema["components"]["schemas"]
+        assert set(components["IndexTrendChannelFactorsDto"]["required"]) == {
+            "shortUpper", "shortLower", "longUpper", "longLower",
+        }
+        assert all(field["type"] == "number" for field in components["IndexTrendChannelFactorsDto"]["properties"].values())
+        assert "trendChannel" in components["IndexSseDailyKlineFactorsDto"]["required"]
+        assert "trendChannel" not in components["IndexKlineFactorsDto"]["properties"]
         for endpoint, local_model in (
             ("kline", "LocalIndexDetailDailyKlineResponseDto"),
             ("debug/kline", "LocalIndexDetailDailyKlineDebugResponseDto"),
@@ -245,7 +268,8 @@ def test_index_daily_nine_turn_openapi_only_declares_markers_for_local_daily(tmp
             output = schema["paths"][path]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
             if lake is None:
                 assert local_model not in str(output)
-                assert "nineTurnMarkers" not in schema["components"]["schemas"][output["$ref"].split("/")[-1]]["properties"]
+                for reference in output["anyOf"]:
+                    assert "nineTurnMarkers" not in schema["components"]["schemas"][reference["$ref"].split("/")[-1]]["properties"]
             else:
                 assert {"$ref": f"#/components/schemas/{local_model}"} in output["anyOf"]
                 assert "nineTurnMarkers" in schema["components"]["schemas"][local_model]["required"]
@@ -323,6 +347,8 @@ def test_a500_kline_paginates_and_stops_at_its_verified_origin(dg_client, tmp_pa
     assert body["bars"][0]["amount"] == 1000.0
     # The first visible bar uses the preceding source bar for MACD.
     assert body["bars"][0]["factors"]["macd"]["dif"] > 0
+    assert "trendChannel" not in body["bars"][0]["factors"]
+    assert all(item["calculation_id"] != "trend_channel" for item in calculated[0].calculations)
     assert body["meta"]["nextEndDate"] == str(A500_ORIGIN)
 
     debug_path = PATH.replace("/kline", "/debug/kline")
@@ -388,3 +414,14 @@ def test_local_daily_limit_rejects_501_before_reading(dg_client, monkeypatch, pa
     assert response.status_code == 400, response.text
     assert response.json()["code"] == "ID_REQUEST_INVALID"
     assert not (reads or encoded or calculated)
+
+
+def test_sse_normal_and_debug_keep_the_same_daily_rails_dates_and_nine_turn(dg_client):
+    client, _, _, _, calculated = dg_client
+    params = {"tsCode": CODE, "endDate": str(MON), "limit": 2}
+    normal = client.get(PATH, params=params)
+    debug = client.get(PATH.replace("/kline", "/debug/kline"), params=params)
+    assert normal.status_code == debug.status_code == 200
+    for field in ("bars", "meta", "nineTurnMarkers", "dataStatus"):
+        assert normal.json()[field] == debug.json()[field]
+    assert len(calculated) == 2

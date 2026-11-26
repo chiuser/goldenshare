@@ -1,3 +1,4 @@
+import type { IndexKlineLoader } from "../api/indexDetailApiClient";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
@@ -7,12 +8,10 @@ import {
   IndexDetailApiError,
 } from "../api/indexDetailApiClient";
 import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
-import { fetchTrendChannel } from "../api/trendChannelApiClient";
 import {
   buildEmptyIndexDetailViewModel,
-  buildIndexDetailViewModel,
+  buildIndexDetailViewModel, buildIndexDailyTrendChannelPoints,
 } from "../api/indexDetailViewModelAdapter";
-import { buildTrendChannelViewModel } from "../api/trendChannelAdapter";
 import { DAILY_CHART_PAGE_SIZE } from "../../../shared/charts/dailyChartRequestLimits";
 import { readIndexDailyCursor, useIndexDailyHistory, type IndexDailyHistory, type IndexDailyHistorySeed } from "./useIndexDailyHistory";
 import {
@@ -24,7 +23,7 @@ import type {
   IndexDataPagePhase,
   IndexDetailViewModel,
   IndexPagePhase,
-  TrendChannelViewModel,
+  TrendChannelPoint,
 } from "../model/indexDetailTypes";
 
 interface IndexDetailControllerSnapshot {
@@ -37,31 +36,26 @@ interface IndexDetailControllerSnapshot {
   phase: IndexPagePhase;
   requestKey: string;
   historySeed: IndexDailyHistorySeed | null;
-  trend: TrendChannelViewModel | null;
-  trendPhase: "unavailable" | "loading" | "ready" | "error";
+  dailyTrendPoints: TrendChannelPoint[];
   viewModel: IndexDetailViewModel | null;
 }
 
 export interface IndexDetailControllerState extends IndexDetailControllerSnapshot {
   history: IndexDailyHistory;
   retry: () => void;
-  retryTrend: () => void;
 }
 
 export function useIndexDetailController(tsCode: string, tradeDate: string | undefined, dailyActive = true,
-    loadPageInit = fetchIndexDetailPageInit, loadDailyKline = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries): IndexDetailControllerState {
+    loadPageInit = fetchIndexDetailPageInit, loadDailyKline: IndexKlineLoader = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries): IndexDetailControllerState {
   const normalizedTsCode = normalizeIndexTsCode(tsCode);
   const [retryToken, setRetryToken] = useState(0);
   const requestKey = `${normalizedTsCode}|${tradeDate ?? ""}|${retryToken}`;
   const [state, setState] = useState<IndexDetailControllerSnapshot>(() => createInitialState(requestKey));
   const requestIdRef = useRef(0);
-  const trendControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
     const requestId = ++requestIdRef.current;
-    trendControllerRef.current?.abort();
-    trendControllerRef.current = null;
     setState(createInitialState(requestKey));
 
     async function load() {
@@ -82,22 +76,6 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
           return;
         }
 
-        const supportsTrend = pageInit.capabilities.supportsTrendChannel && normalizedTsCode === "000001.SH";
-        setState((current) => ({
-          ...current,
-          trendPhase: supportsTrend ? "loading" : "unavailable",
-          viewModel: null,
-        }));
-        if (supportsTrend) {
-          const trendController = new AbortController();
-          trendControllerRef.current = trendController;
-          void requestTrend(pageInit.asOfTradeDate, trendController.signal)
-            .then((trend) => commitTrendSuccess(setState, requestIdRef, requestId, trend))
-            .catch((error: unknown) => {
-              if (!trendController.signal.aborted) commitTrendFailure(setState, requestIdRef, requestId, error);
-            });
-        }
-
         const kline = await loadDailyKline(
           { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: DAILY_CHART_PAGE_SIZE },
           { signal: controller.signal },
@@ -113,7 +91,6 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
           ? readIndexDailyCursor(kline, normalizedTsCode, pageInit.asOfTradeDate)
           : null;
         if (kline.dataStatus.status === "EMPTY" || kline.bars.length === 0) {
-          trendControllerRef.current?.abort();
           setState({
             ...createInitialState(requestKey),
             phase: "empty",
@@ -124,25 +101,24 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
 
         const basePhase = resolveIndexDataPagePhase(pageInit, kline);
         const pagePartialReasons = collectIndexPartialReasons(pageInit, kline);
+        const dailyTrendPoints = buildIndexDailyTrendChannelPoints(kline);
         const viewModel = buildIndexDetailViewModel(pageInit, kline);
         setState((current) => {
-          const trendFailed = current.trendPhase === "error";
           return {
             ...current,
             basePhase,
-            dailyNineTurnMarkers: markers ?? null,
+            dailyNineTurnMarkers: markers ?? null, dailyTrendPoints,
             errorCode: "",
             errorMessage: "",
             pagePartialReasons,
-            partialReasons: trendFailed ? mergeReasons(pagePartialReasons, ["趋势通道"]) : pagePartialReasons,
-            phase: trendFailed ? "partial" : basePhase,
-            historySeed: supportsDailyHistory ? { viewModel, nextEndDate, embeddedNineTurn: markers !== undefined } : null,
+            partialReasons: pagePartialReasons,
+            phase: basePhase,
+            historySeed: supportsDailyHistory ? { viewModel, nextEndDate, embeddedNineTurn: markers !== undefined, dailyTrendPoints } : null,
             viewModel,
           };
         });
       } catch (error) {
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
-        trendControllerRef.current?.abort();
         const failure = resolvePageFailure(error);
         setState({
           ...createInitialState(requestKey),
@@ -154,35 +130,13 @@ export function useIndexDetailController(tsCode: string, tradeDate: string | und
     void load();
     return () => {
       controller.abort();
-      trendControllerRef.current?.abort();
     };
   }, [normalizedTsCode, requestKey, tradeDate, loadPageInit, loadDailyKline]);
 
   const retry = useCallback(() => setRetryToken((value) => value + 1), []);
-  const retryTrend = useCallback(() => {
-    const endDate = state.viewModel?.asOfTradeDate;
-    if (!endDate || normalizedTsCode !== "000001.SH") return;
-    const requestId = requestIdRef.current;
-    trendControllerRef.current?.abort();
-    const controller = new AbortController();
-    trendControllerRef.current = controller;
-    setState((current) => ({
-      ...current,
-      partialReasons: current.pagePartialReasons,
-      phase: current.basePhase,
-      trend: null,
-      trendPhase: "loading",
-    }));
-    void requestTrend(endDate, controller.signal)
-      .then((trend) => commitTrendSuccess(setState, requestIdRef, requestId, trend))
-      .catch((error: unknown) => {
-        if (!controller.signal.aborted) commitTrendFailure(setState, requestIdRef, requestId, error);
-      });
-  }, [normalizedTsCode, state.viewModel?.asOfTradeDate]);
-
   const visibleState = state.requestKey === requestKey ? state : createInitialState(requestKey);
   const history = useIndexDailyHistory(visibleState.historySeed, dailyActive, loadDailyKline, loadNineTurn);
-  return { ...visibleState, history, retry, retryTrend };
+  return { ...visibleState, history, retry };
 }
 
 function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
@@ -196,47 +150,9 @@ function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
     partialReasons: [],
     phase: "loading",
     requestKey,
-    trend: null,
-    trendPhase: "unavailable",
+    dailyTrendPoints: [],
     viewModel: null,
   };
-}
-
-async function requestTrend(endDate: string, signal: AbortSignal): Promise<TrendChannelViewModel> {
-  const response = await fetchTrendChannel({ endDate, limit: DAILY_CHART_PAGE_SIZE }, { signal });
-  return buildTrendChannelViewModel(response);
-}
-
-function commitTrendSuccess(
-  setState: (updater: (current: IndexDetailControllerSnapshot) => IndexDetailControllerSnapshot) => void,
-  requestIdRef: { current: number },
-  requestId: number,
-  trend: TrendChannelViewModel,
-) {
-  if (requestIdRef.current !== requestId) return;
-  setState((current) => ({
-    ...current,
-    partialReasons: current.pagePartialReasons,
-    phase: current.viewModel ? current.basePhase : current.phase,
-    trend,
-    trendPhase: "ready",
-  }));
-}
-
-function commitTrendFailure(
-  setState: (updater: (current: IndexDetailControllerSnapshot) => IndexDetailControllerSnapshot) => void,
-  requestIdRef: { current: number },
-  requestId: number,
-  _error: unknown,
-) {
-  if (requestIdRef.current !== requestId) return;
-  setState((current) => ({
-    ...current,
-    partialReasons: mergeReasons(current.pagePartialReasons, ["趋势通道"]),
-    phase: current.viewModel ? "partial" : current.phase,
-    trend: null,
-    trendPhase: "error",
-  }));
 }
 
 function resolvePageFailure(error: unknown): Pick<IndexDetailControllerSnapshot, "errorCode" | "errorMessage" | "phase"> {
@@ -256,8 +172,4 @@ function resolvePageFailure(error: unknown): Pick<IndexDetailControllerSnapshot,
 
 function isCurrent(requestIdRef: { current: number }, requestId: number, signal: AbortSignal): boolean {
   return requestIdRef.current === requestId && !signal.aborted;
-}
-
-function mergeReasons(left: string[], right: string[]): string[] {
-  return [...new Set([...left, ...right])];
 }

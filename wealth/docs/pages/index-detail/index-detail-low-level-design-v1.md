@@ -1,6 +1,6 @@
 # 指数详情页低层设计（LLD）v1
 
-> 2026-11-25 趋势通道专项第三阶段设计已补齐、未实施：四轨随上证日 K 返回，旧独立通道加载与专用重试退出页面。逐指标公共组装、明确类型、普通/debug/OpenAPI、首批/续页/摘要交接、预算及验收见[本文 §30](#index-trend-channel-operator-lld)及[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。下文旧 `page-init -> kline -> trend` 等内容保留切换前语义，不作为新接入要求。
+> 2026-11-25 趋势通道专项第三阶段开发、技术验收及单独对照审计已完成，待管理员 review，未部署：四轨随上证日 K 返回，旧独立通道加载与专用重试退出页面。逐指标公共组装、明确类型、普通/debug/OpenAPI、首批/续页/摘要交接、预算及验收见[本文 §30](#index-trend-channel-operator-lld)及[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。下文旧 `page-init -> kline -> trend` 等内容保留切换前语义，不作为新接入要求。
 
 > 2026-11-22 本地需求已验收并收尾。[全部支持指数的日线计算和向左翻页见 §28](#local-index-daily-library-expansion-lld)。§27 保留上证日线先行接入和当时的验收事实。
 
@@ -2288,7 +2288,7 @@ LIMIT ?
 后端定向回归 251 项通过，前端指数分钟相关测试 60 项通过，TypeScript 类型检查通过。
 
 <a id="index-trend-channel-operator-lld"></a>
-## 30. 趋势通道第三阶段接入（2026-11-25 设计，未实施）
+## 30. 趋势通道第三阶段接入（2026-11-25，开发与技术验收完成）
 
 ### 30.1 范围、前置与职责
 
@@ -2317,6 +2317,8 @@ LIMIT ?
 
 ### 30.4 预算、测试及开工条件
 
+本次重复读取核查仅适用于趋势通道接入：原同次日 K 算子请求增加四轨，组装和图层复用本批结果，不单独再取行情，切换后不再请求旧通道。具体约束和证据见[专项 LLD §11](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#trend-channel-read-scope)。撤回上一轮把通用 DG/Prod 读取优化设为本阶段前置的扩大范围要求；原接入步骤和接口行为保持。
+
 沿[专项 LLD §4.3.4](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#434-预算恢复和测试验收)的计算项数、实际历史需求、现有配置预算和测试矩阵执行，不套用旧全历史通道耗时，不抬高限制。测试覆盖普通/debug 序列化与 OpenAPI、上证首批/续页、非目标指数/周期保持、DG 内联九转和 Prod 原九转、缓存展示、取消、失败重试及旧通道零调用。真实核验限单指数有界窗口，记录正常、清理、完整重试和最终验收费用；隔离合同通过不替代真实接口与浏览器验收。
 
-本节设计已补齐，无新增业务拍板项。当前阶段二未验收只构成执行顺序前置，不能当作第三阶段还缺方案。开发前按现状核对阶段二产物，先完成股票组装回归和审计，再进入上证；本次不编码、不发包、不部署、不写正式数据。
+本节设计已补齐，无新增业务拍板项。阶段二股票日线接入已完成开发、技术验收及单独对照审计，并提交为 `374c12d7`，证据见[专项 LLD §10](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)。阶段三已先完成股票组装回归和审计，再完成上证接入；代码、128 项后端、104 项前端、真实 DG HTTP/浏览器及单独对照审计证据见[专项 LLD §12](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#trend-stage3-results)。旧总应用夹具 20 项改前已有失败没有计为通过；未部署或正式写入，阶段四另行 review。

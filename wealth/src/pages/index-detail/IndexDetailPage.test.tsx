@@ -666,28 +666,29 @@ describe("IndexDetailPage", () => {
     expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
   });
 
-  it("promotes a trend failure to Partial, keeps the chart, and supports trend-only retry", async () => {
-    let trendCalls = 0;
+  it("fails and retries the whole daily page when its required four rails are absent", async () => {
+    let calls = 0;
     const fetchMock = mockFetch("000001.SH", {
-      trend: () => {
-        trendCalls += 1;
-        return trendCalls === 1
-          ? response({ code: "ID_QUERY_FAILED", message: "趋势服务失败" }, 500)
-          : response(makeTrendPayload());
+      kline: () => {
+        const data = makeOrdinaryKline();
+        if (++calls === 1) {
+          return response({ ...data, bars: data.bars.map(bar => ({ ...bar,
+            factors: { ma: bar.factors.ma, boll: bar.factors.boll, macd: bar.factors.macd, kdj: bar.factors.kdj },
+          })) });
+        }
+        return response(data);
       },
+      trend: () => { throw new Error("旧通道请求不得调用"); },
     });
     render(<IndexDetailPage search="" tsCode="000001.SH" />);
-
-    expect(await screen.findByLabelText("部分数据缺失")).toHaveTextContent("趋势通道");
-    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
-    expect(metricValue("preClose")).not.toBe("--");
+    expect(await screen.findByRole("button", { name: "重新加载" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("指数日线图表区")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重新加载" }));
+    expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
-    expect(await screen.findByText("趋势通道加载失败")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "重试" }));
-    await waitFor(() => expect(screen.queryByText("趋势通道加载失败")).not.toBeInTheDocument());
     expect(screen.getByText("短期上轨")).toBeInTheDocument();
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/trend-channel"))).toHaveLength(2);
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/trend-channel"))).toHaveLength(0);
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(2);
   });
 
   it("keeps the missing index pre-close warning and retries only the weights module", async () => {

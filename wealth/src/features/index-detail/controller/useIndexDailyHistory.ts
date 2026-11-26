@@ -1,3 +1,4 @@
+import type { IndexKlineLoader } from "../api/indexDetailApiClient";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DAILY_CHART_PAGE_SIZE, SSE_DAILY_PREFETCH_REMAINING } from "../../../shared/charts/dailyChartRequestLimits";
@@ -7,20 +8,18 @@ import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import type { IndexDetailKlineResponseDto } from "../api/indexDetailApiTypes";
 import { fetchIndexDetailKline, IndexDetailApiError } from "../api/indexDetailApiClient";
 import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
-import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
-import { buildTrendChannelViewModel } from "../api/trendChannelAdapter";
-import { fetchTrendChannel } from "../api/trendChannelApiClient";
+import { buildIndexDailyTrendChannelPoints, toCandlePoint } from "../api/indexDetailViewModelAdapter";
 import type { IndexCandlePoint, IndexDetailViewModel, TrendChannelPoint } from "../model/indexDetailTypes";
 
-const SSE_CODE = "000001.SH";
 
 export interface IndexDailyHistorySeed {
   embeddedNineTurn: boolean;
+  dailyTrendPoints: TrendChannelPoint[];
   nextEndDate: string | null;
   viewModel: IndexDetailViewModel;
 }
 
-type LayerName = "nineTurn" | "trend";
+type LayerName = "nineTurn";
 type LayerResult<T> = { phase: "loading" } | { phase: "ready"; data: T[] } | { phase: "error" };
 interface Layer<T> {
   result?: LayerResult<T>;
@@ -32,7 +31,7 @@ interface HistoryPage {
   candles: IndexCandlePoint[];
   nearDate: string;
   nineTurn: Layer<NineTurnMarkerDto>;
-  trend: Layer<TrendChannelPoint>;
+  trendPoints: TrendChannelPoint[];
 }
 interface HistorySession {
   seed: IndexDailyHistorySeed;
@@ -69,7 +68,7 @@ export function readIndexDailyCursor(response: IndexDetailKlineResponseDto, tsCo
 }
 
 export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active: boolean,
-    loadDailyKline = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries) {
+    loadDailyKline: IndexKlineLoader = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries) {
   const session = useMemo<HistorySession | null>(() => seed && active ? {
     seed, pages: [], shown: 0, candles: seed.viewModel.chart.candles, signal: null,
     nextEndDate: seed.nextEndDate, viewport: null, phase: "idle",
@@ -100,9 +99,8 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       }
       for (const page of owner.pages.slice(0, owner.shown)) {
         if (nearDate > page.nearDate) continue;
-        if (page.nineTurn.displayed !== page.nineTurn.result || page.trend.displayed !== page.trend.result) {
+        if (page.nineTurn.displayed !== page.nineTurn.result) {
           page.nineTurn.displayed = page.nineTurn.result;
-          page.trend.displayed = page.trend.result;
           changed = true;
         }
       }
@@ -130,29 +128,17 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     const { startDate, endDate } = page;
     const tsCode = owner.seed.viewModel.identity.tsCode;
     try {
-      if (name === "nineTurn") {
-        const response = await loadNineTurn(
-          { subjectType: "index", tsCode, period: "day", startDate, endDate, limit: DAILY_CHART_PAGE_SIZE },
-          { signal },
-        );
-        if (signal.aborted) return;
-        if (response.meta.startDate !== startDate || response.meta.endDate !== endDate) {
-          throw new Error("九转日期与当前历史页不一致");
-        }
-        const result = adaptNineTurnSeries(response, { period: "day", subjectType: "index", tsCode });
-        page.nineTurn.result = { phase: "ready", data: result.markers.filter(marker =>
-          marker.tradeDate >= startDate && marker.tradeDate <= endDate) };
-      } else {
-        const response = await fetchTrendChannel({ startDate, endDate, limit: DAILY_CHART_PAGE_SIZE }, { signal });
-        if (signal.aborted) return;
-        if (response.instrument.ts_code !== SSE_CODE || response.period !== "day" ||
-            (response.meta.start_date !== null && response.meta.start_date < startDate) ||
-            (response.meta.end_date !== null && response.meta.end_date > endDate)) {
-          throw new Error("趋势通道日期或指数与当前历史页不一致");
-        }
-        const result = buildTrendChannelViewModel(response);
-        page.trend.result = { phase: "ready", data: result.points.filter(point => point.time >= startDate && point.time <= endDate) };
+      const response = await loadNineTurn(
+        { subjectType: "index", tsCode, period: "day", startDate, endDate, limit: DAILY_CHART_PAGE_SIZE },
+        { signal },
+      );
+      if (signal.aborted) return;
+      if (response.meta.startDate !== startDate || response.meta.endDate !== endDate) {
+        throw new Error("九转日期与当前历史页不一致");
       }
+      const result = adaptNineTurnSeries(response, { period: "day", subjectType: "index", tsCode });
+      page.nineTurn.result = { phase: "ready", data: result.markers.filter(marker =>
+        marker.tradeDate >= startDate && marker.tradeDate <= endDate) };
     } catch {
       if (signal.aborted) return;
       layer.result = { phase: "error" };
@@ -188,7 +174,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
         candles: response.bars.map(toCandlePoint),
         nearDate: owner.candles[Math.min(SSE_DAILY_PREFETCH_REMAINING, owner.candles.length) - 1]!.time,
         nineTurn: owner.seed.embeddedNineTurn && markers ? { result: { phase: "ready", data: markers } } : {},
-        trend: {},
+        trendPoints: buildIndexDailyTrendChannelPoints(response),
       } : null;
       owner.nextEndDate = nextEndDate;
       owner.phase = "idle";
@@ -198,7 +184,6 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
         if (!owner.seed.embeddedNineTurn && capabilities.supportsNineTurn && capabilities.nineTurnPeriods.includes("day")) {
           void loadLayer(owner, page, "nineTurn");
         }
-        if (tsCode === SSE_CODE && capabilities.supportsTrendChannel) void loadLayer(owner, page, "trend");
       }
     } catch (error) {
       if (signal.aborted) return;
@@ -219,7 +204,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     // A response received while looking at newer dates stays in the cache until
     // a real drag reaches that page's prefetch range.
     if (session.pages.some(page => viewport.leftDate <= page.nearDate && (
-      page.nineTurn.displayed !== page.nineTurn.result || page.trend.displayed !== page.trend.result
+      page.nineTurn.displayed !== page.nineTurn.result
     )) || session.shown < session.pages.length) {
       publish(session);
     }
@@ -246,8 +231,8 @@ function visibleHistory(owner: HistorySession): VisibleHistory {
   return {
     candles: owner.candles,
     nineTurnMarkers: pages.flatMap(page => page.nineTurn.displayed?.phase === "ready" ? page.nineTurn.displayed.data : []),
-    trendPoints: pages.flatMap(page => page.trend.displayed?.phase === "ready" ? page.trend.displayed.data : []),
-    failedLayers: pages.flatMap(page => (["nineTurn", "trend"] as const)
+    trendPoints: pages.flatMap(page => page.trendPoints),
+    failedLayers: pages.flatMap(page => (["nineTurn"] as const)
       .filter(layer => page[layer].displayed?.phase === "error").map(layer => ({ page, layer }))),
   };
 }

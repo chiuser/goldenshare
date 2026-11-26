@@ -1,22 +1,19 @@
 import type { ReactNode } from "react";
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
-import type { IndexDetailViewModel, TrendChannelViewModel } from "../model/indexDetailTypes";
+import type { IndexDetailViewModel, TrendChannelPoint } from "../model/indexDetailTypes";
 import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
-import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 interface IndexTechnicalTabProps {
   forecast?: ReactNode;
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
-  onTrendRetry: () => void;
-  trend: TrendChannelViewModel | null;
-  trendPhase: "unavailable" | "loading" | "ready" | "error";
+  dailyTrendPoints: readonly TrendChannelPoint[];
   viewModel: IndexDetailViewModel;
 }
 
-export function IndexTechnicalTab({ forecast, nineTurnSummary, onNineTurnRetry, onTrendRetry, trend, trendPhase, viewModel }: IndexTechnicalTabProps) {
-  const latest = trend?.points.at(-1) ?? null;
+export function IndexTechnicalTab({ forecast, nineTurnSummary, onNineTurnRetry, dailyTrendPoints, viewModel }: IndexTechnicalTabProps) {
+  const latest = dailyTrendPoints.at(-1) ?? null;
   return (
     <section className="index-technical-module" aria-label="技术面">
       <div className="index-tab-section-title"><strong>技术面</strong><span>{viewModel.asOfTradeDate ?? "--"}</span></div>
@@ -24,14 +21,12 @@ export function IndexTechnicalTab({ forecast, nineTurnSummary, onNineTurnRetry, 
       <NineTurnSummaryCard layers={nineTurnSummary} onRetry={onNineTurnRetry} />
       <div className="index-technical-card">
         <div><strong>趋势通道</strong><span>{viewModel.capabilities.supportsTrendChannel ? "上证指数 · 日线" : "当前指数不支持"}</span></div>
-        {viewModel.capabilities.supportsTrendChannel && trendPhase === "loading" ? <IndexDetailModuleState text="正在加载趋势通道…" /> : null}
-        {viewModel.capabilities.supportsTrendChannel && trendPhase === "error" ? <IndexDetailModuleState actionLabel="重试" onAction={onTrendRetry} text="趋势通道加载失败" tone="error" /> : null}
-        {trendPhase !== "loading" && trendPhase !== "error" ? <div className="index-technical-grid">
+        <div className="index-technical-grid">
           <Metric label="短期上轨" value={format(latest?.shortUpper)} />
           <Metric label="短期下轨" value={format(latest?.shortLower)} />
           <Metric label="长期上轨" value={format(latest?.longUpper)} />
           <Metric label="长期下轨" value={format(latest?.longLower)} />
-        </div> : null}
+        </div>
       </div>
       {forecast}
     </section>

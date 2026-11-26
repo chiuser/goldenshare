@@ -11,7 +11,7 @@ from src.biz.queries.wealth.market.index_detail.index_detail_page_query_service 
 from src.biz.queries.wealth.market.index_detail.index_detail_weights_query_service import IndexDetailWeightsQueryService
 from src.biz.schemas.wealth.market.index_detail_daily_wave import DailyWaveEmptyDto, DailyWaveReadyDto
 from src.biz.schemas.wealth.market.index_detail_debug import (
-    IndexDetailKlineDebugResponseDto,
+    IndexDetailKlineDebugResponseDto, IndexDetailSseDailyKlineDebugResponseDto, LocalIndexDetailSseDailyKlineDebugResponseDto,
     LocalIndexDetailDailyKlineDebugResponseDto,
 )
 from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
@@ -47,8 +47,9 @@ def build_router(*, daily_lake=None, run_sse_kline=None, run_period_kline=None, 
 
     @router.get(
         "/kline",
-        response_model=(LocalIndexDetailDailyKlineDebugResponseDto | IndexDetailKlineDebugResponseDto
-                        if daily_lake is not None else None),
+        response_model=(LocalIndexDetailSseDailyKlineDebugResponseDto | LocalIndexDetailDailyKlineDebugResponseDto
+                        | IndexDetailSseDailyKlineDebugResponseDto | IndexDetailKlineDebugResponseDto
+                        if daily_lake is not None else IndexDetailSseDailyKlineDebugResponseDto | IndexDetailKlineDebugResponseDto),
     )
     async def kline(request: Request, ts_code: str | None = Query(None, alias="tsCode"),
                     period: str | None = Query(None), start_date: str | None = Query(None, alias="startDate"),

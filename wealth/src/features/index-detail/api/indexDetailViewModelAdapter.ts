@@ -1,13 +1,30 @@
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
-import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto } from "./indexDetailApiTypes";
+import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto, IndexSseDailyKlineBarDto } from "./indexDetailApiTypes";
 import { INDEX_INDICATOR_TABS, INDEX_PERIOD_OPTIONS } from "../model/indexDetailConstants";
 import type {
   IndexBasicMetric,
   IndexCandlePoint,
   IndexDetailViewModel,
-  IndexPeriodKey,
+  IndexPeriodKey, TrendChannelPoint,
 } from "../model/indexDetailTypes";
+
+export function buildIndexDailyTrendChannelPoints(response: IndexDetailKlineResponseDto): TrendChannelPoint[] {
+  if (response.indexRef.tsCode !== "000001.SH" || response.period !== "day") return [];
+  return response.bars.map((bar, index) => {
+    const channel = (bar as IndexSseDailyKlineBarDto).factors.trendChannel;
+    if (!channel || !/^\d{4}-\d{2}-\d{2}$/.test(bar.tradeDate)
+      || (index > 0 && bar.tradeDate <= response.bars[index - 1]!.tradeDate)
+      || ![bar.close, channel.shortUpper, channel.shortLower, channel.longUpper, channel.longLower]
+        .every(value => typeof value === "number" && Number.isFinite(value))
+      || channel.shortUpper < channel.shortLower || channel.longUpper < channel.longLower) {
+      throw new Error("上证日线趋势通道结果与行情不一致");
+    }
+    return { time: bar.tradeDate, close: bar.close as number,
+      shortUpper: channel.shortUpper, shortLower: channel.shortLower,
+      longUpper: channel.longUpper, longLower: channel.longLower };
+  });
+}
 
 export function buildIndexDetailViewModel(
   pageInit: IndexDetailPageInitResponseDto,

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DAILY_CHART_PAGE_SIZE, SSE_DAILY_PREFETCH_REMAINING } from "../../../shared/charts/dailyChartRequestLimits";
 import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-workspace/detailChartTypes";
-import type { fetchIndexDetailKline } from "../api/indexDetailApiClient";
+import type { IndexKlineLoader } from "../api/indexDetailApiClient";
 import type { IndexDetailKlineResponseDto, IndexLongPeriod } from "../api/indexDetailApiTypes";
 import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
 import type { IndexCandlePoint } from "../model/indexDetailTypes";
@@ -52,7 +52,7 @@ function readPeriodPage(response: IndexDetailKlineResponseDto, request: PeriodRe
 
 export function useIndexPeriodSeries(
   tsCode: string, period: IndexLongPeriod | null, endDate: string | null,
-  loadKline: typeof fetchIndexDetailKline,
+  loadKline: IndexKlineLoader,
 ) {
   const [retryToken, setRetryToken] = useState(0);
   const session = useMemo<PeriodSession | null>(() => period && endDate ? {

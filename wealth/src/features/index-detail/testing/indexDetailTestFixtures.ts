@@ -23,7 +23,7 @@ export function makeKline(tsCode = "000001.SH"): DailyKlineResponse {
     pageContext: pageInit.pageContext, indexRef: { tsCode, name: pageInit.index.name }, period: "day",
     bars: ["2026-07-30", "2026-07-31"].map((tradeDate, index) => ({
       tradeDate, open: 3900 + index * 20, high: 3960 + index * 5, low: 3880 + index * 10, close: 3930 + index * 10, preClose: 3890 + index * 10, change: 40, changePct: 1.02, amplitude: 1.42, vol: 500_000_000, volDisplay: "5.00万", amount: 110_000_000,
-      factors: { ma: { ma5: 3900, ma10: 3890, ma20: 3880, ma30: 3870, ma60: 3860, ma90: 3850, ma250: 3800 }, boll: { upper: 4000, middle: 3900, lower: 3800 }, macd: { dif: 1, dea: .5, macd: 1 }, kdj: { k: 60, d: 55, j: 70 } },
+      factors: { ma: { ma5: 3900, ma10: 3890, ma20: 3880, ma30: 3870, ma60: 3860, ma90: 3850, ma250: 3800 }, boll: { upper: 4000, middle: 3900, lower: 3800 }, macd: { dif: 1, dea: .5, macd: 1 }, kdj: { k: 60, d: 55, j: 70 }, ...(tsCode === "000001.SH" ? { trendChannel: { shortUpper: 3951 + index, shortLower: 3881 + index, longUpper: 3971 + index, longLower: 3861 + index } } : {}) },
     })),
     meta: { count: 2, limit: 300, startDate: "2026-07-30", endDate: "2026-07-31" }, dataStatus: readyStatus(), debugInfo: null,
   };

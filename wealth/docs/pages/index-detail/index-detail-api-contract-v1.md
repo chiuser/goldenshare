@@ -1,6 +1,6 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 2026-11-25 后续合同已确认、尚未实施：趋势通道专项第三阶段仅为上证已接入算子库的日 K 回包新增四轨，并同步普通/debug、OpenAPI 和页面类型。详见[§5.9](#index-trend-channel-operator-api)。运行中旧独立通道合同保留至对应环境切换；本文其他历史版本与验收不因本次设计而变为已实施。
+> 2026-11-25 第三阶段合同已实现并完成技术验收及对照审计，待管理员 review，未部署：趋势通道专项第三阶段仅为上证已接入算子库的日 K 回包新增四轨，并同步普通/debug、OpenAPI 和页面类型。详见[§5.9](#index-trend-channel-operator-api)。运行中旧独立通道合同保留至对应环境切换；本文其他历史版本与验收不因本次设计而变为已实施。
 
 > 2026-11-25。合同 `1.6.0` 为本地指数日 K 九转，实施见 [九转 LLD §11.2](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-lld)。日线的普通、核验回包适用 §5.7，独立日线查询适用 §5.8。
 
@@ -428,7 +428,7 @@ interface LocalIndexDetailDailyKlineResponseDto extends IndexDetailKlineResponse
 - DG 应有的日线缺失，返回 HTTP 500 / `NT_QUERY_FAILED`。目标行情存在时，九转零计数算命中，部分九转结果缺失返回 200 / `PARTIAL` 并保留已有标记，全部缺失沿用 `EMPTY`。早于历史起点的空页照常成功。
 
 <a id="index-trend-channel-operator-api"></a>
-### 5.9 上证趋势通道随日 K 返回（第三阶段后续合同，未实施）
+### 5.9 上证趋势通道随日 K 返回（第三阶段源码已实现，未部署）
 
 适用 `000001.SH + day`、每批 1–500 根的现有日 K 算子路径，包括省略周期/根数后按原默认进入该路径的请求。普通 `GET /api/v1/wealth/market/index-detail/kline` 与对应 `/debug/kline` 沿原鉴权和日期参数。页面首批和续页均显式传 500，使用原 `meta.nextEndDate`；DG、Prod 各自已有的游标和历史下界保持。Prod 大于 500 根的旧分支、本次之外的指数及周期、旧独立通道端点均保持原合同，不添加空通道字段。
 
@@ -453,7 +453,7 @@ interface IndexTrendChannelFactorsDto {
 - 页面首批和续页只用本批四轨，开关不取数；失败保留原画面和游标、重试原截止日。技术面摘要用首批最后一根，历史翻页不改摘要。
 - 上述切换完成后，§1、§5.7 中“直接消费旧通道、单独加载”的说明只适用于切换前；页面不再请求 `/api/v1/quote/detail/trend-channel`。旧端点本身留至阶段四消费者审计，不在本步改造成代理或改其上限。
 
-本节是管理员已确认的目标合同，无待定字段；接口、OpenAPI、前端和测试同一步迁移，当前运行实现尚未切换。
+本节合同已落实到源码的接口、OpenAPI、前端和测试。DG/Prod 隔离装配、普通/debug HTTP、真实 DG 有界与浏览器验证见[专项 LLD §12](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#trend-stage3-results)。正式服务未部署切换，旧独立端点保留至阶段四。
 
 ## 6. `GET /weights`
 

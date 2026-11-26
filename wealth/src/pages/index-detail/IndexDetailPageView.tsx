@@ -46,7 +46,7 @@ import "./index-detail-page.css";
 import type { IndexChartAddonProps } from "../../features/index-detail/chart/IndexChartWorkspace";
 import type { XxmLayerProps } from "../../features/index-detail/xxm/IndexXxmLayer";
 import type { IndexDetailRequestScheduler } from "../../features/index-detail/api/indexDetailRequestScheduler";
-import type { fetchIndexDetailKline, fetchIndexDetailPageInit, fetchIndexDetailWeights } from "../../features/index-detail/api/indexDetailApiClient";
+import type { IndexKlineLoader, fetchIndexDetailPageInit, fetchIndexDetailWeights } from "../../features/index-detail/api/indexDetailApiClient";
 import type { loadIndexNineTurnSeries } from "../../features/index-detail/api/indexNineTurnLoader";
 
 export interface IndexForecastProps {
@@ -61,7 +61,7 @@ interface IndexDetailPageViewProps {
   tsCode: string;
   onRecentDay: () => void;
   loadPageInit: typeof fetchIndexDetailPageInit;
-  loadDailyKline: typeof fetchIndexDetailKline;
+  loadDailyKline: IndexKlineLoader;
   loadWeights: typeof fetchIndexDetailWeights;
   weightsEndpoint: string;
   loadNineTurn: typeof loadIndexNineTurnSeries;
@@ -300,8 +300,7 @@ export function IndexDetailPageView({
                 if (!localDailyNineTurn && activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
               history={controller.history}
-              trend={controller.trend}
-              trendPhase={controller.trendPhase}
+              initialTrendPoints={controller.dailyTrendPoints}
               viewModel={viewModel}
             />
           ) : longPeriod ? (
@@ -344,11 +343,9 @@ export function IndexDetailPageView({
             }
             void nineTurnRegistry.retry(period);
           }}
-          onTrendRetry={controller.retryTrend}
           pagePhase={controller.phase}
           partialReasons={controller.partialReasons}
-          trend={controller.trend}
-          trendPhase={controller.trendPhase}
+          dailyTrendPoints={controller.dailyTrendPoints}
           viewModel={viewModel}
           weights={displayedWeights}
           nineTurnSummary={Object.fromEntries(

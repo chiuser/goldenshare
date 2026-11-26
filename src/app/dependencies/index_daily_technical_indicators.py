@@ -9,7 +9,7 @@ from fastapi import Request
 from src.app.dependencies.stock_daily_technical_indicators import open_stock_daily_read_session
 from src.app.runtime.technical_indicators.execution import _execute
 from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
-    SSE_DAILY_CALCULATIONS, IndexDetailKlineQueryService,
+    index_daily_calculations, IndexDetailKlineQueryService,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError, IndexDetailRequestError
 from src.db import get_session_factory
@@ -23,11 +23,7 @@ from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 _PROD_SOURCE_ORIGIN = date(2010, 1, 4)
-_DG_CALCULATIONS = (
-    *SSE_DAILY_CALCULATIONS,
-    {"calculation_id": "price", "parameters": {}},
-    {"calculation_id": "nineturn", "parameters": {}},
-)
+
 
 
 async def run_index_daily_kline(
@@ -57,7 +53,7 @@ async def run_index_daily_kline(
         def calculate(start, end, *, latest_rows=None):
             calculation = CalculationRequest(
                 security_type="index", ts_code=ts_code, period="day", adjustment="none",
-                calculations=_DG_CALCULATIONS if latest_rows is not None else SSE_DAILY_CALCULATIONS,
+                calculations=index_daily_calculations(ts_code, include_price_and_nine_turn=latest_rows is not None),
                 start=datetime.combine(start, time.min, timezone),
                 end=datetime.combine(end, time.min, timezone),
                 latest_rows=latest_rows,

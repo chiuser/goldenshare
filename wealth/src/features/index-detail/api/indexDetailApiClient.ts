@@ -1,7 +1,7 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import { indexDetailRequests, type IndexDetailRequestScheduler } from "./indexDetailRequestScheduler";
 import type {
-  IndexDetailKlineResponseDto,
+  IndexDetailKlineResponseDto, IndexDetailSseDailyKlineResponseDto,
   IndexKlinePeriod,
   IndexDetailMinuteFrequency,
   IndexMinuteIndicatorsResponseDto,
@@ -32,6 +32,19 @@ export function fetchIndexDetailPageInit(
   return fetchIndexDetail<IndexDetailPageInitResponseDto>("page-init", params, options);
 }
 
+export type IndexKlineLoader = (
+  params: { tsCode: string; period: IndexKlinePeriod; startDate?: string; endDate?: string; limit?: number },
+  options?: FetchOptions,
+) => Promise<IndexDetailKlineResponseDto>;
+
+export function fetchIndexDetailKline(
+  params: { tsCode: "000001.SH"; period: "day"; startDate?: never; endDate?: string; limit: 500 },
+  options?: FetchOptions,
+): Promise<IndexDetailSseDailyKlineResponseDto>;
+export function fetchIndexDetailKline(
+  params: { tsCode: string; period: IndexKlinePeriod; startDate?: string; endDate?: string; limit?: number },
+  options?: FetchOptions,
+): Promise<IndexDetailKlineResponseDto>;
 export function fetchIndexDetailKline(
   params: { tsCode: string; period: IndexKlinePeriod; startDate?: string; endDate?: string; limit?: number },
   options: FetchOptions = {},

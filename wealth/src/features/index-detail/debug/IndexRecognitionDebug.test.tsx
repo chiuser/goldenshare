@@ -47,7 +47,7 @@ function Harness({ withHistory = false }: { withHistory?: boolean }) {
   } : { ...controller.history, active: true };
   return <IndexChartWorkspace recognitionEnabled={false} MainChartAddon={IndexRecognitionDebug}
     indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} nineTurnLayer={debugNineTurnLayer} onNineTurnRetry={() => {}}
-    trend={controller.trend} trendPhase={controller.trendPhase} viewModel={controller.viewModel} history={history} />;
+    initialTrendPoints={controller.dailyTrendPoints} viewModel={controller.viewModel} history={history} />;
 }
 
 it("opens the wave with one request and overlays only dates loaded in the existing chart", async () => {

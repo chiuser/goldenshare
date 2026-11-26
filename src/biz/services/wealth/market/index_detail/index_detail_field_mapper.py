@@ -5,7 +5,7 @@ from typing import Any, Mapping, Protocol
 
 from src.biz.services.wealth.market.detail_volume_display import format_daily_volume_display
 from src.biz.schemas.wealth.market.index_detail import (
-    IndexBollDto,
+    IndexBollDto, IndexTrendChannelFactorsDto, IndexSseDailyKlineBarDto, IndexSseDailyKlineFactorsDto,
     IndexDetailDailyBasicDto,
     IndexDetailIdentityDto,
     IndexDetailPageContextDto,
@@ -110,48 +110,54 @@ def build_daily_basic(row: Mapping[str, Any]) -> IndexDetailDailyBasicDto:
     )
 
 
-def build_kline_bar(row: Mapping[str, Any]) -> IndexKlineBarDto:
-    high = to_float(row.get("high"))
-    low = to_float(row.get("low"))
-    pre_close = to_float(row.get("pre_close"))
-    vol = to_float(row.get("vol"))
-    return IndexKlineBarDto(
-        tradeDate=row["trade_date"],
-        open=to_float(row.get("open")),
-        high=high,
-        low=low,
-        close=to_float(row.get("close")),
-        preClose=pre_close,
-        change=to_float(row.get("change")),
-        changePct=to_float(row.get("pct_change")),
-        amplitude=calculate_amplitude(high=high, low=low, pre_close=pre_close),
-        vol=vol,
-        volDisplay=format_daily_volume_display(vol),
-        amount=to_float(row.get("amount")),
-        factors=IndexKlineFactorsDto(
-            ma=IndexMovingAverageDto(
-                ma5=to_float(row.get("ma_bfq_5")),
-                ma10=to_float(row.get("ma_bfq_10")),
-                ma20=to_float(row.get("ma_bfq_20")),
-                ma30=to_float(row.get("ma_bfq_30")),
-                ma60=to_float(row.get("ma_bfq_60")),
-                ma90=to_float(row.get("ma_bfq_90")),
-                ma250=to_float(row.get("ma_bfq_250")),
-            ),
-            boll=IndexBollDto(
-                upper=to_float(row.get("boll_upper_bfq")),
-                middle=to_float(row.get("boll_mid_bfq")),
-                lower=to_float(row.get("boll_lower_bfq")),
-            ),
-            macd=IndexMacdDto(
-                dif=to_float(row.get("macd_dif_bfq")),
-                dea=to_float(row.get("macd_dea_bfq")),
-                macd=to_float(row.get("macd_bfq")),
-            ),
-            kdj=IndexKdjDto(
-                k=to_float(row.get("kdj_k_bfq")),
-                d=to_float(row.get("kdj_d_bfq")),
-                j=to_float(row.get("kdj_bfq")),
-            ),
-        ),
+
+def build_index_ma_factors(row):
+    return IndexMovingAverageDto(**{f"ma{n}": to_float(row.get(f"ma_bfq_{n}"))
+                                    for n in (5, 10, 20, 30, 60, 90, 250)})
+
+
+def build_index_boll_factors(row):
+    return IndexBollDto(upper=to_float(row.get("boll_upper_bfq")),
+                        middle=to_float(row.get("boll_mid_bfq")), lower=to_float(row.get("boll_lower_bfq")))
+
+
+def build_index_macd_factors(row):
+    return IndexMacdDto(dif=to_float(row.get("macd_dif_bfq")), dea=to_float(row.get("macd_dea_bfq")),
+                        macd=to_float(row.get("macd_bfq")))
+
+
+def build_index_kdj_factors(row):
+    return IndexKdjDto(k=to_float(row.get("kdj_k_bfq")), d=to_float(row.get("kdj_d_bfq")),
+                       j=to_float(row.get("kdj_bfq")))
+
+
+def build_index_common_factors(row):
+    return dict(ma=build_index_ma_factors(row), boll=build_index_boll_factors(row),
+                macd=build_index_macd_factors(row), kdj=build_index_kdj_factors(row))
+
+
+def build_index_trend_channel_factors(fields, index):
+    return IndexTrendChannelFactorsDto(
+        shortUpper=fields["short_upper"][index], shortLower=fields["short_lower"][index],
+        longUpper=fields["long_upper"][index], longLower=fields["long_lower"][index],
     )
+
+
+def build_index_kline_bar_fields(row):
+    high, low, pre_close, vol = (to_float(row.get(name)) for name in ("high", "low", "pre_close", "vol"))
+    return dict(
+        tradeDate=row["trade_date"], open=to_float(row.get("open")), high=high, low=low,
+        close=to_float(row.get("close")), preClose=pre_close,
+        change=to_float(row.get("change")), changePct=to_float(row.get("pct_change")),
+        amplitude=calculate_amplitude(high=high, low=low, pre_close=pre_close),
+        vol=vol, volDisplay=format_daily_volume_display(vol), amount=to_float(row.get("amount")),
+    )
+
+
+def build_kline_bar(row: Mapping[str, Any]) -> IndexKlineBarDto:
+    return IndexKlineBarDto(**build_index_kline_bar_fields(row), factors=IndexKlineFactorsDto(**build_index_common_factors(row)))
+
+
+def build_index_sse_daily_kline_bar(row, trend_factors):
+    return IndexSseDailyKlineBarDto(**build_index_kline_bar_fields(row),
+                                  factors=IndexSseDailyKlineFactorsDto(**build_index_common_factors(row), trendChannel=trend_factors))

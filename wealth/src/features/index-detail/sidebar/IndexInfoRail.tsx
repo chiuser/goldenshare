@@ -4,7 +4,7 @@ import { useRef, useState, type KeyboardEvent } from "react";
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { IndexDetailWeightsResponseDto } from "../api/indexDetailApiTypes";
 import { formatNullablePoint, formatNullableSignedPercent, formatNullableSignedPoint, marketDirectionClass } from "../api/indexDetailViewModelAdapter";
-import type { IndexDetailViewModel, IndexInfoTab, IndexModulePhase, IndexPagePhase, TrendChannelViewModel } from "../model/indexDetailTypes";
+import type { IndexDetailViewModel, IndexInfoTab, IndexModulePhase, IndexPagePhase, TrendChannelPoint } from "../model/indexDetailTypes";
 import type { IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
 import { IndexDetailPartialNotice } from "../state/IndexDetailPartialNotice";
 import { IndexBasicTab } from "./IndexBasicTab";
@@ -21,17 +21,15 @@ interface IndexInfoRailProps {
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onAction: (message: string) => void;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
-  onTrendRetry: () => void;
   onTabChange: (tab: IndexInfoTab) => void;
   pagePhase: Extract<IndexPagePhase, "ready" | "delayed" | "partial" | "empty">;
   partialReasons: string[];
-  trend: TrendChannelViewModel | null;
-  trendPhase: "unavailable" | "loading" | "ready" | "error";
+  dailyTrendPoints: readonly TrendChannelPoint[];
   viewModel: IndexDetailViewModel;
   weights: { data: IndexDetailWeightsResponseDto | null; errorMessage: string; phase: IndexModulePhase; retry: () => void };
 }
 
-export function IndexInfoRail({ forecast, activeTab, nineTurnSummary, onAction, onNineTurnRetry, onTabChange, onTrendRetry, pagePhase, partialReasons, trend, trendPhase, viewModel, weights }: IndexInfoRailProps) {
+export function IndexInfoRail({ forecast, activeTab, nineTurnSummary, onAction, onNineTurnRetry, onTabChange, pagePhase, partialReasons, dailyTrendPoints, viewModel, weights }: IndexInfoRailProps) {
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [weightsScrollTop, setWeightsScrollTop] = useState(0);
   const tone = marketDirectionClass(viewModel.quote.direction);
@@ -56,7 +54,7 @@ export function IndexInfoRail({ forecast, activeTab, nineTurnSummary, onAction, 
         {pagePhase === "delayed" ? <IndexDetailPartialNotice expectedTradeDate={viewModel.dataStatus.expectedTradeDate} observedTradeDate={viewModel.dataStatus.observedTradeDate} variant="delayed" /> : null}
         {activeTab === "basic" ? <IndexBasicTab metrics={viewModel.basicMetrics} statusLabel={pagePhase === "empty" ? "暂无数据" : "日线口径"} /> : null}
         {activeTab === "weights" ? <IndexWeightsTab {...weights} onRetry={weights.retry} onScrollTopChange={setWeightsScrollTop} scrollTop={weightsScrollTop} /> : null}
-        {activeTab === "technical" ? <IndexTechnicalTab forecast={forecast} nineTurnSummary={nineTurnSummary} onNineTurnRetry={onNineTurnRetry} onTrendRetry={onTrendRetry} trend={trend} trendPhase={trendPhase} viewModel={viewModel} /> : null}
+        {activeTab === "technical" ? <IndexTechnicalTab forecast={forecast} nineTurnSummary={nineTurnSummary} onNineTurnRetry={onNineTurnRetry} dailyTrendPoints={dailyTrendPoints} viewModel={viewModel} /> : null}
       </div>
     </aside>
   );
