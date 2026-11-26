@@ -29,7 +29,9 @@ _INDEX_MINUTE_WINDOWS = {
     ),
 }
 
-_DG_RECENT_MINUTE_VOLUME = """CASE WHEN ends_with(ts_code, '.SH') AND CAST(trade_time AS DATE) >= DATE '2026-11-10'
+# Remove the conversion once the DG historical lot-based partitions are normalized to shares.
+_DG_RECENT_MINUTE_VOLUME = """CASE WHEN ends_with(ts_code, '.SH')
+                                  AND CAST(trade_time AS DATE) BETWEEN DATE '2026-11-10' AND DATE '2026-11-24'
                                  THEN vol * 100 ELSE vol END"""
 
 

@@ -69,18 +69,27 @@ def _write_minutes(root, freq, day, bars):
 
 
 @pytest.mark.parametrize(("freq", "h", "m"), ((1, 9, 30), (5, 9, 35), (15, 9, 45), (30, 10, 0), (60, 10, 30)))
-def test_recent_minute_warmup_and_volume_use_rows_own_date(tmp_path, freq, h, m):
-    old, previous, end = _minute(9, 14, 0), _minute(9, 15, 0), _minute(10, h, m)
+@pytest.mark.parametrize(("day", "previous_shares", "current_shares"), (
+    (10, 1200, 1500),
+    (25, 120000, 15),
+))
+def test_recent_minute_warmup_and_volume_use_rows_own_date(
+    tmp_path, freq, h, m, day, previous_shares, current_shares,
+):
+    old, previous, end = _minute(day - 1, 14, 0), _minute(day - 1, 15, 0), _minute(day, h, m)
     codes = ("000001.SH", "399001.SZ")
-    _write_minutes(tmp_path, freq, 9, [
+    _write_minutes(tmp_path, freq, day - 1, [
         row for code in codes for row in ((code, old, 100, 1000), (code, previous, 104, 1200))
     ])
-    _write_minutes(tmp_path, freq, 10, [(code, end, 110, 15) for code in codes])
+    _write_minutes(tmp_path, freq, day, [(code, end, 110, 15) for code in codes])
     service = _service(tmp_path)
-    for code, expected_volume, exchange in ((codes[0], 1500, "XSHG"), (codes[1], 15, "XSHE")):
+    for code, expected_volumes, exchange in (
+        (codes[0], (previous_shares, current_shares), "XSHG"),
+        (codes[1], (1200, 15), "XSHE"),
+    ):
         page = service.calculate_index_minutes_recent(_request(freq, end, code=code), output_limit=MAX_INDEX_MINUTE_LIMIT)
         assert page.result.times == (previous, end)
-        assert dict(page.result.calculations[0].fields)["volume"] == (1200, expected_volume)
+        assert dict(page.result.calculations[0].fields)["volume"] == expected_volumes
         assert dict(page.result.calculations[0].fields)["amount"] == (9000, 9000)
         assert dict(page.result.calculations[1].fields)["value"] == (102, 107)
         assert page.selection.read_start == old and page.selection.preceding_rows == 1
@@ -205,14 +214,18 @@ def _write_silver_minutes(root, freq, day, slots):
     (90, 30, 4, ((11, 0), (14, 0), (15, 0))),
     (120, 60, 3, ((11, 30), (15, 0))),
 ))
+@pytest.mark.parametrize(("day", "previous_multiplier", "current_multiplier"), (
+    (10, 1, 100),
+    (25, 100, 1),
+))
 def test_derived_minutes_reuse_selection_and_convert_once(
-    tmp_path, monkeypatch, freq, base, slot_count, current_slots,
+    tmp_path, monkeypatch, freq, base, slot_count, current_slots, day, previous_multiplier, current_multiplier,
 ):
     prices = ((9, 30, 9), (10, 30, 25), (11, 30, 40), (14, 0, 55), (15, 0, 65))
     if base == 30:
         prices += ((10, 0, 20), (11, 0, 31), (13, 30, 50), (14, 30, 60))
-    previous = _write_silver_minutes(tmp_path, base, 9, prices)
-    current = _write_silver_minutes(tmp_path, base, 10, prices)
+    previous = _write_silver_minutes(tmp_path, base, day - 1, prices)
+    current = _write_silver_minutes(tmp_path, base, day, prices)
     reads = []
     read = LakePriceLocator._read_rows
 
@@ -222,14 +235,14 @@ def test_derived_minutes_reuse_selection_and_convert_once(
         return read(locator, sql, bindings, **kwargs)
 
     monkeypatch.setattr(LakePriceLocator, "_read_rows", record)
-    request = _request(freq, _minute(10, 15, 0), count=len(current_slots) + 1)
+    request = _request(freq, _minute(day, 15, 0), count=len(current_slots) + 1)
     result = _service(tmp_path).calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
     assert reads == [[str(previous), str(current)]]
-    assert result.result.times == (_minute(9, 15, 0), *(_minute(10, h, m) for h, m in current_slots))
+    assert result.result.times == (_minute(day - 1, 15, 0), *(_minute(day, h, m) for h, m in current_slots))
     assert result.selection.preceding_rows == 1 and result.source_facts.has_more
     assert result.source_facts.target_exchanges == ("XSHG",) * len(result.result.times)
     fields = dict(result.result.calculations[0].fields)
-    assert fields["volume"][:2] == (20, slot_count * 1000)
+    assert fields["volume"][:2] == (20 * previous_multiplier, slot_count * 10 * current_multiplier)
     assert fields["amount"][:2] == (200, slot_count * 100)
     assert fields["open"][1] == fields["low"][1] == 10
     assert fields["high"][1] == (34 if freq == 90 else 43)
