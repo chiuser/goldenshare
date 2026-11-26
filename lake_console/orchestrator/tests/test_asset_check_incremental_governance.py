@@ -18,6 +18,9 @@ from orchestrator.defs.assets.index_period import (
     silver_index_weekly,
 )
 from orchestrator.defs.assets.stk_factor_pro import stk_factor_pro
+from orchestrator.defs.bootstrap.asset_check_event_retention import (
+    ASSET_CHECK_RETENTION_ASSET_KEYS,
+)
 from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
@@ -62,6 +65,10 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
 )
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_ASSET,
+    STRUCTURE_CHECKS,
+)
 from orchestrator.defs.run_contracts.moneyflow_automation import (
     BOARD_DC_MONEYFLOW_AUTOMATION,
     CONCEPT_THS_MONEYFLOW_AUTOMATION,
@@ -87,6 +94,9 @@ from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
     weekly_asset_key,
     weekly_check_names,
+)
+from orchestrator.defs.sensors.gold_major_index_quantitative_structure_update_job_sensor import (
+    STRUCTURE_CHECK_KEYS,
 )
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
@@ -948,6 +958,13 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         readiness=True,
         retention_allowed=True,
     ),
+    STRUCTURE_ASSET: _rules(
+        STRUCTURE_CHECKS,
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="major-index-quantitative-structure-onboarding",
+        readiness=True,
+        retention_allowed=False,
+    ),
     "gold_market_breadth_daily": _rules(
         GOLD_MARKET_BREADTH_CHECKS,
         category=MOVE_TO_SENSOR_LAKE_READINESS,
@@ -1114,6 +1131,8 @@ def _iter_readiness_specs(value: object) -> tuple[AssetReadinessSpec, ...]:
 def _readiness_check_pairs() -> set[tuple[str, str]]:
     # The fixed-input adapter is deliberately not the date/freshness spec adapter.
     pairs = {(STOCK_SUSPEND_CONFIRMED_ASSET_KEY, name) for name in STOCK_SUSPEND_CONFIRMED_CHECKS}
+    # The structure sensor reads its own partition completion checks by key.
+    pairs.update((key.asset_key.to_user_string(), key.name) for key in STRUCTURE_CHECK_KEYS)
     sensor_modules = tuple(
         importlib.import_module(f"orchestrator.defs.sensors.{module_info.name}")
         for module_info in pkgutil.iter_modules(sensors_pkg.__path__)
@@ -1131,8 +1150,6 @@ def _readiness_check_pairs() -> set[tuple[str, str]]:
 
 class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
     def test_fixed_input_readiness_and_retention_are_explicit(self) -> None:
-        from orchestrator.defs.bootstrap.asset_check_event_retention import ASSET_CHECK_RETENTION_ASSET_KEYS
-
         source = inspect.getsource(stock_suspend_confirmed_readiness)
         self.assertIn("confirmed_contract.STOCK_SUSPEND_CONFIRMED_CHECKS", source)
         self.assertIn("confirmed_contract.STOCK_SUSPEND_CONFIRMED_ASSET_KEY", source)
@@ -1150,7 +1167,6 @@ class AssetCheckIncrementalGovernanceTests(unittest.TestCase):
         catalog_checks = _catalog_blocking_checks_by_asset()
 
         self.assertEqual(set(ASSET_CHECK_GOVERNANCE), set(catalog_checks))
-        from orchestrator.defs.bootstrap.asset_check_event_retention import ASSET_CHECK_RETENTION_ASSET_KEYS
         delivery_assets = {ANNOUNCEMENT_ASSET} | {
             getattr(contract, layer + "_asset")
             for contract in MONEYFLOW_GOVERNANCE_CONTRACTS for layer in ("raw", "silver")

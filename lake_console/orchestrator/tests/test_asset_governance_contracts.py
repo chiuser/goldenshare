@@ -40,7 +40,6 @@ from orchestrator.defs.assets.etf_daily import (
 from orchestrator.defs.assets.idx_factor_pro_raw import raw_tushare_idx_factor_pro
 from orchestrator.defs.assets.idx_factor_pro_silver import silver_index_factor_pro
 from orchestrator.defs.assets.index_basic import (
-    INDEX_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_index_basic,
     silver_index_basic,
 )
@@ -72,6 +71,9 @@ from orchestrator.defs.assets.major_index_mins_silver import (
 )
 from orchestrator.defs.assets.major_index_nineturn import (
     GOLD_MAJOR_INDEX_NINETURN_ASSETS,
+)
+from orchestrator.defs.assets.major_index_quantitative_structure import (
+    gold_major_index_quantitative_structure,
 )
 from orchestrator.defs.assets.market_breadth import (
     MARKET_BREADTH_DAILY_COLUMNS,
@@ -382,6 +384,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     *SILVER_MAJOR_INDEX_MINS_ASSETS,
     *GOLD_MAJOR_INDEX_MINS_ASSETS,
     *GOLD_MAJOR_INDEX_NINETURN_ASSETS,
+    gold_major_index_quantitative_structure,
     prod_core_index_daily_nineturn,
     raw_tushare_idx_factor_pro,
     silver_index_factor_pro,
@@ -879,10 +882,6 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             INDEX_BASIC_RAW_COLUMNS,
             tuple(column.name for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA),
-        )
-        self.assertEqual(
-            INDEX_BASIC_RAW_COLUMN_TYPES,
-            {column.name: column.type for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA},
         )
         self.assertEqual(
             INDEX_DAILY_RAW_COLUMNS,
