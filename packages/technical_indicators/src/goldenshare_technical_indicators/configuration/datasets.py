@@ -89,27 +89,27 @@ for _period, _dataset in DG_RECENT_STOCK_MINUTE_DATASETS.items():
 for _frequency in (1, 5, 15, 30, 60, 90, 120):
     _period = f"{_frequency}m"
     _stock_id = f"stock_mins_{_period}"
-    _index_id = f"index_mins_{_period}"
     MARKET_DATASETS["stock", _period] = _stock_id
-    MARKET_DATASETS["index", _period] = _index_id
-    _index_dg = {
-        "relative_path": "gold/quote/index_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
-        "partitions": {"freq": _frequency},
-    }
     if _frequency in (90, 120):
         DATASET_LOCATIONS[_stock_id] = {"dg": None, "prod_pg": None}
-        DATASET_LOCATIONS[_index_id] = {"dg": _index_dg, "prod_pg": None}
+    else:
+        DATASET_LOCATIONS[_stock_id] = {
+            "dg": {
+                "relative_path": "silver/quote/stk_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
+                "partitions": {"freq": _frequency},
+            },
+            "prod_pg": {"schema": "core_serving", "relation": "equity_minute_bar", "filters": {"freq": _frequency}},
+        }
+    if _frequency == 5:
         continue
-    DATASET_LOCATIONS[_stock_id] = {
+    _index_id = f"index_mins_{_period}"
+    MARKET_DATASETS["index", _period] = _index_id
+    DATASET_LOCATIONS[_index_id] = {
         "dg": {
-            "relative_path": "silver/quote/stk_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
+            "relative_path": "gold/quote/index_mins/freq={freq}/trade_date={trade_date}/part-000.parquet",
             "partitions": {"freq": _frequency},
         },
-        "prod_pg": {"schema": "core_serving", "relation": "equity_minute_bar", "filters": {"freq": _frequency}},
-    }
-    DATASET_LOCATIONS[_index_id] = {
-        "dg": _index_dg,
-        "prod_pg": {
+        "prod_pg": None if _frequency in (90, 120) else {
             "schema": "core_serving", "relation": "index_minute_bar", "filters": {"freq": f"{_frequency}min"},
         },
     }

@@ -1,20 +1,7 @@
 """Source projections for the index minute reading contracts."""
 
-from goldenshare_technical_indicators.errors import SourceUnsupportedError
-
 from .technical_indicator_stock_daily import DAILY_PRICE_FIELDS
 
-
-INDEX_MINUTE_VOLUME_UNITS = {
-    "000001.SH": "lot",
-    "000016.SH": "lot",
-    "000688.SH": "lot",
-    "000300.SH": "lot",
-    "000905.SH": "lot",
-    "399001.SZ": "share",
-    "399006.SZ": "share",
-    "399106.SZ": "share",
-}
 
 # Canonical Gold windows in cn_a_derived_minute_bars.py, also used for on-demand DG aggregation.
 _INDEX_MINUTE_WINDOWS = {
@@ -28,14 +15,6 @@ _INDEX_MINUTE_WINDOWS = {
         ("15:00:00", ("14:00:00", "15:00:00")),
     ),
 }
-
-
-def index_minute_volume_unit(requirement, backend):
-    if (requirement.target.backend != backend or requirement.target.dataset_id != "index_mins_5m"
-            or requirement.period != "5m" or requirement.target_adjustment != "none"
-            or requirement.ts_code not in INDEX_MINUTE_VOLUME_UNITS):
-        raise SourceUnsupportedError("This source has no verified unadjusted five-minute contract for this index")
-    return INDEX_MINUTE_VOLUME_UNITS[requirement.ts_code]
 
 
 def index_minute_projection(fields):

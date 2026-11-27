@@ -17,7 +17,7 @@ from goldenshare_technical_indicators.configuration.datasets import (
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError,
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
-    TechnicalIndicatorError,
+    SourceUnsupportedError, TechnicalIndicatorError,
 )
 from goldenshare_technical_indicators.sources.contracts import (
     CalendarDayFacts, PriceReadSelection, SourceDescription, SourceReadFacts, TargetBarFacts,
@@ -30,9 +30,7 @@ from goldenshare_technical_indicators.time_range import check_period_cutoff, ran
 from ..technical_indicator_stock_daily import (
     DAILY_PRICE_FIELDS, daily_adjustment_paths, daily_price_projection, dg_index_daily_origin, scheduled_open_days,
 )
-from ..technical_indicator_index_minutes import (
-    dg_recent_index_minute_sql, index_minute_projection, index_minute_volume_unit,
-)
+from ..technical_indicator_index_minutes import dg_recent_index_minute_sql, index_minute_projection
 from ..technical_indicator_index_period import (
     INDEX_PERIOD_DATASETS, INDEX_PERIOD_KEYS, check_index_period_cutoff, check_period_key,
     describe_index_period, index_period_projection, period_bounds, period_request_start,
@@ -692,123 +690,6 @@ class LakePriceLocator:
         return describe_index_period(request, self.context, targets, tuple(preceding), first, latest,
                                      path=path, row_groups=selected_groups, file_version=version)
 
-    def _read_index_minute_partition(self, path, columns, cutoff, limit):
-        self.control.check_active()
-        path = self.source._safe_path(self._root, path)
-        self.context.record_file(path, path.stat().st_size)
-        rows = self._read_rows(
-            f"""WITH selected AS (
-                    SELECT CAST(regexp_extract(filename, '/trade_date=([0-9-]{{10}})/', 1) AS DATE)
-                               AS partition_day,
-                           {", ".join(columns)}, count(*) OVER (PARTITION BY trade_time) AS position_rows
-                    FROM read_parquet(?, hive_partitioning=false, filename=true)
-                    WHERE ts_code = ? AND trade_time <= ?
-                )
-                SELECT * FROM selected ORDER BY trade_time DESC LIMIT ?""",
-            (str(path), self.requirement.ts_code, cutoff, limit),
-            error_message="The DG index minute partition could not be read", as_arrow=True,
-        )
-        self.context.record_locator_rows(rows.num_rows)
-        return rows
-
-    def _select_index_minutes(self, paths, *, price_projection):
-        request, config = self.requirement, self.context.config
-        start, cutoff = request.start.replace(tzinfo=None), request.end.replace(tzinfo=None)
-        first_partition = f"trade_date={start.date()}"
-        output_limit = request.output_limit(config)
-        pa, _, _, _ = _arrow()
-        batches = []
-        targets = preceding = 0
-        target_start = target_end = read_start = None
-        reached_origin = True
-
-        for path in reversed(paths):
-            history_limit, needs_origin = preceding_limit(config, request, targets)
-            partition = path.parent.name
-            if partition < first_partition:
-                if not targets or (preceding == history_limit and not needs_origin):
-                    reached_origin = False
-                    break
-                limit = history_limit - preceding + 1
-            elif partition == first_partition:
-                # This partition may contain both target and warmup rows.
-                limit = config.max_input_rows - targets + 1
-            else:
-                limit = min(output_limit - targets, config.max_input_rows - targets) + 1
-
-            rows = self._read_index_minute_partition(path, price_projection, cutoff, limit)
-            stamps = rows["trade_time"].to_pylist()
-            if not stamps:
-                continue
-            for stamp, day, partition_day, freq, duplicates in zip(
-                stamps, rows["trade_date"].to_pylist(), rows["partition_day"].to_pylist(),
-                rows["freq"].to_pylist(), rows["position_rows"].to_pylist(), strict=True,
-            ):
-                if duplicates != 1:
-                    raise SourceContractError("DG index minute timestamps overlap")
-                if day != partition_day:
-                    raise SourceContractError("Source prices do not match their partition date")
-                if freq != 5:
-                    raise SourceContractError("Index minutes do not match their five-minute partition")
-                if stamp.date() != partition_day or stamp.time() == time(9, 30):
-                    raise SourceContractError("Invalid business timestamp in DG index minutes")
-            if read_start is not None and stamps[0] >= read_start:
-                raise SourceContractError("DG index minute timestamps overlap or are out of order")
-
-            found_targets = sum(stamp >= start for stamp in stamps)
-            targets += found_targets
-            if targets > output_limit:
-                raise ResourceLimitError("Target positions exceed max_output_rows")
-            if not targets:
-                continue
-            history_limit, needs_origin = preceding_limit(config, request, targets)
-            found_preceding = len(stamps) - found_targets
-            available = history_limit - preceding
-            if needs_origin and found_preceding > available:
-                raise ResourceLimitError("The required warmup cannot fit without reaching the source origin")
-            keep_preceding = min(found_preceding, available)
-            preceding += keep_preceding
-            if found_targets:
-                target_end = target_end or stamps[0]
-                target_start = stamps[found_targets - 1]
-            keep = found_targets + keep_preceding
-            if keep:
-                read_start = stamps[keep - 1]
-                order = pa.array(range(keep - 1, -1, -1), type=pa.int32())
-                batches.append(rows.select(price_projection).take(order).to_batches(max_chunksize=request.batch_rows))
-            if found_preceding > keep_preceding:
-                # The extra row proves this finite warmup stopped before the source origin.
-                reached_origin = False
-                break
-
-        if not targets:
-            return PriceReadSelection(None, None, None, None, 0, 0, reached_origin, ())
-        self.context.retained_price_batches = tuple(batch for group in reversed(batches) for batch in group)
-        return PriceReadSelection(
-            self._position(target_start), self._position(target_end),
-            self._position(read_start), self._position(target_end),
-            targets, preceding, reached_origin, (),
-        )
-
-    def _describe_index_minutes(self):
-        request = self.requirement
-        volume_unit = index_minute_volume_unit(request, "dg")
-        self.control.check_active()
-        self._root = self.source._root()
-        paths = self.source._partition_paths(self._root, request, self.control)
-        physical, standard = index_minute_projection(request.history.fields)
-        price_projection = physical[1:]
-        selection = self._select_index_minutes(paths, price_projection=price_projection)
-        return SourceDescription(
-            source_id=request.target.dataset_id, contract_version="1", input_adjustment="none",
-            basis_rule=None, basis_date=None, basis_value=None,
-            price_unit="index_point", volume_unit=volume_unit, amount_unit="CNY", timezone="Asia/Shanghai",
-            period_label_rule="trade_time", history_origin_rule="earliest_available_formal_partition",
-            available_through=None, supports_partial_period=False, supported_adjustment_paths=(("none", "none"),),
-            converted=False, selection=selection, price_paths=(), factor_paths=(),
-            source_projection=price_projection, standard_projection=standard,
-        )
-
     def _describe_recent_index_minutes(self):
         request = self.requirement
         self._root = self.source._root()
@@ -1151,7 +1032,7 @@ class LakePriceLocator:
                     return self._describe_recent_index_minutes()
                 if request.target.dataset_id in DG_RECENT_STOCK_MINUTE_DATASETS.values():
                     return self._describe_recent_stock_minutes()
-                return self._describe_index_minutes()
+                raise SourceUnsupportedError("This DG reader does not support the configured minute source")
             adjustments = daily_adjustment_paths(request, "dg")
             self.control.check_active()
             self._root = self.source._root()

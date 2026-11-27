@@ -41,7 +41,7 @@ def build_runtime_config(settings: Settings) -> KernelConfig:
     backend = "dg" if environment in {"dev", "local"} else "prod_pg"
     locations = deepcopy(DATASET_LOCATIONS)
     for dataset_id, adjustments in (
-        ("stock_daily", ("none", "qfq")), ("index_daily", ("none",)), ("index_mins_5m", ("none",)),
+        ("stock_daily", ("none", "qfq")), ("index_daily", ("none",)),
         ("index_weekly", ("none",)), ("index_monthly", ("none",)),
         ("stock_weekly", ("qfq",)), ("stock_monthly", ("qfq",)),
     ):

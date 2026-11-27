@@ -36,7 +36,7 @@ def stock(period="day", **kwargs):
     ) | kwargs))
 
 
-def index(period="5m", **kwargs):
+def index(period="day", **kwargs):
     return CalculationRequest(**(dict(
         security_type="index", ts_code="000001.SH", period=period, adjustment="none",
         start=MINUTE, end=MINUTE, calculations=(MA3,),
@@ -52,9 +52,8 @@ def enable(*dataset_ids, backend):
 
 @pytest.mark.parametrize("backend", ("dg", "prod_pg"))
 def test_parser_and_discovery_share_backend_and_build_read_instruction(backend, monkeypatch):
-    # 2026-11-17 DG: 600519.SH daily, 000001.SH 5m from 09:35 Shanghai.
-    # PG expected bindings come from the reviewed target table and minute view.
-    cfg = config(backend, enable("stock_daily", "index_mins_5m", backend=backend))
+    # 2026-11-17 daily contracts for 600519.SH and 000001.SH.
+    cfg = config(backend, enable("stock_daily", "index_daily", backend=backend))
     registry = create_builtin_registry()
     parser = CalculationRequestParser(cfg, registry)
     history = HistoryRequirement(frozenset({"close"}), 2, 2, False, (), "MA3")
@@ -68,22 +67,21 @@ def test_parser_and_discovery_share_backend_and_build_read_instruction(backend, 
         flags = describe_calculation(registry, "ma", config=cfg).source_capabilities
         assert flags == (
             SourceCapability("stock", "day", "none", "stock_daily"),
-            SourceCapability("index", "5m", "none", "index_mins_5m"),
+            SourceCapability("index", "day", "none", "index_daily"),
         )
         assert list_calculations(registry, config=cfg)
         daily = parser.parse(stock())
-        minute = parser.parse(index())
+        index_daily = parser.parse(index())
         read_daily = _build_read_requirement(daily, history, batch_rows=cfg.batch_rows)
-        read_minute = _build_read_requirement(minute, history, batch_rows=cfg.batch_rows)
+        read_index = _build_read_requirement(index_daily, history, batch_rows=cfg.batch_rows)
     assert {field.name for field in fields(read_daily)} == {
         "target", "ts_code", "period", "start", "end", "history", "batch_rows", "target_adjustment", "max_output_rows",
         "latest_rows", "include_source_facts", "require_current_period_end_date",
     }
-    assert read_daily.max_output_rows is read_minute.max_output_rows is None
-    assert not read_daily.require_current_period_end_date and not read_minute.require_current_period_end_date
+    assert read_daily.max_output_rows is read_index.max_output_rows is None
+    assert not read_daily.require_current_period_end_date and not read_index.require_current_period_end_date
     assert (read_daily.start, read_daily.end) == (date(2026, 11, 17), date(2026, 11, 17))
-    assert read_minute.start.isoformat() == "2026-11-17T09:35:00+08:00"
-    assert read_minute.end == MINUTE
+    assert (read_index.start, read_index.end) == (read_daily.start, read_daily.end)
     assert read_daily.history is history
     assert read_daily.batch_rows == 8192
     assert read_daily.target_adjustment == "none"
@@ -91,18 +89,18 @@ def test_parser_and_discovery_share_backend_and_build_read_instruction(backend, 
     assert [node.definition.calculation_id for node in daily.plan.nodes] == ["window_mean", "ma"]
     assert daily.plan.nodes[1].parameters == (("period", 3),)
     assert daily.plan.instances == ((0, 1),)
-    assert daily.target.backend == minute.target.backend == backend
+    assert daily.target.backend == index_daily.target.backend == backend
     if backend == "dg":
         assert daily.target.location == {
             "path_template": ROOT + "/silver/quote/stock_daily/trade_date={trade_date}/part-000.parquet",
         }
-        assert minute.target.location == {
-            "path_template": ROOT + "/gold/quote/index_mins/freq=5/trade_date={trade_date}/part-000.parquet",
+        assert index_daily.target.location == {
+            "path_template": ROOT + "/silver/index_daily/trade_date={trade_date}/part-000.parquet",
         }
     else:
         assert daily.target.location == {"schema": "core_serving", "relation": "equity_daily_bar", "filters": {}}
-        assert minute.target.location == {
-            "schema": "core_serving", "relation": "index_minute_bar", "filters": {"freq": "5min"},
+        assert index_daily.target.location == {
+            "schema": "core_serving", "relation": "index_daily_serving", "filters": {},
         }
 
 
@@ -127,21 +125,20 @@ def test_registered_locations_are_not_enabled_and_do_not_fall_back():
 
 
 def test_mapping_snapshots_and_physical_filter_types():
-    locations = enable("index_mins_5m", backend="prod_pg")
+    locations = enable("stock_mins_5m", backend="prod_pg")
     selected = config("prod_pg", locations)
-    locations["index_mins_5m"]["prod_pg"]["enabled_adjustments"].clear()
-    locations["index_mins_5m"]["prod_pg"]["filters"]["freq"] = 5
-    target = selected.resolve_dataset_location("index_mins_5m")
-    assert target.location["filters"] == {"freq": "5min"}
-    assert selected.enabled_adjustments("index_mins_5m") == {"none"}
-    assert selected.resolve_dataset_location("stock_mins_5m").location["filters"] == {"freq": 5}
+    locations["stock_mins_5m"]["prod_pg"]["enabled_adjustments"].clear()
+    locations["stock_mins_5m"]["prod_pg"]["filters"]["freq"] = "5min"
+    target = selected.resolve_dataset_location("stock_mins_5m")
+    assert target.location["filters"] == {"freq": 5}
+    assert selected.enabled_adjustments("stock_mins_5m") == {"none"}
     assert selected.resolve_dataset_location("stock_weekly").location["filters"] == {"freq": "week"}
     assert selected.resolve_dataset_location("stock_monthly").location["filters"] == {"freq": "month"}
     assert config("dg").resolve_dataset_location("index_weekly").location["path_template"].endswith(
         "/silver/index_weekly/full/part-000.parquet",
     )
     with pytest.raises(TypeError):
-        target.location["filters"]["freq"] = 5
+        target.location["filters"]["freq"] = "5min"
     with pytest.raises(FrozenInstanceError):
         target.backend = "dg"
 
@@ -169,11 +166,11 @@ def test_environment_and_config_validation_do_not_guess():
     with pytest.raises(ValueError, match="market dataset"):
         replace(config("prod_pg"), market_datasets={("stock", "day"): "absent"})
     locations = deepcopy(DATASET_LOCATIONS)
-    locations["index_mins_5m"]["prod_pg"]["relation"] = "index_minute_bar; drop table"
+    locations["index_daily"]["prod_pg"]["relation"] = "index_daily_serving; drop table"
     with pytest.raises(ValueError, match="schema and relation"):
         config("prod_pg", locations)
-    locations = enable("index_mins_5m", backend="prod_pg")
-    locations["index_mins_5m"]["prod_pg"]["enabled_adjustments"] = ("qfq",)
+    locations = enable("index_daily", backend="prod_pg")
+    locations["index_daily"]["prod_pg"]["enabled_adjustments"] = ("qfq",)
     with pytest.raises(ValueError, match="Adjustment is unsupported"):
         config("prod_pg", locations)
 

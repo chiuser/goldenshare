@@ -139,7 +139,7 @@ def test_recent_minute_limit_and_dataset_are_scoped_to_dg(tmp_path):
         replace(request, end=_minute(9, 15, 0)), output_limit=MAX_INDEX_MINUTE_LIMIT,
     )
     assert empty.result is None and not empty.source_facts.has_more
-    with pytest.raises(ResourceLimitError):
+    with pytest.raises(SourceUnsupportedError):
         service.calculate_with_source(request)
     with pytest.raises(ResourceLimitError):
         service.calculate_index_minutes_recent(
@@ -147,8 +147,15 @@ def test_recent_minute_limit_and_dataset_are_scoped_to_dg(tmp_path):
         )
     with pytest.raises(SourceUnsupportedError):
         _service(tmp_path, "prod").calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
-    legacy = service.parser.parse(replace(request, start=end, latest_rows=None))
-    assert legacy.target.dataset_id == "index_mins_5m"
+
+
+@pytest.mark.parametrize("environment", ("local", "prod"))
+def test_legacy_index_five_minute_interval_is_not_supported(tmp_path, environment):
+    service = _service(tmp_path, environment)
+    end = _minute(10, 15, 0)
+    request = _request(5, end, start=_minute(10, 9, 35), count=None)
+    with pytest.raises(SourceUnsupportedError, match="Market dataset is not registered"):
+        service.calculate(request)
 
 
 def test_recent_minute_nine_turn_uses_prewarm_and_shares_the_chart_read(tmp_path, monkeypatch):
