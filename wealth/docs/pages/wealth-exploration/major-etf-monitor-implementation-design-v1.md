@@ -4,7 +4,7 @@
 
 第 1 阶段本地后端、接口回归和真实 DG 对账已完成。[第 1 阶段对账记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-1-result)
 
-共享客户端并发续期修复已通过本机回归及独立审计。第 2 阶段桌面前端已完成并通过独立审计。第 3 阶段待本机真实登录和 DG 验收。[前置修复的验证结果](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-gate) · [第 2 阶段审计记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-result)
+共享客户端并发续期修复已通过本机回归及独立审计。第 2 阶段桌面前端已完成并通过独立审计。第 3 阶段由管理员验收并确认整体通过，本期交付已收尾。[前置修复的验证结果](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-gate) · [第 2 阶段审计记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-result) · [第 3 阶段验收记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-3-result)
 
 ## 1. 目标与评审依据
 

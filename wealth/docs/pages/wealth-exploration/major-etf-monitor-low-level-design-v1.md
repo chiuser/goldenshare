@@ -1,6 +1,6 @@
 # 财势探查｜主要ETF（国家队）监测低层设计 v1
 
-2026-11-27。桌面 Figma、本文与[技术实施方案](./major-etf-monitor-implementation-design-v1.md)已确认。第 1 阶段接口与真实 DG 对账已完成。[阶段 2 开工前置](#major-etf-monitor-phase-2-gate)的共享客户端修复已通过本机验证。第 2 阶段桌面前端已完成并通过独立审计。第 3 阶段待本机真实登录和 DG 验收。名单、数据语义、范围和性能预算以方案 §3–5 为准。[第 1 阶段对账记录](#major-etf-monitor-phase-1-result) · [第 2 阶段审计记录](#major-etf-monitor-phase-2-result)
+2026-11-27。桌面 Figma、本文与[技术实施方案](./major-etf-monitor-implementation-design-v1.md)已确认。第 1 阶段接口与真实 DG 对账已完成。[阶段 2 开工前置](#major-etf-monitor-phase-2-gate)的共享客户端修复已通过本机验证。第 2 阶段桌面前端已完成并通过独立审计。第 3 阶段由管理员验收并确认整体通过，本期交付已收尾。名单、数据语义、范围和性能预算以方案 §3–5 为准。[第 1 阶段对账记录](#major-etf-monitor-phase-1-result) · [第 2 阶段审计记录](#major-etf-monitor-phase-2-result) · [第 3 阶段验收记录](#major-etf-monitor-phase-3-result)
 
 ## 1. 调用链及改动位置
 
@@ -152,7 +152,7 @@ DG 日线是逐文件原子发布。同一次请求按选中的路径读取，�
 | `159977.SZ` 天弘创业板ETF | 1.144 | +0.09% | 4.53 |
 | `588000.SH` 华夏上证科创板50成份ETF | 1.233 | −1.68% | 75.60 |
 
-运行 §6 的 Python 回归时，用 `PYTHONPATH=packages/technical_indicators/src` 指向仓库当前技术指标包源码。当前 `.venv` 中的已安装副本缺少本次 App 测试所需的 `configuration.datasets`，未变更本机依赖。真实浏览器、登录和同页两模块并行请求的耗时仍由后续阶段验收。
+运行 §6 的 Python 回归时，用 `PYTHONPATH=packages/technical_indicators/src` 指向仓库当前技术指标包源码。当时 `.venv` 中的已安装副本缺少本次 App 测试所需的 `configuration.datasets`，未变更本机依赖。本节记录后端对账，交付验收结论见 [§9](#major-etf-monitor-phase-3-result)。
 
 <a id="major-etf-monitor-phase-2-result"></a>
 
@@ -168,4 +168,12 @@ DG 日线是逐文件原子发布。同一次请求按选中的路径读取，�
 | 请求与环境 | 浏览器中两个接口首次各 1 次 GET，切换新增 0 次，重试新模块只新增 1 次该 GET。回归覆盖读取响应体完成前的 5 秒超时、退出取消及忽略超时后的旧响应。默认构建隐藏 ETF 入口，直达路径没有发出两个 ETF 请求。 |
 | 命令及结果 | `npm --prefix wealth run typecheck` 通过。全量前端回归 `npm --prefix wealth run test -- --no-cache --configLoader runner` 通过 190 个文件、1,722 项测试。按 §6 执行默认和 `local-dg` 构建，均通过。两个 ETF 后端路由隔离回归 39 项通过。 |
 
-浏览器使用临时构建及两个本机真实路由生成的 HTTP 响应。路由走实际查询和 DuckDB，数据为临时 Parquet，账号和 DG 元数据隔离。该次浏览器首次显示两组数据用时 162 毫秒，手动重试恢复 41 毫秒，控制台无未处理错误。此处计时包含浏览器加载和响应回放。阶段 3 仍需在本机登录后用真实 DG 响应复验数据与端到端耗时。本阶段未连接 Prod。
+浏览器使用临时构建及两个本机真实路由生成的 HTTP 响应。路由走实际查询和 DuckDB，数据为临时 Parquet，账号和 DG 元数据隔离。该次浏览器首次显示两组数据用时 162 毫秒，手动重试恢复 41 毫秒，控制台无未处理错误。此处计时包含浏览器加载和响应回放。本阶段未连接 Prod。交付验收结论见 [§9](#major-etf-monitor-phase-3-result)。
+
+<a id="major-etf-monitor-phase-3-result"></a>
+
+## 9. 第 3 阶段验收收尾
+
+2026-11-27，管理员确认整体验收通过。交付范围为「ETF 动态」桌面页内的主要ETF（国家队）监测，包括固定 14 只 ETF 的 1 个月和 3 个月合计成交额趋势、最新交易日的五列行情，以及仅读取 DG 本地 ETF 日线和 ETF 基础信息的接口。后端提交为 `f89331fc1`，共享客户端前置修复为 `607333a65`，桌面前端提交为 `7fe906b5d`。
+
+本阶段以管理员确认的整体结论收尾。确认时未附实际数据日、浏览器请求记录或端到端耗时。本机真实 DG 对账见 [§7](#major-etf-monitor-phase-1-result)，隔离浏览器审计见 [§8](#major-etf-monitor-phase-2-result)。
