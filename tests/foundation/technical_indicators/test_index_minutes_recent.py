@@ -69,13 +69,8 @@ def _write_minutes(root, freq, day, bars):
 
 
 @pytest.mark.parametrize(("freq", "h", "m"), ((1, 9, 30), (5, 9, 35), (15, 9, 45), (30, 10, 0), (60, 10, 30)))
-@pytest.mark.parametrize(("day", "previous_shares", "current_shares"), (
-    (10, 1200, 1500),
-    (25, 120000, 15),
-))
-def test_recent_minute_warmup_and_volume_use_rows_own_date(
-    tmp_path, freq, h, m, day, previous_shares, current_shares,
-):
+@pytest.mark.parametrize("day", (10, 25))
+def test_recent_minute_warmup_keeps_stored_shares_across_dates(tmp_path, freq, h, m, day):
     old, previous, end = _minute(day - 1, 14, 0), _minute(day - 1, 15, 0), _minute(day, h, m)
     codes = ("000001.SH", "399001.SZ")
     _write_minutes(tmp_path, freq, day - 1, [
@@ -83,13 +78,10 @@ def test_recent_minute_warmup_and_volume_use_rows_own_date(
     ])
     _write_minutes(tmp_path, freq, day, [(code, end, 110, 15) for code in codes])
     service = _service(tmp_path)
-    for code, expected_volumes, exchange in (
-        (codes[0], (previous_shares, current_shares), "XSHG"),
-        (codes[1], (1200, 15), "XSHE"),
-    ):
+    for code, exchange in ((codes[0], "XSHG"), (codes[1], "XSHE")):
         page = service.calculate_index_minutes_recent(_request(freq, end, code=code), output_limit=MAX_INDEX_MINUTE_LIMIT)
         assert page.result.times == (previous, end)
-        assert dict(page.result.calculations[0].fields)["volume"] == expected_volumes
+        assert dict(page.result.calculations[0].fields)["volume"] == (1200, 15)
         assert dict(page.result.calculations[0].fields)["amount"] == (9000, 9000)
         assert dict(page.result.calculations[1].fields)["value"] == (102, 107)
         assert page.selection.read_start == old and page.selection.preceding_rows == 1
@@ -214,12 +206,9 @@ def _write_silver_minutes(root, freq, day, slots):
     (90, 30, 4, ((11, 0), (14, 0), (15, 0))),
     (120, 60, 3, ((11, 30), (15, 0))),
 ))
-@pytest.mark.parametrize(("day", "previous_multiplier", "current_multiplier"), (
-    (10, 1, 100),
-    (25, 100, 1),
-))
-def test_derived_minutes_reuse_selection_and_convert_once(
-    tmp_path, monkeypatch, freq, base, slot_count, current_slots, day, previous_multiplier, current_multiplier,
+@pytest.mark.parametrize("day", (10, 25))
+def test_derived_minutes_reuse_selection_and_sum_stored_shares(
+    tmp_path, monkeypatch, freq, base, slot_count, current_slots, day,
 ):
     prices = ((9, 30, 9), (10, 30, 25), (11, 30, 40), (14, 0, 55), (15, 0, 65))
     if base == 30:
@@ -242,7 +231,7 @@ def test_derived_minutes_reuse_selection_and_convert_once(
     assert result.selection.preceding_rows == 1 and result.source_facts.has_more
     assert result.source_facts.target_exchanges == ("XSHG",) * len(result.result.times)
     fields = dict(result.result.calculations[0].fields)
-    assert fields["volume"][:2] == (20 * previous_multiplier, slot_count * 10 * current_multiplier)
+    assert fields["volume"][:2] == (20, slot_count * 10)
     assert fields["amount"][:2] == (200, slot_count * 100)
     assert fields["open"][1] == fields["low"][1] == 10
     assert fields["high"][1] == (34 if freq == 90 else 43)
@@ -260,7 +249,7 @@ def test_derived_minutes_use_available_rows_of_completed_windows(tmp_path, freq,
     page = service.calculate_index_minutes_recent(request, output_limit=MAX_INDEX_MINUTE_LIMIT)
     assert page.result.times == (_minute(10, *morning),)
     assert dict(page.result.calculations[0].fields) == {
-        "open": (25,), "high": (28,), "low": (23,), "close": (26,), "volume": (1000,), "amount": (100,),
+        "open": (25,), "high": (28,), "low": (23,), "close": (26,), "volume": (10,), "amount": (100,),
     }
     assert page.selection.preceding_rows == 0 and not page.source_facts.has_more
     empty = service.calculate_index_minutes_recent(

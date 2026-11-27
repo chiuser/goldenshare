@@ -29,11 +29,6 @@ _INDEX_MINUTE_WINDOWS = {
     ),
 }
 
-# Remove the conversion once the DG historical lot-based partitions are normalized to shares.
-_DG_RECENT_MINUTE_VOLUME = """CASE WHEN ends_with(ts_code, '.SH')
-                                  AND CAST(trade_time AS DATE) BETWEEN DATE '2026-11-10' AND DATE '2026-11-24'
-                                 THEN vol * 100 ELSE vol END"""
-
 
 def index_minute_volume_unit(requirement, backend):
     if (requirement.target.backend != backend or requirement.target.dataset_id != "index_mins_5m"
@@ -61,7 +56,7 @@ def dg_recent_index_minute_sql(period, columns):
     """One read for the selected files, returning business bars in descending order."""
     windows = _INDEX_MINUTE_WINDOWS.get(period)
     if windows is None:
-        expressions = {"trade_date": "CAST(trade_time AS DATE)", "volume": _DG_RECENT_MINUTE_VOLUME}
+        expressions = {"trade_date": "CAST(trade_time AS DATE)", "volume": "vol"}
         projection = ", ".join(f"{expressions[name]} AS {name}" if name in expressions else name for name in columns)
         return f"""
             SELECT {projection}, exchange
@@ -86,7 +81,7 @@ def dg_recent_index_minute_sql(period, columns):
         "high": f"greatest({regular_high}, {auction_close})",
         "low": f"least({regular_low}, {auction_close})",
         "close": "arg_max(close, trade_time) FILTER (WHERE NOT auction)",
-        "volume": f"sum({_DG_RECENT_MINUTE_VOLUME})",
+        "volume": "sum(vol)",
         "amount": "sum(amount)",
     }
     projection = ", ".join(f"{expressions[name]} AS {name}" for name in columns)
