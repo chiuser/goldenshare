@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入方案 v1
 
-**2026-11-27 Prod股票日线九转：阶段1、2已实现并通过隔离回归，阶段3待推进。** 管理员批准使用算子库同批计算，并删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及专用查询。候选代码已完成股票页面切换和旧接口清理。真实Prod来源和浏览器验收待阶段3执行，未部署。实施顺序见[§6](#prod-stock-nine-turn-plan)，证据见[LLD阶段1](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1)和[LLD阶段2](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)。本地与指数的既有实施记录保留历史范围。
+**2026-11-27，Prod 股票日线九转三个阶段已完成，候选版本验收通过。** 股票页面从日 K 回包获取同批九转标记，候选代码已删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及专用查询。管理员完成页面人工验收，本机隔离应用连接真实 Prod PostgreSQL 完成数值、读取和中断重试验收。实施顺序见[§6](#prod-stock-nine-turn-plan)，结果见[LLD 阶段 3](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage3-audit)。本地与指数的既有实施记录保留历史范围。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)
 
@@ -93,6 +93,6 @@ DG生成、同步、sensor、数据文件、Prod表 `core_serving.equity_qfq_nin
 | 2. 页面切换与旧代码清理 | 股票页直接消费同批标记；删除旧独立路由、查询、前端请求及无用测试，迁移混合测试 | 首屏、本地续页和开关不请求旧接口；旧路径与OpenAPI退出；共用指数/分钟代码仍有效 |
 | 3. 有界真实验证与对照审计 | 用真实Prod来源核数值、读取与费用，浏览器验证交接；独立重读LLD、代码和证据 | LLD §12逐项对账，未覆盖项据实说明，交管理员review |
 
-2026-11-27 阶段1完成后端同批输出及合同验收。阶段2完成股票页面切换、分钟错误迁移和旧接口清理，后端183项、前端151项隔离回归和构建通过。[阶段2审计](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)记录实际路由、分钟错误响应、周月重试及隔离PostgreSQL对照。阶段3仍须完成有界真实Prod验证和浏览器验收。
+2026-11-27，阶段 1 完成后端同批输出及合同验收。阶段 2 完成股票页面切换、分钟错误迁移和旧接口清理，后端 183 项、前端 151 项隔离回归和构建通过。[阶段 2 审计](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)
 
-以上阶段是开发和验收顺序，前后端合成同一交付候选，不单独向线上发布中间版本，也不为阶段过渡新增旧接口转发或成品回退。当前无新增业务待拍板项；开发开始前仍须核对LLD及当前源码，不能将设计确认写成实现通过。
+阶段 3 通过。贵州茅台 `600519.SH` 截至 2026-11-27 的 500 根日 K 与独立复算逐根一致，共 452 个标记。修改前后行情和股票复权因子查询次数相同，断开后资源释放及同参重试通过。页面采用管理员确认的人工验收结果。前后端作为同一候选完成验收，正式部署状态待另行核对。[人工验收记录](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-manual-acceptance) · [真实 Prod 只读验收及审计](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage3-audit)

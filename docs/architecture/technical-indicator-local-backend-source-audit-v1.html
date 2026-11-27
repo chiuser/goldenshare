@@ -110,7 +110,7 @@
 
     <section id="stock" aria-labelledby="stock-title">
       <h2 id="stock-title">股票</h2>
-      <p>本地股票详情的日线、周线和月线 MA、BOLL、MACD、KDJ 及九转使用算子库。旧独立日线九转和两条通用行情接口未找到本地业务调用方。</p>
+      <p>本地股票详情的日线、周线和月线 MA、BOLL、MACD、KDJ 及九转使用算子库。候选版本已删除旧股票独立日线九转接口，两条通用行情接口未找到本地业务调用方。</p>
       <div class="table-wrap" role="region" aria-labelledby="stock-title" tabindex="0">
         <table aria-labelledby="stock-title">
           <colgroup><col class="period"><col class="indicator"><col class="status"><col class="method"><col class="source"><col class="route"></colgroup>
@@ -135,10 +135,10 @@
             <tr id="stock-standalone-nine-turn">
               <th scope="row">日线</th>
               <td>九转序列<span class="sub">旧独立接口</span></td>
-              <td><span class="tag unused">没有使用</span></td>
-              <td><span class="tag prod">直接读 Prod</span></td>
-              <td>Prod 股票日线前复权九转 <code>core_serving.equity_qfq_nineturn_daily</code>。本地用 DG 股票不复权日线选日期，再按股票和交易日匹配结果。</td>
-              <td><code>/stock-detail/nine-turn</code>。本地股票详情首屏和续页都用 <code>/kline</code>，仓库内未找到本地业务调用这个旧接口。<br><a class="ref" href="https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/api/wealth/market/stock_detail_nine_turn.py#L46">取日期</a> · <a class="ref" href="https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L56">查结果</a></td>
+              <td><span class="tag unused">候选代码已删除</span></td>
+              <td>历史为直接读 Prod</td>
+              <td>旧接口读 Prod 股票日线前复权九转 <code>core_serving.equity_qfq_nineturn_daily</code>。本地此前用 DG 股票不复权日线选日期，再按股票和交易日匹配结果。</td>
+              <td>候选版本已删除 <code>/stock-detail/nine-turn</code>。本地首屏和续页、Prod 首屏均从 <code>/kline</code> 取得同批标记。<br><a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit">接口清理记录</a> · <a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage3-audit">Prod 数据验收</a></td>
             </tr>
             <tr id="stock-active-trend-channel">
               <th scope="row">日线</th>
@@ -334,7 +334,7 @@
 
     <section id="migration-roadmap" aria-labelledby="roadmap-title">
       <h2 id="roadmap-title">六步规划执行记录</h2>
-      <p>截至 2026-11-27，第 1 至 5 步均按各自批准范围交付。第 6 步已完成有界评估，Prod 扩围及研究功能接入按独立需求安排。</p>
+      <p>截至 2026-11-27，第 1 至 5 步均按各自批准范围交付。第 6 步已完成有界评估及 Prod 股票日线九转候选验收，其他 Prod 扩围及研究功能接入按独立需求安排。</p>
       <div class="table-wrap" role="region" aria-labelledby="roadmap-title" tabindex="0">
         <table class="roadmap-table" aria-labelledby="roadmap-title">
           <colgroup><col class="roadmap-stage"><col class="roadmap-progress"><col class="roadmap-next"><col class="roadmap-check"></colgroup>
@@ -372,9 +372,9 @@
             </tr>
             <tr>
               <th scope="row">6. 按接口评估 Prod</th>
-              <td><span class="tag compute">评估已完成</span><br>已有股票日线、上证综指日线和指数周月线样本。早期样本包含已清退的独立指数 5 分钟读取。</td>
+              <td><span class="tag compute">评估已完成</span><br>已有股票日线、上证综指日线和指数周月线样本。早期样本包含已清退的独立指数 5 分钟读取。Prod 股票日 K 同批返回九转标记，候选版本完成验收。</td>
               <td>其他指数日线和股票分钟的 Prod 扩围按独立需求安排。</td>
-              <td><a class="ref" href="technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation">有界对照及评估结论</a></td>
+              <td>贵州茅台真实 Prod 样本的 500 根日 K 九转逐根复算通过，股票日线与股票复权因子查询次数和改造前相同，取消清理及同参重试通过。验收使用本机隔离应用，线上部署状态待另行核对。<br><a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage3-audit">股票九转验收</a> · <a class="ref" href="technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation">有界对照及评估结论</a></td>
             </tr>
           </tbody>
         </table>
@@ -389,6 +389,7 @@
 
     <section id="verification" class="check" aria-labelledby="check-title">
       <h2 id="check-title">核验范围</h2>
+      <p><strong>2026-11-27 Prod 股票日线九转收尾。</strong> 候选代码通过管理员的页面验收和真实 Prod PostgreSQL 的有界只读对照。验收运行在本机隔离应用，正式部署状态待另行核对。<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage3-audit">阶段 3 验收记录</a></p>
       <p><strong>2026-11-27 指数分钟成交量验收。</strong> 历史分区已按确认清单修复，读取时的临时乘 100 已撤。当前本地指数分钟接口返回股和元，页面显示手。DG 重载后的首批日更中，上证综指和深证成指各 9 根 30 分钟行情逐根对账一致。旧 DG／Prod 指数 5 分钟区间读取已清退，现行五个直读周期和两个合成周期继续使用。<a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-dg-first-routine-result">首批日更</a> · <a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-stage-three-result">页面验收</a> · <a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement-result">旧入口清退</a></p>
       <p>2026-11-24 完成本地指数分钟三阶段验收，接入提交为 <code>9fadec585</code>。用临时本地服务和正式 DG 数据核对了七个周期的 500 根首屏、旧 v1 游标续页和行情指标对齐。两次 5,000 根指标响应均低于 5 MB，10,000 根请求超限时返回 HTTP 400。<a href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#index-minute-kernel-stage-3-acceptance">专项验收记录</a></p>
       <p>2026-11-24 复核股票周月线，接口和页面接入提交为 <code>e4dec25ee</code>。以 2026-11-23 为截止日，平安银行 DG 周线翻到第七页结束，共 662 根，月线一次返回 155 根。<a href="technical-indicator-stock-period-low-level-design-v1.md#stock-period-phase-three-acceptance">专项验收记录</a></p>
