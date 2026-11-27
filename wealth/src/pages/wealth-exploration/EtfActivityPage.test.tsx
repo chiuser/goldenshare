@@ -9,6 +9,8 @@ import { EtfActivityPage } from "./EtfActivityPage";
 
 const API = "/api/v1/wealth/market/etf-activity";
 const HEADERS = ["今日排名", "ETF 代码", "ETF 名称", "现价（元）", "涨跌幅", "成交额（亿元）", "较前一交易日"];
+const MONITOR_API = "/api/v1/wealth/market/major-etf-monitor";
+const EMPTY_MONITOR = { status: "empty", tradeDate: null, oneMonthStartDate: null, trend: [], quotes: [] };
 
 // DTO shape and real sample fields follow the independently checked API in LLD §3 and §8.
 // The artificial gap and zero are deliberate display-only counterexamples.
@@ -39,6 +41,24 @@ function deferred<T>() {
   return { promise, resolve };
 }
 
+function stubActivityFetch(fetchActivity: (url: string, init: RequestInit) => Promise<Response>) {
+  const fetchMock = vi.fn((url: string, init: RequestInit) => {
+    if (url === MONITOR_API) return Promise.resolve(json(EMPTY_MONITOR));
+    expect(url).toBe(API);
+    return fetchActivity(url, init);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
+
+function turnoverPanel() {
+  return within(screen.getByRole("region", { name: "ETF 日成交额趋势" }));
+}
+
+function rankingPanel() {
+  return within(screen.getByRole("region", { name: "ETF 成交额排行榜" }));
+}
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
@@ -47,35 +67,35 @@ afterEach(() => {
   window.history.replaceState({}, "", "/wealth/exploration");
 });
 
-it("uses the signed-in local route and one business request even under Strict Mode", async () => {
+it("uses the signed-in local route and one request per module even under Strict Mode", async () => {
   vi.stubEnv("DEV", true);
   vi.stubEnv("MODE", "development");
   window.localStorage.setItem("wealth.auth.access-token", "local-test-session");
   window.history.replaceState({}, "", "/wealth/exploration/etf-activity?tradeDate=2000-01-01");
   const response = deferred<Response>();
-  const fetchMock = vi.fn(() => response.promise);
-  vi.stubGlobal("fetch", fetchMock);
+  const fetchActivity = vi.fn(() => response.promise);
+  const fetchMock = stubActivityFetch(fetchActivity);
 
   render(<StrictMode><AuthProvider><WealthRouter /></AuthProvider></StrictMode>);
   expect(screen.getByText("正在读取 ETF 日成交额…")).toBeInTheDocument();
   expect(screen.getByText("正在读取 ETF 榜单…")).toBeInTheDocument();
-  expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(HEADERS);
+  expect(rankingPanel().getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(HEADERS);
   expect(screen.getByRole("button", { name: /查看 ETF 成交额趋势/ })).toHaveClass("selected");
   expect(screen.queryByLabelText("页面时间状态")).not.toBeInTheDocument();
 
   response.resolve(json(data));
   expect(await screen.findByText("华夏沪深300ETF")).toBeInTheDocument();
-  expect(fetchMock).toHaveBeenCalledExactlyOnceWith(API, expect.objectContaining({
-    method: "GET", headers: expect.any(Headers), signal: expect.any(AbortSignal),
-  }));
-  const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
-  expect(new Headers(calls[0][1].headers).get("Authorization")).toBe("Bearer local-test-session");
+  expect(fetchMock.mock.calls.map(([url]) => url).sort()).toEqual([API, MONITOR_API]);
+  for (const [, init] of fetchMock.mock.calls) {
+    expect(init).toEqual(expect.objectContaining({ method: "GET", headers: expect.any(Headers), signal: expect.any(AbortSignal) }));
+    expect(new Headers(init.headers).get("Authorization")).toBe("Bearer local-test-session");
+  }
   expect(within(screen.getByLabelText("Breadcrumb")).getByRole("button", { name: "财势探查" })).toBeInTheDocument();
 });
 
 it("keeps ranking order, position and selection when switching without fetching or recomputing", async () => {
   const fetchMock = vi.fn(async () => json(data));
-  vi.stubGlobal("fetch", fetchMock);
+  stubActivityFetch(fetchMock);
   render(<EtfActivityPage />);
   const row = (await screen.findByText("华夏沪深300ETF")).closest("tr")!;
   expect(within(row).getAllByRole("cell").map((cell) => cell.textContent)).toEqual([
@@ -87,7 +107,7 @@ it("keeps ranking order, position and selection when switching without fetching 
   expect(screen.getByText("+0.01%")).toHaveClass("up");
   expect(screen.getByText("持平")).toHaveClass("flat");
   expect(screen.getAllByText("0.00%").every((cell) => cell.classList.contains("flat"))).toBe(true);
-  expect(screen.getByText("日线收盘")).toHaveTextContent("2026-11-25");
+  expect(rankingPanel().getByText("日线收盘")).toHaveTextContent("2026-11-25");
   expect(screen.getByText("对比日")).toHaveTextContent("2026-11-24");
 
   const ranking = screen.getByRole("region", { name: "ETF 排行表体" });
@@ -97,14 +117,14 @@ it("keeps ranking order, position and selection when switching without fetching 
   expect(within(chart).getByRole("status")).toHaveTextContent("5400.29 亿");
   expect(within(chart).getByRole("status")).toHaveTextContent("5584.35 亿");
   expect(within(chart).getByRole("status")).toHaveTextContent("5537.04 亿");
-  expect(screen.getByRole("button", { name: "1 个月" })).toHaveAttribute("aria-pressed", "true");
+  expect(turnoverPanel().getByRole("button", { name: "1 个月" })).toHaveAttribute("aria-pressed", "true");
   const line = chart.querySelector('[data-series="amountYuan"]')!;
   const short = line.getAttribute("d");
   expect(short).toMatch(/^M56,325 M[\d.]+,[\d.]+ L/);
   expect(chart.querySelector(".etf-chart-zero")).toHaveAttribute("y1", "325");
   expect(within(chart).queryByText("10-23")).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "3 个月" }));
+  fireEvent.click(turnoverPanel().getByRole("button", { name: "3 个月" }));
   expect(within(chart).getByText("10-23")).toBeInTheDocument();
   expect(line.getAttribute("d")).not.toBe(short);
   expect(within(chart).getByRole("status")).toHaveTextContent("2026-11-25");
@@ -120,7 +140,7 @@ it("keeps ranking order, position and selection when switching without fetching 
 });
 
 it.each(["2026-11-24", null])("keeps the current-day price and ranking in partial state (%s)", async (previousTradeDate) => {
-  vi.stubGlobal("fetch", vi.fn(async () => json({ ...data, previousTradeDate,
+  stubActivityFetch(vi.fn(async () => json({ ...data, previousTradeDate,
     ranking: { status: "partial", error: null, rows: [{ ...data.ranking.rows[2], rankChange: null }] },
   })));
   render(<EtfActivityPage />);
@@ -137,10 +157,10 @@ it("keeps the trend and its selection during ranking retry, then updates both pa
   } } };
   const retried = deferred<Response>();
   const fetchMock = vi.fn().mockResolvedValueOnce(json(failed)).mockImplementationOnce(() => retried.promise);
-  vi.stubGlobal("fetch", fetchMock);
+  stubActivityFetch(fetchMock);
   render(<EtfActivityPage />);
   expect(await screen.findByRole("alert")).toHaveTextContent("ETF 排行榜暂不可读取，请重试");
-  fireEvent.click(screen.getByRole("button", { name: "3 个月" }));
+  fireEvent.click(turnoverPanel().getByRole("button", { name: "3 个月" }));
   const chart = screen.getByRole("group", { name: /ETF 日成交额趋势图/ });
   fireEvent.keyDown(chart, { key: "ArrowRight" });
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
@@ -150,10 +170,10 @@ it("keeps the trend and its selection during ranking retry, then updates both pa
     trend: [...data.trend, { ...data.trend[4], tradeDate: "2026-11-26" }],
   }));
   expect(await screen.findByText("华夏沪深300ETF")).toBeInTheDocument();
-  expect(screen.getByText("日线收盘")).toHaveTextContent("2026-11-26");
+  expect(rankingPanel().getByText("日线收盘")).toHaveTextContent("2026-11-26");
   expect(within(chart).getByText("11-26")).toBeInTheDocument();
   expect(within(chart).getByRole("status")).toHaveTextContent("2026-11-25");
-  expect(screen.getByRole("button", { name: "3 个月" })).toHaveAttribute("aria-pressed", "true");
+  expect(turnoverPanel().getByRole("button", { name: "3 个月" })).toHaveAttribute("aria-pressed", "true");
   expect(fetchMock).toHaveBeenCalledTimes(2);
 });
 
@@ -161,13 +181,13 @@ it("distinguishes an HTTP 503 from empty data and keeps the table headers in the
   const fetchMock = vi.fn().mockResolvedValueOnce(json({ code: "ETF_ACTIVITY_SOURCE_UNAVAILABLE" }, 503)).mockResolvedValueOnce(json({
     tradeDate: null, previousTradeDate: null, oneMonthStartDate: null, trend: [], ranking: { status: "empty", rows: [], error: null },
   }));
-  vi.stubGlobal("fetch", fetchMock);
+  stubActivityFetch(fetchMock);
   render(<EtfActivityPage />);
   expect(await screen.findByRole("alert")).toHaveTextContent("ETF 动态暂不可读取，请重试");
   expect(screen.queryByText("暂无成交额排行")).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "重试" }));
   expect(await screen.findByText("暂无成交额排行")).toBeInTheDocument();
-  expect(screen.getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(HEADERS);
+  expect(rankingPanel().getAllByRole("columnheader").map((cell) => cell.textContent)).toEqual(HEADERS);
   expect(screen.getByText("暂无可用的 ETF 日线数据")).toBeInTheDocument();
 });
 
@@ -176,7 +196,7 @@ it("times out even after headers arrive, ignores old JSON after retry, and abort
   const oldBody = deferred<EtfActivityResponse>();
   const first = { ok: true, status: 200, json: vi.fn(() => oldBody.promise) };
   const fetchMock = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(json(data));
-  vi.stubGlobal("fetch", fetchMock);
+  stubActivityFetch(fetchMock);
   const page = render(<EtfActivityPage />);
   await act(async () => {});
   expect(first.json).toHaveBeenCalledOnce();
@@ -185,7 +205,7 @@ it("times out even after headers arrive, ignores old JSON after retry, and abort
   expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
   await act(async () => { fireEvent.click(screen.getByRole("button", { name: "重试" })); });
   await act(async () => { oldBody.resolve({ ...data, tradeDate: "2026-10-23" }); });
-  expect(screen.getByText("日线收盘")).toHaveTextContent("2026-11-25");
+  expect(rankingPanel().getByText("日线收盘")).toHaveTextContent("2026-11-25");
   page.unmount();
 
   const inFlight = deferred<Response>();

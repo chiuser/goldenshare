@@ -2,9 +2,9 @@
 
 2026-11-27。桌面 Figma、本文与[低层设计](./major-etf-monitor-low-level-design-v1.md)已获管理员确认。第 1 阶段授权为本机 DG 后端、接口和真实数据对账。管理员已补充确认将共享客户端并发续期修复列为[阶段 2 开工前置](#major-etf-monitor-phase-2-prerequisite)。
 
-第 1 阶段本地后端、接口回归和真实 DG 对账已完成，结果待管理员确认。[第 1 阶段对账记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-1-result)
+第 1 阶段本地后端、接口回归和真实 DG 对账已完成。[第 1 阶段对账记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-1-result)
 
-共享客户端并发续期修复已通过本机回归及独立审计。桌面前端待管理员确认后开始。[前置修复的验证结果](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-gate)
+共享客户端并发续期修复已通过本机回归及独立审计。第 2 阶段桌面前端已完成并通过独立审计。第 3 阶段待本机真实登录和 DG 验收。[前置修复的验证结果](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-gate) · [第 2 阶段审计记录](./major-etf-monitor-low-level-design-v1.md#major-etf-monitor-phase-2-result)
 
 ## 1. 目标与评审依据
 

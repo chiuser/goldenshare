@@ -1,0 +1,124 @@
+.major-etf-monitor {
+  margin-top: var(--cs-space-12);
+}
+
+.major-etf-ranges {
+  border: 0;
+  margin: 0;
+  min-width: 0;
+  padding: 0;
+}
+
+.major-etf-ranges:disabled .range-switch {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.major-etf-trend .etf-chart-plot {
+  max-height: 354px;
+}
+
+.major-etf-trend .etf-chart-crosshair {
+  stroke: var(--cs-color-chart-zero-line);
+}
+
+.major-etf-trend .etf-chart-crosshair + circle {
+  r: 4px;
+  stroke: var(--cs-color-text-primary);
+}
+
+.major-etf-trend .etf-chart-tooltip .num {
+  line-height: 16px;
+}
+
+.major-etf-monitor .major-etf-quotes > .section-header {
+  margin-bottom: 0;
+}
+
+.major-etf-quotes .etf-rank-dates {
+  margin: 7px 0;
+}
+
+.major-etf-quotes-scroll {
+  --cs-color-market-flat: var(--cs-color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  height: 372px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.major-etf-quotes-scroll table {
+  border-collapse: separate;
+  border-spacing: 0;
+  flex: none;
+  table-layout: fixed;
+  width: 100%;
+}
+
+.major-etf-quotes-scroll col:nth-child(1) { width: calc(100% * 120 / 848); }
+.major-etf-quotes-scroll col:nth-child(2) { width: calc(100% * 365 / 848); }
+.major-etf-quotes-scroll col:nth-child(3) { width: calc(100% * 101 / 848); }
+.major-etf-quotes-scroll col:nth-child(4) { width: calc(100% * 112 / 848); }
+.major-etf-quotes-scroll col:nth-child(5) { width: calc(100% * 150 / 848); }
+
+.major-etf-quotes-scroll :is(th, td) {
+  border-bottom: 1px solid var(--cs-color-border-subtle);
+  font-size: 12px;
+  padding: 0 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.major-etf-quotes-scroll :is(th, td):nth-child(-n+2) {
+  text-align: left;
+}
+
+.major-etf-quotes-scroll th {
+  background: var(--cs-color-bg-panel-soft);
+  color: var(--cs-color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  height: 32px;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.major-etf-quotes-scroll td {
+  height: 34px;
+}
+
+.major-etf-quotes-scroll .major-etf-name {
+  font-size: 13px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.major-etf-quotes-scroll[aria-busy="true"] td {
+  border-bottom-color: transparent;
+}
+
+.major-etf-quotes-scroll[aria-busy="true"] i {
+  background: var(--cs-color-border-default);
+  border-radius: 2px;
+  display: inline-block;
+  height: 8px;
+  vertical-align: middle;
+  width: 48%;
+}
+
+.major-etf-quotes-scroll[aria-busy="true"] td:first-child i { width: 63%; }
+.major-etf-quotes-scroll[aria-busy="true"] td:nth-child(2) i { width: 45%; }
+
+.major-etf-quotes .major-etf-quotes-state {
+  background: transparent;
+  border: 0;
+  margin: 0;
+}
+
+.major-etf-quotes-state .tab-btn {
+  font-size: 12px;
+  height: 28px;
+}
