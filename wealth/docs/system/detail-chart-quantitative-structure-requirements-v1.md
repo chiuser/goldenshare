@@ -2,6 +2,8 @@
 
 > 2026-11-09。需求及三项展示决定已确认，量化结构与切周期首屏修复已通过管理员本机页面验收。
 >
+> 2026-11-27。管理员要求移除股票图表底部尚未支持的标签。股票侧「量化结构」只是占位，计划随其他占位入口清理。原验收记录见下文，新变更的范围和验收见[单阳测顶、单阴测底方案 §4](./detail-chart-single-candle-price-target-implementation-design-v1.md#4-股票底部指标栏清理清单)，待评审。
+>
 > 下文记录已验收的图表交付。接入主要指数量化结构数据集时，事件改读该数据集，日线和分钟的量化结构副图继续单独读取识别所用的 MACD（12、26、9）。上证普通日线副图继续用日线接口现算的 MACD。普通页的量化结构悬停只列当根时间和事件。读取、展示与验收以[财势乾坤接入方案](../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-plan-v1.md#9-财势乾坤接入技术方案)和[接入 LLD](../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#8-财势乾坤接入详细设计)为准。
 
 ## 1. 目标与现状

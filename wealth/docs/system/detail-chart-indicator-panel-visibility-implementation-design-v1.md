@@ -5,6 +5,7 @@
 > [已审阅的 Figma 交互稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2191-419)使用原设计文件的可编辑图层。比较页展示指数分钟图的全亮、关 KDJ 和全关，四类图表均有可点击的原型入口。图稿用于审阅交互，尺寸依据见[当前页面实测](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)。
 > 2026-11-14 收尾：[第 8 节](#main-overlay-interaction-plan)的主图下拉菜单删除与 MA 线、读数同步显隐已完成。方案提交为 `07b336b78`，实现与验证记录提交为 `3161b1cd4`；管理员已确认本需求验收通过，需求关闭。开发证据见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)，本次验收与结案见 [LLD §9.10](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-acceptance-closeout)。
 > 2026-11-17：管理员确认修复日线 KDJ 底部被裁掉的问题，并授权先同步原方案与 LLD，再实施和验证。本步以[第 9 节](#daily-kdj-layout-fix)及 [LLD 第 10 节](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-layout-fix-lld)为准；历史验收不作为本次修复的通过证据。本轮开发后，管理员已明确验收通过，本需求关闭，见 [LLD §10.5](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#daily-kdj-acceptance-closeout)。
+> 2026-11-27。底部指标栏新增测算入口、股票未支持标签清理已列入[单阳测顶、单阴测底方案](./detail-chart-single-candle-price-target-implementation-design-v1.md)，待评审。下文保留原副图显隐和标签的历史验收记录。
 
 ## 1. 交付范围
 
