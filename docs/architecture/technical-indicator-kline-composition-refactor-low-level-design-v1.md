@@ -1,6 +1,6 @@
 # 股票与指数 K 线指标组装架构改进 LLD v1
 
-**状态**　2026-11-27，代码审计及实施设计已完成，业务代码待实施。本 LLD 承接[架构改进方案及目标流程图](technical-indicator-kline-composition-refactor-plan-v1.md)。审计基线为工作区 `de20bc808`，本需求涉及的 `src/`、算子库、前端和测试与九转阶段一提交 `9d7e10c04` 之间没有源码差异。
+**状态**　2026-11-27，阶段 1 已实施并通过独立对照审计，阶段 2 和 3 待推进。本文承接[架构改进方案及目标流程图](technical-indicator-kline-composition-refactor-plan-v1.md)。原代码审计基线为 `de20bc808`，本需求相关代码与九转阶段一提交 `9d7e10c04` 无差异。阶段 1 的改造前比较点为方案、LLD 的提交 `c58b840e4`。
 
 ## 1. 开发约束
 
@@ -35,7 +35,9 @@
 | `src/app/runtime/technical_indicators/read_session.py`（新增） | 移入 `open_technical_indicator_read_session(session_factory, control)`。连同局部 `set_timeout()`、`record_cleanup()`、`discard_connection()` 原样迁移；保留 `stock_daily_database/...` 的错误和清理诊断文本，连同原有 driver 检查、连接只读、事件监听、`ceil(remaining * 1000)` 毫秒的 SQL 超时、取消时原分类、listener 移除、会话关闭、连接失效处理、主异常优先与无提交规则。旧入口无重导出。 |
 | [`src/app/dependencies/index_daily_technical_indicators.py` 85–90 行](../../src/app/dependencies/index_daily_technical_indicators.py#L85) 与 [`src/app/dependencies/index_period_technical_indicators.py` 54–66 行](../../src/app/dependencies/index_period_technical_indicators.py#L54) | 调用同一个 `open_technical_indicator_read_session()`。日线 Prod 的 `build(session)` 仍全程处于原会话里。周月线保持 `use_dg and end_date is not None` 才无会话，其他情况原会话只覆盖 `read_page()`，后续 `query_period_kline()` 保持当前时机。 |
 
-测试迁移至相同的调用点。`tests/test_stock_kline_factor_mapping.py:11` 使用新函数名。`tests/stock_daily_kline_helpers.py:147`、`tests/test_local_web_reference_data.py:245`、`tests/app/technical_indicators/test_stock_daily_source_repair.py:100`、`tests/app/technical_indicators/test_stock_daily_integration.py:360` 更新对股票 App 模块中实际导入的符号名；同一 integration 测试第 586 行直接验证新的 runtime 实现。保持原测试测到的会话分支和故障注入。
+测试迁移至相同的调用点。`tests/test_stock_kline_factor_mapping.py:11` 使用新函数名。`tests/stock_daily_kline_helpers.py:147`、`tests/test_local_web_reference_data.py:245`、`tests/app/technical_indicators/test_stock_daily_source_repair.py:100`、`tests/app/technical_indicators/test_stock_daily_integration.py:360` 更新对股票 App 模块中实际导入的符号名。同一 integration 测试 `test_database_session_ownership_and_timeout()` 在原第 507 行改为导入 `src.app.runtime.technical_indicators.read_session`，原第 575–577 行改为替换该模块实际引用的 `event.listen/contains/remove`，原第 586 行直接调用新的会话函数。保留全部会话分支、故障注入、断言和预期值。
+
+阶段 1 回归中发现 `tests/test_local_web_reference_data.py:test_stock_daily_reference_reads_share_the_existing_deadline()` 原夹具用 `object.__new__()` 跳过后端构造，未设置 `runtime`。在 `c58b840e4` 原源码与原测试上复现同一 `AttributeError`，因此旧用例进不到 DG 读取及故障注入。修正该用例的装配，使用临时 DG 配置创建并关闭实际 `TechnicalIndicatorRuntime`，用正常构造器创建后端。保留原 4 秒、3 秒传参和拒绝 PostgreSQL 的断言，明确断言现有 `stock_daily_reference_data/deadline` 错误。业务代码仍按 §3 只迁移和改名。
 
 ## 4. 指数公共清单、校验与指标组装
 
@@ -103,7 +105,9 @@
 
 ### 6.1 三个推进阶段
 
-各阶段按顺序推进。上一阶段完成对应验收后，才进入下一阶段。本文提交时三阶段均待推进。
+各阶段按顺序推进。上一阶段完成对应验收后，才进入下一阶段。当前阶段 1 已验收，阶段 2 和 3 待推进。
+
+阶段 1 的前后对照优先复用 `tests/app/technical_indicators/test_stock_daily_source_repair.py` 的本地股票日线、周月线，`tests/web/test_stock_daily_technical_indicator_api.py` 的股票 Prod 路由测试，`tests/app/technical_indicators/test_index_daily_kline_integration.py` 的本地指数日线，以及 `tests/app/technical_indicators/test_index_daily_prod_trend_channel.py` 和 `tests/web/test_wealth_index_detail_weekly_monthly_api.py` 的临时 PostgreSQL 测试。区分真实算子和测试替身，用现有 `.venv` 和 `PYTHONPATH=packages/technical_indicators/src:.` 运行。临时采样和原始回包放在 `/private/tmp`，在本文记录可复验的样本、对照摘要和限制。
 
 | 阶段 | 工作范围 | 完成条件 |
 | --- | --- | --- |
@@ -127,6 +131,17 @@ Prod 股票日线九转旧能力删除维持暂停。主要指数日线趋势通
 
 **性能、失败与中断。** 沿用 [`src/foundation/config/settings.py` 的现行限制](../../src/foundation/config/settings.py#L85)，包括 `TECHNICAL_INDICATOR_MAX_INPUT_ROWS`、`TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS`、`TECHNICAL_INDICATOR_MAX_SOURCE_FILES`、`TECHNICAL_INDICATOR_REQUEST_MEMORY_BYTES`、`TECHNICAL_INDICATOR_TOTAL_TARGET_MS` 和 `TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS`，同一环境使用相同配置值。保留 [`_execute()` 的工作期限和取消处理](../../src/app/runtime/technical_indicators/execution.py#L90)。对每个样本记录前后实际目标根数、源调用和读取次数、计算次数及耗时。同一成功请求中的算子次数、读取次数和读取范围与基线一致。正常空页、校验失败及取消也按基线对照，避免后移检查后增加一次 SQL 或文件读取。内存中保留每个指标结果元组的引用，减少逐根写旧字段的步骤。组装层不写数据库或文件，不加重试或持久化。请求失败仍走原错误与资源清理。验证被中断时只重新发对应原请求，记录重跑与独立回归花费。现阶段没有新增毫秒阈值，开发前后以同一环境的测量记录与原预算验收。
 
-**验收环境。** 先用现有仓库环境运行定向测试，用生产者生成的临时 DG 文件与临时 PostgreSQL 验证实际读链，以及正常、空页和错误响应。隔离夹具与调用替身所覆盖的部分分别记录。再用获准的有界只读样本对账同样的请求和页范围，保留原始业务单位及字段。正式数据、线上配置和部署不在本 LLD 的执行范围。当前交付的证据是源码审计和文档检查，实现及对照验收待开发阶段执行。
+**验收环境。** 先用现有仓库环境运行定向测试，用生产者生成的临时 DG 文件与临时 PostgreSQL 验证实际读链，以及正常、空页和错误响应。隔离夹具与调用替身所覆盖的部分分别记录。再用获准的有界只读样本对账同样的请求和页范围，保留原始业务单位及字段。正式数据、线上配置和部署不在本 LLD 的执行范围。阶段 1 的实际证据见 §7。
 
 **已完成的设计核对。** 单独运行现有缺项统计函数，与 §4 的直接读取算子列规则对照。使用 16 组历史根数，分别覆盖无缺项、25 个字段各自缺项及同根全部缺项，共 432 组构造输入，计数一致。该检查只验证设计公式，运行时取数、组装与接口回包按上表验收。
+
+## 7. 阶段 1 实施与独立对照审计（2026-11-27）
+
+阶段 1 已通过。迁移的只读会话实现位于 [read_session.py](../../src/app/runtime/technical_indicators/read_session.py)，股票新名称位于 [stock_kline_factor_mapper.py](../../src/biz/services/wealth/market/stock_detail/stock_kline_factor_mapper.py#L14)。审计以 `c58b840e4` 的源码为对照，再单独检查实际差异、测试、回包和读取记录。
+
+- **引用与会话行为。** CodeGraph 确认新会话函数有四处调用，分布在三个原 App 入口，股票新函数仍只有两个业务调用方。逐文件对照确认，会话函数体和装饰器除改名外逐字符相同。四处调用与各自的会话开始、结束和异常边界除导入及改名外相同。股票三个映射及组装文件除函数名外相同。旧符号在 `src/`、`packages/` 和 `tests/` 的 Python 源码无引用。原故障注入断言保留，DG 参考数据超时用例的原夹具问题及修正见 §3。
+- **回包基线。** 以 §6.1 的既有夹具使用同一批请求。改造前后各 14 个测试全部通过，各记录 48 个 K 线请求。股票为日线 13、周线 2、月线 2。指数为日线 9、周线 16、月线 6。状态码各为 40 个 200、1 个 404、7 个 500，含用例明确断言的错误响应。请求参数、状态、响应类型及 JSON 按请求逐条一致，只忽略随请求时间自然变化的 `pageContext.generatedAt`，实际交易日、游标、价格、指标、九转、四轨和 debug 诊断均参加对照。
+- **读取与计算。** 每个请求的实际观测计数逐项一致。真实算子执行 38 次，另有 2 个股票 Prod 路由请求使用 SQLite 和算子替身，测试各断言一次计算请求。临时 PostgreSQL、DG 行情及参考数据按调用位置分别计数。对照包括 203 次 PostgreSQL SQLAlchemy 查询事件、57 次算子 PostgreSQL 查询调用、57 次 Lake 定位查询，以及 9 次股票周月线分区读取，前后各相同。调用位置可能有层级关系，各项不相加为物理读次数。逐请求耗时已记录，本批样本中位数为 70.8 → 65.6 毫秒，最大为 116.9 → 125.2 毫秒。这是隔离回归实测，验收仍使用 §6.2 的原工作期限。
+- **定向回归。** 扩展回归 110 项通过，涵盖股票组装与接口、会话故障注入、取消和资源释放、DG 参考数据及分层护栏。其中另用隔离 PostgreSQL 对照搬迁前后的会话，验证事务开启只读、已设置正的 SQL 超时且退出后连接归还。隔离测试没有连接正式 Prod。
+
+保留本地临时对照原始记录 `/private/tmp/goldenshare-kline-phase1.WCtgXR/before-timed.jsonl`、`/private/tmp/goldenshare-kline-phase1.WCtgXR/after-timed.jsonl`，以及同目录的 `kline_capture.py` 和 `compare_kline.py` 供阶段 3 使用。归一化结果的 SHA-256 为 `f5b9f49afe3c4c3f86ff99adcb174eea13fec62f906c91a4fa3de6f41b9fc2b0`。阶段 2、3、主要指数趋势通道扩展和 Prod 股票九转旧能力清理均未启动。

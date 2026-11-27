@@ -11,7 +11,7 @@ def stock_calculation_key(calculation_id, parameters):
     return calculation_id, tuple(sorted(dict(parameters).items()))
 
 
-def index_stock_calculation_results(calculations):
+def build_stock_calculation_field_map(calculations):
     return {stock_calculation_key(item.calculation_id, item.parameters): dict(item.fields)
             for item in calculations}
 

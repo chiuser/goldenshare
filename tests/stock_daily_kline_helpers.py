@@ -144,7 +144,7 @@ def backend_for_client(client, monkeypatch, engine, record_property, *, override
         monkeypatch.setattr(StockDetailQuery, "load_kline_rows", query)
         monkeypatch.setattr(StockDetailQuery, "load_security", security)
         monkeypatch.setattr(MarketPageContextQuery, "resolve_context", context)
-        monkeypatch.setattr(wiring, "open_stock_daily_read_session", sqlite_session)
+        monkeypatch.setattr(wiring, "open_technical_indicator_read_session", sqlite_session)
         monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", calculate)
         previous = client.app.dependency_overrides.get(get_stock_daily_kline_backend)
         client.app.dependency_overrides[get_stock_daily_kline_backend] = lambda: backend

@@ -4,8 +4,8 @@ from datetime import datetime, time
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from src.app.dependencies.stock_daily_technical_indicators import open_stock_daily_read_session
 from src.app.runtime.technical_indicators.execution import _execute
+from src.app.runtime.technical_indicators.read_session import open_technical_indicator_read_session
 from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import SSE_DAILY_CALCULATIONS
 from src.biz.queries.wealth.market.index_detail.index_detail_period_kline_query_service import (
     IndexDetailPeriodKlineQueryService,
@@ -57,7 +57,7 @@ async def run_index_period_kline(request, *, arrived_at, ts_code, period, start_
             if use_dg and end_date is not None:
                 page = query.read_page(None, **read_options)
             else:
-                with open_stock_daily_read_session(get_session_factory(), control) as session:
+                with open_technical_indicator_read_session(get_session_factory(), control) as session:
                     page = query.read_page(session, **read_options)
             control.check_active()
             response, missing = query.query_period_kline(

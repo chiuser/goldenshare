@@ -97,7 +97,7 @@ def source_client(tmp_path, monkeypatch):
             calculations.append(calculated.result)
         return calculated
 
-    monkeypatch.setattr(wiring, "open_stock_daily_read_session", reject_pg)
+    monkeypatch.setattr(wiring, "open_technical_indicator_read_session", reject_pg)
     monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", calculate)
 
     @contextmanager

@@ -8,7 +8,7 @@ def test_ma_parameters_and_result_arrays_are_preserved():
     values = tuple(CalculationValues("ma", "1.0.0", (("period", period),), (("value", (value,)),))
                    for period, value in ((5, 5.1), (10, 10.2), (20, None), (30, 30.3),
                                          (60, 60.4), (90, 90.5), (250, 250.6)))
-    results = mapper.index_stock_calculation_results(reversed(values))
+    results = mapper.build_stock_calculation_field_map(reversed(values))
     assert results[("ma", (("period", 5),))]["value"] is values[0].fields[0][1]
     assert mapper.build_stock_ma_factors(results, 0).model_dump() == {
         "ma5": 5.1, "ma10": 10.2, "ma20": None, "ma30": 30.3,

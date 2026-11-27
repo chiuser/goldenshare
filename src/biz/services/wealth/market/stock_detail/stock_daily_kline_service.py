@@ -31,7 +31,7 @@ from .stock_detail_field_mapper import (
 )
 
 from .stock_kline_factor_mapper import (
-    stock_calculation_key, index_stock_calculation_results, build_stock_common_factors,
+    stock_calculation_key, build_stock_calculation_field_map, build_stock_common_factors,
     build_stock_trend_channel_factors,
 )
 
@@ -141,7 +141,7 @@ class StockDailyKlineService:
             raise _contract_error("count_mismatch", expected=0,
                                   actual=len(result.times) if isinstance(result, CalculationResult) else 0)
         # Values remain references to validated, immutable tuples; no full-column copies.
-        fields = index_stock_calculation_results(result.calculations) if result is not None else {}
+        fields = build_stock_calculation_field_map(result.calculations) if result is not None else {}
         issues = None
         try:
             bars = []

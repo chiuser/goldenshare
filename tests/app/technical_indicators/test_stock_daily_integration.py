@@ -357,7 +357,7 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
                 events.append(("release", threading.get_ident()))
                 original_release(lease)
 
-            monkeypatch.setattr(wiring, "open_stock_daily_read_session", session)
+            monkeypatch.setattr(wiring, "open_technical_indicator_read_session", session)
             monkeypatch.setattr(backend.service, "prepare", prepare)
             monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", calculate)
             monkeypatch.setattr(rt.admission, "release", release)
@@ -504,7 +504,7 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
 def test_database_session_ownership_and_timeout(monkeypatch, record_property):
     from types import SimpleNamespace
     from sqlalchemy.exc import SQLAlchemyError
-    from src.app.dependencies import stock_daily_technical_indicators as wiring
+    from src.app.runtime.technical_indicators import read_session
     from goldenshare_technical_indicators.errors import ResourceCleanupError, SourceReadError, SourceUnsupportedError
     from tests.stock_daily_kline_helpers import controlled_controls
 
@@ -572,9 +572,9 @@ def test_database_session_ownership_and_timeout(monkeypatch, record_property):
                     raise RuntimeError("Controlled listener removal failure")
                 registered.remove(callback)
 
-            monkeypatch.setattr(wiring.event, "listen", listen)
-            monkeypatch.setattr(wiring.event, "contains", lambda conn, name, cb: cb in registered)
-            monkeypatch.setattr(wiring.event, "remove", remove)
+            monkeypatch.setattr(read_session.event, "listen", listen)
+            monkeypatch.setattr(read_session.event, "contains", lambda conn, name, cb: cb in registered)
+            monkeypatch.setattr(read_session.event, "remove", remove)
 
             class Cursor:
                 def execute(self, statement, parameters):
@@ -583,7 +583,7 @@ def test_database_session_ownership_and_timeout(monkeypatch, record_property):
                     timeouts.append(int(parameters[0]))
 
             try:
-                with wiring.open_stock_daily_read_session(factory, control):
+                with read_session.open_technical_indicator_read_session(factory, control):
                     note("query")
                     callback = registered[0]
                     callback(connection, Cursor(), "SELECT 1", (), None, False)

@@ -18,7 +18,7 @@ from src.foundation.clients.technical_indicator_stock_daily import scheduled_sto
 
 from .stock_daily_kline_calculations import stock_common_calculations
 from .stock_daily_kline_contracts import StockDailyKlineRow
-from .stock_kline_factor_mapper import index_stock_calculation_results, build_stock_common_factors
+from .stock_kline_factor_mapper import build_stock_calculation_field_map, build_stock_common_factors
 from .stock_detail_field_mapper import build_kline_bar, build_page_context
 
 
@@ -93,7 +93,7 @@ class StockPeriodKlineService:
                                coverage)
         bars, markers = [], []
         if result is not None:
-            fields = index_stock_calculation_results(result.calculations)
+            fields = build_stock_calculation_field_map(result.calculations)
             fixed = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
             price, nine_turn = fixed["price"], fixed["nineturn"]
             for index, (label, metadata) in enumerate(zip(result.source_as_of, result.period_bars, strict=True)):

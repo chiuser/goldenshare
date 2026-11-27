@@ -1,3 +1,4 @@
+import asyncio
 from datetime import date, datetime
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
@@ -31,9 +32,6 @@ from src.biz.queries.wealth.market.trading_assistant.record_scope import (
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import (
     StockDailyKlineRequest,
-)
-from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import (
-    StockDailyKlineService,
 )
 from src.biz.services.wealth.market.trading_assistant.execution_policy import (
     Deadline,
@@ -234,15 +232,10 @@ def test_trading_assistant_keeps_query_failed_error_for_missing_dg_stock(tmp_pat
 
 
 def test_stock_daily_reference_reads_share_the_existing_deadline(lake, monkeypatch):
-    backend = object.__new__(stock_daily.StockDailyKlineAppBackend)
-    backend._use_dg = True
-    backend.service = StockDailyKlineService(build_reference_data(local_settings(lake)))
-
     def reject_pg(*args):
         pytest.fail("DG reference reads must not open a PostgreSQL session")
 
-    backend.session_factory_provider = reject_pg
-    monkeypatch.setattr(stock_daily, "open_stock_daily_read_session", reject_pg)
+    monkeypatch.setattr(stock_daily, "open_technical_indicator_read_session", reject_pg)
     read = reference_data_reader._read
     requested = []
 
@@ -262,8 +255,20 @@ def test_stock_daily_reference_reads_share_the_existing_deadline(lake, monkeypat
     request = StockDailyKlineRequest(
         "000001.SZ", "day", "forward", date(2027, 1, 4), None, None, 2, False
     )
-    with pytest.raises(stock_daily.CalculationDeadlineError):
-        backend.work(request, control)
+
+    async def run_request():
+        settings = local_settings(lake)
+        runtime = stock_daily.create_runtime(settings)
+        try:
+            backend = stock_daily.StockDailyKlineAppBackend(
+                runtime, reject_pg, reference_data=build_reference_data(settings),
+            )
+            with pytest.raises(stock_daily.CalculationDeadlineError, match="stock_daily_reference_data/deadline"):
+                backend.work(request, control)
+        finally:
+            await runtime.aclose()
+
+    asyncio.run(run_request())
     assert requested == [
         (reference_data_reader.TRADE_CALENDAR_LOCATION, 4),
         (reference_data_reader.STOCK_BASIC_LOCATION, 3),

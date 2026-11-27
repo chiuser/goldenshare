@@ -6,8 +6,8 @@ from zoneinfo import ZoneInfo
 
 from fastapi import Request
 
-from src.app.dependencies.stock_daily_technical_indicators import open_stock_daily_read_session
 from src.app.runtime.technical_indicators.execution import _execute
+from src.app.runtime.technical_indicators.read_session import open_technical_indicator_read_session
 from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
     index_daily_calculations, IndexDetailKlineQueryService,
 )
@@ -84,7 +84,7 @@ async def run_index_daily_kline(
 
         try:
             if daily_lake is None:
-                with open_stock_daily_read_session(get_session_factory(), control) as session:
+                with open_technical_indicator_read_session(get_session_factory(), control) as session:
                     response = build(session)
             else:
                 response = build(None)
