@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示方案 v1
 
-更新于 2026-11-27。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成。DG 已加载新版，待核对重载后首批日常 Silver 行情。阶段 2 首批 Prod 重刷、DG 正式发布及本地指数详情分钟切换已收尾。阶段 3 的前端实现与本地验收已完成。旧指数 5 分钟区间读取的代码清退及独立审计已完成，见 §6。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
+更新于 2026-11-27。专项已收尾。阶段 1B 的 Prod 新版切换、旧辅助表清退、自动任务恢复和 DG 重载后首批日更验收已完成。阶段 2 的 Prod 重刷、DG 正式发布和本地指数分钟读取切换，以及阶段 3 的前端展示和本地验收均已完成。旧指数 5 分钟区间读取的清退见 §6。[详细设计（LLD）](index-minute-volume-normalization-low-level-design-v1.md)
 
 ## 1. 目标和范围
 
@@ -83,7 +83,9 @@ Prod 已只读核实 2026-11-26 的 530 只指数、五个基础频率均已存�
 
 新版已通过隔离写入、实际 DG 样本和隔离删表验收。正式窗口内先停用旧版指数分钟 worker，运行新版并确认能从已有行情读取基准，随后单独执行辅助表清退迁移。原建表迁移和已经发生的 Dagster 事件作为历史记录保留。[清退清单与发布顺序](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-retirement)
 
-2026-11-26，Prod 已部署 `4f1262d82` 并跳过迁移。新版常规同步复跑上证综指 11 月 26 日 30 分钟的 9 根，表和视图逐根对账一致。23:40 执行迁移 `20261126_000193` 删除旧辅助表。迁移后独立读回同一批 9 根，数据逐条一致。验收通过后恢复指数分钟自动任务 #31。2026-11-27 07:33 北京时间，DG 正式代码位置已重载并加载新版定义。主要指数分钟 Raw 和 Silver 自动触发均在运行，待收盘后首批日常 Silver 产出再验收。[阶段 1B 执行记录](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-1b-result)
+2026-11-26，Prod 已部署 `4f1262d82` 并跳过迁移。新版常规同步复跑上证综指 11 月 26 日 30 分钟的 9 根，表和视图逐根对账一致。23:40 执行迁移 `20261126_000193` 删除旧辅助表。迁移后独立读回同一批 9 根，数据逐条一致。验收通过后恢复指数分钟自动任务 #31。[阶段 1B 执行记录](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-1b-result)
+
+2026-11-27 07:33 北京时间重载 DG 后，当日主要指数分钟 Raw、Silver、Gold 日更均成功。只读核对上证综指、深证成指各 9 根 30 分钟行情。两只指数的当天 Raw 按约定规则判定为股，Silver 各根成交量与预期股数一致，价格、成交额、时间与 Raw 一致。阶段 1B 的 DG 日更验收通过。[首批日更验收记录](index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-dg-first-routine-result)
 
 ## 4. 指数页面显示
 
@@ -112,6 +114,6 @@ Prod 已只读核实 2026-11-26 的 530 只指数、五个基础频率均已存�
 
 2026-11-27 确认清退早期 DG 和 Prod 按起止时间读取指数 5 分钟的独立算子库能力。仓库内 Web、调度和研究代码已核对调用，实际指数详情使用 `calculate_index_minutes_recent`。删除旧 `index_mins_5m` 注册、两端专用读取和按指数固定的单位映射，以及测试里对旧能力的正向依赖。直接按起止时间调用旧能力时，由算子库按现有规则报告来源不支持。
 
-现行指数分钟接口、七个周期的读取与合成、指标和九转、游标及单位合同继续使用原实现。DG 行情文件、Prod 表和视图、同步任务与入库前单位保护均属独立的数据链，沿用原设计。清退是代码变更，验收覆盖旧请求退出、现行七频接口和受影响的共用读取。阶段 1B 的 DG 首批新版日更验收继续按既定口径执行。[清退实现与验收](index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement)
+现行指数分钟接口、七个周期的读取与合成、指标和九转、游标及单位合同继续使用原实现。DG 行情文件、Prod 表和视图、同步任务与入库前单位保护均属独立的数据链，沿用原设计。清退是代码变更，验收覆盖旧请求退出、现行七频接口和受影响的共用读取。[清退实现与验收](index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement)
 
 独立验收确认，旧区间请求在 DG 和 Prod 配置下均返回来源不支持。用同两份 DG 行情文件执行现行接口，上证综指 5／90 分钟清退前后各自的首批及续页回包一致。[独立审计结果](index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement-result)
