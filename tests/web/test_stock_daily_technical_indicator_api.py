@@ -5,6 +5,8 @@ uses the current EquityDailyBar/Security/TradeCalendar producer definition.
 """
 from datetime import date, timedelta
 
+import pytest
+
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.security_serving import Security
 from tests.stock_daily_kline_helpers import backend_for_client
@@ -41,11 +43,13 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
             assert [bar["tradeDate"] for bar in payload["bars"]] == [day.isoformat() for day in days[-expected_limit:]]
             assert payload["adjustment"] == "forward" and payload["sourceAdjustment"] == "qfq"
             assert set(payload) == {"pageContext", "stockRef", "period", "adjustment", "sourceAdjustment",
-                                    "bars", "meta", "dataStatus", "debugInfo"}
+                                    "bars", "meta", "dataStatus", "debugInfo", "nineTurnMarkers"}
+            assert payload["nineTurnMarkers"] == []
             assert response.headers["content-type"] == "application/json"
         assert len(calls) == 3
         for item in calls:
-            assert len(item.calculations) == 12
+            assert len(item.calculations) == 13
+            assert sum(spec["calculation_id"] == "nineturn" for spec in item.calculations) == 1
             assert sum(spec["calculation_id"] == "price" for spec in item.calculations) == 1
     operation = app_client.app.openapi()["paths"][PATH]["get"]
     params = {item["name"]: item["schema"] for item in operation["parameters"] if item["in"] == "query"}
@@ -58,6 +62,9 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
     assert {item["$ref"].rsplit("/", 1)[-1] for item in outputs} == {
         "StockDetailKlineResponseDto", "StockDetailPeriodKlineResponseDto",
     }
+    schemas = app_client.app.openapi()["components"]["schemas"]
+    for model in ("StockDetailKlineResponseDto", "StockDetailPeriodKlineResponseDto"):
+        assert "nineTurnMarkers" in schemas[model]["required"]
 
 
 def test_prewait_errors_unknown_and_empty(app_client, db_session, monkeypatch, record_property):
@@ -80,7 +87,27 @@ def test_prewait_errors_unknown_and_empty(app_client, db_session, monkeypatch, r
         empty = app_client.get(PATH, params={"tsCode": "603806.SH", "endDate": "1900-01-01"})
         assert empty.status_code == 200 and empty.json()["bars"] == []
         assert empty.json()["dataStatus"]["status"] == "EMPTY" and not calls
+        assert empty.json()["nineTurnMarkers"] == []
         normal = app_client.get(PATH, params={"tsCode": " 603806.sh ", "endDate": "2026-05-29", "limit": 2, "sql": "ignored"})
         assert normal.status_code == 200 and len(normal.json()["bars"]) == 2
         assert len(admissions) == 3 and len(calls) == 1
         assert len(controls) == 8 and not backend.runtime.admission.active_leases
+
+
+@pytest.mark.parametrize("debug", [False, True])
+def test_prod_daily_maps_nine_turn_from_the_single_calculation(app_client, db_session, monkeypatch, record_property, debug):
+    # The real Prod route, selection query and assembler consume literal counts;
+    # backend_for_client substitutes only calculation/Control/PG resource ownership.
+    _seed_stock_detail_data(db_session)
+    with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property,
+                            overrides={("nineturn", "up_count"): 9}) as (_, calls, _):
+        response = app_client.get(PATH, params={"tsCode": "603806.SH", "endDate": "2026-05-29", "debug": int(debug)})
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert len(calls) == 1
+    assert payload["nineTurnMarkers"] == [
+        {"tradeDate": day, "tradeTime": None, "direction": "UP", "sequenceNumber": 9, "completed": True}
+        for day in ("2026-05-28", "2026-05-29")
+    ]
+    assert "quote" not in payload and "nextEndDate" not in payload["meta"]
+    assert (payload["debugInfo"] is not None) == debug

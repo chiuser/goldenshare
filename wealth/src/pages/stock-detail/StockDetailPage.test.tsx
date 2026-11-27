@@ -336,7 +336,7 @@ describe("StockDetailPage", () => {
       }
       if (url.includes("/kline")) {
         if (empty) return Response.json({ ...kline, bars: [], meta: { ...kline.meta, count: 0 },
-          ...(local ? { quote: null, nineTurnMarkers: [] } : {}),
+          nineTurnMarkers: [], ...(local ? { quote: null } : {}),
           dataStatus: { ...kline.dataStatus, status: "EMPTY", observedTradeDate: null } });
         if (local && !missingLocalQuote) {
           const latest = { ...kline.bars.at(-1)!, close: 21.34 };
@@ -353,7 +353,7 @@ describe("StockDetailPage", () => {
         }
         return Response.json({
           ...kline,
-          ...(local ? { nineTurnMarkers: [] } : {}),
+          nineTurnMarkers: [],
           ...(otherStock ? { stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : {}),
         });
       }

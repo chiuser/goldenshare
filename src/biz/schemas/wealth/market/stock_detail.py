@@ -236,6 +236,7 @@ class StockDetailKlineResponseDto(BaseModel):
     adjustment: Literal["forward"]
     sourceAdjustment: Literal["qfq"]
     bars: list[StockDailyKlineBarDto]
+    nineTurnMarkers: list[NineTurnMarkerDto]
     meta: StockKlineMetaDto
     dataStatus: StockDetailDataStatusDto
     debugInfo: StockDetailDebugInfoDto | None = None
@@ -243,7 +244,6 @@ class StockDetailKlineResponseDto(BaseModel):
 
 class LocalStockDetailPagedKlineResponseDto(StockDetailKlineResponseDto):
     meta: LocalStockKlineMetaDto
-    nineTurnMarkers: list[NineTurnMarkerDto]
 
 
 class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDto):
@@ -254,4 +254,3 @@ class StockDetailPeriodKlineResponseDto(StockDetailKlineResponseDto):
     period: Literal["week", "month"]
     bars: list[StockKlineBarDto]
     meta: LocalStockKlineMetaDto
-    nineTurnMarkers: list[NineTurnMarkerDto]

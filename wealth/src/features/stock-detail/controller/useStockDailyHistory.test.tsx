@@ -86,7 +86,10 @@ it.each(["failed request", "missing nine-turn field", "missing rail", "nonfinite
   if (failure === "failed request") {
     vi.mocked(fetchStockDetailKline).mockRejectedValueOnce(new Error("kline failed"));
   } else if (failure === "missing nine-turn field") {
-    vi.mocked(fetchStockDetailKline).mockResolvedValueOnce({ ...kline(), nineTurnMarkers: undefined });
+    // Deliberately malformed server JSON; valid daily responses require this field.
+    const invalid = kline();
+    Reflect.deleteProperty(invalid, "nineTurnMarkers");
+    vi.mocked(fetchStockDetailKline).mockResolvedValueOnce(invalid);
   } else {
     const invalid = kline();
     // Deliberately invalid server input verifies that conversion fails before the cursor changes.

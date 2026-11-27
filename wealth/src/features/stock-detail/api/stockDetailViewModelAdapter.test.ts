@@ -133,6 +133,7 @@ function makeKline(): StockDetailDailyKlineResponseDto {
     period: "day",
     adjustment: "forward",
     sourceAdjustment: "qfq",
+    nineTurnMarkers: [],
     bars: [{
       tradeDate: "2026-08-14",
       open: 292,

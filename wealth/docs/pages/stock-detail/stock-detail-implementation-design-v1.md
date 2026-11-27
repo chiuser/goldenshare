@@ -1,6 +1,8 @@
 # 股票详情页｜真实 API 接入技术实施方案 v1
 
-> 2026-11-27已确认后续设计，待开发：Prod股票日线九转并入现有日K算子请求，`nineTurnMarkers`在各环境日线回包中必有；管理员批准删除旧 `/stock-detail/nine-turn` 及专用查询代码。普通本地日线也采用同一输出合同，Prod不新增本地式分页。具体口径见[本页日线补充合同](#prod-stock-nine-turn-contract)及[九转专项LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)。以下原阶段“Prod合同不变、独立九转请求”的限制不再适用于本次已批准变更，现有实现及历史验收不改写为本次已完成。
+**2026-11-27阶段1更新。** 后端各环境日线已在同次算子计算中返回必有 `nineTurnMarkers`，Python/TypeScript及OpenAPI已同步；后端106项、前端52项限定测试、类型检查及隔离生产构建通过。阶段2的页面切换和旧接口删除、阶段3的真实Prod来源与浏览器验收尚未开展，未部署。执行及另一次自审见[九转LLD §12.8](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1)。
+
+> 2026-11-27设计冻结记录：Prod股票日线九转并入现有日K算子请求，`nineTurnMarkers`在各环境日线回包中必有；管理员批准删除旧 `/stock-detail/nine-turn` 及专用查询代码。普通本地日线也采用同一输出合同，Prod不新增本地式分页。具体口径见[本页日线补充合同](#prod-stock-nine-turn-contract)及[九转专项LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)。以下原阶段“Prod合同不变、独立九转请求”的限制不再适用于本次已批准变更，现有实现及历史验收不改写为本次已完成。
 
 > 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
 
@@ -178,7 +180,7 @@ wealth/src/
 6. `bars[]`
 7. `meta`
 8. `dataStatus`
-9. `nineTurnMarkers[]`（已确认的后续合同，待开发，见下文）
+9. `nineTurnMarkers[]`（阶段1后端已实现，页面消费待阶段2，见下文）
 
 性能要求：
 
@@ -189,7 +191,7 @@ wealth/src/
 
 <a id="prod-stock-nine-turn-contract"></a>
 
-#### 日线九转的已确认后续合同（2026-11-27，待开发）
+#### 日线九转的已确认合同（2026-11-27，阶段1后端已实现）
 
 各环境股票日线统一从同次算子计算取得九转，`GET /api/v1/wealth/market/stock-detail/kline`返回必有 `nineTurnMarkers`。每项沿用 `tradeDate`、`tradeTime`、`direction`、`sequenceNumber`、`completed`，按该批日K日期升序，日线 `tradeTime=null`；图上只显示1—9，第9根保留完成样式。正常无标记及合法空日K返回 `[]`，缺失字段或错误结果不能按空数组处理。
 
@@ -253,7 +255,7 @@ DG 和 Prod 使用同一套接口字段。`/page-init` 按当前环境的算子�
 7. `meta: StockKlineMetaDto`
 8. `dataStatus: DataStatusDto`
 9. `debugInfo?: StockDetailDebugInfoDto`
-10. `nineTurnMarkers: NineTurnMarkerDto[]`（已确认后续增量，待开发；日线、已存在的本地分页与周月线统一为必有数组）
+10. `nineTurnMarkers: NineTurnMarkerDto[]`（阶段1已实现；日线、本地分页与周月线统一为必有数组）
 
 ### 4.3 `StockChartDefaultsDto`
 

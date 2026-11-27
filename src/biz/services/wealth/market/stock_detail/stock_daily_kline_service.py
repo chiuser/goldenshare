@@ -68,7 +68,7 @@ class StockDailyKlineService:
         )
         if start is not None and start > source.query_end_date:
             return source, None
-        calculated = calculate(build_recent_calculation_request(source, start, include_nine_turn=paginated))
+        calculated = calculate(build_recent_calculation_request(source, start))
         result, facts = calculated.result, calculated.source_facts
         if result is None:
             return source, None
@@ -83,9 +83,7 @@ class StockDailyKlineService:
         page = StockDailyKlinePage(rows, facts.previous_target_date if paginated else None)
         return self._query.with_kline_page(source, page), result
 
-    def _validate_result(
-        self, source: StockDailyKlineInput, result: CalculationResult, *, include_nine_turn: bool = False,
-    ) -> None:
+    def _validate_result(self, source: StockDailyKlineInput, result: CalculationResult) -> None:
         if not isinstance(result, CalculationResult):
             raise _contract_error("count_mismatch", expected=len(source.bars), actual=0)
         series = result.series
@@ -100,7 +98,7 @@ class StockDailyKlineService:
                 or result.range.actual_end != times[-1]):
             raise _contract_error("count_mismatch", expected=len(times), actual=result.range.count)
         expected = {stock_calculation_key(item["calculation_id"], item["parameters"])
-                    for item in stock_daily_calculations(include_nine_turn=include_nine_turn)}
+                    for item in stock_daily_calculations()}
         keys = [stock_calculation_key(item.calculation_id, item.parameters) for item in result.calculations]
         if len(keys) != len(expected) or set(keys) != expected:
             raise _contract_error("instances_mismatch", expected=len(expected), actual=len(keys))
@@ -138,7 +136,7 @@ class StockDailyKlineService:
         *, source_tables: tuple[str, ...], include_quote: bool = False, paginated: bool = False,
     ) -> StockDetailKlineResponseDto:
         if source.bars:
-            self._validate_result(source, result, include_nine_turn=paginated)
+            self._validate_result(source, result)
         elif result is not None:
             raise _contract_error("count_mismatch", expected=0,
                                   actual=len(result.times) if isinstance(result, CalculationResult) else 0)
@@ -149,7 +147,7 @@ class StockDailyKlineService:
             bars = []
             nine_turn_markers = []
             fixed_fields = {key[0]: values for key, values in fields.items() if key[0] != "ma"}
-            nine_turn = fixed_fields.get("nineturn")
+            nine_turn = fixed_fields["nineturn"] if source.bars else None
             for index, row in enumerate(source.bars):
                 factors = build_stock_common_factors(fields, index)
                 price = fixed_fields["price"]
@@ -165,13 +163,12 @@ class StockDailyKlineService:
                         trendChannel=build_stock_trend_channel_factors(fixed_fields["trend_channel"], index),
                     ),
                 ))
-                if nine_turn is not None:
-                    marker = build_nine_turn_marker(
-                        trade_date=row.trade_date, trade_time=None,
-                        up_count=int(nine_turn["up_count"][index]), down_count=int(nine_turn["down_count"][index]),
-                    )
-                    if marker is not None:
-                        nine_turn_markers.append(marker)
+                marker = build_nine_turn_marker(
+                    trade_date=row.trade_date, trade_time=None,
+                    up_count=int(nine_turn["up_count"][index]), down_count=int(nine_turn["down_count"][index]),
+                )
+                if marker is not None:
+                    nine_turn_markers.append(marker)
             request = source.request
             observed = source.bars[-1].trade_date if source.bars else None
             meta_fields = dict(count=len(bars), limit=request.limit,
@@ -182,7 +179,7 @@ class StockDailyKlineService:
                 pageContext=build_page_context(source.context),
                 stockRef=StockDetailStockRefDto(tsCode=source.ts_code, name=source.name),
                 period="day", adjustment="forward", sourceAdjustment="qfq", bars=bars,
-                meta=meta,
+                meta=meta, nineTurnMarkers=nine_turn_markers,
                 dataStatus=build_data_status(expected_trade_date=source.query_end_date,
                                              observed_trade_date=observed),
                 debugInfo=StockDetailDebugInfoDto(sourceTables=list(source_tables), query={
@@ -193,11 +190,11 @@ class StockDailyKlineService:
             )
             if include_quote:
                 return LocalStockDetailFirstKlineResponseDto(
-                    **response_fields, nineTurnMarkers=nine_turn_markers,
+                    **response_fields,
                     quote=build_quote_from_kline_bar(bars[-1]) if bars else None,
                 )
             if paginated:
-                return LocalStockDetailPagedKlineResponseDto(**response_fields, nineTurnMarkers=nine_turn_markers)
+                return LocalStockDetailPagedKlineResponseDto(**response_fields)
             return StockDetailKlineResponseDto(**response_fields)
         except ValidationError as error:
             # Pydantic itself can retain input. Only bounded, input-free diagnostics survive.

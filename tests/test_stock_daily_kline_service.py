@@ -14,7 +14,7 @@ from src.biz.api.wealth.market.stock_detail_dependencies import get_stock_daily_
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS, STOCK_DAILY_OUTPUT_FIELDS,
-    build_calculation_request, validate_stock_daily_request,
+    build_calculation_request, build_recent_calculation_request, validate_stock_daily_request,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import (
     StockDailyKlineInput, StockDailyKlinePage, StockDailyKlineRequest, StockDailyKlineRow,
@@ -52,7 +52,7 @@ def test_request_and_fixed_calculations():
         ("boll", "boll", {"period": 20, "multiplier": 2}),
         ("macd", "macd", {"fast": 12, "slow": 26, "signal": 9}),
         ("kdj", "kdj", {"window": 9, "k_period": 3, "d_period": 3}),
-        ("price", "price", {}), ("trend_channel", "trend_channel", {}),
+        ("price", "price", {}), ("nineturn", "nineturn", {}), ("trend_channel", "trend_channel", {}),
     )
     assert tuple((item["calculation_id"], dict(item["parameters"])) for item in STOCK_DAILY_CALCULATIONS
                  ) == tuple((kind, params) for _, kind, params in expected)
@@ -97,9 +97,9 @@ def test_request_and_fixed_calculations():
         datetime(2026, 1, 6, tzinfo=ZoneInfo("Asia/Shanghai")),
     )
     assert calculation.calculations == STOCK_DAILY_CALCULATIONS
-    local = build_calculation_request(source, include_nine_turn=True)
-    assert local.calculations == (*STOCK_DAILY_CALCULATIONS[:-1],
-                                  {"calculation_id": "nineturn", "parameters": {}}, STOCK_DAILY_CALCULATIONS[-1])
+    recent = build_recent_calculation_request(source, None)
+    assert recent.calculations == calculation.calculations
+    assert recent.start is None and recent.latest_rows == 300
     assert source.request.limit == 300 and source.query_end_date == date(2026, 1, 9)
     assert build_calculation_request(_source(())) is None
 
@@ -185,9 +185,11 @@ def test_mapping_and_legal_nulls(monkeypatch):
     assert bar["factors"]["kdj"]["j"] == 77.7
     assert payload["debugInfo"]["sourceTables"] == list(source_tables)
     assert "msg" not in payload
+    assert payload["nineTurnMarkers"] == []
     empty = service.assemble(replace(source, bars=()), None, source_tables=source_tables).model_dump(mode="json")
     assert empty["bars"] == [] and empty["meta"]["count"] == 0 and empty["dataStatus"]["status"] == "EMPTY"
     assert len(empty["debugInfo"]["sourceTables"]) == 2
+    assert empty["nineTurnMarkers"] == []
     assert service.assemble(replace(source, request=_request()), result, source_tables=source_tables).debugInfo is None
 
 
@@ -217,7 +219,8 @@ def test_result_contract_errors():
         assert not any(isinstance(value, type(result)) for value in caught.value.diagnostics.values())
 
 
-def test_local_nine_turn_marks_only_one_through_nine_in_date_order():
+@pytest.mark.parametrize("paginated", [False, True])
+def test_daily_nine_turn_marks_only_one_through_nine_in_date_order(paginated):
     from datetime import timedelta
     from goldenshare_technical_indicators.contracts import CalculationValues
     from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
@@ -230,10 +233,12 @@ def test_local_nine_turn_marks_only_one_through_nine_in_date_order():
         ("up_count", (0.0, 1.0, 0.0, 10.0, 13.0, 0.0)),
         ("down_count", (0.0, 0.0, 9.0, 0.0, 0.0, 8.0)),
     ))
-    result = replace(baseline, calculations=(*baseline.calculations, counts))
+    result = replace(baseline, calculations=tuple(
+        counts if item.calculation_id == "nineturn" else item for item in baseline.calculations
+    ))
     service = StockDailyKlineService()
-    payload = service.assemble(source, result, paginated=True, source_tables=()).model_dump(mode="json")
-    assert "nineTurnMarkers" not in service.assemble(source, baseline, source_tables=()).model_dump()
+    payload = service.assemble(source, result, paginated=paginated, source_tables=()).model_dump(mode="json")
+    assert service.assemble(source, baseline, source_tables=()).nineTurnMarkers == []
     assert payload["nineTurnMarkers"] == [
         {"tradeDate": days[1].isoformat(), "tradeTime": None, "direction": "UP", "sequenceNumber": 1, "completed": False},
         {"tradeDate": days[2].isoformat(), "tradeTime": None, "direction": "DOWN", "sequenceNumber": 9, "completed": True},
@@ -249,7 +254,8 @@ def test_local_nine_turn_marks_only_one_through_nine_in_date_order():
     ((("up_count", (1,)),), "fields_mismatch"),
     ((("up_count", ()), ("down_count", (0,))), "value_count_mismatch"),
 ])
-def test_local_nine_turn_rejects_invalid_results(fields, reason):
+@pytest.mark.parametrize("paginated", [False, True])
+def test_daily_nine_turn_rejects_invalid_results(fields, reason, paginated):
     from goldenshare_technical_indicators.contracts import CalculationValues
     from goldenshare_technical_indicators.errors import OutputContractError
     from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
@@ -258,9 +264,12 @@ def test_local_nine_turn_rejects_invalid_results(fields, reason):
     day = date(2026, 1, 5)
     source = _source((_row(day),))
     result = result_for(source.ts_code, (day,))
-    broken = replace(result, calculations=(*result.calculations, CalculationValues("nineturn", "1.0.0", (), fields)))
+    broken = replace(result, calculations=tuple(
+        CalculationValues("nineturn", "1.0.0", (), fields) if item.calculation_id == "nineturn" else item
+        for item in result.calculations
+    ))
     with pytest.raises(OutputContractError) as error:
-        StockDailyKlineService().assemble(source, broken, paginated=True, source_tables=())
+        StockDailyKlineService().assemble(source, broken, paginated=paginated, source_tables=())
     assert error.value.reason == reason
 
 
@@ -296,6 +305,34 @@ def test_daily_trend_mapping_keeps_all_four_distinct_values_and_schema():
     ]
     period_schema = StockDetailPeriodKlineResponseDto.model_json_schema()
     assert "trendChannel" not in period_schema["$defs"]["StockKlineFactorDto"]["properties"]
+    assert "nineTurnMarkers" in schema["required"]
+    assert "nineTurnMarkers" in period_schema["required"]
+    from pydantic import ValidationError
+    with pytest.raises(ValidationError, match="nineTurnMarkers"):
+        StockDetailKlineResponseDto.model_validate({k: v for k, v in payload.items() if k != "nineTurnMarkers"})
+
+
+@pytest.mark.parametrize("paginated", [False, True])
+@pytest.mark.parametrize("mode", ["missing", "duplicate", "wrong parameters"])
+def test_daily_requires_exactly_one_parameterless_nine_turn_result(mode, paginated):
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from goldenshare_technical_indicators.errors import OutputContractError
+    from tests.stock_daily_kline_helpers import result_for
+
+    source = _source((_row(date(2026, 1, 5)),))
+    result = result_for(source.ts_code, (date(2026, 1, 5),))
+    counts = next(item for item in result.calculations if item.calculation_id == "nineturn")
+    if mode == "missing":
+        calculations = tuple(item for item in result.calculations if item.calculation_id != "nineturn")
+    elif mode == "duplicate":
+        calculations = (*result.calculations, counts)
+    else:
+        calculations = tuple(replace(item, parameters=(("period", 9),)) if item is counts else item
+                             for item in result.calculations)
+    with pytest.raises(OutputContractError) as caught:
+        StockDailyKlineService().assemble(source, replace(result, calculations=calculations),
+                                         paginated=paginated, source_tables=())
+    assert caught.value.reason == "instances_mismatch"
 
 
 @pytest.mark.parametrize("mode", ["missing", "duplicate", "wrong parameters"])

@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-**2026-11-27 Prod股票日线后续设计已确认，待开发。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次已批准变更；历史验收结果保留，不改写为本次通过。
+**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2、3待推进。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，阶段1结果见[§12.8](#prod-stock-nine-turn-stage1)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。页面切换、旧接口删除和真实Prod来源验收未执行，未部署。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次明确批准变更；历史验收结果保留。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
@@ -299,15 +299,15 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 <a id="prod-stock-nine-turn-lld"></a>
 
-## 12. Prod股票日线九转接入与旧独立接口删除（2026-11-27，设计已确认、待开发）
+## 12. Prod股票日线九转接入与旧独立接口删除（2026-11-27，阶段1完成、阶段2与3待推进）
 
 ### 12.1 目标、批准范围和现状依据
 
 目标是让Prod股票日线九转复用现有算子库的同次日K计算，并让股票页面在各环境消费同批标记。管理员要求Prod也接算子库，对删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及专用查询明确回复“删除吧”。删除范围含该接口原2000根上限、独立日期查询和游标，不保留旧URL转发、兼容参数或错误时读成品的后备实现。
 
-当前源码依据及影响面已用CodeGraph `codegraph_explore`、`codegraph_impact`和实际引用核对：
+阶段1开发前的源码依据及影响面已用CodeGraph `codegraph_explore`、`codegraph_impact`和实际引用核对；下表保留开发前做法与批准的目标，实际完成项见§12.8：
 
-| 位置 | 当前做法 | 本步如何改 |
+| 位置 | 阶段1开发前做法 | 本步如何改 |
 | --- | --- | --- |
 | `src/app/dependencies/stock_daily_technical_indicators.py` | Prod调用 `build_calculation_request(snapshot)` 默认不含九转；注册版本检查按DG决定是否含九转 | 所有股票日线使用同一固定九转清单；Prod继续原选页和PostgreSQL输入，不另建计算入口 |
 | `src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py` | `stock_daily_calculations()`及请求构造带 `include_nine_turn`，缺省Prod不选 | 日线清单固定包含九转，删除日线专用的选择参数；共用 `stock_common_calculations(include_nine_turn=...)` 保持周月线已有用途 |
@@ -393,4 +393,29 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 
 按方案§6.4的三个阶段推进：先后端同批计算及合同，再页面消费与旧业务代码清理，最后有界真实验证和对照审计。阶段之间不发布半套候选，不为过渡新增兼容层；前后端及旧接口退出作为同一交付候选review。发布、服务重启、共享包发包和DG停产均不是本次文档批准包含的正式执行。
 
-原股票页面实施方案、首屏/DG取数方案与LLD及股票日线内核接入方案与LLD同步注明本次后续设计，保留原阶段历史。开发完成后，才将实际字段来源和验收结果补入相关来源审计；目前不把在线旧链路写成已切换。当前完成的是源码与消费者核对、方案审计及本文设计，无新增业务待拍板项；实现、测试、真实Prod数值/费用验证、浏览器及最终对照审计均未在本轮执行，不能以本节或既有本地通过记录宣称开工后已完成。
+原股票页面实施方案、首屏/DG取数方案与LLD及股票日线内核接入方案与LLD同步注明本次后续设计，保留原阶段历史。整项开发与验收完成后，才将实际字段来源和验收结果补入相关来源审计；目前不把在线旧链路写成已切换。设计冻结时完成的是源码与消费者核对、方案审计及设计；后续阶段1实际结果见§12.8。真实Prod数值/费用验证、浏览器及完整迁移最终对照审计仍留在阶段3，不能以阶段1或既有本地通过记录宣称整项已完成。
+
+<a id="prod-stock-nine-turn-stage1"></a>
+
+### 12.8 阶段1执行与另一次对照审计（2026-11-27）
+
+**范围与结果。** 按管理员授权只推进阶段1。股票日线在所有环境固定计算13个实例，九转与原价格、指标及四轨一起计算；普通、本地首批/续页及合法空日K显式返回 `nineTurnMarkers`。本轮不改页面运行逻辑、不删除旧接口，不做正式DG或Prod读写，不发包、重启或部署。接口路径、请求参数、500根上限及环境原分页差异保留。
+
+| LLD硬口径 | 实现位置 | 本轮证据 |
+| --- | --- | --- |
+| 所有日线固定包含九转，不能由分页标志选择 | `stock_daily_kline_calculations.py`、App后台注册检查、`StockDailyKlineService.prepare_recent/_validate_result` | 普通与recent请求清单相同；Prod和DG后台检查同一13项；普通/分页都拒绝缺九转、重复、错参数、缺字段、计数非法、时间不符 |
+| 同批组装必有数组，无标记及合法空页返回 `[]` | `StockDailyKlineService.assemble()`复用既有标记helper，公共 `response_fields`写入数组 | 普通/分页的1—9字面样本与空数组；真实路由Prod普通/debug返回非空标记；本地普通、首批及续页用真实算子SQL验证标记日期和顺序 |
+| Python、TypeScript及OpenAPI一致，周月原输出保持 | Python父类声明数组、子类继承；`StockDetailKlineFields`改必有 | 普通/本地/周月OpenAPI均必有；缺字段DTO验证失败；前端类型检查、所有类型构造和错误输入测试同步；周月组装及真实路由回归 |
+| 复用同批价格，不另读行情或复权 | App `work()`和输入读取实现未因本轮改写；只增加同次计算清单及结果消费 | 每请求仍一次计算；本地真实Parquet/SQL测试每个行情分区只读一次，九转共用一次复权；现有九转共享行情测试通过。真实Prod SQL次数与费用未实测，按阶段3核验，不由隔离测试替代 |
+| 算法、预热、资源限制与非目标接口不改 | 本轮未改算子公式、预热、配置或通用输入/执行实现 | 既有九转跨批、截取预热、取消释放测试通过；原K线/四轨/周月和旧独立九转接口回归；无新增source或第二次calculate |
+| 计算/合同错误随日K失败并释放资源 | 复用原输出校验、异常和执行释放流程 | 普通及分页的九转缺实例/计数14注入均HTTP500，不返回半份结果；许可释放、同参重试成功；既有取消/发送生命周期回归 |
+
+**测试输入依据与隔离范围。** Prod路由用真实路由、SQLite选页查询、DTO和组装，计算值、Control及PostgreSQL资源边界使用既有替身；新增计数9是用于映射的独立字面输入，不是Prod算法数值验收。本地链路根据现有股票行情、股票复权因子、日历和证券生产合同生成工程外临时Parquet，执行真实读取、复权和算子SQL，既有上升行情的独立计数及常量行情空标记继续成立。正常前端样本补上必有数组；故意缺字段的反向样本显式删除字段，不将字段重新设为可选或吞掉错误。周月测试剔除日线夹具自带的九转后，使用自己的独立计数输入，避免重复实例。未运行正式数据读取、真实Prod端到端延迟或浏览器验收。
+
+**实际验证。** 后端8个专项文件106项通过，10.85秒：`tests/test_stock_daily_kline_service.py`、`tests/test_stock_period_kline_service.py`、`tests/app/technical_indicators/test_stock_daily_integration.py`、`tests/app/technical_indicators/test_stock_daily_source_repair.py`、`tests/web/test_stock_daily_technical_indicator_api.py`、`tests/web/test_wealth_stock_detail_api.py`、`tests/web/test_wealth_stock_nine_turn_api.py`、`tests/foundation/technical_indicators/test_nine_turn_calculation.py`。使用现有 `.venv/bin/python -m pytest -q -p no:cacheprovider -o junit_family=xunit1`，环境为 `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=packages/technical_indicators/src:. GOLDENSHARE_ENV_FILE=/dev/null APP_ENV=test`，basetemp、TMPDIR及JUnit均指向 `/private/tmp` 本任务目录。首次扩展测试的两类失败为测试预期漏加九转、测试把整型debug传为布尔字符串；按现行合同纠正后全部通过，未修改产品接口迁就测试。
+
+Wealth执行 `npm --prefix wealth run typecheck` 通过；使用现有Vitest运行 `StockDetailPage.test.tsx`、`stockDetailViewModelAdapter.test.ts`、`useStockDailyHistory.test.tsx`、`useStockPeriodKline.test.ts`和 `StockChartWorkspace.test.tsx`，52项通过，5.77秒。使用现有Vite完成生产构建，1.37秒；类型检查及构建分开执行，输出与Vite缓存位于工程外任务目录，未运行会把构建信息写回工程的默认 `tsc -b`。页面测试继续验证原运行行为，不能视为阶段2已切换。没有样式、交互或页面运行代码改动，本轮不新增浏览器验证；阶段3沿§12.6执行。
+
+**另一次审计。** 编码及上述测试后重新从§12.2、12.3和方案§6.4抽取阶段1要求，核对实际diff、全部调用引用、响应继承、测试与阶段边界；使用CodeGraph `codegraph_explore`、`codegraph_impact`，批量修改后执行 `codegraph sync`与状态核对。另用AST比较改前/后App的 `work()`、`_work_period()`及请求校验，确认来源选择、读取和计算入口原样保留；阶段2页面/路由及算子公式、预热无本轮修改。文档完整性、7份文档新增进度链接/锚点和限定文件差异检查通过。结论：阶段1范围内未发现与LLD不符的未解决项；没有新业务规则、源读取、配置、反向依赖或兼容路径。审计是与编码分开的另一次自审，没有第二审计人，不声称独立人员审计。
+
+**交接。** 阶段2仍须切换Prod页面读取同批标记、删除旧独立接口及专用代码；阶段3仍须真实Prod有界数值/读取/费用、取消重试和浏览器验收。当前候选前后端迁移尚未完成，不发布阶段1中间版本。开发完成汇报时尚未提交，实际提交状态以Git记录为准。

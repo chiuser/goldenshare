@@ -164,7 +164,7 @@ class StockDailyKlineAppBackend:
             ("core_serving.security_serving", "core_serving.equity_daily_bar",
              "core.equity_adj_factor", "core_serving.equity_daily_basic")
         )
-        for item in stock_daily_calculations(include_nine_turn=self._use_dg):
+        for item in stock_daily_calculations():
             definition = self.runtime.registry.resolve(item["calculation_id"])
             if (definition.algorithm_version !=
                     STOCK_DAILY_ALGORITHM_VERSIONS[item["calculation_id"]]

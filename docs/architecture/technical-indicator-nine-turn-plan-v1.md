@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入方案 v1
 
-**2026-11-27 后续设计已确认，待开发：Prod股票日线九转接入。** 管理员要求Prod股票日线九转也使用算子库，并确认“删除吧”，批准同批删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及其专用查询代码。本次按[§6](#prod-stock-nine-turn-plan)和[LLD §12](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)推进；本地与指数的既有实施记录保留历史范围，原“Prod保持原合同”不再限制本次明确批准的增量。本文更新不表示代码已修改、验收或部署。
+**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2、3待推进。** 管理员要求Prod股票日线九转也使用算子库，并确认“删除吧”，批准同批删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及其专用查询代码。本次按[§6](#prod-stock-nine-turn-plan)和[LLD §12](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)推进；阶段1证据与审计见[LLD §12.8](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1)。后端已同批计算、返回必有标记数组，页面切换和旧接口删除未实施，真实Prod来源验收未执行，未部署。本地与指数的既有实施记录保留历史范围，原“Prod保持原合同”不再限制本次明确批准的增量。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)
 
@@ -83,7 +83,7 @@
 
 验收覆盖同批数值与日期、首屏和本地续页、Prod普通与debug回包、OpenAPI、空标记、合法空行情、错误/取消/重试，以及股票页面独立九转请求清零。关键预期由独立字面样本或同批真实Prod输入复算产生；旧DG/Prod成品只作差异对照，不作为唯一正确答案。沿现有时限、内存与输入限制，正常、取消清理、同参重试和最后验收开销均记录，不提高限制掩盖问题。
 
-DG生成、同步、sensor、数据文件、Prod表 `core_serving.equity_qfq_nineturn_daily`、模型及运营数据集卡片均不在本期删除范围。切换页面不等于DG停产或Prod表无人使用。不开新配置开关、不改变用户图表样式；开发、测试、共享包发布和正式部署分别按对应授权执行。本轮仅完成设计文档。
+DG生成、同步、sensor、数据文件、Prod表 `core_serving.equity_qfq_nineturn_daily`、模型及运营数据集卡片均不在本期删除范围。切换页面不等于DG停产或Prod表无人使用。不开新配置开关、不改变用户图表样式；开发、测试、共享包发布和正式部署分别按对应授权执行。阶段1的实际执行范围与结果见LLD §12.8。
 
 ### 6.4 实施顺序
 
@@ -92,5 +92,7 @@ DG生成、同步、sensor、数据文件、Prod表 `core_serving.equity_qfq_nin
 | 1. 后端同批计算与响应合同 | 日线固定包含九转，分页职责分开；组装、Python/TypeScript类型和OpenAPI同步 | Prod及本地普通日线均返回必有标记数组；原K线、四轨和周月线行为回归 |
 | 2. 页面切换与旧代码清理 | 股票页直接消费同批标记；删除旧独立路由、查询、前端请求及无用测试，迁移混合测试 | 首屏、本地续页和开关不请求旧接口；旧路径与OpenAPI退出；共用指数/分钟代码仍有效 |
 | 3. 有界真实验证与对照审计 | 用真实Prod来源核数值、读取与费用，浏览器验证交接；独立重读LLD、代码和证据 | LLD §12逐项对账，未覆盖项据实说明，交管理员review |
+
+2026-11-27：阶段1实现、后端106项和前端52项限定测试、类型检查及隔离生产构建通过；另一次自审未发现阶段1范围内偏离LLD。阶段2、3尚未开展，阶段1不作为完整页面迁移或真实Prod验收通过的依据。
 
 以上阶段是开发和验收顺序，前后端合成同一交付候选，不单独向线上发布中间版本，也不为阶段过渡新增旧接口转发或成品回退。当前无新增业务待拍板项；开发开始前仍须核对LLD及当前源码，不能将设计确认写成实现通过。

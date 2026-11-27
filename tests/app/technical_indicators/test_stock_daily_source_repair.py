@@ -209,7 +209,8 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
         assert not source_client.calculations
         response = request(client, tradeDate=day, endDate=day, limit=2)
         assert response.status_code == 200, response.text
-        schema = client.get("/openapi.json").json()["paths"][PATH]["get"]
+        openapi = client.get("/openapi.json").json()
+        schema = openapi["paths"][PATH]["get"]
     assert {item["name"] for item in schema["parameters"] if item["in"] == "query"} == {
         "tsCode", "period", "adjustment", "tradeDate", "startDate", "endDate", "limit", "debug",
     }
@@ -218,6 +219,9 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
         "LocalStockDetailFirstKlineResponseDto", "LocalStockDetailPagedKlineResponseDto", "StockDetailKlineResponseDto",
         "StockDetailPeriodKlineResponseDto",
     }
+    for name in ("LocalStockDetailFirstKlineResponseDto", "LocalStockDetailPagedKlineResponseDto",
+                 "StockDetailKlineResponseDto", "StockDetailPeriodKlineResponseDto"):
+        assert "nineTurnMarkers" in openapi["components"]["schemas"][name]["required"]
     payload = response.json()
     check_values(payload, DAYS[-2:])
     assert payload["pageContext"]["tradeDate"] == day
@@ -241,15 +245,15 @@ def test_local_first_screen_shares_dg_result_and_never_opens_business_pg(source_
 
 @pytest.mark.parametrize("params", [{}, {"tradeDate": "2026-01-30"},
                                      {"tradeDate": "2026-02-02", "startDate": "2026-02-02"}])
-def test_local_ordinary_daily_requests_keep_original_shape(source_client, params):
+def test_local_ordinary_daily_requests_include_nine_turn_without_pagination(source_client, params):
     with source_client.client_for() as client:
         response = request(client, **params)
     assert response.status_code == 200, response.text
     payload = response.json()
     assert "quote" not in payload and "nextEndDate" not in payload["meta"]
-    assert "nineTurnMarkers" not in payload
+    assert payload["nineTurnMarkers"] == []
     assert len(source_client.calculations) == 1
-    assert all(item.calculation_id != "nineturn" for item in source_client.calculations[0].calculations)
+    assert [item.calculation_id for item in source_client.calculations[0].calculations].count("nineturn") == 1
     check_values(payload, DAYS[-1:] if "startDate" in params else DAYS)
 
 
@@ -274,17 +278,19 @@ def test_stock_daily_pages_use_previous_actual_date_and_stop_at_oldest(source_cl
     assert len(source_client.calculations) == 3
 
 
-def test_local_first_page_and_continuation_get_markers_from_the_same_calculation(source_client):
+@pytest.mark.parametrize("paginated", [False, True])
+def test_local_daily_requests_get_markers_from_the_same_calculation(source_client, paginated):
     for index, day in enumerate(DAYS):
         partition = f"silver/quote/stock_daily/trade_date={day}/part-000.parquet"
         original = pq.ParquetFile(source_client.root / partition).read().to_pylist()[0]
         write_table(source_client.root, partition, [original | dict.fromkeys(("open", "high", "low", "close"), 20.0 + index)])
     anchor = DAYS[12].isoformat()
     with source_client.client_for() as client:
-        first = request(client, tradeDate=anchor, endDate=anchor, limit=5)
+        first = request(client, endDate=anchor, limit=5, **({"tradeDate": anchor} if paginated else {}))
         assert first.status_code == 200, first.text
         first = first.json()
-        older = request(client, tradeDate=anchor, endDate=first["meta"]["nextEndDate"], limit=5)
+        older = request(client, endDate=first["meta"]["nextEndDate"] if paginated else DAYS[7].isoformat(),
+                        limit=5, **({"tradeDate": anchor} if paginated else {}))
         assert older.status_code == 200, older.text
         older = older.json()
     assert len(source_client.calculations) == 2
@@ -300,9 +306,13 @@ def test_local_first_page_and_continuation_get_markers_from_the_same_calculation
              "sequenceNumber": count, "completed": count == 9}
             for index, count in zip(indices, counts, strict=True)
         ]
-    assert first["quote"]["tradeDate"] == anchor
+    if paginated:
+        assert first["quote"]["tradeDate"] == anchor
+        assert older["pageContext"]["tradeDate"] == first["meta"]["nextEndDate"]
+    else:
+        assert "quote" not in first and "nextEndDate" not in first["meta"]
+        assert "nextEndDate" not in older["meta"]
     assert "quote" not in older
-    assert older["pageContext"]["tradeDate"] == first["meta"]["nextEndDate"]
 
 
 def test_stock_daily_cursor_crosses_days_without_stock_data(source_client):
@@ -405,6 +415,7 @@ def test_empty_and_missing_source(source_client):
         assert response.status_code == 200, response.text
         assert response.json()["dataStatus"]["status"] == "EMPTY"
         assert response.json()["bars"] == []
+        assert response.json()["nineTurnMarkers"] == []
         for path in (INIT_PATH, PATH):
             assert client.get(path, params={"tsCode": "T00018.SH"}).json()["code"] == "404001"
     with source_client.client_for(source_root=source_client.root / "absent") as client:
@@ -441,17 +452,27 @@ def test_invalid_latest_basis_is_rejected_outside_page_window(source_client, fac
     assert not source_client.calculations
 
 
-@pytest.mark.parametrize("failure", ["missing rail", "nonfinite rail"])
-def test_trend_contract_failure_releases_request_and_retries(source_client, monkeypatch, failure):
+@pytest.mark.parametrize("paginated", [False, True])
+@pytest.mark.parametrize("failure", ["missing rail", "nonfinite rail", "missing nine turn", "invalid nine turn"])
+def test_daily_contract_failure_releases_request_and_retries(source_client, monkeypatch, failure, paginated):
     from dataclasses import replace
     calculate = TechnicalIndicatorService.calculate_with_source
     broken = True
 
-    def result_with_invalid_rail(service, request, **kwargs):
+    def result_with_invalid_output(service, request, **kwargs):
         calculated = calculate(service, request, **kwargs)
         if not broken or calculated.result is None:
             return calculated
         result = calculated.result
+        if failure == "missing nine turn":
+            return replace(calculated, result=replace(result, calculations=tuple(
+                item for item in result.calculations if item.calculation_id != "nineturn"
+            )))
+        if failure == "invalid nine turn":
+            return replace(calculated, result=replace(result, calculations=tuple(
+                replace(item, fields=(("up_count", (14,) * len(result.times)), item.fields[1]))
+                if item.calculation_id == "nineturn" else item for item in result.calculations
+            )))
         channel = next(item for item in result.calculations if item.calculation_id == "trend_channel")
         fields = channel.fields[:-1] if failure == "missing rail" else (
             ("short_upper", (float("nan"),) * len(result.times)), *channel.fields[1:],
@@ -461,9 +482,11 @@ def test_trend_contract_failure_releases_request_and_retries(source_client, monk
             invalid if item is channel else item for item in result.calculations
         )))
 
-    monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", result_with_invalid_rail)
+    monkeypatch.setattr(TechnicalIndicatorService, "calculate_with_source", result_with_invalid_output)
     with source_client.client_for(raise_server_exceptions=False) as client:
-        args = {"tsCode": CODE, "tradeDate": str(OTHER_DAY), "endDate": str(OTHER_DAY), "limit": 2}
+        args = {"tsCode": CODE, "endDate": str(OTHER_DAY), "limit": 2}
+        if paginated:
+            args["tradeDate"] = str(OTHER_DAY)
         failed = client.get(PATH, params=args)
         assert failed.status_code == 500, failed.text
         assert not client.app.state.technical_indicator_runtime.admission.active_leases
@@ -471,4 +494,5 @@ def test_trend_contract_failure_releases_request_and_retries(source_client, monk
         success = client.get(PATH, params=args)
         assert success.status_code == 200, success.text
         check_values(success.json(), DAYS[-2:])
+        assert success.json()["nineTurnMarkers"] == []
         assert not client.app.state.technical_indicator_runtime.admission.active_leases

@@ -22,7 +22,7 @@ STOCK_COMMON_CALCULATIONS = (
 )
 _NINE_TURN_CALCULATION = _item("nineturn")
 _TREND_CHANNEL_CALCULATION = _item("trend_channel")
-STOCK_DAILY_CALCULATIONS = (*STOCK_COMMON_CALCULATIONS, _TREND_CHANNEL_CALCULATION)
+STOCK_DAILY_CALCULATIONS = (*STOCK_COMMON_CALCULATIONS, _NINE_TURN_CALCULATION, _TREND_CHANNEL_CALCULATION)
 STOCK_DAILY_ALGORITHM_VERSIONS = MappingProxyType({
     "ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0", "price": "1.0.0",
     "nineturn": "1.0.0",
@@ -43,8 +43,8 @@ def stock_common_calculations(*, include_nine_turn: bool):
     return STOCK_COMMON_CALCULATIONS
 
 
-def stock_daily_calculations(*, include_nine_turn: bool):
-    return (*stock_common_calculations(include_nine_turn=include_nine_turn), _TREND_CHANNEL_CALCULATION)
+def stock_daily_calculations():
+    return STOCK_DAILY_CALCULATIONS
 
 
 def validate_stock_daily_request(request: StockDailyKlineRequest) -> None:
@@ -68,28 +68,24 @@ def is_stock_detail_first_page(request: StockDailyKlineRequest) -> bool:
     )
 
 
-def build_calculation_request(
-    source: StockDailyKlineInput, *, include_nine_turn: bool = False,
-) -> CalculationRequest | None:
+def build_calculation_request(source: StockDailyKlineInput) -> CalculationRequest | None:
     """Use actual returned dates; the kernel determines its own preceding history."""
     if not source.bars:
         return None
-    return _calculation_request(source, source.bars[0].trade_date, source.bars[-1].trade_date,
-                                include_nine_turn=include_nine_turn)
+    return _calculation_request(source, source.bars[0].trade_date, source.bars[-1].trade_date)
 
 
 def build_recent_calculation_request(
-    source: StockDailyKlineInput, start: date | None, *, include_nine_turn: bool,
+    source: StockDailyKlineInput, start: date | None,
 ) -> CalculationRequest:
-    return _calculation_request(source, start, source.query_end_date, latest_rows=source.request.limit,
-                                include_nine_turn=include_nine_turn)
+    return _calculation_request(source, start, source.query_end_date, latest_rows=source.request.limit)
 
 
-def _calculation_request(source, start, end, *, latest_rows=None, include_nine_turn):
+def _calculation_request(source, start, end, *, latest_rows=None):
     timezone = ZoneInfo("Asia/Shanghai")
     return CalculationRequest(
         security_type="stock", ts_code=source.ts_code, period="day", adjustment="qfq",
-        calculations=stock_daily_calculations(include_nine_turn=include_nine_turn),
+        calculations=stock_daily_calculations(),
         start=datetime.combine(start, time.min, timezone) if start is not None else None,
         end=datetime.combine(end, time.min, timezone),
         latest_rows=latest_rows,

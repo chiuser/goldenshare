@@ -51,7 +51,7 @@ def test_period_json_keeps_original_factors_dates_and_cursor(period):
     previous = date(2026, 1, 2) if period == "week" else date(2025, 12, 31)
     context = StockPeriodContext(_source(()).context, StockDetailStockRefDto(tsCode="600000.SH"), day, ())
     base = result_for("600000.SH", (day,))
-    common = tuple(item for item in base.calculations if item.calculation_id != "trend_channel")
+    common = tuple(item for item in base.calculations if item.calculation_id not in ("trend_channel", "nineturn"))
     counts = CalculationValues("nineturn", "1.0.0", (), (("up_count", (0,)), ("down_count", (0,))))
     result = replace(base, source_as_of=(day,), period_bars=(PeriodBarMetadata(date(2026, 1, 5) if period == "week" else date(2026, 1, 1), day, 1.5),),
                      calculations=(*common, counts))

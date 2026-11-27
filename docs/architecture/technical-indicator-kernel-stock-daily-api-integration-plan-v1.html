@@ -29,10 +29,11 @@
   <p class="meta">2026-11-05历史阶段记录。当前状态和2026-11-12审计以文首现状表为准。该阶段仅修正文档边界，不开发或运行计算验收。先完成内核独立开发与验收，再进入全部业务/产品阶段；股票A/B/C原18项普通验证证据及已完成的API默认500、范围1～500数量对齐保留，其余源码冻结。股票query/mapper/固定十项优化、P01、PREP、R01～R05、Figma及前端全部后置；不以数量单项完成代替内核或完整产品验收，不部署。</p>
 </header>
 <section id="prod-stock-nine-turn-design-20261127">
-  <h2>2026-11-27后续设计确认：Prod股票日线九转（待开发）</h2>
+  <h2>2026-11-27 Prod股票日线九转（阶段1完成，阶段2、3待推进）</h2>
+  <p><strong>阶段1实际状态：</strong>后端在原日K同次计算中加入九转，各环境日线回包必有标记数组；Python/TypeScript及OpenAPI同步，后端106项、前端52项限定测试、类型检查和隔离生产构建通过。页面切换、旧接口删除、真实Prod来源及浏览器验收未执行，未部署。证据与另一次自审见<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1">九转LLD §12.8</a>。以下设计与历史验收按各自阶段理解。</p>
   <p>管理员已确认Prod股票日线九转接算子库，并批准删除旧 <code>/api/v1/wealth/market/stock-detail/nine-turn</code> 及专用查询。股票日线在原同次计算中加入已有九转算子，复用同批复权行情，普通本地及Prod日K回包必有 <code>nineTurnMarkers</code>。页面消费同批标记，删除股票独立九转请求及专用重试，旧2000根独立接口及游标合同退出。</p>
   <p>本次已批准的日线增量覆盖原阶段“DTO不扩、九转不迁移、Prod不内联九转”的限制。分页标志只承担现有分页职责，Prod不新增本地式分页；周月线、股票分钟、指数、DG生产/同步/文件及Prod结果表不在本次变更范围。下文历史实现和验收仍按原范围保存，不表示本次已落地。</p>
-  <p>现行设计见<a href="technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan">原九转方案§6</a>、<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld">原九转LLD §12</a>及<a href="../../wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract">股票页面合同</a>。本轮仅补文档，未编码、运行计算验收或部署。</p>
+  <p>现行设计见<a href="technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan">原九转方案§6</a>、<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld">原九转LLD §12</a>及<a href="../../wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract">股票页面合同</a>。设计冻结时仅补文档；其后阶段1实际结果见上述执行记录，尚未完成整项迁移验收或部署。</p>
 </section>
 <div class="note" id="output-byte-limit-removal-decision"><strong>2026-11-12修复已完成。</strong>计算内核与接入响应已取消输出字节上限；Settings/KernelConfig中的对应字段及纯库专门JSON计量已删除，技术指标配置现为17项。公开calculate只返回计算对象，HTTP最终响应正常编码一次。500根输出位置合同及其它资源限制保留。旧字节边界证据仅属历史，不再执行；具体实现和限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。</div><p>2026-11-12本轮已完成固定指标重复检查和取消输出字节上限，具体文件、函数、消费者迁移、正常/失败处理及限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。16个旧指标字段保留，其它股票产品修正不在本轮。</p>
 <section id="stock-current-audit-20261112"><h2>2026-11-12当前代码对账</h2>

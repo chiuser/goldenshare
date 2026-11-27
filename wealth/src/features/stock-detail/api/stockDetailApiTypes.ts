@@ -144,7 +144,7 @@ export interface StockDailyKlineBarDto extends StockKlineBarDto {
 }
 
 interface StockDetailKlineFields {
-  nineTurnMarkers?: NineTurnMarkerDto[];
+  nineTurnMarkers: NineTurnMarkerDto[];
   pageContext: StockDetailPageContextDto;
   stockRef: {
     tsCode: string;
