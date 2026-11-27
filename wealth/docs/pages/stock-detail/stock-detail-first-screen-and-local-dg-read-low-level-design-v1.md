@@ -1,12 +1,14 @@
 # 股票详情首屏与本地 DG 取数迁移 LLD v1
 
+> **2026-11-27已确认后续设计，待开发：Prod股票日线九转接算子库并删除旧独立接口。** Prod与普通本地日线均在原日K请求中计算、校验并返回必有 `nineTurnMarkers`；`paginated`只控制现有本地分页，不再控制九转。页面在所有环境消费同批标记，取消股票独立日线九转加载和重试；管理员已批准删除旧 `/api/v1/wealth/market/stock-detail/nine-turn`、专用查询和前端请求，旧2000根及独立游标合同退出。原方案及代码点、读取/预算、混合测试、失败清理和验收统一见[九转方案§6](../../../../docs/architecture/technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)、[九转LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)及[股票页面合同](stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract)。下文原阶段“Prod JSON不变／不内联九转／九转独立请求”的限制由该明确批准覆盖；Prod盘口及原加载方式保持，不新增生产分页。DG生成、同步、sensor、文件、Prod结果表和运营统计均不处理。本段是待开发设计，不表示已有切换或验收。
+
 > 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
 
 **2026-11-25 后续趋势通道专项（阶段二实现及技术验收完成，未部署）。** 阶段二实现由同一次算子库调用取得行情、原指标和四轨，并在 `/kline` 的每根日 K 中返回必有 `factors.trendChannel`。字段、日线/周月线类型隔离、原函数消费者和测试以[专项 LLD §4.2](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#42-阶段二股票日线)为准；本文件下方旧接口、独立图层与性能记录保留历史语义，不再作为新实现的取数要求。阶段二代码、隔离技术验收、正式 DG 有界及浏览器核验和对照审计见[专项 LLD §10](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#stock-trend-channel-stage2-execution)；常用服务、共享包和 Prod 未切换。
 
 阶段二的具体交接为：`StockDetailPage.loadStockDetail()` 由日 K 生成首批通道点并与 candles 一同保存；`useStockDailyHistory.loadPage()` 先完成 K 线、四轨和九转等转换，成功后才一起提交页数组及 `nextEndDate`，失败保留原图、原游标并重试原批。`StockChartWorkspace` 合并首批和历史页通道点，保留原画法/着色，开关只切绘制；移除新页面的 `useStockTrendChannel()` 调用和历史 `loadTrend/ensureTrend/retryTrend`、独立请求及其重试 UI。保留现有取消和迟到响应处理。
 
-本地继续每批最多 500 根及实际游标，首批盘口/续页省略盘口保持；Prod 沿原环境和参数、原 page-init 盘口及原无本地游标的加载方式，只给日线增加四轨，不新增生产分页或内联九转。本文原迁移阶段“Prod JSON 字段集合不变”不限制此项明确批准的四轨增量，其余原行为仍保留。页面支持标志脱离旧通道配置、结果和续算状态目录；旧接口未删除期间的原限制只控制旧接口。
+历史边界（2026-11-25趋势通道专项）：本地继续每批最多 500 根及实际游标，首批盘口/续页省略盘口保持；Prod 沿原环境和参数、原 page-init 盘口及原无本地游标的加载方式，当时只给日线增加四轨，不新增生产分页或内联九转。本文原迁移阶段“Prod JSON 字段集合不变”不限制该四轨增量。2026-11-27批准的九转后续设计见文首，进一步覆盖“不内联九转”的旧边界，仍不新增Prod分页。页面支持标志已脱离旧通道配置、结果和续算状态目录；旧接口未删除期间的限制仅保留为历史记录。
 
 管理员指定在专项第三阶段整理公共组装：每指标独立 build，公共组合复用，各业务 `assemble()` 显式组合；公共职责迁出日线服务，日线独立调用趋势通道 builder，周月线不新增计算或空轨道。阶段二先完成计算清单隔离和日线接入，不提前拆改公共四组组装。源码依据、函数名、实施范围、预算和逐项回归见[专项 LLD §4.3](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#43-阶段三逐指标组装整理与上证日线接入)。第三阶段已按该设计迁入 `stock_kline_factor_mapper.py`，日、周、月显式组合各指标；改前/改后完整 JSON 一致，48 项股票定向测试通过。分步审计见[专项 LLD §12.1](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#121-股票组装整理的分步审计)，未发包、切换或部署。
 

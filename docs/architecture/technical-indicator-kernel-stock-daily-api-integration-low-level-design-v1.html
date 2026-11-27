@@ -23,6 +23,13 @@
   <p>本文是后置股票产品预案；原URL和DTO字段不扩，股票日线API默认500、范围1～500已经批准并按第05节完成限定对齐。已确认的页面500/剩100、短页停止及独立图层请求量见第16.5节。页面开发前完成Figma核对；已确定的“暂无行情信息”文案及BOLL NULL目标保留。后置接入仍一次计算十项指标并按原字段返回，同次请求的数据库读取、计算、编码、发送和清理共用既定时限及名额。</p>
   <p class="meta">2026-11-05阶段记录。当前状态和2026-11-12审计以文首现状表为准。该阶段仅修正文档边界，不开发或运行计算验收。先内核独立完成与验收，再推进全部股票业务/产品。A/B/C原18项普通验证、C提交16f1cc91e及已完成的API数量对齐保留，其余源码冻结；query/mapper、固定十项优化、股票P01/PREP/四R/R05、Figma及前端全部后置。当前后台仍调用公开calculate，不为核心立即迁私有helper；数量单项完成不代表可发布新内核产品，不部署。</p>
 </header>
+<section id="prod-stock-nine-turn-design-20261127">
+  <h2>2026-11-27后续设计确认：Prod股票日线九转（待开发）</h2>
+  <p>管理员要求Prod股票日线九转接入算子库，并确认删除旧 <code>/api/v1/wealth/market/stock-detail/nine-turn</code> 及专用查询代码。原阶段“DTO字段不扩、九转不迁移、Prod不内联九转”不再限制本次已批准变更；以下各阶段实现和验收仍按当时范围保存，不表示本次代码已落地。</p>
+  <p>股票日线固定计算清单加入已有 <code>nineturn</code>，与价格、原指标及趋势通道共用同次复权输入；普通本地日线和Prod日线均返回必有 <code>nineTurnMarkers</code>，正常无标记和合法空页返回空数组。分页标志只控制现有分页元数据。页面统一消费同批标记，取消股票独立九转请求和专用重试；旧2000根独立接口及游标合同退出，不保留转发或读成品的后备实现。</p>
+  <p>本次目标日线请求为7个MA实例及BOLL、MACD、KDJ、price、nineturn、trend_channel各1个，共13个实例，沿现有16个默认实例上限及原时限。九转单算预热16根，共同读取按已有最大历史需求合并，不新增独立行情或复权读取。周月线已有同名标记字段、股票分钟、指数及共享绘图保持；Prod不新增本地式分页。DG生产、同步、sensor、文件、Prod结果表和运营统计不在本期。</p>
+  <p>完整实现、消费者、删除/保留、失败清理、取消重试及真实只读验收范围见<a href="technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan">原九转方案§6</a>和<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld">原九转LLD §12</a>；股票页面字段合同见<a href="../../wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract">股票页面方案</a>。本轮仅补文档，未编码、运行数值/性能测试、发包或部署。</p>
+</section>
 <div class="note" id="output-byte-limit-removal-decision"><strong>2026-11-12修复已完成。</strong>计算内核与接入响应已取消输出字节上限；Settings/KernelConfig中的对应字段及纯库专门JSON计量已删除，技术指标配置现为17项。公开calculate只返回计算对象，HTTP最终响应正常编码一次。500根输出位置合同及其它资源限制保留。旧字节边界证据仅属历史，不再执行；具体实现和限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。</div><p>2026-11-12本轮已完成固定指标重复检查和取消输出字节上限，具体文件、函数、消费者迁移、正常/失败处理及限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。16个旧指标字段保留，其它股票产品修正不在本轮。</p>
 <p class="note"><strong>当前剩余修复的编码依据：</strong>第19节已完整定义BOLL、合法空行情及股票环境选源三项修复。该节是这些事项的现行要求；尚未实施的额外mapper检查优化与股票分页不在本轮，assemble本次只增加来源说明参数，保留现有_validate_result行为。旧章节中的固定PG加Lake、重读当页与旧来源验收夹具不再作为执行要求。仅文档补齐，代码尚未修复；Figma及DG真实读取状态分别按19.6/19.7记录。</p><section id="stock-current-audit-20261112"><h2>2026-11-12现状与未完成的实现</h2>
 <p>股票日线后台已使用独立共享包0.1.0，内核合同版本3.0.0。API默认及上限500，StockDetailPage当前首屏也显式500；页面仍只加载一页。A/B/C及2026-11-03的普通验证保留原范围，后续P01、PREP、R01—R05没有完成证据。下表区分已修复事项与仍未完成的产品工作，不把本轮修复等同于股票完整验收。</p>

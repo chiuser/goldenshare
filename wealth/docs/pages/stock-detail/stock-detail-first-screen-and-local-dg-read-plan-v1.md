@@ -1,5 +1,7 @@
 # 股票详情首屏与本地 DG 取数迁移方案 v1
 
+**2026-11-27 后续设计已确认，待开发：Prod股票日线九转。** Prod与普通本地日线在原日K同次算子计算中加入九转，回包必有 `nineTurnMarkers`；页面直接消费同批标记，删除旧股票独立日线九转接口、专用查询及前端请求。本次已批准变更覆盖原换源阶段“仅本地、Prod字段不变、独立九转保留”的相关限制；本地原分页、Prod原加载和盘口方式保持，不新增Prod分页，不改DG生产、同步、文件或Prod结果表。完整口径见[原九转方案§6](../../../../docs/architecture/technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)、[原九转LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)及[股票页面合同](stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract)。下方实现和验收保留原阶段范围，不代表本次已开发或验收。
+
 > 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
 
 > 2026-11-19 · 待评审。本文记录已确认的业务口径和本期实施方案。接口变更、代码落点和阶段验收见 [实施 LLD](stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)。

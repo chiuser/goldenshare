@@ -1,5 +1,7 @@
 # 九转算子及本地股票详情接入 LLD v1
 
+**2026-11-27 Prod股票日线后续设计已确认，待开发。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次已批准变更；历史验收结果保留，不改写为本次通过。
+
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
 §1–10 记录日线九转的首期范围、代码和验收。其他股票周期见[股票周月线 LLD](technical-indicator-stock-period-low-level-design-v1.md#stock-period-nine-turn)和[股票分钟线 LLD](technical-indicator-stock-minute-low-level-design-v1.md)。
@@ -294,3 +296,101 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 **Chrome。** 使用隔离本地前后端和正式 DG 行情。深证成指 30 分钟图和摘要共用一次 `/minutes`，打开技术面只为 15、60、90、120 分钟请求独立九转。模拟 60 分钟常用指标 HTTP 500 后，K 线和九转仍显示。1 分钟回包 `nineTurn=null`，九转开关禁用。北证 50 的 90 分钟行情和九转均为空，页面显示原空态。浏览器取消一次上证综指 120 分钟请求后原参重试，136 毫秒返回 500 根行情和对应九转。认证、估值和成分数据使用隔离配置，顶底识别接口未纳入本轮浏览器验收。
 
 **回归与切换。** 后端 112 项、Wealth 专项 90 项通过。前端类型检查、隔离构建、文档检查和 Git 差异检查通过。常用本地服务待整体切换，切换后复验并更新数据来源总审计 HTML。
+
+<a id="prod-stock-nine-turn-lld"></a>
+
+## 12. Prod股票日线九转接入与旧独立接口删除（2026-11-27，设计已确认、待开发）
+
+### 12.1 目标、批准范围和现状依据
+
+目标是让Prod股票日线九转复用现有算子库的同次日K计算，并让股票页面在各环境消费同批标记。管理员要求Prod也接算子库，对删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及专用查询明确回复“删除吧”。删除范围含该接口原2000根上限、独立日期查询和游标，不保留旧URL转发、兼容参数或错误时读成品的后备实现。
+
+当前源码依据及影响面已用CodeGraph `codegraph_explore`、`codegraph_impact`和实际引用核对：
+
+| 位置 | 当前做法 | 本步如何改 |
+| --- | --- | --- |
+| `src/app/dependencies/stock_daily_technical_indicators.py` | Prod调用 `build_calculation_request(snapshot)` 默认不含九转；注册版本检查按DG决定是否含九转 | 所有股票日线使用同一固定九转清单；Prod继续原选页和PostgreSQL输入，不另建计算入口 |
+| `src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py` | `stock_daily_calculations()`及请求构造带 `include_nine_turn`，缺省Prod不选 | 日线清单固定包含九转，删除日线专用的选择参数；共用 `stock_common_calculations(include_nine_turn=...)` 保持周月线已有用途 |
+| 同目录 `stock_daily_kline_service.py` | `prepare_recent()`和 `assemble()`把 `paginated`当成是否选九转、校验九转的条件；已有标记组装可复用 | 日线计算、校验和标记输出与分页分开，复用现有组装及 `build_nine_turn_marker()` |
+| `src/biz/schemas/wealth/market/stock_detail.py` | 普通日线父类没有数组；本地分页、周月子类各自已有数组 | 公共响应字段定义必有数组；子类继承，周月线原JSON保持 |
+| `src/biz/api/wealth/market/stock_detail.py` | 普通/本地日K共用路由，按环境声明模型 | 同步OpenAPI和各响应模型，保留现有请求、500根上限及环境分页差异 |
+| `wealth/src/pages/stock-detail/StockDetailPage.tsx` | 只在 `local` 时取回包标记；Prod通过registry请求独立九转 | 所有股票日线从回包取标记；本地判断继续只承担盘口与历史分页职责 |
+| `wealth/src/features/stock-detail/api/stockDetailApiTypes.ts` | 共用字段 `nineTurnMarkers`可选 | 所有股票日/周/月K响应中该数组必有，所有类型消费者与测试输入同步 |
+
+CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、前端API client/adapter、股票页及测试。字符串及导入引用另核对旧独立接口的前端请求、混合测试、浏览器夹具、股票分钟合同和运营统计；不能仅凭CodeGraph没有显示测试就判无消费者。仓库内旧独立股票日线九转的产品调用方为股票详情页；本次删除已由管理员批准，不把未证明的外部访问量作为保留旧实现的理由。
+
+### 12.2 计算和数据读取
+
+1. 固定日线清单按原共用顺序保持MA、BOLL、MACD、KDJ、price，再加nineturn和trend_channel。`STOCK_DAILY_CALCULATIONS`、`stock_daily_calculations()`、`build_calculation_request()`、`build_recent_calculation_request()`和私有请求构造同步清零日线 `include_nine_turn=False` 口径。周月线的共用选择函数不借机改造。
+2. `StockDailyKlineAppBackend`在所有环境校验日线九转版本和日线支持能力；Prod仍用当前 `prepare()`及一次 `indicators.calculate()`，DG仍用当前 `prepare_recent()`及一次 `calculate_with_source()`。不另起独立九转算子请求，不把Prod改成本地读数或增加分页。
+3. `StockDailyKlineService`按固定清单校验完整结果，所有有目标行情的日线必须有九转结果。复用已有0—13整数、方向互斥及日期对齐检查，不在下层再增加一套校验；普通请求不再绕过九转验证。组装读取已校验的同一份结果，并沿当前标记helper生成1—9，0和10—13不画。
+4. Prod输入沿 `core_serving.equity_daily_bar`、`core.equity_adj_factor`；本地沿DG股票不复权日线和股票复权因子。复用同次输入会话的复权后收盘价，不读 `core_serving.equity_qfq_nineturn_daily`、DG九转成品或旧趋势通道成品。基础行情、股票每日指标及复权因子仍各按现有职责读取。
+5. 当前Prod业务选页的 `StockDetailQuery.load_kline_rows()`仅选本批日期、昨收、涨跌、换手率和量比；行情价格、预热及复权由算子输入会话读取。不得将这两步误写成两次九转计算，或为本次新增第三次取价。既有Prod定位、日历和复权基准读取不在本次重构；比较增量时固定同一日K请求，列清各查询的用途、表和字段。
+
+### 12.3 返回、页面与失败规则
+
+| 合同 | 明确要求 |
+| --- | --- |
+| `/stock-detail/kline` | 路径及参数保持，日线缺省/上限500根保持；`nineTurnMarkers`为必有数组，普通本地日线及Prod都新增该字段，不保留旧缺字段日线类型 |
+| 数组内容 | 使用现有 `NineTurnMarkerDto`，按本批日期升序；日线 `tradeTime=null`，只展示1—9，第9根沿原完成样式；预热不进入回包 |
+| 无标记与空行情 | 正常无标记及合法空日K均显式返回 `[]`；不得用数组缺省值掩盖漏算、缺字段或错误结果 |
+| Python继承及OpenAPI | 在 `StockDetailKlineResponseDto`声明数组，本地分页和周月类继承；去掉同字段的重复声明，同步普通、本地和debug响应。周月线原本已有标记，原输出不变 |
+| 前端类型 | `StockDetailKlineFields.nineTurnMarkers`改为必有；迁移全部日/周/月响应构造、API overload、adapter及测试输入，禁止保留可选旧口径 |
+| 首屏消费 | `StockDetailPage.loadStockDetail()`在所有日线回包均校验数组并用 `buildStockDailyNineTurnLayer()`保存。原 `local` 判断仍处理盘口来源和历史seed，不再决定九转来源 |
+| 历史页与环境 | 本地 `useStockDailyHistory`沿现有批次、日期、四轨和标记一起提交，成功才更新游标；Prod沿原首屏与日期请求方式，不增设本地式续页 |
+| 显示与重试 | 原开关、样式、颜色及日期定位不变，开关不取数；九转计算/合同错误随日K失败、取消和重试，不单独重试九转或回读成品 |
+
+股票页删除 `loadStockNineTurnSeries`、`useNineTurnSeriesRegistry`调用、相关日线周期常量、`ensure("day")`及 `retry("day")`。加载占位沿现有图层状态，成功使用同批结果。`StockChartWorkspace`删除仅为独立九转准备的 `onNineTurnRetry`参数及传递；共享 `NineTurnLayerStatus.onRetry`本已可选，股票图层不再传它，指数及其他调用方保持。共用registry、状态组件、标记DTO、`useNineTurnChartLayer`及 `NineTurnMarkerPrimitive`均保留。
+
+失败或取消后，输入会话、数据库连接、临时表、工作许可及发送资源按现有执行流程释放；没有业务数据写入、补算落库或持久化续跑。重试是同一日K请求的完整重新读取、计算和返回。本地历史失败保留原图和原游标；Prod首屏失败沿原日K页面错误处理，不新增独立九转错误UI。
+
+### 12.4 删除、保留及混合消费者清单
+
+| 对象 | 处理及原因 |
+| --- | --- |
+| `src/biz/api/wealth/market/stock_detail_nine_turn.py` | 删除旧路由及专用错误映射；`src/app/api/v1/router.py`同步删该模块导入、挂载，其他路由顺序不改 |
+| `src/biz/queries/wealth/market/stock_nine_turn/` | 删除专用query、service及包文件，清零运行代码引用，不为测试保留实现 |
+| `wealth/src/features/nine-turn/api/nineTurnApiClient.ts` | 删除 `StockNineTurnFetchParams`、`fetchStockNineTurnSeries`和私有函数中的股票专用类型/分支；保留指数请求、通用错误处理及其原行为，不重写指数入口 |
+| `tests/web/test_wealth_stock_nine_turn_api.py` | 删除旧接口的读表、部分匹配、独立日期窗口/游标、参数及品种拒绝测试；将仍有效的page-init九转能力和Prod分钟路由未开放断言迁入现有股票日K路由测试，不整文件丢弃仍有效行为 |
+| `tests/wealth_watchlist_browser_fixture.py` | 清理只为旧股票日线九转接口准备的结果表导入、建表清单项和种子；保留自选、身份、日历、行情及其他夹具。该文件不是Prod清表脚本，不操作正式库 |
+| 前端混合测试 | 清理股票页面和历史测试中旧请求的mock/import/期望，更新缺失标记字段、Prod内联输出及零独立请求断言；不导入旧模块并设置“调用即报错”来证明删除 |
+| `src/foundation/clients/local_lake/stock_nine_turn_contract.py` | 保留：股票分钟独立九转API及新分钟算子读取器仍用其上限与支持周期，不能因名称含stock_nine_turn就删除 |
+| Prod股票日线前复权九转表及模型 | 保留 `core_serving.equity_qfq_nineturn_daily`、对应模型/全局注册/迁移及服务表合同测试；运营卡片和DG发布仍有用途，不改表结构或删除数据 |
+| 指数与其他周期 | 指数独立日线/分钟九转、股票分钟九转、周月回包和共享标记绘制均保留；不删除整个nine-turn前端目录或通用 `NineTurnSeriesDto` |
+| DG相关对象 | 不启停sensor、不改生成/修复/同步/check/日审计、不改文件或数据集，也不把这些事项设为本次开工前提 |
+
+旧路径在完整路由装配和OpenAPI中退出；隔离应用请求返回404。不把旧2000根接口截断、分批代算或转发为500根 `/kline`，不追加开关保留两种股票日线九转来源。前后端组成同一交付候选，发布另行授权。
+
+### 12.5 性能预算与真实验证范围
+
+本节数字是现行代码或逐项推导，不是本次已测结果：
+
+- 日线输出上限为500根，沿现有请求校验。固定日线清单为7个MA实例，加BOLL、MACD、KDJ、price、nineturn、trend_channel各1个，共13个实例；现有默认上限为16，不新增或提高配置。
+- 单算九转所需前置行情为16根。令本次其他指标已解析的联合预热为 `W`，当前日线已有固定500根预热的趋势通道，所以 `W≥500`；增加九转后为 `max(W,16)=W`。目标 `T≤500` 时，交给算子的行情按已有 `T+W`范围处理，历史短时用已有历史；`W=500、T=500`时为1000根，这不是所有请求的数学上限，也不是磁盘扫描行数。
+- 默认总目标8000毫秒、清理预留2000毫秒，来自 `Settings.technical_indicator_total_target_ms/cleanup_reserve_ms`；运行时沿实际配置，不抬高时限、输入、文件或内存上限。新增开销是九转自身SQL和至多T个标记的组装、编码；不得宣称耗时为零，实测后记录。
+- 最小真实来源验证选已有股票日线验收用过的 `600519.SH`，目标截止日用当次页面交易日，正常请求500根；历史不足按真实返回，不人为补齐。隔离应用只装配实际股票日K路由及其计算运行环境，连接真实PostgreSQL只读来源；不调用完整 `web_lifespan`，不启动会写正式状态的交易助手等后台组件。不重启或替换正式Web，不创建正式账户、不绕鉴权；正式线上发布和登录页面验收另按授权执行。
+- 一次正常请求、一次中断请求、同参完整重试、一次最后验收分别记账。三个完整请求各按 `T+W`计，合计逻辑交付量为 `3×(T+W)`，另加取消前实际已读量 `R取消`；它们是重复请求的累计处理量，不是独立K线或实际磁盘读量。每次分别记录耗时、价格SQL、股票复权因子SQL、源行数、复权次数、回包体积和资源释放。
+- 为独立复算，从该次执行已准备的共享复权后 `PriceBatch` 临时行情表记录收盘价，最多保留T根目标及其前16根，共最多516根；按seq与目标日期对应，不再向Prod追加取价或复权查询。工程外验收记录这次临时表投影、独立复算和最后对账的额外开销，不把验收自身SQL当作产品请求查询。预期计数用独立比较与连续计数实现，不能调用待测九转算子或标记helper生成expected。
+
+修改前后用同一请求口径对照价格/复权读取量，不能把删掉一次独立HTTP读取说成Prod所有既有SQL重复都已消除。重试的结果按该次真实输入独立验证；来源正常更新时不新增跨请求必须完全相等的拒绝或重试门槛。临时脚本、配置、数据样本、日志、测试缓存及构建输出统一在 `/private/tmp`本任务目录，结果回写原方案/LLD，退出后关闭临时资源并清理无用产物。
+
+### 12.6 测试、合同和验收矩阵
+
+| 要求 | 代码点和测试消费者 | 必须验证的正反例 |
+| --- | --- | --- |
+| 各环境股票日线同算九转 | 计算清单、App backend、`tests/test_stock_daily_kline_service.py`、`tests/app/technical_indicators/test_stock_daily_integration.py`、`tests/web/test_stock_daily_technical_indicator_api.py` | Prod与DG普通/本地分页均只发一次联合算子请求；必含九转，缺实例/字段/错误计数或日期错位拒绝；不得仍以paginated控制是否算九转 |
+| 新日线字段及OpenAPI | Python DTO、路由模型、TypeScript必有类型；上述测试及 `tests/app/technical_indicators/test_stock_daily_source_repair.py` | Prod普通/debug、DG普通/首批/续页和合法空页均有数组；无标记合法 `[]`，缺字段不能当空；周月原JSON不变 |
+| 九转数值与预热 | 现有 `tests/foundation/technical_indicators/test_nine_turn_calculation.py`及日K集成 | 以独立字面值覆盖行情真实起点的前4根、相等归零、换向、9与10—13、13封顶、历史短/上市前、跨批和从中间窗口请求；同批真实Prod输入独立复算，不借旧成品缺记录判新算法错误 |
+| 无多余源读取 | Prod日K来源装配、真实只读追踪及日K集成 | 同一目标加入九转不增加独立价格/复权查询或复权次数，不读旧九转表/文件；保留当前选页辅助字段的合理查询，不顺手改通用source |
+| 前端首屏与本地历史 | `StockDetailPage.test.tsx`、`useStockDailyHistory.test.tsx`、`stockDetailViewModelAdapter.test.ts`、`StockChartWorkspace.test.tsx` | Prod和本地首屏从日K保存标记，打开/开关/切股/切日及本地续页无股票独立九转请求；旧响应缺字段必须失败；本地失败不提交游标，重试同一批；首批无标记而历史有标记可显示 |
+| 共用类型与周期回归 | 前端API overload、`useStockPeriodKline.test.ts`及股票周月线真实路由隔离测试；股票分钟与指数九转原测试 | 必有类型的所有构造同步；周月字段、分钟及指数入口和绘图保持，无股票清理误删共用能力 |
+| 旧接口退出 | 主路由/OpenAPI、前端client和专用query删除清单、迁移后的股票日K路由测试 | 旧URL返回404、OpenAPI不存在，运行源码无旧模块或股票独立fetch引用；不为断言保留旧实现，不移除运营模型/服务表合同测试 |
+| 失败、中断及预算 | 现有execution/admission和相关日K集成、工程外真实只读验证 | 计算失败、回包字段错误、断开与同参重试均沿日K处理，资源释放、旧页面状态稳定；不提高预算或安装依赖掩盖失败 |
+
+前端真实浏览器验收在与候选后端配套的构建中完成：Prod模式股票日线首屏、九转开关、换股和换日期；本地额外核首批/续页与游标。请求真实后端并使用真实来源，登录和其他非目标模块可用既有隔离夹具，须写明隔离层。匿名线上探测401仅证明鉴权，不能作为真实业务结果验收；未执行正式线上登录验收时据实说明。所有当前相关后端回归、Wealth类型检查、定向测试和生产构建完成后，再做与编码分开的LLD逐项对照审计；不存在第二审计人时明确为另一次自审，不声称独立人员审计。
+
+### 12.7 阶段、文档交接和当前状态
+
+按方案§6.4的三个阶段推进：先后端同批计算及合同，再页面消费与旧业务代码清理，最后有界真实验证和对照审计。阶段之间不发布半套候选，不为过渡新增兼容层；前后端及旧接口退出作为同一交付候选review。发布、服务重启、共享包发包和DG停产均不是本次文档批准包含的正式执行。
+
+原股票页面实施方案、首屏/DG取数方案与LLD及股票日线内核接入方案与LLD同步注明本次后续设计，保留原阶段历史。开发完成后，才将实际字段来源和验收结果补入相关来源审计；目前不把在线旧链路写成已切换。当前完成的是源码与消费者核对、方案审计及本文设计，无新增业务待拍板项；实现、测试、真实Prod数值/费用验证、浏览器及最终对照审计均未在本轮执行，不能以本节或既有本地通过记录宣称开工后已完成。

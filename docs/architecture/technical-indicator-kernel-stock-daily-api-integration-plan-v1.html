@@ -28,6 +28,12 @@
   <p>后置股票接入继续使用原日线接口，所有现有指标在一次响应中返回。已确认的页面规则见第9.3节。每页500根，距缓存最早端剩100根时预取，成功短页即到头。</p>
   <p class="meta">2026-11-05历史阶段记录。当前状态和2026-11-12审计以文首现状表为准。该阶段仅修正文档边界，不开发或运行计算验收。先完成内核独立开发与验收，再进入全部业务/产品阶段；股票A/B/C原18项普通验证证据及已完成的API默认500、范围1～500数量对齐保留，其余源码冻结。股票query/mapper/固定十项优化、P01、PREP、R01～R05、Figma及前端全部后置；不以数量单项完成代替内核或完整产品验收，不部署。</p>
 </header>
+<section id="prod-stock-nine-turn-design-20261127">
+  <h2>2026-11-27后续设计确认：Prod股票日线九转（待开发）</h2>
+  <p>管理员已确认Prod股票日线九转接算子库，并批准删除旧 <code>/api/v1/wealth/market/stock-detail/nine-turn</code> 及专用查询。股票日线在原同次计算中加入已有九转算子，复用同批复权行情，普通本地及Prod日K回包必有 <code>nineTurnMarkers</code>。页面消费同批标记，删除股票独立九转请求及专用重试，旧2000根独立接口及游标合同退出。</p>
+  <p>本次已批准的日线增量覆盖原阶段“DTO不扩、九转不迁移、Prod不内联九转”的限制。分页标志只承担现有分页职责，Prod不新增本地式分页；周月线、股票分钟、指数、DG生产/同步/文件及Prod结果表不在本次变更范围。下文历史实现和验收仍按原范围保存，不表示本次已落地。</p>
+  <p>现行设计见<a href="technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan">原九转方案§6</a>、<a href="technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld">原九转LLD §12</a>及<a href="../../wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md#prod-stock-nine-turn-contract">股票页面合同</a>。本轮仅补文档，未编码、运行计算验收或部署。</p>
+</section>
 <div class="note" id="output-byte-limit-removal-decision"><strong>2026-11-12修复已完成。</strong>计算内核与接入响应已取消输出字节上限；Settings/KernelConfig中的对应字段及纯库专门JSON计量已删除，技术指标配置现为17项。公开calculate只返回计算对象，HTTP最终响应正常编码一次。500根输出位置合同及其它资源限制保留。旧字节边界证据仅属历史，不再执行；具体实现和限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。</div><p>2026-11-12本轮已完成固定指标重复检查和取消输出字节上限，具体文件、函数、消费者迁移、正常/失败处理及限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。16个旧指标字段保留，其它股票产品修正不在本轮。</p>
 <section id="stock-current-audit-20261112"><h2>2026-11-12当前代码对账</h2>
 <p>通用计算已迁入独立共享包0.1.0，内核合同版本3.0.0。股票后台已接通，API默认及上限500，页面首屏也已显式500。页面历史分页、BOLL的NULL显示和合法空页仍未完成；本方案的这些产品要求继续有效。</p>

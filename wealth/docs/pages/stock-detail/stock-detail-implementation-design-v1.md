@@ -1,5 +1,7 @@
 # 股票详情页｜真实 API 接入技术实施方案 v1
 
+> 2026-11-27已确认后续设计，待开发：Prod股票日线九转并入现有日K算子请求，`nineTurnMarkers`在各环境日线回包中必有；管理员批准删除旧 `/stock-detail/nine-turn` 及专用查询代码。普通本地日线也采用同一输出合同，Prod不新增本地式分页。具体口径见[本页日线补充合同](#prod-stock-nine-turn-contract)及[九转专项LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)。以下原阶段“Prod合同不变、独立九转请求”的限制不再适用于本次已批准变更，现有实现及历史验收不改写为本次已完成。
+
 > 2026-11-26 趋势通道专项阶段四（源码清理，未部署）：旧股票/上证独立通道接口、上证专用计算器与缓存、股票旧成品读取器和开关、前端旧请求已删除。现行四轨随日K接口返回；首批、续页、开关、摘要及环境差异沿专项LLD。下文涉及旧独立通道读取、请求或专用测试的内容仅保留为原阶段历史记录；本文其他功能与验收记录保持。现行依据及本次验收见[专项LLD §5](../../../../docs/architecture/technical-indicator-trend-channel-low-level-design-v1.md#5-阶段四旧业务清理与总验收)。
 
 > 2026-11-04数量合同修订：股票日线 `/api/v1/wealth/market/stock-detail/kline` 默认 `limit=500`，合法范围 `1～500`；超限沿原参数错误 HTTP 400、`code=400001`，不截断、不拆多次计算。现页面显式传300仍合法，本轮不改页面、请求时机或其他接口。其余技术指标内核与后续产品工作的状态以[股票日线专项LLD](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html)为准。
@@ -158,7 +160,7 @@ wealth/src/
 | `limit` | 否 | int | 默认 500，合法范围 1～500。 |
 | `debug` | 否 | boolean | 返回调试信息。 |
 
-查询：
+原阶段查询记录（现有环境选源和算子计算以股票日线专项LLD为准，本次九转增量以本节后续合同为准）：
 
 1. 校验 `period == "day"`。
 2. 校验 `adjustment == "forward"`。
@@ -176,6 +178,7 @@ wealth/src/
 6. `bars[]`
 7. `meta`
 8. `dataStatus`
+9. `nineTurnMarkers[]`（已确认的后续合同，待开发，见下文）
 
 性能要求：
 
@@ -183,6 +186,18 @@ wealth/src/
 2. 最大不超过 500 根；超限返回原参数错误，不截断为500根。
 3. 只查询页面首期所需字段。
 4. 不查询分钟线、不查询板块、不查询资金。
+
+<a id="prod-stock-nine-turn-contract"></a>
+
+#### 日线九转的已确认后续合同（2026-11-27，待开发）
+
+各环境股票日线统一从同次算子计算取得九转，`GET /api/v1/wealth/market/stock-detail/kline`返回必有 `nineTurnMarkers`。每项沿用 `tradeDate`、`tradeTime`、`direction`、`sequenceNumber`、`completed`，按该批日K日期升序，日线 `tradeTime=null`；图上只显示1—9，第9根保留完成样式。正常无标记及合法空日K返回 `[]`，缺失字段或错误结果不能按空数组处理。
+
+Prod继续读取自己的股票普通日线和股票复权因子，九转与价格、原指标和趋势通道共用已准备的前复权输入，不另取行情或重复复权。股票日线的计算和结果校验与本地分页标志分开；普通本地日线也返回该数组。`/page-init`的盘口及各环境原参数、日线上限500根和本地日期游标保持；Prod不新增本地式翻页。周月线原本已有同名数组，保留其合同与数值。
+
+页面首屏直接校验、保存同批标记，本地续页仍与该批K线一起提交；开关只控制绘制。九转失败、取消、错误结果及重试跟随日K，不再保留独立加载和专用重试。前后端类型、OpenAPI及全部测试输入同时迁移，股票页原独立九转请求清零。
+
+旧 `GET /api/v1/wealth/market/stock-detail/nine-turn`及专用查询代码按管理员决定删除，原2000根、独立日期窗口和游标合同一并退出，旧路由和OpenAPI不保留，也不转发成500根日K。指数九转、股票分钟/周月线及共用绘图保持；DG生成、同步、sensor、数据文件、Prod股票日线前复权九转表及运营统计不在本期。具体删除、保留、预算及验收清单以[九转专项LLD §12](../../../../docs/architecture/technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)为准。
 
 <a id="stock-period-contract"></a>
 
@@ -238,6 +253,7 @@ DG 和 Prod 使用同一套接口字段。`/page-init` 按当前环境的算子�
 7. `meta: StockKlineMetaDto`
 8. `dataStatus: DataStatusDto`
 9. `debugInfo?: StockDetailDebugInfoDto`
+10. `nineTurnMarkers: NineTurnMarkerDto[]`（已确认后续增量，待开发；日线、已存在的本地分页与周月线统一为必有数组）
 
 ### 4.3 `StockChartDefaultsDto`
 
