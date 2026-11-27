@@ -47,6 +47,7 @@ from orchestrator.defs.run_contracts.etf_daily import (
     ETF_DAILY_AUTOMATION_CONTRACT_REVISION,
     ETF_DAILY_BOOTSTRAP_START_DATE,
     ETF_DAILY_SENSOR_WINDOW_LIMIT,
+    ETF_DAILY_SENSOR_WINDOW_START,
     RAW_FUND_ADJ_JOB_NAME,
     RAW_FUND_ADJ_SENSOR_NAME,
     RAW_FUND_DAILY_JOB_NAME,
@@ -66,7 +67,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
-_RUN_START = time(21, 0)
+_FUND_ADJ_RUN_START = time(21, 0)
 _PARTITION_SET_NAME = cn_a_etf_mins_trade_days.name
 
 
@@ -75,6 +76,7 @@ class _RawSensorSpec:
     sensor_name: str
     job_name: str
     asset_family: str
+    run_start: time
     readiness: Callable[..., EtfDailyBatchReadiness]
     publication_probe: Callable[..., EtfDailySourcePublication]
 
@@ -84,6 +86,7 @@ class _SilverSensorSpec:
     sensor_name: str
     job_name: str
     asset_family: str
+    run_start: time
     raw_readiness: Callable[..., EtfDailyBatchReadiness]
     silver_readiness: Callable[..., EtfDailyBatchReadiness]
 
@@ -92,6 +95,7 @@ _RAW_FUND_DAILY_SPEC = _RawSensorSpec(
     sensor_name=RAW_FUND_DAILY_SENSOR_NAME,
     job_name=RAW_FUND_DAILY_JOB_NAME,
     asset_family="fund_daily",
+    run_start=ETF_DAILY_SENSOR_WINDOW_START,
     readiness=batch_fund_daily_raw_lake_readiness,
     publication_probe=probe_fund_daily_publication,
 )
@@ -99,6 +103,7 @@ _RAW_FUND_ADJ_SPEC = _RawSensorSpec(
     sensor_name=RAW_FUND_ADJ_SENSOR_NAME,
     job_name=RAW_FUND_ADJ_JOB_NAME,
     asset_family="fund_adj",
+    run_start=_FUND_ADJ_RUN_START,
     readiness=batch_fund_adj_raw_lake_readiness,
     publication_probe=probe_fund_adj_publication,
 )
@@ -106,6 +111,7 @@ _SILVER_ETF_DAILY_SPEC = _SilverSensorSpec(
     sensor_name=SILVER_ETF_DAILY_SENSOR_NAME,
     job_name=SILVER_ETF_DAILY_JOB_NAME,
     asset_family="etf_daily",
+    run_start=ETF_DAILY_SENSOR_WINDOW_START,
     raw_readiness=batch_fund_daily_raw_lake_readiness,
     silver_readiness=batch_etf_daily_silver_lake_readiness,
 )
@@ -113,6 +119,7 @@ _SILVER_ETF_ADJ_FACTOR_SPEC = _SilverSensorSpec(
     sensor_name=SILVER_ETF_ADJ_FACTOR_SENSOR_NAME,
     job_name=SILVER_ETF_ADJ_FACTOR_JOB_NAME,
     asset_family="etf_adj_factor",
+    run_start=_FUND_ADJ_RUN_START,
     raw_readiness=batch_fund_adj_raw_lake_readiness,
     silver_readiness=batch_etf_adj_factor_silver_lake_readiness,
 )
@@ -268,13 +275,14 @@ def _window_and_registration(
     *,
     connection: Any,
     evaluated_at: datetime,
+    run_start: time,
 ):
     window = load_expected_trade_date_window(
         connection,
         silver_trade_calendar_path(context.resources.lake_root.root()),
         evaluated_at=evaluated_at,
         min_trade_date=ETF_DAILY_BOOTSTRAP_START_DATE.isoformat(),
-        same_day_register_start=_RUN_START,
+        same_day_register_start=run_start,
         window_limit=ETF_DAILY_SENSOR_WINDOW_LIMIT,
     )
     registered = tuple(
@@ -308,14 +316,14 @@ def _evaluate_raw(
     now = _normalize_evaluated_at(
         evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
     )
-    if now.time() < _RUN_START:
+    if now.time() < spec.run_start:
         return _skip(
             evaluated_at=now,
             sensor_name=spec.sensor_name,
             job_name=spec.job_name,
             asset_family=spec.asset_family,
             reason_code="outside_operating_window",
-            message="ETF 日频自动更新等待上海时间 21:00 运行窗口。",
+            message=f"ETF 日频自动更新等待上海时间 {spec.run_start:%H:%M} 运行窗口。",
         )
     try:
         context.resources.lake_root.ensure_available_for_run()
@@ -324,6 +332,7 @@ def _evaluate_raw(
                 context,
                 connection=connection,
                 evaluated_at=now,
+                run_start=spec.run_start,
             )
             dates = window.expected_trade_dates
             if not dates:
@@ -449,14 +458,14 @@ def _evaluate_silver(
     now = _normalize_evaluated_at(
         evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
     )
-    if now.time() < _RUN_START:
+    if now.time() < spec.run_start:
         return _skip(
             evaluated_at=now,
             sensor_name=spec.sensor_name,
             job_name=spec.job_name,
             asset_family=spec.asset_family,
             reason_code="outside_operating_window",
-            message="ETF 日频自动更新等待上海时间 21:00 运行窗口。",
+            message=f"ETF 日频自动更新等待上海时间 {spec.run_start:%H:%M} 运行窗口。",
         )
     try:
         context.resources.lake_root.ensure_available_for_run()
@@ -465,6 +474,7 @@ def _evaluate_silver(
                 context,
                 connection=connection,
                 evaluated_at=now,
+                run_start=spec.run_start,
             )
             dates = window.expected_trade_dates
             if not dates:
@@ -691,7 +701,7 @@ def evaluate_silver_etf_adj_factor_sensor(
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="上海时间 21:00 后按最早缺口触发基金日线 Raw。",
+    description=f"上海时间 {_RAW_FUND_DAILY_SPEC.run_start:%H:%M} 起按最早缺口触发基金日线 Raw。",
 )
 def raw_fund_daily_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -709,7 +719,7 @@ def raw_fund_daily_update_job_sensor(
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="上海时间 21:00 后按最早缺口触发基金复权因子 Raw。",
+    description=f"上海时间 {_RAW_FUND_ADJ_SPEC.run_start:%H:%M} 起按最早缺口触发基金复权因子 Raw。",
 )
 def raw_fund_adj_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -727,7 +737,7 @@ def raw_fund_adj_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="上海时间 21:00 后按最早缺口触发 ETF 日线 Silver。",
+    description=f"上海时间 {_SILVER_ETF_DAILY_SPEC.run_start:%H:%M} 起按最早缺口触发 ETF 日线 Silver。",
 )
 def silver_etf_daily_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -745,7 +755,9 @@ def silver_etf_daily_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="上海时间 21:00 后按最早缺口触发 ETF 复权因子 Silver。",
+    description=(
+        f"上海时间 {_SILVER_ETF_ADJ_FACTOR_SPEC.run_start:%H:%M} 起按最早缺口触发 ETF 复权因子 Silver。"
+    ),
 )
 def silver_etf_adj_factor_update_job_sensor(
     context: dg.SensorEvaluationContext,

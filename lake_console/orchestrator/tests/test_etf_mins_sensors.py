@@ -172,7 +172,7 @@ def test_partition_and_minute_sensors_skip_before_window_without_state_access() 
 
     partition_result = evaluate_etf_mins_trade_day_sensor(  # type: ignore[arg-type]
         context,
-        evaluated_at=BEFORE_WINDOW,
+        evaluated_at=BEFORE_WINDOW.replace(hour=18),
     )
     raw_result = evaluate_raw_etf_mins_sensor(  # type: ignore[arg-type]
         context,
@@ -186,7 +186,7 @@ def test_partition_and_minute_sensors_skip_before_window_without_state_access() 
     assert not partition_result.dynamic_partitions_requests
     assert not raw_result.run_requests
     assert not silver_result.run_requests
-    assert "21:00" in str(partition_result.skip_reason)
+    assert "19:00" in str(partition_result.skip_reason)
     assert "21:00" in str(raw_result.skip_reason)
     assert "21:00" in str(silver_result.skip_reason)
 
@@ -201,7 +201,7 @@ def test_partition_sensor_enters_calendar_path_at_window_start(monkeypatch) -> N
 
     result = evaluate_etf_mins_trade_day_sensor(  # type: ignore[arg-type]
         ForbiddenContext(),
-        evaluated_at=NOW,
+        evaluated_at=NOW.replace(hour=19),
     )
 
     assert result is expected

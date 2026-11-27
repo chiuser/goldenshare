@@ -22,8 +22,8 @@ from orchestrator.defs.run_contracts.cursors import (
 from orchestrator.defs.run_contracts.etf_basic import (
     build_etf_basic_silver_run_config,
 )
+from orchestrator.defs.run_contracts.etf_daily import ETF_DAILY_SENSOR_WINDOW_START
 from orchestrator.defs.run_contracts.etf_mins import (
-    etf_sensor_window_is_open,
     normalize_etf_sensor_evaluated_at,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
@@ -92,9 +92,9 @@ def evaluate_raw_etf_basic_sensor(
     now = normalize_etf_sensor_evaluated_at(
         evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
     )
-    if not etf_sensor_window_is_open(now):
+    if now.time() < ETF_DAILY_SENSOR_WINDOW_START:
         return dg.SensorResult(
-            skip_reason="ETF 自动更新等待上海时间 21:00 运行窗口。",
+            skip_reason=f"ETF 自动更新等待上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 运行窗口。",
             cursor=_cursor(
                 evaluated_at=now,
                 sensor_name="raw_etf_basic_update_job_sensor",
@@ -156,9 +156,9 @@ def evaluate_silver_etf_basic_sensor(
     now = normalize_etf_sensor_evaluated_at(
         evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
     )
-    if not etf_sensor_window_is_open(now):
+    if now.time() < ETF_DAILY_SENSOR_WINDOW_START:
         return dg.SensorResult(
-            skip_reason="ETF 自动更新等待上海时间 21:00 运行窗口。",
+            skip_reason=f"ETF 自动更新等待上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 运行窗口。",
             cursor=_cursor(
                 evaluated_at=now,
                 sensor_name="silver_etf_basic_update_job_sensor",
@@ -247,7 +247,7 @@ def evaluate_silver_etf_basic_sensor(
         role=SensorRole.ASSET_UPDATE,
     ),
     description=(
-        "上海时间 21:00 后检查当天 ETF Basic Raw；缺失或过期时触发，"
+        f"上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 起检查当天 ETF Basic Raw；缺失或过期时触发，"
         "失败版本不自动覆盖。"
     ),
 )
@@ -268,7 +268,7 @@ def raw_etf_basic_update_job_sensor(
         role=SensorRole.ASSET_UPDATE,
     ),
     description=(
-        "上海时间 21:00 后检查当天 ETF Basic；Raw ready 且 Silver 缺失时触发，"
+        f"上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 起检查当天 ETF Basic；Raw ready 且 Silver 缺失时触发，"
         "失败版本不回退。"
     ),
 )

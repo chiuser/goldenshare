@@ -2,7 +2,7 @@
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, time
 from decimal import Decimal
 from types import MappingProxyType
 
@@ -41,6 +41,7 @@ SILVER_ETF_DAILY_SENSOR_NAME = f"{SILVER_ETF_DAILY_JOB_NAME}_sensor"
 RAW_FUND_ADJ_SENSOR_NAME = f"{RAW_FUND_ADJ_JOB_NAME}_sensor"
 SILVER_ETF_ADJ_FACTOR_SENSOR_NAME = f"{SILVER_ETF_ADJ_FACTOR_JOB_NAME}_sensor"
 
+ETF_DAILY_SENSOR_WINDOW_START = time(19, 0)
 ETF_DAILY_SENSOR_WINDOW_LIMIT = 10
 ETF_DAILY_BOOTSTRAP_START_DATE = date(2025, 1, 1)
 ETF_DAILY_BOOTSTRAP_BATCH_DAYS = 20

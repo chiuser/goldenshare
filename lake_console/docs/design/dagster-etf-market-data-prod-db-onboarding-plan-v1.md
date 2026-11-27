@@ -688,7 +688,7 @@ P9 代码与隔离验收已完成。现有同一个 Bootstrap CLI 已加入 `par
 
 ### P10：分区与更新 Sensors
 
-默认 `STOPPED` 发布。五个 Sensor 只允许在上海时间 `21:00（含）—24:00（不含）` 工作；窗口外必须在任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod 访问之前轻量 skip。选择 `21:00` 是因为 Prod 通常在 `20:50` 左右完成 Tushare 同步，但这个时间差不是完整性证据；Prod 偶尔延迟时仍由正式 coverage gate 阻止 Raw 启动，并由后续 10 分钟 tick 重试。分钟 Raw Sensor 对最近 10 日先按五个 Raw asset 各做一次有界 materialization metadata 查询，只恢复每个分区原先冻结的 Basic reference；随后用一个 DuckDB connection 批量复刻三项 Raw checks 确认连续性。这段连续性检查不读分钟 check history、不按日查询、不用今天的 Basic 替换原分区证据。选出最早缺失日后，再用当天 latest-only Basic（两层 materialization 与各自 3 项 checks）和一次 Prod Raw 五频代码覆盖决定能否启动；本阶段测试 Sensor 每个目标日只执行一次 coverage，并与 P5 已验证的五条明细查询共同满足日常最多六条 Prod SQL。Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。
+默认 `STOPPED` 发布。共享交易日分区登记、两个 ETF 基础信息 Sensor 从上海时间 19:00 开始工作，两个 ETF 分钟线 Sensor 从 21:00 开始，均在上海时间 24:00 关闭。日线依赖的调整详见 [19:00 实施约束](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-window-1900)；窗口外必须在任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod 访问之前轻量 skip。分钟线选择 `21:00` 是因为 Prod 通常在 `20:50` 左右完成 Tushare 同步，但这个时间差不是完整性证据；Prod 偶尔延迟时仍由正式 coverage gate 阻止 Raw 启动，并由后续 10 分钟 tick 重试。分钟 Raw Sensor 对最近 10 日先按五个 Raw asset 各做一次有界 materialization metadata 查询，只恢复每个分区原先冻结的 Basic reference；随后用一个 DuckDB connection 批量复刻三项 Raw checks 确认连续性。这段连续性检查不读分钟 check history、不按日查询、不用今天的 Basic 替换原分区证据。选出最早缺失日后，再用当天 latest-only Basic（两层 materialization 与各自 3 项 checks）和一次 Prod Raw 五频代码覆盖决定能否启动；本阶段测试 Sensor 每个目标日只执行一次 coverage，并与 P5 已验证的五条明细查询共同满足日常最多六条 Prod SQL。Raw 写入靠单次明细导出后的本地候选校验，不读取 TaskRun，也不重复扫描 Prod。
 
 实现结果：P10 已加入五次有界 Raw materialization lineage loader、Raw/Silver 两个纯 DuckDB batch readiness，以及一个交易日注册 Sensor、两个 Basic Sensor、两个分钟 Sensor；五个 Sensor 已被正式 Definitions 发现且全部默认 `STOPPED`。N6 已确认上海时间 `21:00（含）—24:00（不含）`，运行门禁位于五个 Sensor 的所有资源和状态访问之前；隔离测试覆盖 `20:59:59` 窗口外零资源/零 Dagster/零 DuckDB/零 Prod 访问，以及 `21:00`、`23:59:59` 可进入和次日 `00:00` 重新关闭。其余隔离测试只使用单日五频合成 Parquet，没有同步全量数据，证明原 Basic reference 能从 Raw metadata 恢复、Raw 三项检查与 Silver 两项检查可从物理文件重算、已有失败文件不自动覆盖、Silver 不访问 Prod、Raw 目标日只消费一次 coverage 结果、cursor 小于 2 KB。上述表述只描述代码与隔离验收阶段；当时未读取 Prod、正式 Lake 或正式 Dagster instance，也未运行或启用 Sensor。
 
@@ -746,7 +746,7 @@ P9 为这次补录新增 243 个动态分区，专属分区集最终共有 404 �
 
 | 阶段门禁 | 已确认事项 | 结案结果 |
 | --- | --- | --- |
-| N6 | Basic 与分钟 Sensor 仅在上海时间 `21:00（含）—24:00（不含）` 工作，窗口外必须在任何资源或状态访问前 skip | 代码与隔离测试、正式启用和首日自然运行均已通过；Definitions 仍默认 `STOPPED`，正式实例五个 Sensor 均为 `RUNNING` |
+| N6 | 共享交易日分区登记、两个 ETF 基础信息 Sensor 19:00 开始，两个 ETF 分钟线 Sensor 21:00 开始，窗口外须在任何资源或状态访问前 skip | P10 的原 21:00 窗口已完成启用与首日验收。19:00 调整见 [实施约束](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-window-1900)。Definitions 默认 `STOPPED` |
 | P11 | 2025 年补录只新增批准历史范围，写前写后复算 2026 年及以后 Raw/Silver 保护清单 | 243 个交易日、1,215 个 Raw 和 1,215 个 Silver 文件、2,430 条 materialization、500 条 checks 全部闭合；保护 hash 零变化 |
 
 ---

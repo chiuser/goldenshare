@@ -49,7 +49,7 @@ Basic 源文档：[Tushare ETF 基础信息](../../../docs/sources/tushare/ETF�
 | N3 | 分钟 Raw 完整性审计拆成 N3A 观察/profile 与 N3B policy/decision | 已完成：正式 N3A、`etf_mins_gap_policy_v1`、P7B 代码与隔离验收，以及首次 Bootstrap 与 P11 的正式 decision 均已闭合；Bootstrap 不回滚 Raw，日常三项 Raw checks fail-closed |
 | N4 | 首次 Bootstrap 截止日以每次执行前动态审计水位为准，不写死日期 | 已确认；具体日期在 P6 plan 时冻结 |
 | N5 | 正式分钟文件只允许新增或语义相同复用；内容冲突立即停止，绝不自动覆盖 | 已确认；约束日常 writer、Bootstrap 和 repair 边界 |
-| N6 | Basic 与分钟 Sensor 仅在上海时间 `21:00（含）—24:00（不含）` 工作；窗口外必须在任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod 访问之前 skip | 已确认；代码/隔离测试、正式启用和首个自然生产日验收均已完成；Definitions 默认 `STOPPED`，正式实例五个 Sensor 均为 `RUNNING` |
+| N6 | 共享交易日分区登记、两个 ETF 基础信息 Sensor 19:00 开始，两个 ETF 分钟线 Sensor 21:00 开始，窗口外须在任何资源或状态访问前 skip | P10 的原 21:00 窗口已完成启用与首日验收。19:00 调整见 [实施约束](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-window-1900)。Definitions 默认 `STOPPED` |
 
 当前没有需要补充拍板的架构口径或剩余上线授权。首次 frozen plan、Raw apply、正式 P7A 观察、N3B policy、正式 `raw-decide`、P8 正式 Silver apply、P9 动态分区/Runless events/post-audit、P10 代码/隔离验收、五个 Sensor 的正式启用和首个自然生产日观察已按阶段完成。首次 795 个历史分区的最终结果为 585 green、210 WARN、0 blocked，全部可准入并已完成 Silver 物理验收；首次 159 个动态分区、1,590 条 materialization 和最近 20 日 500 条 blocking checks 已在正式 Dagster instance 闭合。2026-08-31 的日常链又新增并验收 `2026-08-31` 分区。
 
@@ -325,7 +325,7 @@ ETF_MINS_SOURCE_COLUMNS = (
 | `EtfMinsProdCoverageReference` | Raw Sensor 一次 coverage probe 生成；只随日常 Raw run config 持久化 | 五个分钟 Raw assets | 必须绑定同一 Basic reference/日期；asset 只复核不重查 | UI 显示五频计数、短 fingerprint；测试证明合计只有 1 次 coverage |
 | `EtfMinsRawConfig` | Raw Sensor builder 生成 | 五个 Raw assets | 只含 Basic reference + coverage reference；分区来自 `context.partition_key`，频率来自 asset definition | 静态测试拒绝 partition/source method、SQL、代码全集和 storage id |
 | Silver 分钟 config | 不存在 | 五个 Silver assets | 分区来自 `context.partition_key`；正式 job 先执行 Raw blocking checks | Launchpad 无额外准入参数；Raw check 失败时 Silver step 不执行 |
-| `ETF_SENSOR_TIMEZONE=Asia/Shanghai`、`ETF_SENSOR_WINDOW_START=21:00` | `run_contracts/etf_mins.py` 代码常量 | 一个分区注册、两个 Basic、两个分钟 Sensor | 每个上海自然日只允许 `21:00（含）—24:00（不含）` 进入现有判断链；不是环境变量或运行参数 | `20:59:59` 五个 Sensor 零资源/状态访问；`21:00`、`23:59:59` open，次日 `00:00` closed |
+| `ETF_SENSOR_TIMEZONE=Asia/Shanghai`、`ETF_DAILY_SENSOR_WINDOW_START=19:00`、`ETF_SENSOR_WINDOW_START=21:00` | `run_contracts/etf_daily.py` 定义 19:00，`run_contracts/etf_mins.py` 定义 21:00 | 一个分区注册、两个 ETF 基础信息 Sensor 使用 19:00，两个 ETF 分钟线 Sensor 使用 21:00 | 每个上海自然日从对应时刻起进入判断链，次日 `00:00` 重新关闭 | 各自窗口前零资源或状态访问，达到对应时刻进入判断链 |
 | `ETF_MINS_SENSOR_WINDOW_LIMIT=10` | `run_contracts/etf_mins.py` 代码常量 | Raw/Silver Sensors 与 batch readiness | 每 tick 只审计最近 10 个 expected trade dates | cursor/SQL/file count 性能测试；更早缺口交给 Bootstrap |
 | `ETF_MINS_BOOTSTRAP_BATCH_TRADE_DAY_LIMIT=20`、`ETF_MINS_BOOTSTRAP_MAX_TARGET_FILES=10_000`、`ETF_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER=1.25` | `run_contracts/etf_mins.py` 代码常量 | plan/query budget/raw-apply/空间门禁 | 单频单批最多 20 日、单 plan 最多 10,000 个 Raw 目标，空间按 1.25 倍安全系数 | plan 报告显示批次/查询/文件/空间；任一超限拒绝 |
 | `ETF_BASIC_DIAGNOSTIC_SAMPLE_LIMIT=20`、`ETF_MINS_DIAGNOSTIC_SAMPLE_LIMIT=20` | 各自 run contracts 代码常量 | checks、coverage、报告和 reason samples | 只限制诊断样本，不截断事实计数或 N3 明细合同 | 测试证明计数完整、样本有界 |
@@ -1169,7 +1169,7 @@ silver_etf_mins_update_job
 
 - 全部 `DefaultSensorStatus.STOPPED`。
 - 每 tick 最多一个 `RunRequest`。
-- 先检查上海运行窗口 `21:00（含）—24:00（不含）`，再访问任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod；窗口外轻量 skip，查询数和文件扫描数都必须为 0。`21:00` 只利用 Prod 通常约 `20:50` 完成 Tushare 同步的时间差，不替代一次正式 coverage；源端延迟时由后续 10 分钟 tick 重试。
+- 共享交易日分区登记和 ETF 基础信息先检查上海时间 19:00 窗口，ETF 分钟线先检查 21:00 窗口，再访问任何资源、Dagster 状态、DuckDB、Lake 文件或 Prod；窗口外轻量 skip，查询数和文件扫描数都必须为 0。`21:00` 只利用 Prod 通常约 `20:50` 完成 Tushare 同步的时间差，不替代一次正式 coverage；源端延迟时由后续 10 分钟 tick 重试。
 - 日常回看最近 10 个 expected trade dates，一次只推进最早可行动日期。
 - Cursor 使用 `build_sensor_cursor`，正常目标小于 2 KB，复杂错误也不得超过 8 KB。
 - Cursor 不保存完整代码、完整文件清单、SQL 或 Basic 快照内容。
@@ -1184,7 +1184,7 @@ silver_etf_mins_update_job
 
 目标是上海当天。决策：
 
-1. 上海时间早于 `21:00`：在任何资源或状态访问前轻量 skip；次日 `00:00` 后重新关闭。
+1. 上海时间早于 `19:00`：在任何资源或状态访问前轻量 skip；次日 `00:00` 后重新关闭。
 2. 当天 Raw ready：skip。
 3. 当天已有 materialization 但 checks 失败：skip closed，人工处理。
 4. 缺失或上次成功版本不是当天：提交 `raw_etf_basic_update_job`。
@@ -1309,9 +1309,9 @@ build_asset_definition_metadata(
 | `silver_etf_basic_update_job` | 从已验收的指定 Basic Raw 版本生成沪深场内 Silver 快照；前置 Raw/reference 不一致时停止，修复后可重跑并等价复用。 |
 | `raw_etf_mins_update_job` | 为一个交易日批量导出五个原生频率 ETF 分钟 Raw，并执行三项 Raw blocking checks；冲突不覆盖，可按原分区重跑。 |
 | `silver_etf_mins_update_job` | 先重跑目标日五频 Raw blocking checks，通过后生成五个 Silver 分区；Raw writer 不在 selection 中，失败时不执行 Silver。 |
-| `etf_mins_trade_day_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 从 SSE 交易日历补注册 ETF 行情共享动态分区；历史 sensor 名称保留；窗口外零资源访问，不请求行情、不写 Lake，默认停止。 |
-| `raw_etf_basic_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 检查当天 Basic Raw 是否缺失或过期，满足条件时触发 Basic Raw 更新；窗口外零资源访问，已有失败版本时不自动覆盖，默认停止。 |
-| `silver_etf_basic_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 且当天 Basic Raw 及其 checks 已通过后触发对应 Silver 版本；窗口外零资源访问，失败版本要求人工处理，不回退旧 Raw，默认停止。 |
+| `etf_mins_trade_day_sensor` | 在上海时间 `19:00（含）—24:00（不含）` 从 SSE 交易日历补注册 ETF 行情共享动态分区；历史 sensor 名称保留；窗口外零资源访问，不请求行情、不写 Lake，默认停止。 |
+| `raw_etf_basic_update_job_sensor` | 在上海时间 `19:00（含）—24:00（不含）` 检查当天 Basic Raw 是否缺失或过期，满足条件时触发 Basic Raw 更新；窗口外零资源访问，已有失败版本时不自动覆盖，默认停止。 |
+| `silver_etf_basic_update_job_sensor` | 在上海时间 `19:00（含）—24:00（不含）` 且当天 Basic Raw 及其 checks 已通过后触发对应 Silver 版本；窗口外零资源访问，失败版本要求人工处理，不回退旧 Raw，默认停止。 |
 | `raw_etf_mins_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 检查最早 Raw readiness 缺口、最新 Basic 和一次 Prod 五频覆盖，满足后触发五频 Raw；窗口外零资源访问，任一 Raw check 失败时停在该日，默认停止。 |
 | `silver_etf_mins_update_job_sensor` | 在上海时间 `21:00（含）—24:00（不含）` 检查最早未完成日期的五频 Raw/Silver Lake readiness，Raw 三项检查通过后触发 Silver；窗口外零资源访问，not-ready 时停在该日且不访问 Prod，默认停止。 |
 

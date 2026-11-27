@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+import pytest
 
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityExpectedDateWindow,
@@ -52,15 +53,7 @@ from orchestrator.defs.sensors.etf_daily_sensor import (
 )
 
 NOW = datetime(2026, 9, 2, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(
-    2026,
-    9,
-    2,
-    20,
-    59,
-    59,
-    tzinfo=ZoneInfo("Asia/Shanghai"),
-)
+DAILY_NOW = NOW.replace(hour=19)
 TRADE_DATES = ("2026-08-31", "2026-09-01", "2026-09-02")
 
 
@@ -200,21 +193,6 @@ def _patch_window(monkeypatch, *, registered: tuple[str, ...] = TRADE_DATES) -> 
     )
 
 
-def test_all_four_evaluators_skip_before_2100_without_any_state_access() -> None:
-    context = _ForbiddenContext()
-    results = (
-        evaluate_raw_fund_daily_sensor(context, evaluated_at=BEFORE_WINDOW),  # type: ignore[arg-type]
-        evaluate_raw_fund_adj_sensor(context, evaluated_at=BEFORE_WINDOW),  # type: ignore[arg-type]
-        evaluate_silver_etf_daily_sensor(context, evaluated_at=BEFORE_WINDOW),  # type: ignore[arg-type]
-        evaluate_silver_etf_adj_factor_sensor(  # type: ignore[arg-type]
-            context,
-            evaluated_at=BEFORE_WINDOW,
-        ),
-    )
-    assert all(not result.run_requests for result in results)
-    assert all("21:00" in str(result.skip_reason) for result in results)
-
-
 def test_public_evaluators_are_bound_to_their_exact_job_specs(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     observed: list[tuple[str, str]] = []
     sentinel = dg.SensorResult(skip_reason="bound")
@@ -245,24 +223,47 @@ def test_public_evaluators_are_bound_to_their_exact_job_specs(monkeypatch) -> No
     ]
 
 
-def test_2100_enters_the_window_and_registration_path(monkeypatch) -> None:  # type: ignore[no-untyped-def]
-    entered = 0
+@pytest.mark.parametrize(
+    ("evaluate", "start"),
+    [
+        (evaluate_raw_fund_daily_sensor, DAILY_NOW),
+        (evaluate_silver_etf_daily_sensor, DAILY_NOW),
+        (evaluate_raw_fund_adj_sensor, NOW),
+        (evaluate_silver_etf_adj_factor_sensor, NOW),
+    ],
+)
+def test_evaluators_wait_for_their_own_window(monkeypatch, evaluate, start) -> None:
+    closed = evaluate(
+        _ForbiddenContext(),
+        evaluated_at=start - timedelta(seconds=1),
+    )
+    assert not closed.run_requests
+    assert f"{start:%H:%M}" in str(closed.skip_reason)
 
-    def window_path(*args, **kwargs):  # type: ignore[no-untyped-def]
-        nonlocal entered
-        entered += 1
+    starts: list[time] = []
+
+    def window_path(context, *, connection, evaluated_at, run_start):
+        starts.append(run_start)
         raise RuntimeError("window_path_entered")
 
     monkeypatch.setattr(etf_daily_sensor, "_window_and_registration", window_path)
-    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
-    assert entered == 1
+    result = evaluate(_context(), evaluated_at=start)
+    assert starts == [start.time()]
     assert not result.run_requests
     assert "fail-closed" in str(result.skip_reason)
 
 
 def test_window_loader_clips_to_last_ten_and_checks_shared_registration() -> None:
-    calendar_dates = tuple(
-        f"2026-08-{day:02d}" for day in range(17, 28)
+    calendar_dates = (
+        "2026-08-19",
+        "2026-08-20",
+        "2026-08-21",
+        "2026-08-24",
+        "2026-08-25",
+        "2026-08-26",
+        "2026-08-27",
+        "2026-08-28",
+        *TRADE_DATES,
     )
 
     class CalendarConnection:
@@ -281,9 +282,11 @@ def test_window_loader_clips_to_last_ten_and_checks_shared_registration() -> Non
     window, gap = etf_daily_sensor._window_and_registration(  # type: ignore[arg-type]
         context,
         connection=CalendarConnection(),
-        evaluated_at=NOW,
+        evaluated_at=DAILY_NOW,
+        run_start=time(19, 0),
     )
     assert window.expected_trade_dates == calendar_dates[-10:]
+    assert window.expected_trade_dates[-1] == DAILY_NOW.date().isoformat()
     assert window.window_limit == 10
     assert gap.ready
 
@@ -313,7 +316,7 @@ def test_raw_selects_earliest_missing_date_after_one_publication_probe(
             publication_probe=probe,
         ),
     )
-    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
 
     assert readiness_calls == 1
     assert probe_dates == ["2026-09-01"]
@@ -345,7 +348,7 @@ def test_raw_existing_invalid_partition_blocks_without_source_probe(
             ),
         ),
     )
-    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not result.run_requests
     assert "拒绝自动覆盖" in str(result.skip_reason)
 
@@ -365,7 +368,7 @@ def test_raw_all_ready_skips_without_source_probe(monkeypatch) -> None:  # type:
             ),
         ),
     )
-    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not result.run_requests
     assert "ready" in str(result.skip_reason)
 
@@ -392,8 +395,8 @@ def test_unpublished_raw_has_no_run_key_and_is_probed_again_next_tick(
             publication_probe=probe,
         ),
     )
-    first = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
-    second = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    first = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
+    second = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not first.run_requests and not second.run_requests
     assert probe_count == 2
     assert "run_key" not in first.cursor
@@ -411,7 +414,7 @@ def test_unregistered_date_stops_before_readiness(monkeypatch) -> None:  # type:
             ),
         ),
     )
-    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_raw_fund_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not result.run_requests
     assert "分区注册" in str(result.skip_reason)
 
@@ -436,7 +439,7 @@ def test_silver_stops_at_raw_gap_and_never_selects_basic(monkeypatch) -> None:  
         "select_latest_etf_basic_snapshot_reference",
         lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not select Basic")),
     )
-    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not result.run_requests
     assert "不越过" in str(result.skip_reason)
 
@@ -470,7 +473,7 @@ def test_silver_latest_basic_failure_is_fail_closed_without_fallback(
         "select_latest_etf_basic_snapshot_reference",
         fail_latest,
     )
-    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert selector_calls == 1
     assert not result.run_requests
     assert "不回退旧版本" in str(result.skip_reason)
@@ -496,7 +499,7 @@ def test_existing_invalid_silver_blocks_before_basic_selection(monkeypatch) -> N
         "select_latest_etf_basic_snapshot_reference",
         lambda **kwargs: (_ for _ in ()).throw(AssertionError("must not select Basic")),
     )
-    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert not result.run_requests
     assert "拒绝自动覆盖" in str(result.skip_reason)
 
@@ -557,7 +560,7 @@ def test_silver_selects_earliest_gap_with_stable_key_and_two_lineage_queries(
         "select_latest_etf_basic_snapshot_reference",
         lambda **kwargs: _basic_reference(),
     )
-    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=NOW)  # type: ignore[arg-type]
+    result = evaluate_silver_etf_daily_sensor(_context(), evaluated_at=DAILY_NOW)  # type: ignore[arg-type]
     assert len(result.run_requests) == 1
     request = result.run_requests[0]
     assert request.partition_key == "2026-09-01"

@@ -9,9 +9,9 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.etf_daily import ETF_DAILY_SENSOR_WINDOW_START
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_HISTORICAL_PROTECTION_CUTOFF,
-    etf_sensor_window_is_open,
     normalize_etf_sensor_evaluated_at,
 )
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -34,9 +34,9 @@ def evaluate_etf_mins_trade_day_sensor(
     now = normalize_etf_sensor_evaluated_at(
         evaluated_at or datetime.now(CN_A_SENSOR_TIMEZONE)
     )
-    if not etf_sensor_window_is_open(now):
+    if now.time() < ETF_DAILY_SENSOR_WINDOW_START:
         return dg.SensorResult(
-            skip_reason="ETF 自动更新等待上海时间 21:00 运行窗口。",
+            skip_reason=f"ETF 自动更新等待上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 运行窗口。",
             cursor=build_sensor_cursor(
                 evaluated_at=now,
                 decision=SensorCursorDecision.SKIP,
@@ -44,7 +44,7 @@ def evaluate_etf_mins_trade_day_sensor(
                 blocked_count=1,
                 details={
                     "summary": "ETF partition sensor is outside the operating window",
-                    "next_action": "wait for Shanghai time 21:00",
+                    "next_action": f"wait for Shanghai time {ETF_DAILY_SENSOR_WINDOW_START:%H:%M}",
                     "sensor_name": "etf_mins_trade_day_sensor",
                     "reason_code": "outside_operating_window",
                 },
@@ -70,7 +70,7 @@ def evaluate_etf_mins_trade_day_sensor(
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     description=(
-        "上海时间 21:00 后只按 SSE 交易日历注册 ETF 行情共享交易日分区，"
+        f"上海时间 {ETF_DAILY_SENSOR_WINDOW_START:%H:%M} 起只按 SSE 交易日历注册 ETF 行情共享交易日分区，"
         "供 ETF 分钟线、日线和复权因子共同使用；不探测行情源。"
     ),
 )

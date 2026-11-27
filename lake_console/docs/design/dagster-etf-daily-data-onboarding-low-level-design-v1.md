@@ -24,7 +24,7 @@
 7. staging 只写 `/Volumes/datasource/data_lake_staging`，正式文件只写 `/Volumes/datasource/data_lake`。
 8. 普通writer／原Bootstrap：新文件原子提升；已有等价文件复用；内容冲突立即停止且不覆盖。§11.9的指定缺行追加及检查做法已确认，2026-10-23已授权按§11.9.17逐阶段执行原范围，不增加普通writer的覆盖开关。
 9. 所有生产 DuckDB 连接来自 `DuckDBResource`，所有 Parquet schema 读取显式 `hive_partitioning=false`。
-10. 四个 Sensor 默认 `STOPPED`，窗口从上海时间 21:00 开始，每 tick 每 Sensor 最多一个 run。
+10. 四个 Sensor 默认 `STOPPED`，基金日线 Raw、ETF 日线 Silver 窗口从上海时间 19:00 开始，基金复权因子 Raw、ETF 复权因子 Silver 保持 21:00，每 tick 每 Sensor 最多一个 run。详见 [19:00 实施约束](#etf-daily-window-1900)。
 
 第3项及 §9 的最新 Basic 全文件筛选用于正常生成；§11.9 只核对新增行，不重新筛选历史原有行。该区别不改变源字段合同、资产 schema 或正常生成规则。
 
@@ -42,7 +42,7 @@
 
 ### 1.3 决策状态
 
-字段、日期、路径、资产名、Job/Sensor 名、21:00 窗口、Raw/Silver 边界、Basic latest-only、分页 limit、请求预算、价格容差、20 日批次和 2.5 倍空间系数都已冻结。
+字段、日期、路径、资产名、Job/Sensor 名、各链路运行窗口、Raw/Silver 边界、Basic latest-only、分页 limit、请求预算、价格容差、20 日批次和 2.5 倍空间系数都已冻结。
 
 2026-09-04 后置 review 已关闭：`fund_adj` coverage 升级 blocking/ERROR，`fund_daily` 保持 WARN。当前固定合同与编码要求见 §11.6，不再保留运行时可选策略。
 
@@ -1502,14 +1502,14 @@ dg.define_asset_job(
 
 ### 15.1 窗口与公共 evaluator
 
-输入时间先归一化为 `Asia/Shanghai`；日常窗口判断为 `local_time >= 21:00`。21:00 前直接 skip，且 DuckDB/Tushare 调用数都必须是 0。
+输入时间先归一化为 `Asia/Shanghai`；日常窗口判断为 `local_time >= run_start`，基金日线 Raw 和 ETF 日线 Silver 从 19:00 开始，基金复权因子 Raw 和 ETF 复权因子 Silver 从 21:00 开始。当日交易日进入最近 10 日窗口使用同一时间。窗口开始前直接 skip，且 DuckDB/Tushare 调用数都必须是 0。
 
 `etf_daily_sensor.py` 可以用私有 frozen spec 共享流程，但保留四个公开 evaluator 和四个 Definition，便于独立测试与 UI 识别。
 
 Raw evaluator：
 
 ```text
-21:00 前 skip
+对应窗口开始前 skip
 -> 从交易日历加载最近 10 个 expected ETF 行情日期
 -> 校验这些日期已注册到共享 partition set
 -> 批量检查目标 Raw readiness
@@ -1524,7 +1524,7 @@ Raw evaluator：
 Silver evaluator：
 
 ```text
-21:00 前 skip
+对应窗口开始前 skip
 -> 同一最近 10 日窗口与注册状态
 -> 批量检查 Raw + Silver
 -> 最早日期 Raw 不 ready: stop，不越过
@@ -1674,7 +1674,7 @@ Raw 全量完成、Raw audit 通过且 `fund_adj` coverage review 关闭后才�
 
 #### 16.2.1 历史入口 Basic 新鲜度修正（2026-09-04 已批准）
 
-`etf_daily_bootstrap_cli._latest_basic` 不再把执行自然日直接当作必须更新日期。复用 `etf_mins.etf_sensor_window_is_open` 的既有每日上海时间 21:00 窗口：
+`etf_daily_bootstrap_cli._latest_basic` 不再把执行自然日直接当作必须更新日期。继续使用 `etf_mins.etf_sensor_window_is_open` 的上海时间 21:00 边界：
 
 1. 21:00 前，最新 Raw Basic 的真实观测日期必须在昨日与今日之间；21:00 起必须为今日。未来时刻、缺失/非法/无时区观测时间或过旧版本一律停止。Basic 本身每天运行，因此这里不引入交易日历或新配置项。
 2. 只以 `fetch_materializations(..., limit=1)` 读取最新 Raw 的观测日期。随后以该日期同时作为 `eligibility_as_of` 和 `required_freshness_date` 调用原 selector；原 selector、日常 asset/sensor、ETF 分钟链不改。
@@ -1878,7 +1878,7 @@ tests/test_etf_daily_definitions.py
 
 ### 18.6 Sensor/readiness
 
-- 20:59:59 skip 且 DuckDB/Tushare 为 0；21:00:00 进入评估；
+- 日线 18:59:59、复权因子 20:59:59 均跳过且 DuckDB/Tushare 访问为 0；各自在 19:00:00 和 21:00:00 进入评估；
 - 最近 10 日、最早缺口、all ready、分区未注册；
 - existing bad file 阻断且不发 run；
 - publication 未发布时无 run key，下个 tick 可再 probe；
@@ -1994,7 +1994,7 @@ git diff --check
 | 历史 Basic 不在零点失效 | `etf_daily_bootstrap_cli._latest_basic` | 复用 21:00 窗口；早晨/跨零点/新版本/21:00 边界，时间异常及最新失败不回退；原 selector 和日常链保持不变 |
 | 有界分页 | request builders/policies/raw writer | 参数、预算失败不提升 |
 | 新增/等价复用/冲突停止 | Raw/Silver writer + Bootstrap preflight | checkpoint 续跑、等价重放、目标冲突不覆盖 |
-| 21:00 + 最近 10 日 | sensor evaluator | 时间边界、最早缺口、调用次数 |
+| 日线 19:00、复权因子 21:00，最近 10 日 | sensor evaluator | 时间边界、最早缺口、调用次数 |
 | Sensor 默认停用 | decorators | Definitions/static gate |
 | 2025+ Direct Bootstrap | raw-plan/raw-apply/audit/silver-plan/silver-apply/events | 水位、范围、Raw manifest、分阶段 checkpoint 与授权 |
 | 历史 Raw 审计不逐文件深扫 | `etf_daily_raw_batch_audit`、`build_raw_manifest`、`run_raw_audit` | 同年 2/20 日固定 SQL 次数；逐文件原语义对照；坏第二文件、原 hash 与只读不变门禁 |
@@ -2344,3 +2344,51 @@ cli events-post-audit --events-plan "$E/events-plan.json" --expected-events-plan
 24 个样本的表现与当日无成交、未形成日线一致，确认的数据源漏数为 0。无成交是基于公开日线和停复牌记录的判断，未用逐笔成交数据核实。未抽查的组合成因仍未逐一核实。
 
 管理员接受本次 ETF 日线覆盖现状。涉及 1,878 个组合的覆盖告警及原验收证据继续留存，已验收的文件和 Dagster 事件作为本次交付，2023–2024 年 ETF 日线和复权因子历史补录结案。ETF 复权因子覆盖无缺口。
+
+<a id="etf-daily-window-1900"></a>
+
+## 2026-11-27 ETF 日线 19:00 窗口实施约束
+
+管理员确认以北京时间 19:00 开始自动判断交易日的日线可用性。该时间为管理员决定。27 日 Prod 18:31 原批次的 2,220 个基金代码与 20:57 Tushare 对账一致，验证该业务日的代码覆盖。源探测继续使用原字段、同日日期和主键检查，覆盖告警和原阻塞策略照旧。
+
+| 路径与实现位置 | 实施和验收 |
+| --- | --- |
+| 基金日线 Raw、ETF 日线 Silver | `run_contracts/etf_daily.py` 定义日线的 19:00 窗口，`sensors/etf_daily_sensor.py` 由每条 sensor 的配置传入时间，同一时间用于 evaluator 入口及当日交易日是否进入窗口。验证 18:59:59 零访问、19:00 进入原路径并纳入已开市当天，原发布探测、日期连续性、运行键和 Silver 依赖继续执行。 |
+| 基础信息和分区 | `sensors/etf_basic_sensor.py`、`sensors/etf_mins_partition_sensor.py` 统一复用日线的 19:00 常量和原上海时区归一化。登记仍只读取 SSE 交易日历，原交易日分区集合及最早缺口策略不改。验证 18:59:59 零资源访问、19:00 进入原路径。基础信息原失败停止、Raw/Silver 配对和新鲜度继续执行。 |
+| 21:00 运行窗口 | ETF 分钟线继续使用 `etf_mins.etf_sensor_window_is_open`，基金及 ETF 复权因子在原日频 evaluator 使用各自 21:00 时间。历史 `etf_daily_bootstrap_cli._latest_basic` 的 21:00 边界和旧版选择规则仍按原合同。验证 20:59:59 仍跳过分钟线及复权因子，21:00 进入原路径，并回归历史 Bootstrap。 |
+| 状态、资源和写入 | 保持既有 job、sensor 名、每日快照、文件路径、默认开关、临时候选与正式原子发布。无新配置、请求参数、扫描模块或数据表。11 月 27 日的早批原始键对账为一次 Prod 单交易日投影和一次 Tushare 同日两字段读取。 |
+| 性能与中断 | 每个 sensor 继续至少间隔 600 秒、日频最多最近 10 个交易日、每 tick 最多提交 1 个原 run。19:00 至 21:00 是 120 分钟，常规单 evaluator 理论最多多 12 次评估，基金日线 Raw 仅在最早日期需要更新时才增加一次原发布探测。基础信息和登记 evaluator 不新增源请求。已有失败、活跃任务、游标、分区、失败恢复原规则不改。重试重新使用原预算，隔离回归和正式验证分别计。 |
+| 实施及验证 | CodeGraph 核对日线 evaluator、基础信息、分区登记、分钟线及历史 Bootstrap 消费者。使用隔离 Dagster 测试验证时间、SSE 分区加入及 Basic 拦截，测试输出只在工程外。生产发布阶段另作现行代码位置和任务状态复核、按获准范围加载，首次自然窗口以 sensor tick 和四个相关任务读回验证。 |
+
+<a id="etf-daily-20261127-manual"></a>
+
+### 11 月 27 日现行窗口单日触发
+
+正式 DG 仍加载 21:00 版本。在切换代码位置前完成同日基金日线 Raw 与 ETF 日线 Silver。先查询共享分区登记和当日已有 run。已排队、执行中或数据检查通过的 Job 直接跟踪。基金日线 Raw 只在 SSE 当天分区登记、Tushare 同日发布探测通过后执行。ETF 日线 Silver 只在当天基金日线 Raw 和当天 ETF 基础信息 Raw/Silver 完成原检查后执行。这次保留其他传感器自动执行，使用已加载的两个现有分区 Job。
+
+工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式实例为 `/Users/congming/.goldenshare/dagster_home`。按所需 Job 单次提交，选择器为 `orchestrator / __repository__`，使用执行入口返回的分区参数，空运行配置，分区标签为 `2026-11-27`。操作目录内的两个请求分别选择 `raw_fund_daily_update_job` 和 `silver_etf_daily_update_job`。
+
+```bash
+etf_today_dir=/private/tmp/dg-etf-daily-run-20261127.RxywbMjb
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS --max-time 15 \
+  -H 'Content-Type: application/json' --data-binary @"$etf_today_dir/raw-daily-launch.json" \
+  -o "$etf_today_dir/raw-daily-launch-result.json" http://127.0.0.1:3000/graphql
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home curl --fail-with-body -sS --max-time 15 \
+  -H 'Content-Type: application/json' --data-binary @"$etf_today_dir/silver-daily-launch.json" \
+  -o "$etf_today_dir/silver-daily-launch-result.json" http://127.0.0.1:3000/graphql
+```
+
+只触发当天至多两个现有 Job。基金日线 Raw 使用现行每日期最多两次请求尝试，ETF 日线 Silver 只读既有 Lake 文件。两者各写当天一个正式 Parquet 及其物化和检查，沿用候选校验、原子提升和冲突停止。若网络中断或 run 长时间排队，先用同日同 Job 查回已提交 run，按原 run 跟踪。已失败 run 原样保留，按实际错误和文件证据判断后续处理。验收按 job 成功、两层各一份同日文件、同一 run 的物化与阻断检查分别读回，并单独报告 ETF 日线覆盖告警。读回开销限两个同日分区计数及各目标 run 的事件和检查，不读取全历史。此次只读源发布复核已完成。
+
+#### 11 月 27 日正式读回
+
+| 正式 Job | 完成时间（北京时间） | 正式行数 | 与物化绑定的阻断检查 | Run ID |
+| --- | --- | ---: | ---: | --- |
+| ETF 基础信息 Raw（自动） | 21:05:13 | 1,952 | 3/3 | `4cfcd233-996b-4409-97ce-d9f9b1fbbee5` |
+| ETF 基础信息 Silver（自动） | 21:06:54 | 1,943 | 3/3 | `10fb480d-daec-4cc8-9a71-d5aaec44065a` |
+| 基金日线 Raw（手动） | 21:07:46 | 2,220 | 3/3 | `facf46d6-3345-450d-a91f-baf7c25f3cf2` |
+| ETF 日线 Silver（手动） | 21:08:23 | 1,741 | 5/5 | `54e8e36a-ab34-4c67-867c-c17d458c6a70` |
+
+该交易日在 21:06:58 的分区登记评估后已读回。两份日线文件计数均与物化一致，唯一代码数分别为 2,220 和 1,741。ETF 日线 Silver 使用当日 ETF 基础信息快照。快照仍将天弘上证180ETF（530080.SH）标为上市，检查目标 1,742 只中仅此一只在源端缺行。本机基金日线 Raw 样本显示该代码 11 月 12 日有一行，11 月 13 日、26 日和 27 日均无行。基金管理人公告显示基金自 11 月 13 日开市停牌，终止上市议案通过后不再复牌，故 27 日缺行符合停牌事实，保留原 WARN 记录。 [上交所披露的停牌公告](https://www.sse.com.cn/disclosure/fund/announcement/c/new/2026-11-12/530080_20261112_N1G8.pdf) [天弘基金表决结果公告](https://qcloud.fund.eastmoney.com/gonggao/530080,AN202611141831712627.html)
+
+19:00 代码在隔离环境通过 112 项相关回归和 113 项静态门禁测试，另有 5 项子测试通过。Ruff、本次新增文档链接检查和提交前全仓文档完整性复查均通过。正式读回覆盖 11 月 27 日更新，新的运行窗口待正式代码位置加载后验收。

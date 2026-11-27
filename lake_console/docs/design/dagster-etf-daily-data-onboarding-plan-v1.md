@@ -27,7 +27,7 @@ Tushare fund_adj   -> raw_tushare_fund_adj   -> silver_etf_adj_factor
 5. 日期直接复用 ETF 分钟线的动态分区 `cn_a_etf_mins_trade_days`；首次 Bootstrap 只覆盖该集合中 2025 年以来、且不晚于正式 Raw Plan 冻结水位的日期。
 6. Silver 只认执行时最新且 ready 的 ETF Basic materialization。最新版本失败、不新鲜或文件漂移时立即 fail-closed，不回退旧版本。
 7. 历史 Silver 不恢复不存在的 Basic 历史快照；Raw 全量完成并通过审计后，由 Silver Plan 冻结当时最新 Basic，自洽筛选全部历史分区。日后 ETF 退市不触发历史文件删除或重写。
-8. 日常运行窗口为上海时间 `21:00（含）—24:00（不含）`；所有新 Sensor 默认 `STOPPED`，启用仍需单独授权。
+8. 基金日线 Raw 和 ETF 日线 Silver 的运行窗口为上海时间 `19:00（含）—24:00（不含）`。基金复权因子 Raw 和 ETF 复权因子 Silver 仍为 `21:00（含）—24:00（不含）`。所有新 Sensor 默认 `STOPPED`，启用仍需单独授权。19:00 变更见 [LLD 实施约束](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-window-1900)。
 9. 历史建设走一次性的 Direct Lake Bootstrap；日常增量走四个独立资产 Job。两条链复用同一组 request builder、候选校验、内容对账和原子提升函数。
 10. 普通 writer 和原 Bootstrap 的正式文件只允许“新增、等价复用、冲突停止”，绝不自动覆盖。§8.6的指定缺行追加及检查做法已确认，2026-10-23已授权按§8.6.11逐阶段执行原范围；不能据此放宽普通writer。
 
@@ -105,9 +105,9 @@ P0 使用项目正式 `TushareResource`，只写 `/private/tmp` 隔离样本，�
 
 检查只判断是否 ready，不修改源值。
 
-### 3.4 21:00 的边界
+### 3.4 运行窗口及变更依据
 
-P0 在 2026-09-02 盘中验证当日两个接口均为零行，只能证明盘中尚未发布。管理员已经确认：以 Prod 通常在 20:50 左右完成同步为依据，`21:00` 可以作为开发口径，不阻断后续设计和编码。
+最初按 21:00 设计，2026-11-27 调整见本文末尾。P0 在 2026-09-02 盘中验证当日两个接口均为零行，只能证明盘中尚未发布。管理员已经确认：以 Prod 通常在 20:50 左右完成同步为依据，`21:00` 可以作为开发口径，不阻断后续设计和编码。
 
 因此状态分为两层：
 
@@ -218,7 +218,7 @@ list_date 非空
 list_date <= 行情分区 trade_date
 ```
 
-日常 Silver 保持执行日 Basic 门禁。历史 Bootstrap 按 Basic 已有的每日上海时间 21:00 更新窗口判断新鲜度：21:00 前允许最新版本的观测日期为昨日或今日，21:00 起要求今日；只检查最新版本，不向前搜索旧的合格版本。先读取最新 Raw 的真实观测日期，再以该日期调用既有同日 Raw/Silver selector，完整复用 checks、文件、hash 和两层绑定校验；异常或选择期间版本变化立即停止。reference 的资格日期采用该快照的观测日期，避免仅因跨零点改变 fingerprint；`list_date <= trade_date` 仍按每个历史行情分区计算。不得改写观测时间，也不恢复不存在的历史 Basic。
+日常 Silver 保持执行日 Basic 门禁。历史 Bootstrap 按其独立的上海时间 21:00 边界判断基础信息新鲜度：21:00 前允许最新版本的观测日期为昨日或今日，21:00 起要求今日；只检查最新版本，不向前搜索旧的合格版本。先读取最新 Raw 的真实观测日期，再以该日期调用既有同日 Raw/Silver selector，完整复用 checks、文件、hash 和两层绑定校验；异常或选择期间版本变化立即停止。reference 的资格日期采用该快照的观测日期，避免仅因跨零点改变 fingerprint；`list_date <= trade_date` 仍按每个历史行情分区计算。不得改写观测时间，也不恢复不存在的历史 Basic。
 
 ---
 
@@ -1122,3 +1122,13 @@ done
 阶段 5 及本次历史补录已完成（2026-11-27）。25 批全部读回通过，共新增 1,932 条物化和 323 条阻塞检查。计入首批，484 个交易日的 1,936 条物化均与验收文件证据一致，期末 20 日的 340 条阻塞检查均通过并绑定正确，验收失败 0。 [阶段 5 全量验收与结案](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-phase5-result)
 
 **管理员确认结案（2026-11-27）。** ETF 日线覆盖告警涉及 91 只 ETF 的 1,878 个代码与交易日组合，约占 414,254 个预期组合的 0.45%。缺口最多的 8 只货币 ETF 共占 1,309 个缺口，抽查的 24 个组合均符合当日无成交、未形成日线的表现，未确认数据源漏数。管理员接受本次日线覆盖现状，按已验收的文件和事件结案，覆盖告警作为验收备注留存。结案范围为 2023–2024 年 ETF 日线和复权因子。 [ETF 日线覆盖告警抽查与结案决定](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-2023-2024-coverage-closeout)
+
+## 2026-11-27 ETF 日线提前至 19:00
+
+管理员指定北京时间 19:00 为基金日线 Raw 与 ETF 日线 Silver 的最早检查时间。27 日 Prod 日线 18:31:09 成功，原批次 2,220 个基金代码与 20:57 Tushare 返回双向差集及重复均为 0，Prod ETF Serving 1,741 行。该实测支持本日代码覆盖，其他日期继续逐日核对原源发布。27 日 Prod ETF 基础信息 20:01 完成，DG 基础信息直接从 Tushare 取数，不消费 Prod 的这次物化。
+
+将当日共享交易日分区登记、ETF 基础信息 Raw/Silver 与日线 Raw/Silver 一并提前。日线 Silver 仍等同日基金日线 Raw 和执行日最新 ETF 基础信息通过原检查。ETF 分钟线、基金及 ETF 复权因子继续从 21:00 开始；历史 Bootstrap 的基础信息新鲜度仍使用原 21:00 时间边界。详见 [LLD 实施约束](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-window-1900)。
+
+管理员要求先在现行正式 DG 完成 11 月 27 日的 ETF 日线更新。复用已登记的当天分区与当天 ETF 基础信息，核实没有同日同 Job 正在执行后，才通过正式 Job 补触发当天仍未提交的日线。验收以同日文件、物化和检查为准。[单日触发与验收](dagster-etf-daily-data-onboarding-low-level-design-v1.md#etf-daily-20261127-manual)
+
+11 月 27 日单日更新已完成。基金日线 Raw 和 ETF 日线 Silver 分别于 21:07:46 和 21:08:23 成功。唯一覆盖告警来自已停牌且不再复牌的天弘上证180ETF（530080.SH）。19:00 调整已完成隔离验证，正式 DG 当晚仍使用 21:00 版本。

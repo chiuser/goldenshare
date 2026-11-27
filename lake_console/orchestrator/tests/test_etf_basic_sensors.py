@@ -12,12 +12,12 @@ from tests.test_etf_basic_readiness import (
     _ready_fixture,
 )
 
-NOW = datetime(2026, 8, 30, 21, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+NOW = datetime(2026, 8, 30, 19, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 BEFORE_WINDOW = datetime(
     2026,
     8,
     30,
-    20,
+    18,
     59,
     59,
     tzinfo=ZoneInfo("Asia/Shanghai"),
@@ -89,5 +89,5 @@ def test_basic_sensors_skip_before_window_without_any_state_access() -> None:
 
     assert not raw_result.run_requests
     assert not silver_result.run_requests
-    assert "21:00" in str(raw_result.skip_reason)
-    assert "21:00" in str(silver_result.skip_reason)
+    assert "19:00" in str(raw_result.skip_reason)
+    assert "19:00" in str(silver_result.skip_reason)
