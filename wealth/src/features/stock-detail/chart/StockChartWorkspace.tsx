@@ -39,7 +39,6 @@ interface StockChartWorkspaceProps {
   indicatorTabs: StockIndicatorTab[];
   nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
-  onNineTurnRetry: () => void;
   onAction: (message: string) => void;
   onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
   supportsTrendChannel: boolean;
@@ -62,7 +61,6 @@ export function StockChartWorkspace({
   indicatorTabs,
   nineTurnControl,
   nineTurnLayer: initialNineTurn,
-  onNineTurnRetry,
   onAction,
   onOpenPriceTarget,
   supportsTrendChannel,
@@ -160,7 +158,6 @@ export function StockChartWorkspace({
         ) : null}<NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
-          onRetry={onNineTurnRetry}
         /></>
       )}
       mainLines={mainLines}

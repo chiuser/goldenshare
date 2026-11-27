@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2通过开工审计，尚未开发，阶段3待推进。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，阶段1结果见[§12.8](#prod-stock-nine-turn-stage1)，阶段2开工审计见[§12.9](#prod-stock-nine-turn-stage2-readiness)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。页面切换、旧接口删除和真实Prod来源验收未执行，未部署。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次明确批准变更；历史验收结果保留。
+**2026-11-27 Prod股票日线九转：阶段1、2已实现并通过隔离回归，阶段3待推进。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，[阶段1结果](#prod-stock-nine-turn-stage1)、[阶段2开工审计](#prod-stock-nine-turn-stage2-readiness)及[阶段2实施与审计](#prod-stock-nine-turn-stage2-audit)分别留存。候选代码已切换股票页面并删除旧独立日线路由。真实Prod来源和浏览器验收留在阶段3，未部署。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段；历史验收结果保留。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
@@ -10,7 +10,7 @@
 
 ## 1. 现状和改动边界
 
-本专项开始前，本地股票详情先取 `/kline`，再在首批和每次续页请求 `/nine-turn`。后者用股票日 K 日期匹配 PostgreSQL `core_serving.equity_qfq_nineturn_daily` 的预计算结果。DG 原始九转算法保留连续计数，页面组装只生成 1–9 标记。原有 `/kline` 已一次计算日 K 和各个日线指标，输入会话统一准备复权收盘价。[日线九转取数](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L57) · [本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [首批及续页调用方](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L94)
+本专项开始前，本地股票详情先取 `/kline`，再在首批和每次续页请求 `/nine-turn`。后者用股票日 K 日期匹配 PostgreSQL `core_serving.equity_qfq_nineturn_daily` 的预计算结果。DG 原始九转算法保留连续计数，页面组装只生成 1–9 标记。原有 `/kline` 已一次计算日 K 和各个日线指标，输入会话统一准备复权收盘价。[日线九转取数](https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L57) · [本地日 K 调用](../../src/app/dependencies/stock_daily_technical_indicators.py#L183) · [首批及续页调用方](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L94)
 
 本期新增日线 `nineturn` 算子，并把它接入本地股票详情的首批和续页。技术指标算子库的请求格式、数据源配置和数值输出格式沿用原合同。股票分钟、指数详情、Prod 股票详情及未切换的独立九转请求保持原行为。共同依赖只复用现有行情与执行接口，算子库无需依赖 DG 工程。DG 的生成与同步代码、数据文件、数据库表及部署配置均保持现行版本。
 
@@ -299,7 +299,7 @@ class LocalStockDetailFirstKlineResponseDto(LocalStockDetailPagedKlineResponseDt
 
 <a id="prod-stock-nine-turn-lld"></a>
 
-## 12. Prod股票日线九转接入与旧独立接口删除（2026-11-27，阶段1完成、阶段2与3待推进）
+## 12. Prod股票日线九转接入与旧独立接口删除（2026-11-27，阶段1、2完成，阶段3待推进）
 
 ### 12.1 目标、批准范围和现状依据
 
@@ -456,3 +456,21 @@ Wealth执行 `npm --prefix wealth run typecheck` 通过；使用现有Vitest运�
 | 阶段边界和验收资源 | 原方案的页面切换和旧独立接口删除范围不变。沿用现有环境做阶段 2 的隔离回归与构建。正式来源验证、真实浏览器及完整迁移对照在阶段 3 执行 |
 
 本次重跑现有后端定向用例 45 项和前端定向用例 50 项，全部通过，其中包含两个分钟入口的正常和读取异常回归、旧日线路由基线、周线同游标重试及周期切换。前一次只读审计另通过隔离请求验证分钟九转身份 404 和两个入口的组装异常映射。此处记录的是改造前基线，阶段 2 完成后按 §12.6 验收。**阶段 2 具备开工条件，无待拍板的业务问题。**
+
+<a id="prod-stock-nine-turn-stage2-audit"></a>
+
+### 12.10 阶段 2 实施与对照审计（2026-11-27）
+
+按先提交的 LLD `702a291d1` 实施。完成编码和回归后重新逐项核对 §12.3、§12.4、§12.6。用 CodeGraph `codegraph_explore` 及同步后的索引检查两条股票分钟调用链、共用九转组装、股票页面、周期查询和指数调用方，再核对实际引用、变更及测试。此为与编码分开的自审。
+
+| LLD 要求 | 实施与所核对的证据 |
+| --- | --- |
+| 首批和续页消费同批日线标记 | [`StockDetailPage.tsx`](../../wealth/src/pages/stock-detail/StockDetailPage.tsx) 在各环境先校验数组，再判空及组装图层。页面定向测试验证 Prod 从日 K 消费标记、开关只绘制、正常空标记和缺字段失败；本地首批与续页用例验证盘口、日期、同批四轨和标记及失败重试 |
+| 迁移分钟错误和保持现行响应 | [股票分钟九转服务](../../src/biz/queries/wealth/market/stock_minute_nine_turn/stock_minute_nine_turn_query_service.py)拥有 `StockMinuteNineTurnNotFoundError`，组装报错沿用共用 `NineTurnContractError`。实际分钟路由隔离测试验证未知和非股票在读取前返回 `404 NT_NOT_FOUND`，共享组装报错分别返回 `503 SM_SOURCE_CONTRACT_INVALID` 和 `500 NT_SOURCE_CONTRACT_INVALID`，原文案及读取层错误回归通过 |
+| 旧入口、旧查询和测试消费完成清理 | 主路由只减去旧日线路由导入和挂载。两种环境均用实际主路由核对旧 URL 返回 404 且 OpenAPI 无该路径，股票日 K 和指数旧独立日线入口仍注册。原 Prod 日线能力、盘口及分钟路由未开放断言已迁移。自选夹具可导入，旧挂载、模型建表项和种子已清除；该夹具既有启动问题按 §12.4.1 处理。源码及测试无旧模块、旧错误类和旧股票独立请求实现引用 |
+| 周月行情重试与共用图层 | 股票图表移除独立九转重试参数。页面验证周、月首批失败后按原参数发起同周期 K 线请求，周线历史用例核对保留现有 K 线、标记、首批状态和原游标，切周期会取消上一请求。共享绘图及指数日线、分钟能力通过回归 |
+| 原日 K 读数与算子不受页面切换影响 | 复用组装架构改造已保存的股票隔离 PostgreSQL 样本和 16 个请求跑实际 Prod 日、周、月路由，和阶段 2 前的记录比较。业务 JSON、SQL 与参数、算子和资源观察记录逐项一致。去掉单次耗时后的 SHA-256 为 `618f7f4c3114d315b3c6b362325a5840c33d6d356927266f1ccef5e1ed4ecd03`。正式行情来源仍由阶段 3 验证 |
+
+首次后端定向用例 56 项通过，18.71 秒；首轮前端定向用例 54 项通过，类型检查发现新测试使用了不支持的查询选项，修正后重跑。最终后端 183 项通过，49.33 秒；前端 151 项通过，5.56 秒；Wealth 类型检查和工程外生产构建通过。另跑隔离 PostgreSQL 对照 1 项，5.14 秒。测试使用现有依赖、临时行情及数据库，构建输出和缓存位于工程外。**阶段 2 对照审计通过。** 有界真实 Prod 来源、真实浏览器与整项迁移验收仍属于阶段 3。
+
+本次删除导致失效的历史源码链接已固定到清理前 Git 版本，相关历史结论和线上来源记录继续按原适用时间解释。文档完整性与差异检查通过。

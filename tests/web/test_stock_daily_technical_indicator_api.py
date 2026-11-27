@@ -4,10 +4,16 @@ P01/R01–R05 are deliberately not executed here. The temporary serving schema
 uses the current EquityDailyBar/Security/TradeCalendar producer definition.
 """
 from datetime import date, timedelta
+import os
+import subprocess
+import sys
 
 import pytest
 
+from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
+from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving.security_serving import Security
 from tests.stock_daily_kline_helpers import backend_for_client
 from tests.web.test_wealth_stock_detail_api import _ensure_stock_detail_tables, _seed_stock_detail_data
@@ -111,3 +117,79 @@ def test_prod_daily_maps_nine_turn_from_the_single_calculation(app_client, db_se
     ]
     assert "quote" not in payload and "nextEndDate" not in payload["meta"]
     assert (payload["debugInfo"] is not None) == debug
+
+
+def test_prod_page_init_keeps_daily_nine_turn_capability_and_prior_quote(app_client, db_session):
+    _ensure_stock_detail_tables(db_session)
+    previous = date(2026, 8, 12)
+    anchor = date(2026, 8, 13)
+    db_session.add_all([
+        Security(ts_code="000001.SZ", symbol="000001", name="平安银行", security_type="EQUITY"),
+        TradeCalendar(exchange="SSE", trade_date=previous, is_open=True, pretrade_date=date(2026, 8, 11)),
+        TradeCalendar(exchange="SSE", trade_date=anchor, is_open=True, pretrade_date=previous),
+        EquityFactorPro(ts_code="000001.SZ", trade_date=previous, close_qfq=11,
+                        turnover_rate=99, volume_ratio=99, source="tushare"),
+        EquityDailyBasic(ts_code="000001.SZ", trade_date=previous, turnover_rate=0, volume_ratio=None),
+        EquityDailyBasic(ts_code="000001.SZ", trade_date=anchor, turnover_rate=1, volume_ratio=2),
+    ])
+    db_session.commit()
+
+    response = app_client.get(
+        "/api/v1/wealth/market/stock-detail/page-init",
+        params={"tsCode": "000001.SZ", "tradeDate": anchor.isoformat()},
+    )
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["quote"]["tradeDate"] == previous.isoformat()
+    assert payload["quote"]["turnoverRate"] == 0
+    assert payload["quote"]["volumeRatio"] is None
+    assert payload["capabilities"]["supportsNineTurn"] is True
+    assert payload["capabilities"]["nineTurnPeriods"] == ["day"]
+
+
+@pytest.mark.parametrize("environment", ["local", "prod"])
+def test_main_router_retires_only_the_stock_daily_nine_turn_endpoint(tmp_path, environment):
+    # The main router snapshots its profile at import. A fresh process gives
+    # each case the real aggregation without starting the Web lifespan.
+    env_file = tmp_path / "test.env"
+    env_file.write_text("")
+    script = """
+import sys
+
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+
+from src.app.api.v1.router import router
+
+stock = "/api/v1/wealth/market/stock-detail"
+index = "/api/v1/wealth/market/index-detail"
+app = FastAPI()
+app.include_router(router, prefix="/api")
+with TestClient(app) as client:
+    paths = client.get("/openapi.json").json()["paths"]
+    assert client.get(f"{stock}/nine-turn", params={"tsCode": "000001.SZ"}).status_code == 404
+    assert f"{stock}/nine-turn" not in paths
+    assert f"{stock}/kline" in paths
+    assert f"{index}/nine-turn" in paths
+    schema = paths[f"{stock}/page-init"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+    expected = "LocalStockDetailPageInitResponseDto" if sys.argv[1] == "local" else "StockDetailPageInitResponseDto"
+    assert schema["$ref"].rsplit("/", 1)[-1] == expected
+    if sys.argv[1] == "prod":
+        minute = f"{stock}/minute-nine-turn"
+        assert minute not in paths
+        assert client.get(minute, params={"tsCode": "000001.SZ", "freq": 30}).status_code == 404
+"""
+    result = subprocess.run(
+        [sys.executable, "-B", "-c", script, environment],
+        env={
+            **os.environ,
+            "APP_ENV": environment,
+            "GOLDENSHARE_ENV_FILE": str(env_file),
+            "GOLDENSHARE_LAKE_ROOT": str(tmp_path),
+            "WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED": "false",
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

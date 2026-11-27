@@ -1866,7 +1866,7 @@
     <ul class="checks">
       <li><strong>日 K 和指标。</strong> 用 <code>core_serving.equity_daily_bar</code> 的不复权行情及 <code>core.equity_adj_factor</code> 的股票复权因子，现场计算前复权四价及日线指标。内核另用交易日历、股票存续和停复牌数据核对行情覆盖。 <a href="../../../../src/app/dependencies/stock_daily_technical_indicators.py">开发分支日 K 入口</a> · <a href="../../../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py">内核数据来源</a></li>
       <li><strong>盘口、换手率和量比。</strong> Prod 配置仍由 <code>/page-init</code> 返回盘口，盘口四价、昨收和涨跌继续取 <code>core_serving.equity_factor_pro</code>。盘口和各根日 K 的换手率、量比改从 <code>core_serving.equity_daily_basic</code> 按各自的实际行情日匹配。 <a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">开发分支盘口组装</a> · <a href="../../../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">开发分支日 K 每日指标查询</a></li>
-      <li><strong>九转及页面日期。</strong> 日线九转改用 <code>core_serving.equity_daily_bar</code> 选页，继续读 <code>core_serving.equity_qfq_nineturn_daily</code> 的结果。当前前端代码让顶部指数、股票新闻沿用首屏日期。股票日 K 向左翻页和首屏日 K 组装盘口仅在本地启用。 <a href="../../../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">开发分支九转查询</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">开发分支页面请求</a></li>
+      <li><strong>九转及页面日期。</strong> 日线九转改用 <code>core_serving.equity_daily_bar</code> 选页，继续读 <code>core_serving.equity_qfq_nineturn_daily</code> 的结果。当前前端代码让顶部指数、股票新闻沿用首屏日期。股票日 K 向左翻页和首屏日 K 组装盘口仅在本地启用。 <a href="https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py">开发分支九转查询</a> · <a href="../../../../wealth/src/pages/stock-detail/StockDetailPage.tsx">开发分支页面请求</a></li>
     </ul>
   </section>
 
@@ -1878,7 +1878,7 @@
       <li><strong>2026-11-20 Prod 复核。</strong> 在生产主机读取 Web 服务状态、部署提交和运行中的接口定义。字段来源按该部署提交的查询与组装代码核对，本轮未另查生产行情明细。</li>
       <li><strong>2026-11-20 本机切换后复验。</strong> 在常用本地页面打开贵州茅台 <code>600519.SH</code>，页面日期为 2026-11-19，首批 500 根，覆盖 2024-10-30 至 2026-11-19。向左拖动续批 500 根，覆盖 2022-09-30 至 2024-10-29。两批无重叠，续页九转和趋势通道均按 500 个日 K 日期对齐，页面日期、盘口与图表视野保持稳定。同一页面点击上证指数卡，日线正常显示 500 根。<a href="stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md#本机切换后复验">本机复验记录</a></li>
       <li><strong>开发分支的隔离验收。</strong> 2026-11-19 阶段 D 用正式 Web 数据库角色核对 Prod 相关表，另外在隔离应用用 Prod 只读数据和 DG 正式文件核对新版接口。贵州茅台 <code>600519.SH</code> 的两批日 K 各 500 根无重叠，图上收盘价与 MA5 匹配。2025-06-25／26 的前复权价格与手算同基准。 <a href="../../../../docs/architecture/technical-indicator-operator-library-implementation-lld-v1.md#8-本轮核验证据">阶段 D 样本和取数范围</a></li>
-      <li><strong>每日指标和九转的隔离样本。</strong> 同次验收中贵州茅台 2026-11-18 盘口的两端换手率为 0.2388%，量比为 0.79。按 300 根日线九转请求验证，两端均匹配 300 根。缺失状态另有回归用例。 <a href="../../../../tests/web/test_wealth_stock_nine_turn_api.py">九转缺失与分页测试</a></li>
+      <li><strong>每日指标和九转的隔离样本。</strong> 同次验收中贵州茅台 2026-11-18 盘口的两端换手率为 0.2388%，量比为 0.79。按 300 根日线九转请求验证，两端均匹配 300 根。缺失状态另有回归用例。 <a href="https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/tests/web/test_wealth_stock_nine_turn_api.py">九转缺失与分页测试</a></li>
       <li><strong>上一轮 DG 定点样本。</strong> 2026-11-18 审计记录中，浦发银行 <code>600000.SH</code> 的 2026-07-15、07-16、11-12 均命中不复权日线、复权因子与股票每日指标。7 月 15 日至 16 日的原价收盘为 9.31、8.85 元，复权因子为 16.5935、17.3774。另抽查了板块、资金、上市状态及指数数据，用于评估候选来源。</li>
       <li><strong>价格与展示口径。</strong> 本机实测盘口日期和四价与首批末根日 K 一致。日 K 振幅以原价昨收为分母，盘口的万元文本由前端单独格式化。关联板块与个股资金栏仍是固定示例。</li>
     </ul>

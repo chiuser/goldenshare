@@ -16,6 +16,9 @@ from src.app.dependencies.stock_minute_technical_indicators import run_stock_min
 from src.app.exceptions import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
 from src.biz.api.wealth.market import stock_detail_minute_nine_turn, stock_detail_minutes
+from src.biz.queries.wealth.market.stock_detail_minutes.stock_minute_calculation_reader import StockMinuteCalculationReader
+from src.biz.queries.wealth.market.stock_minute_nine_turn import stock_minute_nine_turn_query_service
+from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import NineTurnContractError
 from src.foundation.config.settings import Settings
 from tests.foundation.technical_indicators.test_stock_minutes_recent import CODE, _write_factor, _write_minutes, minute
 
@@ -146,6 +149,38 @@ def test_stock_minutes_empty_delayed_and_source_contract_failure(minute_client, 
     nine_turn = _get(minute_client, "minute-nine-turn")
     assert nine_turn.status_code == 500
     assert nine_turn.json()["code"] == "NT_SOURCE_CONTRACT_INVALID"
+
+
+@pytest.mark.parametrize("security", [None, SimpleNamespace(security_type="INDEX")], ids=["missing", "not-stock"])
+def test_minute_nine_turn_checks_stock_identity_before_reading(minute_client, monkeypatch, security):
+    monkeypatch.setitem(minute_client.app.dependency_overrides, get_db_session,
+                        lambda: SimpleNamespace(info={}, get=lambda *_: security))
+
+    def unexpected_read(*args, **kwargs):
+        pytest.fail("An unsupported stock identity reached the minute reader")
+
+    monkeypatch.setattr(StockMinuteCalculationReader, "read", unexpected_read)
+    response = _get(minute_client, "minute-nine-turn", tsCode="600999.SH")
+    assert response.status_code == 404
+    assert response.json()["code"] == "NT_NOT_FOUND"
+    assert response.json()["message"] == "未找到股票标的：600999.SH"
+
+
+def test_stock_minute_routes_keep_their_contract_error_responses(minute_client, tmp_path, monkeypatch):
+    _sample(tmp_path)
+
+    def invalid_marker(**kwargs):
+        raise NineTurnContractError("Invalid marker input to the shared assembler")
+
+    monkeypatch.setattr(stock_minute_nine_turn_query_service, "build_nine_turn_response", invalid_marker)
+    for path, status, code, message in (
+        ("minutes", 503, "SM_SOURCE_CONTRACT_INVALID", "分钟源数据合同校验失败。"),
+        ("minute-nine-turn", 500, "NT_SOURCE_CONTRACT_INVALID", "股票分钟九转源数据合同校验失败。"),
+    ):
+        response = _get(minute_client, path)
+        assert response.status_code == status
+        assert response.json()["code"] == code
+        assert response.json()["message"] == message
 
 
 @pytest.mark.parametrize("params", [{"freq": 2}, {"startDate": "2023-12-31"}, {"startDate": "2026-11-18"}])

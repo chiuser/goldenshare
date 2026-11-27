@@ -69,7 +69,7 @@ TOAST 表及其索引由所属 Raw 表的 `reltoastrelid` 和 `pg_index` 精确�
 | Raw 写入 | [writer](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)、[BaseDAO](/Users/congming/github/goldenshare/src/foundation/dao/base_dao.py) | 仍按同一 `(ts_code, trade_date)` upsert；后续写入落在迁后的表及索引上 |
 | 指数 K 线、行情取值 | [IndexDetailQuery](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/index_detail/index_detail_query.py) | 仍读同名 Serving 视图 |
 | 股票 K 线、最新因子取值 | [StockDetailQuery](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/stock_detail/stock_detail_query.py) | 仍读同名 Serving 视图 |
-| 指数、股票九转查询 | [指数查询](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query.py)、[股票查询](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py) | 同样依赖因子视图，可能受锁等待和 HDD I/O 影响；不纳入本次性能测试 |
+| 指数、股票九转查询 | [指数查询](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query.py)、[原股票九转查询](https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py) | 同样依赖因子视图，可能受锁等待和 HDD I/O 影响；不纳入本次性能测试 |
 | 指数日线徐小明数据读取 | [source](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/index_detail_xxm/source.py) | 可能受锁等待和 HDD I/O 影响；不纳入本次性能测试 |
 | 股票已有历史更新规划 | [unit planner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) | 仍使用同一 Raw 表，不改逻辑，不触发重刷验收 |
 

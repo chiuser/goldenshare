@@ -142,10 +142,12 @@ DG 分区日期为 `YYYY-MM-DD`，股票每日指标文件内的 `trade_date` �
 
 #### 股票日线九转
 
-- **本页应有日期。** `StockNineTurnQuery.load_daily_page()` 复用 `/kline` 的正式股票日线日期定位规则，按同一股票代码、日期窗口和游标选实际存在的日 K。DG 读上表的 `silver/quote/stock_daily`，Prod 读 `core_serving.equity_daily_bar`。按日期倒序取最多 `limit + 1` 个日期，多出的一个仅用于判定续页。游标取本页最早的日 K 日期，按日期升序交付本页。缺失检查只读取日 K 的日期，股票代码用作筛选。沿用路由现有的权限校验、日期参数、页大小和截止日解析。 [现有分页查询](../../src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L24) · [现有请求上限](../../src/biz/api/wealth/market/stock_detail_nine_turn.py#L54)
+本节记录独立接口的原实施口径。股票页面切换及独立接口清理见[九转 LLD §12.10](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)。
+
+- **本页应有日期。** `StockNineTurnQuery.load_daily_page()` 复用 `/kline` 的正式股票日线日期定位规则，按同一股票代码、日期窗口和游标选实际存在的日 K。DG 读上表的 `silver/quote/stock_daily`，Prod 读 `core_serving.equity_daily_bar`。按日期倒序取最多 `limit + 1` 个日期，多出的一个仅用于判定续页。游标取本页最早的日 K 日期，按日期升序交付本页。缺失检查只读取日 K 的日期，股票代码用作筛选。沿用路由现有的权限校验、日期参数、页大小和截止日解析。 [现有分页查询](https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/queries/wealth/market/stock_nine_turn/stock_nine_turn_query.py#L24) · [现有请求上限](https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/src/biz/api/wealth/market/stock_detail_nine_turn.py#L54)
 - **单表取结果。** 九转结果只由应用 PostgreSQL 的 `core_serving.equity_qfq_nineturn_daily` 提供，按主键 `(ts_code, trade_date)` 匹配本页日期，同一行提供计数、信号和公式版本。Prod 在同一次 SQL 中先限定日 K 日期，再匹配九转结果。DG 先有界定位日 K 日期，再一次批量查询九转表。去掉与 `core_serving.equity_factor_pro` 的连接。完整性检查只用正式日 K 日期和结果表，交易日历不用于补出应有日期。此路径无需读取四价、复权因子或股票每日指标，也不调用算子计算。 [结果表定义](../../src/foundation/models/core_serving/equity_qfq_nineturn_daily.py#L49)
 - **缺失与状态。** `StockNineTurnQueryService.read_daily()` 以本页日 K 根数为 `sourceRowCount`，以有九转结果的日期数为 `matchedRowCount`，两者之差为 `missingRowCount`。例如本页有三个日 K 日期，其中一天没有九转记录，缺失数为 1，已有标记继续返回。休市或停牌无日 K 的日期不参与计数。有结果但该日没有可画标记，仍计为已匹配。沿用现有 `EMPTY`、`PARTIAL`、`DELAYED`、`READY` 的判定顺序和截止日检查，保留 HTTP 参数、响应字段、错误与游标格式。读取失败或源数据合同错误继续报原错误。改动限股票日线九转。 [当前状态与标记规则](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L82) · [前端数量合同](../../wealth/src/features/nine-turn/model/nineTurnAdapter.ts#L26)
-- **验收。** 覆盖某个日 K 日期缺九转、某个九转日期无对应日 K、停牌无日 K、有结果但无可画标记、页内完全无九转，以及页尾缺九转后仍按日 K 日期续页。用两端的有界样本核对日期来源、计数和翻页，并验证旧股票日线技术因子表缺行时仍可查询和检查。重试重复同一页的有界读取。 [现有缺失与分页测试](../../tests/web/test_wealth_stock_nine_turn_api.py#L95)
+- **验收。** 覆盖某个日 K 日期缺九转、某个九转日期无对应日 K、停牌无日 K、有结果但无可画标记、页内完全无九转，以及页尾缺九转后仍按日 K 日期续页。用两端的有界样本核对日期来源、计数和翻页，并验证旧股票日线技术因子表缺行时仍可查询和检查。重试重复同一页的有界读取。 [现有缺失与分页测试](https://github.com/chiuser/goldenshare/blob/3caf9436c9d476648f3a494bb9b1df16751adc51/tests/web/test_wealth_stock_nine_turn_api.py#L95)
 
 ### 5.2 上证综指日线和已有通用调用
 

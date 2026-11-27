@@ -12,11 +12,11 @@ from goldenshare_technical_indicators.errors import SourceContractError, SourceR
 from src.app.auth.dependencies import require_quote_access
 from src.app.auth.domain import AuthenticatedUser
 from src.app.exceptions import WebAppError
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service import StockNineTurnSourceContractError
 from src.biz.schemas.wealth.market.stock_detail_minutes import (
     StockMinuteChartResponseDto,
     StockMinuteIndicatorsResponseDto,
 )
+from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import NineTurnContractError
 from src.foundation.clients.local_lake.stock_mins_reader import MAX_MINUTE_LIMIT, MinuteReadRequest, MinuteRequestError
 
 
@@ -40,7 +40,7 @@ def build_router(*, run_page: Callable[..., Awaitable[Response]]) -> APIRouter:
                 request, output="chart", arrived_at=monotonic(), debug=bool(debug),
                 query=MinuteReadRequest(ts_code, freq, start_date, end_date, limit, cursor),
             )
-        except (MinuteRequestError, StockNineTurnSourceContractError, TechnicalIndicatorError) as exc:
+        except (MinuteRequestError, NineTurnContractError, TechnicalIndicatorError) as exc:
             raise _http_error(exc) from exc
 
     @router.get("/minute-indicators", response_model=StockMinuteIndicatorsResponseDto)
@@ -67,7 +67,7 @@ def build_router(*, run_page: Callable[..., Awaitable[Response]]) -> APIRouter:
 
 
 def is_stock_minute_source_contract_error(exc: Exception) -> bool:
-    if isinstance(exc, (SourceContractError, StockNineTurnSourceContractError)):
+    if isinstance(exc, (SourceContractError, NineTurnContractError)):
         return True
     if isinstance(exc, SourceReadError):
         from duckdb import BinderException, ConversionException

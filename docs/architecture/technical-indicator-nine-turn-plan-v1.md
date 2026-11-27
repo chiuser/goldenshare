@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入方案 v1
 
-**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2、3待推进。** 管理员要求Prod股票日线九转也使用算子库，并确认“删除吧”，批准同批删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及其专用查询代码。本次按[§6](#prod-stock-nine-turn-plan)和[LLD §12](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-lld)推进；阶段1证据与审计见[LLD §12.8](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1)。后端已同批计算、返回必有标记数组，页面切换和旧接口删除未实施，真实Prod来源验收未执行，未部署。本地与指数的既有实施记录保留历史范围，原“Prod保持原合同”不再限制本次明确批准的增量。
+**2026-11-27 Prod股票日线九转：阶段1、2已实现并通过隔离回归，阶段3待推进。** 管理员批准使用算子库同批计算，并删除旧 `/api/v1/wealth/market/stock-detail/nine-turn` 及专用查询。候选代码已完成股票页面切换和旧接口清理。真实Prod来源和浏览器验收待阶段3执行，未部署。实施顺序见[§6](#prod-stock-nine-turn-plan)，证据见[LLD阶段1](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage1)和[LLD阶段2](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)。本地与指数的既有实施记录保留历史范围。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验)
 
@@ -93,6 +93,6 @@ DG生成、同步、sensor、数据文件、Prod表 `core_serving.equity_qfq_nin
 | 2. 页面切换与旧代码清理 | 股票页直接消费同批标记；删除旧独立路由、查询、前端请求及无用测试，迁移混合测试 | 首屏、本地续页和开关不请求旧接口；旧路径与OpenAPI退出；共用指数/分钟代码仍有效 |
 | 3. 有界真实验证与对照审计 | 用真实Prod来源核数值、读取与费用，浏览器验证交接；独立重读LLD、代码和证据 | LLD §12逐项对账，未覆盖项据实说明，交管理员review |
 
-2026-11-27：阶段1实现、后端106项和前端52项限定测试、类型检查及隔离生产构建通过；另一次自审未发现阶段1范围内偏离LLD。阶段2、3尚未开展，阶段1不作为完整页面迁移或真实Prod验收通过的依据。
+2026-11-27 阶段1完成后端同批输出及合同验收。阶段2完成股票页面切换、分钟错误迁移和旧接口清理，后端183项、前端151项隔离回归和构建通过。[阶段2审计](technical-indicator-nine-turn-low-level-design-v1.md#prod-stock-nine-turn-stage2-audit)记录实际路由、分钟错误响应、周月重试及隔离PostgreSQL对照。阶段3仍须完成有界真实Prod验证和浏览器验收。
 
 以上阶段是开发和验收顺序，前后端合成同一交付候选，不单独向线上发布中间版本，也不为阶段过渡新增旧接口转发或成品回退。当前无新增业务待拍板项；开发开始前仍须核对LLD及当前源码，不能将设计确认写成实现通过。

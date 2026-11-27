@@ -6,7 +6,6 @@ No existing database address is accepted. Stop with Ctrl-C; PG is stopped too.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from pathlib import Path
 import socket
 import tempfile
@@ -21,13 +20,9 @@ from src.biz.api.wealth.market import (
     major_indices,
     stock_detail,
     stock_detail_news,
-    stock_detail_nine_turn,
 )
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
 from src.foundation.models.core.index_basic import IndexBasic
-from src.foundation.models.core_serving.equity_qfq_nineturn_daily import (
-    EquityQfqNineTurnDaily,
-)
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.news_stock_link import NewsStockLink
 from src.foundation.models.core_serving.security_serving import Security
@@ -58,7 +53,6 @@ def seed_browser_context(engine):
         connection.exec_driver_sql("CREATE SCHEMA core_serving_light")
         for model in (
             EquityFactorPro,
-            EquityQfqNineTurnDaily,
             IndexBasic,
             IndexDailyServing,
             NewsStockLink,
@@ -86,20 +80,6 @@ def seed_browser_context(engine):
                     amount=123456,
                     turnover_rate=0.92,
                     volume_ratio=1.08,
-                )
-                for i in range(1, 205)
-            ],
-        )
-        connection.execute(
-            insert(EquityQfqNineTurnDaily),
-            [
-                dict(
-                    ts_code=f"{i:06d}.SZ",
-                    trade_date=DAY,
-                    up_count=0,
-                    down_count=0,
-                    formula_version=1,
-                    published_at=datetime.now(timezone.utc),
                 )
                 for i in range(1, 205)
             ],
@@ -143,7 +123,6 @@ def browser_app(engine):
         major_indices.router,
         stock_detail.router,
         stock_detail_news.router,
-        stock_detail_nine_turn.router,
     ):
         app.include_router(router, prefix="/api/v1")
 

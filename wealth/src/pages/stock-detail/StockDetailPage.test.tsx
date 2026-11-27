@@ -52,7 +52,9 @@ describe("StockDetailPage", () => {
     emptyQuote = false,
     local = false,
     missingLocalQuote = false,
-    missingLocalNineTurn = false,
+    missingNineTurn = false,
+    noDailyNineTurn = false,
+    supportsWeeklyMonthly = false,
   }: {
     fail?: boolean;
     supportsMinute?: boolean;
@@ -63,7 +65,9 @@ describe("StockDetailPage", () => {
     emptyQuote?: boolean;
     local?: boolean;
     missingLocalQuote?: boolean;
-    missingLocalNineTurn?: boolean;
+    missingNineTurn?: boolean;
+    noDailyNineTurn?: boolean;
+    supportsWeeklyMonthly?: boolean;
   } = {}) {
     const pageInit = {
       pageContext: {
@@ -107,7 +111,7 @@ describe("StockDetailPage", () => {
         defaultPeriod: "day",
         defaultAdjustment: "forward",
         sourceAdjustment: "qfq",
-        availablePeriods: ["day"],
+        availablePeriods: supportsWeeklyMonthly ? ["day", "week", "month"] : ["day"],
         availableAdjustments: ["forward"],
         availableMainOverlays: supportsTrendChannel ? ["MA", "BOLL", "TREND_CHANNEL"] : ["MA", "BOLL"],
         availableIndicatorTabs: ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"],
@@ -118,8 +122,9 @@ describe("StockDetailPage", () => {
         minuteFrequencies: supportsMinute ? [1, 5, 15, 30, 60, 90, 120] : [],
         supportsNineTurn: true,
         supportsTrendChannel,
-        nineTurnPeriods: supportsMinute ? ["day", "30", "60", "90", "120"] : ["day"],
-        supportsWeeklyMonthly: false,
+        nineTurnPeriods: ["day", ...(supportsWeeklyMonthly ? ["week", "month"] : []),
+          ...(supportsMinute ? ["30", "60", "90", "120"] : [])],
+        supportsWeeklyMonthly,
         userActions: { watchlist: true, alert: false, tradePlan: false, diagnosis: false },
       },
       dataStatus: {
@@ -335,8 +340,16 @@ describe("StockDetailPage", () => {
         return Response.json(otherStock ? { ...pageInit, stock: { ...pageInit.stock, ...otherStock } } : pageInit);
       }
       if (url.includes("/kline")) {
+        const period = new URL(url).searchParams.get("period");
+        if (period === "week" || period === "month") {
+          const dates = [period === "week" ? "2026-05-22" : "2026-04-30", "2026-05-29"];
+          const bars = kline.bars.map(({ factors: { trendChannel: _trendChannel, ...factors }, ...bar }, index) =>
+            ({ ...bar, tradeDate: dates[index], factors }));
+          const nineTurnMarkers = dailyNineTurn.markers.map((marker, index) => ({ ...marker, tradeDate: dates[index] }));
+          return Response.json({ ...kline, period, bars, nineTurnMarkers });
+        }
         if (empty) return Response.json({ ...kline, bars: [], meta: { ...kline.meta, count: 0 },
-          nineTurnMarkers: [], ...(local ? { quote: null } : {}),
+          ...(missingNineTurn ? {} : { nineTurnMarkers: [] }), ...(local ? { quote: null } : {}),
           dataStatus: { ...kline.dataStatus, status: "EMPTY", observedTradeDate: null } });
         if (local && !missingLocalQuote) {
           const latest = { ...kline.bars.at(-1)!, close: 21.34 };
@@ -345,7 +358,7 @@ describe("StockDetailPage", () => {
             pageContext: { ...pageInit.pageContext, tradeDate: requestedDay },
             bars: [...kline.bars.slice(0, -1), latest],
             quote: { ...pageInit.quote, price: latest.close, close: latest.close },
-            ...(!missingLocalNineTurn ? { nineTurnMarkers: [{
+            ...(!missingNineTurn ? { nineTurnMarkers: [{
               tradeDate: latest.tradeDate, tradeTime: null, direction: "UP", sequenceNumber: 9, completed: true,
             }] } : {}),
             dataStatus: { ...kline.dataStatus, status: "DELAYED", expectedTradeDate: requestedDay },
@@ -353,14 +366,11 @@ describe("StockDetailPage", () => {
         }
         return Response.json({
           ...kline,
-          nineTurnMarkers: [],
+          ...(missingNineTurn ? {} : { nineTurnMarkers: noDailyNineTurn ? [] : dailyNineTurn.markers }),
           ...(otherStock ? { stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : {}),
         });
       }
       if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
-      if (url.includes("/nine-turn")) {
-        return Response.json(otherStock ? { ...dailyNineTurn, tsCode: otherStock.tsCode } : dailyNineTurn);
-      }
       if (supportsMinute && url.includes("/stock-detail/minutes")) {
         const freq = Number(new URL(url).searchParams.get("freq"));
         const tradeTime = "2026-05-29T15:00:00+08:00";
@@ -471,10 +481,56 @@ describe("StockDetailPage", () => {
     expect(await screen.findByText("股票日 K 首屏缺少盘口数据")).toBeInTheDocument();
   });
 
-  it("rejects a local first page missing its nine-turn list", async () => {
-    const requests = mockStockDetailFetch({ local: true, missingLocalNineTurn: true });
+  it.each([
+    { local: true, empty: false },
+    { local: false, empty: false },
+    { local: false, empty: true },
+  ])("rejects a first page missing its nine-turn list (local: $local, empty: $empty)", async ({ local, empty }) => {
+    const requests = mockStockDetailFetch({ local, empty, missingNineTurn: true });
     render(<StockDetailPage tsCode="603806.SH" />);
     expect(await screen.findByText("股票日线回包缺少九转标记")).toBeInTheDocument();
+    expect(requests.mock.calls.some(([input]) => String(input).includes("/stock-detail/nine-turn"))).toBe(false);
+  });
+
+  it("keeps the Prod candles visible when the daily nine-turn list is empty", async () => {
+    const requests = mockStockDetailFetch({ noDailyNineTurn: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByText("当前窗口暂无九转标记")).toBeInTheDocument();
+    expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
+    expect(requests.mock.calls.some(([input]) => String(input).includes("/stock-detail/nine-turn"))).toBe(false);
+  });
+
+  it.each([
+    ["周K", "week", "100"],
+    ["月K", "month", null],
+  ] as const)("retries the %s first page with its original K-line request", async (label, period, limit) => {
+    const detailFetch = mockStockDetailFetch({ supportsWeeklyMonthly: true });
+    const periodRequests: URL[] = [];
+    const requests = vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+      const url = new URL(String(input));
+      if (url.pathname.endsWith("/stock-detail/kline") && url.searchParams.get("period") === period) {
+        periodRequests.push(url);
+        if (periodRequests.length === 1) {
+          return Promise.resolve(Response.json({ message: "周期行情暂不可用" }, { status: 500 }));
+        }
+      }
+      return detailFetch(input, options);
+    });
+    vi.stubGlobal("fetch", requests);
+    render(<StockDetailPage tsCode="603806.SH" debug={1} />);
+    fireEvent.click(await screen.findByRole("button", { name: label }));
+    expect(await screen.findByText("周期行情暂不可用")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByLabelText("K线主图")).toBeInTheDocument();
+    expect(screen.queryByText("当前窗口暂无九转标记")).not.toBeInTheDocument();
+    expect(periodRequests).toHaveLength(2);
+    expect(periodRequests[1].search).toBe(periodRequests[0].search);
+    const params = periodRequests[1].searchParams;
+    expect(params.get("tsCode")).toBe("603806.SH");
+    expect(params.get("tradeDate")).toBe("2026-05-29");
+    expect(params.get("endDate")).toBe("2026-05-29");
+    expect(params.get("limit")).toBe(limit);
+    expect(params.get("debug")).toBe("1");
     expect(requests.mock.calls.some(([input]) => String(input).includes("/stock-detail/nine-turn"))).toBe(false);
   });
 
@@ -555,12 +611,15 @@ describe("StockDetailPage", () => {
     expect(screen.getAllByText("MA10:18.90").length).toBeGreaterThan(0);
     expect(screen.queryByText(/MA15/)).not.toBeInTheDocument();
     expect(screen.queryByText(/MA120/)).not.toBeInTheDocument();
-    await waitFor(() => expect(fetch).toHaveBeenCalledWith(
-      expect.stringContaining("/stock-detail/nine-turn"),
-      expect.anything(),
-    ));
-    const nineTurnRequest = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes("/stock-detail/nine-turn"));
-    expect(new URL(String(nineTurnRequest?.[0])).searchParams.get("limit")).toBe("500");
+    expect(screen.queryByText("当前窗口暂无九转标记")).not.toBeInTheDocument();
+    const toggle = screen.getByRole("button", { name: "九转序列" });
+    fireEvent.click(toggle);
+    fireEvent.click(toggle);
+    const urls = vi.mocked(fetch).mock.calls.map(([url]) => new URL(String(url)));
+    expect(urls.some(({ pathname }) => pathname.endsWith("/stock-detail/nine-turn"))).toBe(false);
+    const batches = urls.filter(({ pathname }) => pathname.endsWith("/stock-detail/kline"));
+    expect(batches).toHaveLength(1);
+    expect(batches[0].searchParams.get("limit")).toBe("500");
   });
 
   it("loads membership, adds once and preserves default day/forward and other placeholders", async () => {

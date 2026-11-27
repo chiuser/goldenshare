@@ -1,13 +1,10 @@
 import type { TrendChannelPoint } from "../../shared/charts/trend-channel/trendChannelGeometry";
 import { useEffect, useRef, useState } from "react";
 
-import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
-import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
-import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { idleNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import type { NineTurnLayerViewModel } from "../../features/nine-turn/model/nineTurnTypes";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
@@ -45,31 +42,22 @@ interface StockDetailPageProps {
   debug?: 1;
 }
 
-interface StockDetailLoad {
+type StockDetailLoad = {
   requestKey: string;
-  state: "loading" | "ready" | "empty" | "error";
   pageInit?: StockDetailPageInitResponseDto;
-  viewModel?: StockDetailViewModel;
-  historySeed?: StockDailyHistorySeed;
-  dailyNineTurnLayer?: NineTurnLayerViewModel;
-  dailyTrendPoints?: readonly TrendChannelPoint[];
   errorMessage?: string;
-}
+} & (
+  | {
+    state: "ready";
+    viewModel: StockDetailViewModel;
+    historySeed?: StockDailyHistorySeed;
+    dailyNineTurnLayer: NineTurnLayerViewModel;
+    dailyTrendPoints: readonly TrendChannelPoint[];
+  }
+  | { state: "loading" | "empty" | "error" }
+);
 
 const EMPTY_TREND_POINTS: readonly TrendChannelPoint[] = [];
-const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
-const DAILY_NINE_TURN_PERIODS: NineTurnPeriod[] = ["day"];
-const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
-  if (request.subjectType !== "stock" || request.period !== "day") {
-    throw new Error("股票九转请求周期不符合产品合同。");
-  }
-  return fetchStockNineTurnSeries({
-    endDate: request.endDate,
-    limit: request.limit,
-    period: "day",
-    tsCode: request.tsCode,
-  }, options);
-};
 
 export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPageProps) {
   const requestKey = JSON.stringify([tsCode, tradeDate, debug]);
@@ -79,7 +67,8 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
   const [load, setLoad] = useState<StockDetailLoad | null>(null);
   const currentLoad = load?.requestKey === requestKey ? load : null;
   const activePageInit = currentLoad?.pageInit ?? null;
-  const viewModel = currentLoad?.viewModel ?? null;
+  const readyLoad = currentLoad?.state === "ready" ? currentLoad : null;
+  const viewModel = readyLoad?.viewModel ?? null;
   const loadState = currentLoad?.state ?? "loading";
   const errorMessage = currentLoad?.errorMessage ?? "";
   const tickers = useMajorIndexTickers(activePageInit?.pageContext.tradeDate, activePageInit !== null);
@@ -100,31 +89,13 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
   useEffect(() => setRuleEntry(null), [requestKey]);
   const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
-  const nineTurnRegistry = useNineTurnSeriesRegistry({
-    dailyLimit: DAILY_CHART_PAGE_SIZE,
-    endDate: activePageInit?.pageContext.tradeDate ?? null,
-    load: loadStockNineTurnSeries,
-    subjectType: "stock",
-    supportedPeriods: activePageInit?.capabilities.nineTurnPeriods.includes("day")
-      ? DAILY_NINE_TURN_PERIODS : EMPTY_NINE_TURN_PERIODS,
-    supportsNineTurn: loadState === "ready" && viewModel !== null && (activePageInit?.capabilities.supportsNineTurn ?? false),
-    tsCode,
-  });
   const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
-  const dailyHistory = useStockDailyHistory(currentLoad?.historySeed ?? null, activePeriod === "day");
+  const dailyHistory = useStockDailyHistory(readyLoad?.historySeed ?? null, activePeriod === "day");
   const nineTurnCapabilities = activePageInit?.capabilities;
   const displayNineTurnPeriod = stockPeriod ?? activeNineTurnPeriod;
   const nineTurnControl = useNineTurnDisplayControl(tsCode,
     displayNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
       && nineTurnCapabilities.nineTurnPeriods.includes(displayNineTurnPeriod));
-  const dailyNineTurnLayer = activeNineTurnPeriod === "day" ? currentLoad?.dailyNineTurnLayer : undefined;
-  const nineTurnLayer = dailyNineTurnLayer ?? nineTurnRegistry.stateFor("day");
-
-  useEffect(() => {
-    if (loadState !== "ready" || activeNineTurnPeriod !== "day" || dailyNineTurnLayer) return;
-    void nineTurnRegistry.ensure("day");
-  }, [activeNineTurnPeriod, dailyNineTurnLayer, loadState, nineTurnRegistry.ensure]);
-
   useEffect(() => {
     const controller = new AbortController();
     const isCurrent = () => !controller.signal.aborted && activeRequestKey.current === requestKey;
@@ -158,11 +129,8 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
           { signal: controller.signal },
         );
         if (!isCurrent()) return;
-        let dailyNineTurnLayer: NineTurnLayerViewModel | undefined;
-        if (local) {
-          if (!Array.isArray(kline.nineTurnMarkers)) throw new Error("股票日线回包缺少九转标记");
-          dailyNineTurnLayer = buildStockDailyNineTurnLayer(kline.nineTurnMarkers);
-        }
+        if (!Array.isArray(kline.nineTurnMarkers)) throw new Error("股票日线回包缺少九转标记");
+        const dailyNineTurnLayer = buildStockDailyNineTurnLayer(kline.nineTurnMarkers);
         if (kline.bars.length === 0 || (local && kline.dataStatus.status === "EMPTY")) {
           setLoad({ requestKey, state: "empty", pageInit });
           return;
@@ -263,7 +231,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
     navigateWealth(buildIndexDetailPath(indexCode));
   }
 
-  if (loadState !== "ready" || viewModel === null || activePageInit === null) {
+  if (readyLoad === null || viewModel === null || activePageInit === null) {
     return (
       <div className="stock-detail-app">
         <TopMarketBar
@@ -305,14 +273,11 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
             indicatorControls={indicatorControls}
             indicatorTabs={viewModel.indicatorTabs}
             nineTurnControl={nineTurnControl}
-            nineTurnLayer={nineTurnLayer}
-            onNineTurnRetry={() => {
-              if (!dailyNineTurnLayer) void nineTurnRegistry.retry("day");
-            }}
+            nineTurnLayer={readyLoad.dailyNineTurnLayer}
             onAction={showToast}
             onOpenPriceTarget={(trigger) => setPriceTarget({ owner: requestKey, trigger })}
             supportsTrendChannel={activePageInit?.capabilities.supportsTrendChannel ?? false}
-            initialTrendPoints={load?.dailyTrendPoints ?? EMPTY_TREND_POINTS}
+            initialTrendPoints={readyLoad.dailyTrendPoints}
             tsCode={viewModel.stock.tsCode}
           />
         ) : stockPeriod ? (
@@ -323,7 +288,6 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
               indicatorTabs={viewModel.indicatorTabs}
               nineTurnControl={nineTurnControl}
               nineTurnLayer={buildStockDailyNineTurnLayer(periodData.markers, stockPeriod)}
-              onNineTurnRetry={periodKline.retry}
               onAction={showToast}
               supportsTrendChannel={false}
               initialTrendPoints={EMPTY_TREND_POINTS}

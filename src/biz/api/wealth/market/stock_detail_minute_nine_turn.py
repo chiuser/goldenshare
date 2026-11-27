@@ -17,7 +17,9 @@ from src.biz.api.wealth.market.nine_turn_query_params import (
     validate_query_shape,
 )
 from src.biz.api.wealth.market.stock_detail_minutes import is_stock_minute_source_contract_error
-from src.biz.queries.wealth.market.stock_nine_turn.stock_nine_turn_query_service import StockNineTurnNotFoundError
+from src.biz.queries.wealth.market.stock_minute_nine_turn.stock_minute_nine_turn_query_service import (
+    StockMinuteNineTurnNotFoundError,
+)
 from src.biz.schemas.wealth.market.nine_turn import NineTurnSeriesDto
 from src.foundation.clients.local_lake.stock_mins_reader import MinuteReadRequest, MinuteRequestError
 from src.foundation.clients.local_lake.stock_nine_turn_contract import MAX_NINE_TURN_LIMIT
@@ -63,7 +65,7 @@ def build_router(*, run_page: Callable[..., Awaitable[Response]]) -> APIRouter:
 
 
 def _http_error(exc: Exception) -> WebAppError:
-    if isinstance(exc, StockNineTurnNotFoundError):
+    if isinstance(exc, StockMinuteNineTurnNotFoundError):
         return WebAppError(status_code=404, code="NT_NOT_FOUND", message=str(exc))
     if isinstance(exc, (MinuteRequestError, ValueError)):
         return WebAppError(status_code=400, code="NT_REQUEST_INVALID", message=str(exc))

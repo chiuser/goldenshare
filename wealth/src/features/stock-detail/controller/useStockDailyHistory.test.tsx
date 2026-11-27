@@ -2,7 +2,6 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 
 import type { DetailChartHistoryViewport } from "../../../shared/charts/detail-workspace/detailChartTypes";
-import { fetchStockNineTurnSeries } from "../../nine-turn/api/nineTurnApiClient";
 import type { NineTurnMarkerDto } from "../../nine-turn/api/nineTurnApiTypes";
 import { fetchStockDetailKline } from "../api/stockDetailApiClient";
 import type { StockDetailDailyKlineResponseDto, StockDetailKlineResponseDto, StockDailyKlineBarDto } from "../api/stockDetailApiTypes";
@@ -10,7 +9,6 @@ import { toCandlePoint } from "../api/stockDetailViewModelAdapter";
 import { useStockDailyHistory } from "./useStockDailyHistory";
 
 vi.mock("../api/stockDetailApiClient");
-vi.mock("../../nine-turn/api/nineTurnApiClient");
 
 const code = "600519.SH";
 const anchor = "2026-11-19";
@@ -56,7 +54,7 @@ beforeEach(() => {
   vi.mocked(fetchStockDetailKline).mockResolvedValue(kline());
 });
 
-it("prepends candles and nine-turn together, and retries trend separately", async () => {
+it("prepends candles, nine-turn and trend channel from the same request", async () => {
   const { result } = renderHook(() => useStockDailyHistory(seed, true));
   act(() => {
     result.current.onViewport(viewport({ direction: "stationary" }));
@@ -71,7 +69,6 @@ it("prepends candles and nine-turn together, and retries trend separately", asyn
   expect(fetchStockDetailKline).toHaveBeenCalledExactlyOnceWith(
     expect.objectContaining({ tsCode: code, tradeDate: anchor, endDate: end, limit: 500 }), expect.anything(),
   );
-  expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
   expect(result.current.visible?.candles.map(candle => candle.fullDate)).toEqual([start, end, first, anchor]);
   expect(result.current.visible?.pages[0]?.trendPoints).toEqual([
     { time: start, close: 10.5, shortUpper: 11, shortLower: 9, longUpper: 12, longLower: 8 },
@@ -79,7 +76,6 @@ it("prepends candles and nine-turn together, and retries trend separately", asyn
   ]);
   act(() => result.current.onViewport(viewport({ firstDate: start })));
   expect(fetchStockDetailKline).toHaveBeenCalledTimes(1);
-  expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
 });
 
 it.each(["failed request", "missing nine-turn field", "missing rail", "nonfinite rail", "wrong date"])("retries the same end date after a %s", async (failure) => {
@@ -128,5 +124,4 @@ it.each([
   await act(async () => { finish(kline()); });
   expect(result.current.active).toBe(nextProps.daily);
   expect(result.current.visible).toBeNull();
-  expect(fetchStockNineTurnSeries).not.toHaveBeenCalled();
 });

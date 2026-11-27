@@ -111,7 +111,7 @@ describe("StockChartWorkspace shared adapter", () => {
     Object.assign(candles[1]!, { ma5: 10.5, ma10: 11.5, ma20: 12.5, ma30: 13.5, ma60: 14.5, ma90: 15.5, ma250: 16.5 });
     const props = {
       candles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
-      nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
+      nineTurnLayer: idleNineTurnLayer("day"), onAction: vi.fn(),
       supportsTrendChannel: true, initialTrendPoints: [], tsCode: "000001.SZ",
     };
     const view = render(<StockChartWorkspace {...props} />);
@@ -152,7 +152,7 @@ describe("StockChartWorkspace shared adapter", () => {
     render(<StockChartWorkspace
       candles={candles} indicatorTabs={indicatorTabs} indicatorControls={defaultIndicatorControls}
       nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")}
-      onNineTurnRetry={vi.fn()} onAction={vi.fn()}
+      onAction={vi.fn()}
       supportsTrendChannel={false} initialTrendPoints={[]} tsCode="000001.SZ" period={period} tradeDate="2026-11-23"
     />);
     const bar = candles[1]!;
@@ -175,7 +175,6 @@ describe("StockChartWorkspace shared adapter", () => {
         indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }}
         nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
-        onNineTurnRetry={vi.fn()}
         onAction={onAction}
 
         supportsTrendChannel={false}
@@ -234,7 +233,6 @@ describe("StockChartWorkspace shared adapter", () => {
         indicatorControls={defaultIndicatorControls}
         nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
-        onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
 
         supportsTrendChannel={false}
@@ -251,7 +249,6 @@ describe("StockChartWorkspace shared adapter", () => {
         indicatorControls={defaultIndicatorControls}
         nineTurnControl={nineTurnControl}
         nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
-        onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
 
         supportsTrendChannel={false}
@@ -267,7 +264,7 @@ describe("StockChartWorkspace shared adapter", () => {
     const candles = makeCandles(300);
     const props = {
       candles, indicatorTabs, indicatorControls: defaultIndicatorControls,
-      nineTurnLayer: readyNineTurnLayer(candles.at(-1)!.fullDate), onNineTurnRetry: vi.fn(),
+      nineTurnLayer: readyNineTurnLayer(candles.at(-1)!.fullDate),
       onAction: vi.fn(), supportsTrendChannel: false, initialTrendPoints: [], tsCode: "000001.SZ",
     };
     const rendered = render(<StockChartWorkspace {...props} nineTurnControl={nineTurnControl} />);
@@ -299,7 +296,7 @@ describe("StockChartWorkspace shared adapter", () => {
     const history = { active: true, visible: null, onViewport: vi.fn() };
     const props = {
       candles: initialCandles, indicatorTabs, indicatorControls: defaultIndicatorControls, nineTurnControl,
-      nineTurnLayer: buildStockDailyNineTurnLayer([]), onNineTurnRetry: vi.fn(), onAction: vi.fn(),
+      nineTurnLayer: buildStockDailyNineTurnLayer([]), onAction: vi.fn(),
       supportsTrendChannel: false, initialTrendPoints: [], tsCode: seed.tsCode,
     };
     const view = render(<StockChartWorkspace {...props} history={history} />);
@@ -331,7 +328,6 @@ describe("StockChartWorkspace shared adapter", () => {
         indicatorControls={defaultIndicatorControls}
         nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
-        onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
 
         supportsTrendChannel={false}
@@ -444,7 +440,7 @@ it("uses cached historical rails when the channel is selected after history is l
   const history = { active: true, onViewport: vi.fn(), visible: { owner, candles, pages, phase: "idle" as const } };
   render(<StockChartWorkspace candles={initial} history={history} initialTrendPoints={[]}
     indicatorTabs={indicatorTabs} indicatorControls={defaultIndicatorControls} nineTurnControl={nineTurnControl}
-    nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} onAction={vi.fn()}
+    nineTurnLayer={idleNineTurnLayer("day")} onAction={vi.fn()}
     supportsTrendChannel={true} tsCode={seed.tsCode} />);
   fireEvent.click(screen.getByRole("button", { name: "趋势通道" }));
   act(() => chartMock.charts.at(-4)!.crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: older }));
