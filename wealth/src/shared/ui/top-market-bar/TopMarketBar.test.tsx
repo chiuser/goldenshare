@@ -10,7 +10,7 @@ const tickers: TopMarketTicker[] = [
 ];
 
 describe("TopMarketBar", () => {
-  it("renders shared brand, nav, ticker and user entry", () => {
+  it("renders shared brand, nav, ticker and the default bull avatar", () => {
     render(
       <TopMarketBar
         activeNav="exploration"
@@ -26,7 +26,9 @@ describe("TopMarketBar", () => {
     expect(screen.getByRole("button", { name: "乾坤行情" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "财势探查" })).toHaveClass("active");
     expect(screen.getAllByText("上证指数").length).toBeGreaterThan(0);
-    expect(screen.getByTitle("用户入口")).toHaveTextContent("明");
+    expect(screen.getByRole("img", { name: "默认头像" })).toHaveAttribute(
+      "src", expect.stringContaining("/assets/auth/avatars/avatar-bull.png"),
+    );
   });
 
   it("emits typed navigation and ticker identities", () => {

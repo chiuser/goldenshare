@@ -26,7 +26,7 @@
 
 | 组件 | 位置 | 职责 | 使用约束 |
 |---|---|---|---|
-| `TopMarketBar` | `src/shared/ui/top-market-bar/` | 品牌、一级导航、指数 ticker、用户入口 | 市场总览、股票详情和后续行情页必须直接复用；不得复制 Header |
+| `TopMarketBar` | `src/shared/ui/top-market-bar/` | 品牌、一级导航、指数 ticker、默认头像 | 市场总览、股票详情和后续行情页必须直接复用；不得复制 Header |
 | `Panel` | `src/shared/ui/Panel.tsx` | 一级模块容器 | 用于独立内容区，不用于替代页面根布局 |
 | `MetricCard` | `src/shared/ui/MetricCard.tsx` | 标题 + 数值 + 副值的原子事实卡 | 数据格式化在 adapter/formatter 完成 |
 | `RangeSwitch` | `src/shared/ui/RangeSwitch.tsx` | 紧凑互斥切换 | active 必须驱动真实内容切换 |
@@ -37,6 +37,13 @@
 | `DetailChartWorkspace` | `src/shared/charts/detail-workspace/` | 详情页 K 线、MACD、成交量、KDJ 四窗格生命周期、同步交互和 viewport | 股票/指数领域 adapter 只提供稳定 `dataKey`、字段、文案、图层和 Tooltip；缩放合同遵循[技术方案](./detail-chart-zoom-implementation-design-v1.md)与[LLD](./detail-chart-zoom-low-level-design-v1.md) |
 
 新增 shared 组件必须同时满足：至少两个真实消费者、稳定的 props 语义、最小组件测试、在本文补充职责与禁止项。
+
+### 顶栏默认头像实施细节
+
+- [共享顶栏](../../src/shared/ui/top-market-bar/TopMarketBar.tsx)以本地图片替换固定字「明」。图片使用「默认头像」替代文本，继续作为展示元素。各页面继续复用共享组件，账户字段、鉴权接口、导航及行情条沿用原口径。
+- [头像样式](../../src/shared/ui/top-market-bar/top-market-bar.css)保留 `28px` 圆形外框，内边距和边框各占每边 `1px`，实际图片显示为 `24 × 24px`。工程以确认图等比输出 [84 × 84px PNG](../../src/assets/auth/avatars/avatar-bull.png)，尺寸依据为 `28px × 3`，构建后的图片实测为 `9468` 字节。
+- 加载随现有顶栏使用同一张静态图片，每个冷缓存页面增加一项静态资源读取，新增业务 API 请求为零。图片地址随构建生成，切页复用同一地址。静态加载失败时图片提供替代文本，重进页面按原浏览器加载规则处理。回退可恢复此处原顶栏渲染。
+- 更新现有顶栏测试，断言头像来源和替代文本，并保留导航、行情条事件断言。以本机市场总览和股票详情核对图片加载、圆形裁切和现有顶栏尺寸，随后运行前端类型检查、回归和构建。
 
 ## 4. 页面复合组件模式
 

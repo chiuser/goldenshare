@@ -4,6 +4,7 @@ import "./top-market-bar.css";
 import type { TopMarketNavKey, TopMarketTicker } from "./topMarketBarTypes";
 
 const logoUrl = new URL("../../../../docs/reference/brand/logo/logo_new.png", import.meta.url).href;
+const defaultAvatarUrl = new URL("../../../assets/auth/avatars/avatar-bull.png", import.meta.url).href;
 
 interface TopMarketBarProps {
   activeNav: TopMarketNavKey;
@@ -72,8 +73,8 @@ export function TopMarketBar({ activeNav, tickers, onNavigate, onTickerSelect }:
         </div>
       </div>
       <div className="top-meta">
-        <div className="user-entry" title="用户入口">
-          明
+        <div className="user-entry">
+          <img alt="默认头像" src={defaultAvatarUrl} width={24} height={24} />
         </div>
       </div>
     </header>
