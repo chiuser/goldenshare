@@ -56,6 +56,7 @@ interface IndexChartWorkspaceProps {
   nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
+  onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
   initialTrendPoints: readonly TrendChannelPoint[];
   viewModel: IndexDetailViewModel;
   recognitionEnabled: boolean;
@@ -70,6 +71,7 @@ export function IndexChartWorkspace({
   nineTurnControl,
   nineTurnLayer: ordinaryNineTurn,
   onNineTurnRetry: ordinaryNineTurnRetry,
+  onOpenPriceTarget,
   initialTrendPoints,
   viewModel,
   recognitionEnabled,
@@ -131,7 +133,8 @@ export function IndexChartWorkspace({
       autoHideZoomControls
       formatVolume={formatIndexVolumeLots}
       bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
-        <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend} />
+        <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay}
+          setOverlay={setOverlay} supportsTrend={supportsTrend} onOpenPriceTarget={points.length > 0 ? onOpenPriceTarget : undefined} />
         {addon.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
@@ -303,12 +306,13 @@ function IndexPanelHeader({ panel, point }: (
   })}<button className="detail-chart-gear" disabled title="指标设置暂未开通" type="button">⚙</button></>;
 }
 
-function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOverlay, supportsTrend }: {
+function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOverlay, supportsTrend, onOpenPriceTarget }: {
   indicatorControls: DetailChartIndicatorControls;
   nineTurnControl?: NineTurnDisplayControl;
   overlay: IndexMainOverlay | null;
   setOverlay: (overlay: IndexMainOverlay | null) => void;
   supportsTrend: boolean;
+  onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
 }) {
   return <div className="detail-chart-indicator-tabs">
     <DetailChartIndicatorToggle panel="volume" indicatorControls={indicatorControls} />
@@ -323,6 +327,8 @@ function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOve
     <button aria-pressed={overlay === "MA"} className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay(overlay === "MA" ? null : "MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}
+    {onOpenPriceTarget && <button type="button" className="detail-chart-indicator-tab" aria-haspopup="dialog"
+      onClick={(event) => onOpenPriceTarget(event.currentTarget)}>单阳测顶</button>}
   </div>;
 }
 

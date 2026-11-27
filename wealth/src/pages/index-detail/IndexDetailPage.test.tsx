@@ -18,16 +18,18 @@ vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
   IndexPeriodChartWorkspace: ({ period, series }: { period: "week" | "month"; series: IndexPeriodSeries }) => (
     <div aria-label={period === "week" ? "指数周线图表区" : "指数月线图表区"} data-phase={series.phase} />
   ),
-  IndexChartWorkspace: ({ nineTurnControl, nineTurnLayer, recognitionEnabled, indicatorControls }: {
+  IndexChartWorkspace: ({ nineTurnControl, nineTurnLayer, recognitionEnabled, indicatorControls, onOpenPriceTarget }: {
     nineTurnControl: NineTurnDisplayControl;
     nineTurnLayer: { phase: string };
     recognitionEnabled: boolean;
     indicatorControls: DetailChartIndicatorControls;
+    onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
   }) => {
     p4View.recognitionEnabled = recognitionEnabled;
     return <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase}>
       <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
       <NineTurnIndicatorToggle control={nineTurnControl} />
+      {onOpenPriceTarget && <button type="button" onClick={(event) => onOpenPriceTarget(event.currentTarget)}>单阳测顶</button>}
     </div>;
   },
 }));
@@ -55,6 +57,32 @@ describe("IndexDetailPage", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     window.history.replaceState({}, "", "/wealth/market/overview");
+  });
+
+  it("opens the current index measurement only on the daily chart and clears it on symbol change", async () => {
+    const tsCode = "000001.SH";
+    const init = makePageInit(tsCode);
+    init.capabilities.supportsWeeklyMonthly = true;
+    init.chartDefaults.availablePeriods.push("week", "month");
+    const fetchMock = mockFetch(tsCode, { pageInit: () => response(init) });
+    const { rerender } = render(<IndexDetailPage search="" tsCode={tsCode} />);
+    const launch = await screen.findByRole("button", { name: "单阳测顶" });
+    fireEvent.click(launch);
+    const dialog = within(screen.getByRole("dialog", { name: "单阳测顶" }));
+    expect(dialog.getByText(tsCode)).toBeInTheDocument();
+    expect(dialog.getByLabelText("测算系数")).toHaveDisplayValue("0.90");
+    fireEvent.click(dialog.getByRole("button", { name: "关闭" }));
+    expect(launch).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: "周K" }));
+    expect(screen.queryByRole("button", { name: "单阳测顶" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "月K" }));
+    expect(screen.queryByRole("button", { name: "单阳测顶" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    fireEvent.click(await screen.findByRole("button", { name: "单阳测顶" }));
+    rerender(<IndexDetailPage search="" tsCode="399006.SZ" />);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.filter(([input]) => new URL(String(input), "http://localhost").searchParams.get("limit") === "2"))
+      .toHaveLength(0);
   });
 
   it.each([false, true])("uses the local daily K-line markers for the chart and technical summary (debug=%s)", async (debug) => {

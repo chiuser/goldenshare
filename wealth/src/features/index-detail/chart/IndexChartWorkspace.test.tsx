@@ -40,12 +40,20 @@ describe("IndexChartWorkspace adapter", () => {
   it("toggles MA lines and header values together without a selector", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     const history = { active: true, visible: null, phase: "idle" as const, error: undefined, onViewport: vi.fn(), retryLayer: vi.fn() };
+    const onOpenPriceTarget = vi.fn();
     const props = {
       indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"),
-      onNineTurnRetry: vi.fn(), recognitionEnabled: false, viewModel, history,
+      onNineTurnRetry: vi.fn(), recognitionEnabled: false, viewModel, history, onOpenPriceTarget,
     };
     const view = render(<IndexChartWorkspace {...props} initialTrendPoints={[]} />);
     const first = latestProps();
+    const launch = screen.getByRole("button", { name: "单阳测顶" });
+    expect(launch).toHaveAttribute("aria-haspopup", "dialog");
+    expect(launch).not.toHaveClass("active");
+    expect(launch).not.toHaveAttribute("aria-pressed");
+    expect(launch.nextElementSibling).toBeNull();
+    fireEvent.click(launch);
+    expect(onOpenPriceTarget).toHaveBeenCalledWith(launch);
     expect(first.mainLines.map(line => line.id)).toEqual(["ma5", "ma10", "ma20", "ma30", "ma60", "ma90", "ma250"]);
     for (const text of ["MA5:3900.00", "MA10:3890.00", "MA20:3880.00", "MA30:3870.00", "MA60:3860.00", "MA90:3850.00", "MA250:3800.00"]) {
       expect(screen.getByText(text)).toBeInTheDocument();

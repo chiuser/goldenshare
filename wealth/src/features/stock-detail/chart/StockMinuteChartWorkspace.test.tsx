@@ -111,16 +111,12 @@ describe("StockMinuteChartWorkspace", () => {
     expect(props.timeAxisPlacement).toBeUndefined();
     expect(props.bottomBarAriaLabel).toBe("股票分钟指标栏");
     expect(props.hiddenIndicatorPanels).toEqual(new Set(["macd"]));
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构", "九转序列"]);
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "九转序列"]);
     const nineTurn = screen.getByRole("button", { name: "九转序列", pressed: false });
     expect(nineTurn).toBeDisabled();
     expect(nineTurn).toHaveClass("unsupported");
     fireEvent.click(nineTurn);
     expect(nineTurnControl.onToggle).not.toHaveBeenCalled();
-    const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
-    expect(structure).toBeEnabled();
-    fireEvent.click(structure);
-    expect(onToggleIndicatorPanel).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "VOL", pressed: true })).toHaveClass("active");
     expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toHaveClass("active");
     fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: false }));

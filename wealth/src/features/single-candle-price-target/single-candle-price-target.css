@@ -1,0 +1,234 @@
+.price-target-dialog {
+  box-sizing: border-box;
+  width: min(552px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  padding: 0;
+  color: var(--cs-color-text-primary);
+  background: var(--cs-color-bg-panel);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--cs-radius-panel);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.45);
+  overflow: auto;
+}
+
+.price-target-dialog::backdrop { background: rgba(0, 0, 0, 0.48); }
+
+.price-target-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cs-space-20);
+  padding: var(--cs-space-24);
+}
+
+.price-target-header {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) minmax(0, auto) minmax(40px, 1fr);
+  align-items: center;
+  column-gap: var(--cs-space-8);
+}
+
+.price-target-header h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.1;
+  letter-spacing: 0.5px;
+}
+
+.price-target-asset {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--cs-color-text-secondary);
+}
+
+.price-target-asset span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.price-target-asset span + span {
+  color: var(--cs-color-text-muted);
+  font: 11px var(--cs-font-family-number);
+}
+
+.price-target-dialog button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.price-target-close {
+  display: grid;
+  place-items: center;
+  justify-self: end;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  color: var(--cs-color-text-secondary);
+  background: var(--cs-color-bg-chip);
+  border: 1px solid var(--cs-color-border-subtle);
+  border-radius: 8px;
+}
+
+.price-target-close svg { width: 26px; height: 26px; fill: currentColor; }
+.price-target-close:hover { color: var(--cs-color-text-primary); background: var(--cs-color-bg-panel-hover); }
+
+.price-target-form { display: grid; gap: var(--cs-space-12); }
+.price-target-form fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.price-target-form legend { padding: 0; margin-bottom: var(--cs-space-8); }
+
+.price-target-options {
+  display: inline-flex;
+  gap: 6px;
+  padding: 2px;
+  max-width: 100%;
+  background: var(--cs-color-bg-panel-soft);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 8px;
+}
+
+.price-target-options button {
+  width: 96px;
+  min-width: 0;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--cs-color-text-secondary);
+  font-size: 12px;
+}
+
+.price-target-options button[aria-pressed="true"] {
+  border-color: var(--cs-color-brand);
+  background: var(--cs-color-brand-weak);
+  color: var(--cs-color-brand);
+}
+
+.price-target-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cs-space-8) var(--cs-space-16);
+}
+
+.price-target-form legend,
+.price-target-fields label,
+.price-target-quote header span,
+.price-target-previous-date {
+  font-size: 12px;
+  color: var(--cs-color-text-secondary);
+}
+
+.price-target-fields label { display: grid; gap: var(--cs-space-10); font-weight: 700; }
+
+.price-target-fields input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 42px;
+  padding: 0 var(--cs-space-12);
+  color: var(--cs-color-text-primary);
+  background: var(--cs-color-bg-chip);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 8px;
+  font: 13px var(--cs-font-family-number);
+}
+
+.price-target-fields input[aria-invalid="true"] { border-color: var(--cs-color-danger-system); }
+.price-target-dialog :is(button, input, output):focus-visible { outline: 2px solid var(--cs-color-brand); outline-offset: 2px; }
+
+.price-target-quote {
+  display: grid;
+  gap: var(--cs-space-12);
+  padding: var(--cs-space-16);
+  background: var(--cs-color-bg-panel-soft);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: var(--cs-radius-card);
+}
+
+.price-target-quote header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.price-target-quote h3 { font-size: 15px; letter-spacing: 0.2px; margin: 0; }
+
+.price-target-quote-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--cs-space-12);
+  margin: 0;
+  font-size: 12px;
+}
+
+.price-target-quote-grid dt { color: var(--cs-color-text-secondary); }
+.price-target-quote-grid dd { margin: 6px 0 0; font-family: var(--cs-font-family-number); overflow-wrap: anywhere; }
+.price-target-previous-date { margin: 0; }
+.price-target-previous-date time { margin-left: var(--cs-space-8); color: var(--cs-color-text-muted); font-family: var(--cs-font-family-number); }
+
+.price-target-quote-status {
+  display: flex;
+  align-items: center;
+  gap: var(--cs-space-12);
+  color: var(--cs-color-text-secondary);
+  font-size: 12px;
+}
+
+.price-target-quote-status button {
+  padding: 4px var(--cs-space-8);
+  background: var(--cs-color-bg-chip);
+  border: 1px solid var(--cs-color-border-default);
+  border-radius: 8px;
+  color: var(--cs-color-brand);
+}
+
+.price-target-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--cs-color-danger-system);
+  font-size: 12px;
+}
+
+.price-target-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cs-space-16);
+}
+
+.price-target-calculate {
+  flex: none;
+  width: 104px;
+  height: 38px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--cs-color-brand);
+  color: var(--cs-color-bg-panel-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.price-target-calculate:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.price-target-result {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  color: var(--cs-color-text-secondary);
+  font-size: 12px;
+}
+
+.price-target-result strong {
+  font: 700 20px/22px "Roboto Mono", "SF Mono", ui-monospace, monospace;
+}
+
+.price-target-unit { font-size: 13px; }
+
+@media (max-width: 420px) {
+  .price-target-content { padding: var(--cs-space-16); }
+  .price-target-footer { gap: var(--cs-space-8); }
+}

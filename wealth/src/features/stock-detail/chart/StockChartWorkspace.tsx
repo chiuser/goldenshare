@@ -41,6 +41,7 @@ interface StockChartWorkspaceProps {
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onAction: (message: string) => void;
+  onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
   supportsTrendChannel: boolean;
   initialTrendPoints: readonly TrendChannelPoint[];
   tsCode: string;
@@ -63,6 +64,7 @@ export function StockChartWorkspace({
   nineTurnLayer: initialNineTurn,
   onNineTurnRetry,
   onAction,
+  onOpenPriceTarget,
   supportsTrendChannel,
   initialTrendPoints,
   tsCode,
@@ -138,7 +140,7 @@ export function StockChartWorkspace({
           indicatorControls={indicatorControls}
           indicatorTabs={indicatorTabs}
           nineTurnControl={nineTurnControl}
-          onAction={onAction}
+          onOpenPriceTarget={period === "day" && points.length > 0 ? onOpenPriceTarget : undefined}
           onOverlayChange={changeOverlay}
           overlay={overlay}
           supportsTrendChannel={supportsTrendChannel}
@@ -374,7 +376,7 @@ function StockIndicatorBar({
   indicatorControls,
   indicatorTabs,
   nineTurnControl,
-  onAction,
+  onOpenPriceTarget,
   onOverlayChange,
   overlay,
   supportsTrendChannel,
@@ -382,7 +384,7 @@ function StockIndicatorBar({
   indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
   nineTurnControl: NineTurnDisplayControl;
-  onAction: (message: string) => void;
+  onOpenPriceTarget?: (trigger: HTMLButtonElement) => void;
   onOverlayChange: (overlay: StockMainOverlay | null) => void;
   overlay: StockMainOverlay | null;
   supportsTrendChannel: boolean;
@@ -395,26 +397,19 @@ function StockIndicatorBar({
           return (
             <Fragment key={tab.key}>
               <DetailChartIndicatorToggle panel={panel} indicatorControls={indicatorControls} />
-              {panel === "kdj" ? <>
-                <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls} mode="placeholder" />
-                <NineTurnIndicatorToggle control={nineTurnControl} />
-              </> : null}
+              {panel === "kdj" && <NineTurnIndicatorToggle control={nineTurnControl} />}
             </Fragment>
           );
         }
+        const tabOverlay = tab.overlay;
+        if (!tabOverlay) return null;
         return (
           <button
             aria-pressed={tab.key === "MA" ? overlay === "MA" : undefined}
             className={buildIndicatorClass(tab, overlay)}
             key={tab.key}
             type="button"
-            onClick={() => {
-              if (tab.overlay) {
-                onOverlayChange(tab.overlay === "MA" && overlay === "MA" ? null : tab.overlay);
-                return;
-              }
-              onAction(`${tab.label} 指标暂未支持`);
-            }}
+            onClick={() => onOverlayChange(tabOverlay === "MA" && overlay === "MA" ? null : tabOverlay)}
           >
             {tab.label}
           </button>
@@ -429,6 +424,8 @@ function StockIndicatorBar({
           趋势通道
         </button>
       ) : null}
+      {onOpenPriceTarget && <button type="button" className="detail-chart-indicator-tab" aria-haspopup="dialog"
+        onClick={(event) => onOpenPriceTarget(event.currentTarget)}>单阳测顶</button>}
     </div>
   );
 }

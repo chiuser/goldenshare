@@ -643,8 +643,24 @@ describe("StockDetailPage", () => {
       "第二条新闻05-29",
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: "主力密码" }));
-    expect(screen.getByText("主力密码 指标暂未支持")).toBeInTheDocument();
+    const bottomBar = within(screen.getByLabelText("底部指标栏"));
+    for (const name of ["成交额", "大单净量", "主力密码", "融资融券", "陆股通资金", "陆股通持股",
+      "AI机构活跃度", "资金抄底", "资金仓位", "更多", "量化结构"]) {
+      expect(bottomBar.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    const priceTarget = bottomBar.getByRole("button", { name: "单阳测顶" });
+    expect(priceTarget).toHaveAttribute("aria-haspopup", "dialog");
+    expect(priceTarget).not.toHaveAttribute("aria-pressed");
+    expect(priceTarget).not.toHaveClass("active");
+    const requestsBeforeOpen = fetchMock.mock.calls.length;
+    fireEvent.click(priceTarget);
+    const dialog = screen.getByRole("dialog", { name: "单阳测顶" });
+    expect(within(dialog).getByText("福斯特")).toBeInTheDocument();
+    expect(within(dialog).getByLabelText("交易日")).toHaveFocus();
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(dialog).not.toBeInTheDocument();
+    expect(priceTarget).toHaveFocus();
+    expect(fetchMock).toHaveBeenCalledTimes(requestsBeforeOpen);
   });
 
   it("loads the minute chart once with the anchored date and 500 bars", async () => {
@@ -657,26 +673,19 @@ describe("StockDetailPage", () => {
         expect(screen.getByRole("button", { name, pressed: true })).toHaveClass("active");
       }
     };
-    const expectSilentStructure = () => {
-      const count = fetchMock.mock.calls.length;
-      const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
-      expect(structure).toBeEnabled();
-      fireEvent.click(structure);
-      expect(structure).toHaveAttribute("aria-pressed", "false");
-      expect(screen.queryByLabelText("量化结构(12,26,9)")).not.toBeInTheDocument();
-      expect(screen.queryByText("最多展示3个技术指标，请取消一个后再打开")).not.toBeInTheDocument();
-      expect(fetchMock).toHaveBeenCalledTimes(count);
-    };
     expectAllOn();
     const nineTurn = () => screen.getByRole("button", { name: "九转序列" });
     const dailyRequests = fetchMock.mock.calls.length;
     fireEvent.click(nineTurn());
     expect(nineTurn()).toHaveAttribute("aria-pressed", "false");
     expect(fetchMock).toHaveBeenCalledTimes(dailyRequests);
-    expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
-    expectSilentStructure();
+    const dayEntry = screen.getByRole("button", { name: "单阳测顶" });
+    fireEvent.click(dayEntry);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "单阳测顶" })).not.toBeInTheDocument();
     expect(screen.getByText("正在加载 5 分钟行情…")).toBeInTheDocument();
 
     await waitFor(() => {
@@ -702,9 +711,8 @@ describe("StockDetailPage", () => {
     expect(nineTurnMinuteRequests).toHaveLength(0);
     expect(nineTurn()).toBeDisabled();
     expect(screen.getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
-    expectSilentStructure();
+    expect(screen.queryByRole("button", { name: "量化结构" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: false }));
-    expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
     const requestCount = fetchMock.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: true }));
@@ -718,6 +726,8 @@ describe("StockDetailPage", () => {
     expect(within(otherMinuteBar).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
     expect(within(otherMinuteBar).getByRole("button", { name: "MACD", pressed: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    expect(screen.getByRole("button", { name: "单阳测顶" })).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
     expect(nineTurn()).toBeEnabled();
     expect(nineTurn()).toHaveAttribute("aria-pressed", "false");

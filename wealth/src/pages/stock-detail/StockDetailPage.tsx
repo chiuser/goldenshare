@@ -16,6 +16,7 @@ import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "..
 import { useMajorIndexTickers } from "../../features/major-indices/model/useMajorIndexTickers";
 import { buildStockDailyNineTurnLayer, buildStockDailyTrendChannelPoints, buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
+import { SingleCandlePriceTargetDialog } from "../../features/single-candle-price-target/SingleCandlePriceTargetDialog";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
 import { useStockDailyHistory, type StockDailyHistorySeed } from "../../features/stock-detail/controller/useStockDailyHistory";
 import { useStockPeriodKline } from "../../features/stock-detail/controller/useStockPeriodKline";
@@ -83,6 +84,9 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
   const errorMessage = currentLoad?.errorMessage ?? "";
   const tickers = useMajorIndexTickers(activePageInit?.pageContext.tradeDate, activePageInit !== null);
   const [activePeriod, setActivePeriod] = useState<StockPeriodKey>("day");
+  const [priceTarget, setPriceTarget] = useState<{ owner: string; trigger: HTMLButtonElement } | null>(null);
+  const priceTargetOwner = activePeriod === "day" && loadState === "ready" ? requestKey : null;
+  useEffect(() => setPriceTarget((entry) => entry?.owner === priceTargetOwner ? entry : null), [priceTargetOwner]);
   const stockPeriod = activePeriod === "week" || activePeriod === "month" ? activePeriod : null;
   const periodKline = useStockPeriodKline(tsCode, stockPeriod, activePageInit?.pageContext.tradeDate, debug);
   const periodData = periodKline.data;
@@ -306,6 +310,7 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
               if (!dailyNineTurnLayer) void nineTurnRegistry.retry("day");
             }}
             onAction={showToast}
+            onOpenPriceTarget={(trigger) => setPriceTarget({ owner: requestKey, trigger })}
             supportsTrendChannel={activePageInit?.capabilities.supportsTrendChannel ?? false}
             initialTrendPoints={load?.dailyTrendPoints ?? EMPTY_TREND_POINTS}
             tsCode={viewModel.stock.tsCode}
@@ -349,6 +354,9 @@ export function StockDetailPage({ tsCode, tradeDate, debug }: StockDetailPagePro
             nineTurnLayer={minuteChart?.nineTurnLayer ?? idleNineTurnLayer(activeNineTurnPeriod ?? "day")}
           />
         )}
+        {priceTarget && priceTarget.owner === priceTargetOwner && <SingleCandlePriceTargetDialog
+          asset={{ kind: "stock", tsCode: viewModel.stock.tsCode, name: viewModel.stock.name }}
+          trigger={priceTarget.trigger} onClose={() => setPriceTarget(null)} />}
         <StockInfoRail onAction={showToast} viewModel={viewModel} watchlist={watchlist}
           tradeDate={activePageInit.pageContext.tradeDate}
           onCreatePlan={activePageInit?.capabilities.userActions.tradePlan ? () => setRuleEntry("PLAN") : undefined}

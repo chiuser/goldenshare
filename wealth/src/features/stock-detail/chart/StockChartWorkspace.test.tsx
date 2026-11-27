@@ -197,19 +197,14 @@ describe("StockChartWorkspace shared adapter", () => {
     const vol = screen.getByRole("button", { name: "VOL", pressed: true });
     const macd = screen.getByRole("button", { name: "MACD", pressed: true });
     const kdj = screen.getByRole("button", { name: "KDJ", pressed: false });
-    const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
-    expect(kdj.nextElementSibling).toBe(structure);
-    expect(structure.nextElementSibling).toBe(screen.getByRole("button", { name: "九转序列", pressed: true }));
-    expect(structure).toBeEnabled();
-    fireEvent.click(structure);
-    expect(screen.queryByLabelText("量化结构(12,26,9)")).not.toBeInTheDocument();
+    expect(kdj.nextElementSibling).toBe(screen.getByRole("button", { name: "九转序列", pressed: true }));
+    expect(screen.queryByRole("button", { name: "量化结构" })).not.toBeInTheDocument();
     expect(vol).toHaveClass("active");
     expect(kdj).not.toHaveClass("active");
     [vol, macd, kdj].forEach((button) => fireEvent.click(button));
     expect(onToggleIndicatorPanel.mock.calls).toEqual([["volume"], ["macd"], ["kdj"]]);
     expect(onAction).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "成交额" }));
-    expect(onAction).toHaveBeenCalledWith("成交额 指标暂未支持");
+    expect(screen.queryByRole("button", { name: "成交额" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
     expect(screen.getByText("UPPER:22.99")).toBeInTheDocument();
@@ -224,6 +219,7 @@ describe("StockChartWorkspace shared adapter", () => {
 
     const tooltip = within(klinePanel).getByText("时间").closest(".detail-chart-tooltip");
     expect(tooltip).toHaveClass("left");
+    expect(within(tooltip as HTMLElement).getByText("成交额")).toBeInTheDocument();
     expect(within(tooltip as HTMLElement).getByText(candles[298]!.fullDate.replaceAll("-", ""))).toBeInTheDocument();
     expect(activeCharts[0].setCrosshairPosition).toHaveBeenCalled();
     expect(activeCharts[3].setCrosshairPosition).toHaveBeenCalled();

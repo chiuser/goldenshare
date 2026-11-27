@@ -8,6 +8,7 @@ import {
   returnToWealthOverview,
 } from "../../app/routes/routerState";
 import { IndexChartWorkspace, IndexPeriodChartWorkspace } from "../../features/index-detail/chart/IndexChartWorkspace";
+import { SingleCandlePriceTargetDialog } from "../../features/single-candle-price-target/SingleCandlePriceTargetDialog";
 import { IndexMinuteChartWorkspace } from "../../features/index-detail/chart/IndexMinuteChartWorkspace";
 import { useIndexDetailController } from "../../features/index-detail/controller/useIndexDetailController";
 import { useIndexMinuteSeries } from "../../features/index-detail/controller/useIndexMinuteSeries";
@@ -96,6 +97,10 @@ export function IndexDetailPageView({
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
   const chartPeriod = periods.some(period => period.key === activePeriod && period.supported) ? activePeriod : "day";
+  const [priceTarget, setPriceTarget] = useState<{ owner: string; trigger: HTMLButtonElement } | null>(null);
+  const priceTargetOwner = chartPeriod === "day" && hasData && viewModel?.identity.tsCode === normalizedTsCode
+    ? JSON.stringify([normalizedTsCode, tradeDate]) : null;
+  useEffect(() => setPriceTarget((entry) => entry?.owner === priceTargetOwner ? entry : null), [priceTargetOwner]);
   const longPeriod = chartPeriod === "week" || chartPeriod === "month" ? chartPeriod : null;
   const periodSeries = useIndexPeriodSeries(normalizedTsCode, longPeriod, viewModel?.asOfTradeDate ?? null, loadDailyKline);
   const nineTurnRegistry = useNineTurnSeriesRegistry({
@@ -299,6 +304,7 @@ export function IndexDetailPageView({
               onNineTurnRetry={() => {
                 if (!localDailyNineTurn && activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
+              onOpenPriceTarget={priceTargetOwner ? (trigger) => setPriceTarget({ owner: priceTargetOwner, trigger }) : undefined}
               history={controller.history}
               initialTrendPoints={controller.dailyTrendPoints}
               viewModel={viewModel}
@@ -326,6 +332,9 @@ export function IndexDetailPageView({
               phase={minute.phase}
             />
           )}
+          {priceTarget && priceTarget.owner === priceTargetOwner && <SingleCandlePriceTargetDialog
+            asset={{ kind: "index", tsCode: viewModel.identity.tsCode, name: viewModel.identity.name }}
+            trigger={priceTarget.trigger} onClose={() => setPriceTarget(null)} />}
           </div>
         )}
         <IndexInfoRail

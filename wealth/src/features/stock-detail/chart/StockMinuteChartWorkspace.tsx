@@ -6,7 +6,7 @@ import type { NineTurnDisplayControl } from "../../nine-turn/controller/useNineT
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnIndicatorToggle } from "../../nine-turn/ui/NineTurnIndicatorToggle";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
-import { DetailChartIndicatorToggles } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
+import { DetailChartIndicatorToggle } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import type {
   DetailChartIndicatorControls,
@@ -72,7 +72,9 @@ export function StockMinuteChartWorkspace({
       ariaLabel="分钟图表区"
       bottomBar={(
         <div className="detail-chart-indicator-tabs">
-          <DetailChartIndicatorToggles indicatorControls={indicatorControls} quantitativeStructureMode="placeholder" />
+          <DetailChartIndicatorToggle panel="volume" indicatorControls={indicatorControls} />
+          <DetailChartIndicatorToggle panel="macd" indicatorControls={indicatorControls} />
+          <DetailChartIndicatorToggle panel="kdj" indicatorControls={indicatorControls} />
           <NineTurnIndicatorToggle control={nineTurnControl} />
         </div>
       )}
