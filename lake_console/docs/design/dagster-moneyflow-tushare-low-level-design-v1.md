@@ -7961,3 +7961,35 @@ curl --fail-with-body -sS http://127.0.0.1:3000/graphql --max-time 25 -H 'Conten
 | 2026-11-25 | `2ce176fb-1745-4386-9daf-19af51f17bf3` | `129b3cb5-cec0-40ed-8385-0fb998290f7f` | 8421720／8421729 | 8421848／8421857 |
 
 八次原job均经原队列人工提交。四次Raw各6次源请求、0次重试，共24次，实际运行约75–77秒/日，Silver约5秒/日。逐层确认运行SUCCESS、原blocking check通过且对应本次分区物化、实际Parquet当日日期与行数正确且代码唯一、读前读后文件身份一致。原Silver逐字段对账通过且记录的Raw输入摘要与本次Raw最终摘要一致。实际八份文件共2,658,566压缩字节。17:19:22复查四日八个原运行均无重复，实际目标文件均在。缺码完整名单、原物化摘要、前置与最终证据位于本节的 `acceptance.json`。未修改代码、阈值及现行任务配置，本节和原方案记录本次结果。
+
+<a id="moneyflow-ths-nov26-recovery"></a>
+
+## 85. 2026年11月26日同花顺个股资金流向补齐LLD（2026-11-27）
+
+### 85.1 范围与正式入口
+
+按原方案第89节，仅处理 `2026-11-26` 专属分区，复用第83.2–83.4节及第84节已验收的两个原任务、原blocking check和原队列。当前正式DG为 `orchestrator/__repository__`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。执行目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`。用 `moneyflow_continuation.plan.request_for` 生成现有 `launchRun(executionParams)` 请求，配置为 `{}`。Raw任务 `raw_tushare_moneyflow_ths_update_job` 使用业务日11月26日、执行日11月27日及attempt 1的原修复run key。Silver任务 `silver_moneyflow_ths_update_job` 使用业务日及已验收Raw的文件摘要作为run key。提交前确认分区已登记、目标层的文件和原任务、同资产在途任务与正式Lake/staging同设备且可用。有同日任务时读其原记录并跟踪。Raw成功且检查绑定本次同日物化后，优先跟踪原成功监听器接续的Silver，按同日重查后才允许人工接续。
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+/usr/bin/curl --fail-with-body -sS http://127.0.0.1:3000/graphql --max-time 25 -H 'Content-Type: application/json' --data-binary @/private/tmp/dg-moneyflow-ths-20261126-run.ahz58A/raw.launch.json --output /private/tmp/dg-moneyflow-ths-20261126-run.ahz58A/raw.launch-response.json
+```
+
+需人工接续Silver时，沿同一命令把两处 `raw.launch` 替换为 `silver.launch`。沿当前writer读取当日沪深股票生命周期及最终全日停牌事实，由原任务读取完整13字段，以原staging候选校验、checkpoint和单文件原子替换发布。正式目标只有 `/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-11-26/part-000.parquet` 和 `/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-11-26/part-000.parquet`。正式记录随原任务写入。提交范围限定同日分区，沿用现有配置、sensor、cursor、代码位置和数据门槛。
+
+### 85.2 成本、中断和验收
+
+按22:14 Tushare的5,217只估算，原2000行分页每轮3页，两轮预计6次请求和累计10,434条返回记录，若来源不变，两层各发布1份预计5,217行。沿用原至少60秒两轮间隔、累计64次请求与300秒采集预算及现行内存限制。Silver读取同日Raw，不请求源。第84.4节同实现的Raw实测75–77秒、Silver约5秒，可作为运行观察参考，排队与sensor等待单列。终态验收只读取两个目标文件的代码、日期和行数以及原任务、物化、检查和摘要。
+
+提交回执不明先按原任务、分区和run key核对，禁止盲目重发。失败、取消或验收不符时保留原运行、正式成功文件和相关staging，按原恢复流程处理。若后续续跑，已验收层直接复用，Raw未完成需重新承担该日两轮完整下载，Silver未完成只承担同日Raw读回和本层原检查。两层均须为SUCCESS，检查通过并与本次物化关联，文件日期一致、代码唯一且行数等于物化计数，Silver记录的输入摘要须等于同日Raw摘要。最终记录实际源请求、缺码与字段空值，以及两层物理证据。
+
+### 85.3 正式执行及验收（2026-11-27）
+
+提交前确认专属分区已登记、正式代码位置已加载、两个原job及其检查存在、同日无任务和文件。Lake与staging设备号同为16777244，可用空间实测2,714,015,191,040字节。Raw经原队列提交，排队约105秒，实际运行78.5秒，源请求6次、重试0次。Raw通过后，同日Silver尚无任务，随后经原队列人工提交，实际运行约7秒。
+
+| 层 | 运行ID | 北京时间结束 | 物化存储编号 | 日期核验及行数 |
+| --- | --- | --- | --- | --- |
+| Raw | `f24cfd26-7594-4eab-b79c-e7b78085dd15` | 22:21:03 | 8433318 | 字符串 `20261126`，5,217行 |
+| Silver | `8768a60e-8dd4-4411-aefa-59b57ea5b3fd` | 22:22:15 | 8433346 | DATE `2026-11-26`，5,217行 |
+
+22:22:35再次查得两层各一条SUCCESS，原检查通过且对应同日物化。两份文件各有5,217个唯一代码，各自文件摘要与物化一致，Silver记录的输入摘要与Raw一致。两层实际共661,562压缩字节。Raw物化记录缺码为 `002570.SZ`、`300602.SZ`、`600301.SH`、`601515.SH`，字段空值代码为0只。两层更新sensor均仍为运行状态。验收证据保存于 `/private/tmp/dg-moneyflow-ths-20261126-run.ahz58A/acceptance.json`。
