@@ -20,6 +20,7 @@ import type {
   DetailChartTooltipSide,
 } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { formatMinuteTradeTime } from "../../../shared/charts/detail-workspace/detailChartFormatters";
+import { formatIndexVolumeLots } from "../model/formatIndexVolumeLots";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
 import type {
@@ -88,6 +89,7 @@ function LoadedIndexMinuteChart({
       bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} nineTurnControl={nineTurnControl} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
       dataKey={dataKey}
+      formatVolume={formatIndexVolumeLots}
       hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       mainLayerAccessory={(
         <NineTurnLayerStatus
@@ -184,7 +186,7 @@ function IndexMinutePanelHeader({
     : panel === "volume" ? [["总量", point.volume]] : [["K", point.k], ["D", point.d], ["J", point.j]];
   return <><strong>{title}</strong>{values.map(([label, raw]) => {
     const value = typeof raw === "number" ? raw : null;
-    return <span className={`metric ${directionClass(resolveDirection(value))}`} key={String(label)}>{label}:{format(value)}</span>;
+    return <span className={`metric ${directionClass(resolveDirection(value))}`} key={String(label)}>{label}:{panel === "volume" ? formatIndexVolumeLots(value) : format(value)}</span>;
   })}</>;
 }
 
@@ -219,7 +221,7 @@ function IndexMinuteTooltip({ point, side, children }: { point: DetailChartPoint
     ["收盘", format(point.close), directionClass(compare(point.close, point.open))],
     ["最高", format(point.high), directionClass(compare(point.high, point.open))],
     ["最低", format(point.low), directionClass(compare(point.low, point.open))],
-    ["成交量", formatMinuteVolume(point.volume), "secondary"],
+    ["成交量", formatIndexVolumeLots(point.volume), "secondary"],
     ["成交额", formatMinuteAmount(point.amount), "secondary"],
   ];
   return <div aria-label="指数分钟K线数据提示" className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">
@@ -262,12 +264,6 @@ function resolveDirection(value: number | null): MarketDirection {
 function compare(value: number | null, base: number | null): MarketDirection {
   if (!isFiniteChartNumber(value) || !isFiniteChartNumber(base)) return "UNKNOWN";
   return value > base ? "UP" : value < base ? "DOWN" : "FLAT";
-}
-function formatMinuteVolume(value: number | null): string {
-  if (!isFiniteChartNumber(value)) return "--";
-  if (Math.abs(value) >= 100_000_000) return `${(value / 100_000_000).toFixed(2)}亿股`;
-  if (Math.abs(value) >= 10_000) return `${(value / 10_000).toFixed(2)}万股`;
-  return `${Math.round(value)}股`;
 }
 function formatMinuteAmount(value: number | null): string {
   if (!isFiniteChartNumber(value)) return "--";

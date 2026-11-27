@@ -73,6 +73,7 @@ interface DetailChartWorkspaceBaseProps {
   ariaLabel: string;
   autoHideZoomControls?: boolean;
   crosshairPresentation?: DetailChartCrosshairPresentation;
+  formatVolume?: (value: number) => string;
   hiddenIndicatorPanels?: ReadonlySet<DetailChartIndicatorPanelKey>;
   mainLines: DetailChartLineDefinition[];
   mainLayerAccessory?: ReactNode;

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { formatIndexVolumeLots } from "../model/formatIndexVolumeLots";
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { buildIndexDailyTrendChannelPoints, buildIndexDetailViewModel } from "./indexDetailViewModelAdapter";
 
@@ -15,8 +16,8 @@ describe("buildIndexDetailViewModel", () => {
     expect(viewModel.basicMetrics.find((item) => item.key === "pe")?.value).toBe("--");
     expect(viewModel.basicMetrics.find((item) => item.key === "pb")?.value).toBe("--");
     expect(viewModel.basicMetrics.find((item) => item.key === "totalMv")?.value).toBe("6.95万亿");
-    expect(viewModel.basicMetrics.find((item) => item.key === "vol")?.value).toBe("5.42万");
-    expect(viewModel.chart.candles[0].volumeDisplay).toBe("5.00万");
+    expect(viewModel.basicMetrics.find((item) => item.key === "vol")?.value).toBe("5.42亿手");
+    expect(viewModel.chart.candles[0]).toMatchObject({ volume: 500_000_000, volumeDisplay: "5亿手", amount: 110_000_000 });
     expect(viewModel.periods.filter((period) => period.supported).map((period) => period.key)).toEqual(["day"]);
   });
 
@@ -37,6 +38,13 @@ describe("buildIndexDetailViewModel", () => {
     expect(supported()).toEqual(["day", "week"]);
     pageInit.chartDefaults.availablePeriods.push("month");
     expect(supported()).toEqual(["day", "week", "month"]);
+  });
+});
+
+describe("index volume display in lots", () => {
+  it("formats fractional lots, ten-thousands, and hundreds of millions of lots", () => {
+    expect([null, 0, 123.45, 10_000, 2_426_761.31, 100_000_000].map(formatIndexVolumeLots))
+      .toEqual(["--", "0手", "123.45手", "1万手", "242.68万手", "1亿手"]);
   });
 });
 

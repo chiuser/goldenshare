@@ -1,3 +1,4 @@
+import { formatIndexVolumeLots } from "../model/formatIndexVolumeLots";
 import { toDetailChartPoint } from "./indexChartPointAdapter";
 import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import type { IndexDailyHistory } from "../controller/useIndexDailyHistory";
@@ -128,6 +129,7 @@ export function IndexChartWorkspace({
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
       autoHideZoomControls
+      formatVolume={formatIndexVolumeLots}
       bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
         <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend} />
         {addon.controls}
@@ -216,6 +218,7 @@ export function IndexPeriodChartWorkspace({ period, dataKey, series, indicatorCo
   return <DetailChartWorkspace
     ariaLabel={ariaLabel}
     autoHideZoomControls
+    formatVolume={formatIndexVolumeLots}
     bottomBar={<>
       <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={false} />
       {phase === "delayed" || phase === "partial" ? <span className="index-period-status-message" role="status">

@@ -138,8 +138,12 @@ describe("IndexMinuteChartWorkspace adapter", () => {
     fireEvent.click(retry);
     await waitFor(() => expect(latestProps().quantitativeStructure?.valuesAt(point.time)).toEqual({ macd: -2, dif: -16, dea: -15 }));
     const ready = latestProps();
+    expect(ready.formatVolume?.(1000)).toBe("1000手");
+    expect(render(ready.renderPanelHeader("volume", ready.points[0]!)).getByText("总量:1000手")).toBeInTheDocument();
     const tooltip = render(ready.renderTooltip(ready.points[0]!, "right"));
     expect(screen.getByLabelText("顶底识别详情")).toBeInTheDocument();
+    expect(tooltip.getByText("1000手")).toBeInTheDocument();
+    expect(tooltip.getByText("200.00万元")).toBeInTheDocument();
     expect(ready.points[0]?.macd).toBe(4);
     expect(ready.quantitativeStructure?.primitives).toHaveLength(1);
     expect(header.getByText("MACD:--")).toBeInTheDocument();

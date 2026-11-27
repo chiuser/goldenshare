@@ -27,6 +27,7 @@ describe("index minute Gold indicators", () => {
     expect(viewModel.points[0]!.bollMiddle).toBe(indicators[0]!.bollMiddle);
     expect(viewModel.points[0]!.dif).toBe(indicators[0]!.macdDif);
     expect(viewModel.points[0]!.k).toBe(indicators[0]!.kdjK);
+    expect(viewModel.points[1]).toMatchObject({ volume: 100.01, amount: 1_000_001 });
     expect(viewModel.points[0]!.preClose).toBeNull();
     expect(viewModel.points[0]!.changePct).toBeNull();
   });
@@ -53,6 +54,7 @@ describe("index minute Gold indicators", () => {
     const viewModel = buildIndexMinuteBarsOnlyViewModel(makeBarsResponse(makeBars(3)));
 
     expect(viewModel.indicatorSource).toBe("unavailable");
+    expect(viewModel.points[1]).toMatchObject({ volume: 100.01, amount: 1_000_001 });
     expect(viewModel.paramsKey).toBeNull();
     expect(viewModel.indicatorVersion).toBeNull();
     expect(viewModel.points.every((point) => point.ma5 === null && point.macd === null)).toBe(true);

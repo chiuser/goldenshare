@@ -132,6 +132,7 @@ export function DetailChartWorkspace({
   bottomBarAriaLabel,
   crosshairPresentation = "synchronized-overlay",
   dataKey,
+  formatVolume,
   hiddenIndicatorPanels,
   historyPhase,
   onHistoryViewport,
@@ -315,7 +316,9 @@ export function DetailChartWorkspace({
     const volumeSeries = volumeChart.addSeries(HistogramSeries, {
       base: 0,
       lastValueVisible: false,
-      priceFormat: { type: "volume" },
+      priceFormat: formatVolume
+        ? { type: "custom", minMove: 0.01, formatter: formatVolume }
+        : { type: "volume" },
       priceLineVisible: false,
     });
     const setVolumeData = () => volumeSeries.setData(buildHistogramData(
@@ -380,7 +383,7 @@ export function DetailChartWorkspace({
     const syncTargets = new Map<WorkspacePanelKey, ChartSyncTarget>([
       ["kline", { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close }],
       ["macd", macd.syncTarget],
-      ["volume", { chart: volumeChart, formatter: formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume }],
+      ["volume", { chart: volumeChart, formatter: formatVolume ?? formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume }],
       ["kdj", { chart: kdjChart, formatter: formatPriceAxisValue, series: kSeries, valueOf: (point) => point.k }],
     ]);
     if (structure) syncTargets.set("quantitativeStructure", structure.syncTarget);
@@ -869,7 +872,7 @@ export function DetailChartWorkspace({
       structureInput?.primitives.forEach(primitive => structure?.dif.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [commitViewportRange, crosshairPresentation, dataKey, hasQuantitativeStructure, keepCharts,
+  }, [commitViewportRange, crosshairPresentation, dataKey, formatVolume, hasQuantitativeStructure, keepCharts,
     padLatestCandle, keepCharts ? null : candleData,
     keepCharts ? null : mainLines, keepCharts ? null : points, keepCharts ? null : primitives, timeAxisPlacement, timeMode]);
 

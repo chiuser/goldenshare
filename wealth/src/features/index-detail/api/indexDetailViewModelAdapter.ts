@@ -1,6 +1,7 @@
 import { directionClass } from "../../../shared/lib/marketDirection";
 import type { MarketDirection } from "../../../shared/model/market";
 import type { IndexDetailKlineResponseDto, IndexDetailPageInitResponseDto, IndexSseDailyKlineBarDto } from "./indexDetailApiTypes";
+import { formatIndexVolumeLots } from "../model/formatIndexVolumeLots";
 import { INDEX_INDICATOR_TABS, INDEX_PERIOD_OPTIONS } from "../model/indexDetailConstants";
 import type {
   IndexBasicMetric,
@@ -98,7 +99,7 @@ export function buildBasicMetrics(pageInit: IndexDetailPageInitResponseDto): Ind
   return [
     metric("preClose", "昨收", quote?.preClose, formatFixed, "secondary"),
     metric("open", "今开", quote?.open, formatFixed, compareTone(quote?.open, quote?.preClose)),
-    displayMetric("vol", "总量", quote?.volDisplay, "secondary"),
+    metric("vol", "总量", quote?.vol, formatIndexVolumeLots, "secondary"),
     metric("high", "最高", quote?.high, formatFixed, compareTone(quote?.high, quote?.preClose)),
     metric("low", "最低", quote?.low, formatFixed, compareTone(quote?.low, quote?.preClose)),
     metric("amount", "金额", quote?.amount, formatAmountFromThousandYuan, "secondary"),
@@ -144,7 +145,7 @@ export function toCandlePoint(bar: IndexDetailKlineResponseDto["bars"][number]):
     changePct: finiteOrNull(bar.changePct),
     amplitude: finiteOrNull(bar.amplitude),
     volume: finiteOrNull(bar.vol),
-    volumeDisplay: bar.volDisplay,
+    volumeDisplay: formatIndexVolumeLots(bar.vol),
     amount: finiteOrNull(bar.amount),
     ma5: finiteOrNull(bar.factors.ma.ma5),
     ma10: finiteOrNull(bar.factors.ma.ma10),
@@ -173,15 +174,6 @@ function metric(
   tone: IndexBasicMetric["tone"],
 ): IndexBasicMetric {
   return { key, label, value: formatter(value), tone };
-}
-
-function displayMetric(
-  key: string,
-  label: string,
-  value: string | null | undefined,
-  tone: IndexBasicMetric["tone"],
-): IndexBasicMetric {
-  return { key, label, value: value ?? "--", tone };
 }
 
 function compareTone(value: number | null | undefined, base: number | null | undefined): IndexBasicMetric["tone"] {

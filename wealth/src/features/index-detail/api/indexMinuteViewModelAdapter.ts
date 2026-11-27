@@ -113,7 +113,7 @@ function toPoint(
     preClose: null,
     changePct: null,
     amplitude: null,
-    volume: bar.vol,
+    volume: bar.vol / 100,
     volumeDisplay: null,
     amount: bar.amount,
     ma5: indicator?.ma5 ?? null,

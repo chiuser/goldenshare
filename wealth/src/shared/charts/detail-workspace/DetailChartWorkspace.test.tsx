@@ -705,6 +705,26 @@ describe("DetailChartWorkspace", () => {
     expect(buildLineData(points, (point) => point.changePct).some((item) => "value" in item && item.value === 0)).toBe(false);
   });
 
+  it("applies an optional volume formatter to the axis and crosshair without scaling the histogram", () => {
+    const points = makePoints(3);
+    points[1]!.volume = 123.45;
+    const element = workspaceElement(points, "minute", "shared:test:volume");
+    const { rerender } = render(element);
+    expect(chartMock.charts[2].series[0].options.priceFormat).toEqual({ type: "volume" });
+
+    const formatVolume = (value: number) => value.toFixed(2) + "手";
+    rerender(cloneElement(element, { formatVolume }));
+    const volumeChart = chartMock.charts.at(-2)!;
+    const series = volumeChart.series[0];
+    expect(series.options.priceFormat).toEqual({ type: "custom", minMove: 0.01, formatter: formatVolume });
+    expect(series.setData.mock.lastCall[0][1].value).toBe(123.45);
+
+    const host = screen.getByLabelText("共享成交量").querySelector(".detail-chart-host");
+    Object.defineProperty(host!, "clientHeight", { configurable: true, value: 100 });
+    act(() => volumeChart.crosshairHandlers[0]({ point: { x: 100, y: 20 }, time: points[1]!.time }));
+    expect(screen.getByText("12.34手")).toBeInTheDocument();
+  });
+
   it("synchronizes crosshair and delegates tooltip content without fallback to the last point", () => {
     const points = makePoints(100);
     points[98]!.macd = null;

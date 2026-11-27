@@ -1,6 +1,6 @@
 # 指数分钟成交量归一化、入库保护与页面展示 LLD v1
 
-更新于 2026-11-27。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成。DG 已加载新版，待核对重载后首批日常 Silver 行情。阶段 2 首批的 Prod 重刷、DG 正式发布和本地指数详情分钟读数切换均已验收。既有通用 5 分钟全历史读取范围待核实。
+更新于 2026-11-27。阶段 1B 的 Prod 新版切换、旧辅助表清退和指数分钟自动任务恢复已完成。DG 已加载新版，待核对重载后首批日常 Silver 行情。阶段 2 首批 Prod 重刷、DG 正式发布及本地指数详情分钟切换已收尾。通用 5 分钟入口启用前单独核实历史单位。阶段 3 的前端实现与本地验收已完成。
 
 依据[专项方案](index-minute-volume-normalization-plan-v1.md)。历史范围、换算阈值和交付顺序以该方案为准。源接口为 Tushare `idx_mins`，见本地源文档 [doc_id 419](../sources/tushare/指数专题/0419_股票历史分钟行情.md)。
 
@@ -261,6 +261,13 @@ Prod 历史 APPLY 按长任务交付。已提交数据的续跑事实来自清�
 
 本地读数使用 `vol AS volume`，90／120 分钟使用 `sum(vol)`。21 项回归通过。07:59 用原启动脚本恢复 8000 Web 和 5173 前端，独立的 Wealth 5174 前端继续运行。实际 `/minutes` 比对上证综指、深证成指在 11 月 9／10 和 24／25 日的 5／30／90／120 分钟首屏及续页，共 32 页，回包逐条一致。上证综指 11 月 24 日 90／120 分钟各自合计 49,352,629,600 股。此结果覆盖本地指数详情分钟接口。通用 DG 和 Prod 5 分钟全历史的静态倍率继续按 §3.4 核实。
 
+### 3.9 阶段 2 收尾与阶段 3 开工审计（2026-11-27）
+
+- 通过 CodeGraph 和现行入口核对，本地指数详情分钟接口调用 `calculate_index_minutes_recent`，读取主要指数分钟数据。通用 `index_mins_5m` 是算子库的区间能力，代码仍在配置中。本次仓库审计未发现日常 Web、调度或研究入口调用它。Prod 当前也未挂载指数详情分钟接口。
+- 仅抽取通用入口支持的 8 只指数、7 个日期。Prod `core_serving.index_minute_bar` 和 DG 通用 Gold 5 分钟分别汇总 2,744 根和 2,688 根，11 月的 40 组在两端成交量完全一致。结合日线手数，56 组中 55 组两端分钟合计约为日线手数的 100 倍。深证成指 2025-11-27 使用已修正的 DG 日线核对。创业板指同日的日线与分钟统计范围未能用现有证据对齐，留作未判定样本。范围只覆盖 2025-11-27、2026-07-06 和 2026-11-09、10、24、25、26。
+- 对已归一的沪市样本，通用入口若沿用当前手数声明会再乘 100。例如上证综指 11 月 24 日的 49,352,629,600 股会变为 4,935,262,960,000 股。样本不足以证明全历史，保持 §3.4 的启用边界，任何业务接入通用入口前先核实全历史口径并修正读数。本地指数详情使用首批验收通过的独立链路，阶段 2 在首批数据及现行页面范围内收尾。阶段 1B 的 DG 首批新版日更读回仍按 §2.8 执行。
+- 阶段 3 只修改现行指数页面展示。真实本地回包确认右栏和日、周、月的 `vol` 已为手，上证综指 11 月 26 日日线与右栏均为 454,062,959 手。分钟继续返回股，深证成指 11 月 10 日 14:40 的 5 分钟样本为 242,676,131 股，对应 2,426,761.31 手。现有 Wealth 类型检查和指数适配、指数图、共用图表及股票图的 72 项测试通过。
+
 ## 4. 阶段 3：指数详情统一显示手
 
 | 文件或调用点 | 修改 |
@@ -269,9 +276,18 @@ Prod 历史 APPLY 按长任务交付。已提交数据的续跑事实来自清�
 | `indexDetailViewModelAdapter.ts` | 右栏总量使用 `quote.vol`，日周月 K 使用 `bar.vol`；两者已是手。重新生成 ViewModel 的成交量显示文案，API `volDisplay` 字段继续保留。 |
 | 指数详情格式化函数 | 增加指数详情内部的 `formatIndexVolumeLots(value)`。无值显示 `--`，零显示 `0手`。不足万手显示手，满万和满亿分别显示万手和亿手。显示值保留至多两位小数，用原手数绘图。例如 12,345 股 → 123.45 手，显示 `123.45手`；10000 手显示 `1万手`。 |
 | `IndexMinuteChartWorkspace.tsx` 与 `IndexChartWorkspace.tsx` | 顶部成交量总量、对应悬浮提示共用指数成交量格式化函数。普通与结构图工作区两处都传入统一的图表成交量格式。 |
-| `DetailChartWorkspace.tsx` 与 `detailChartTypes.ts` | 增加可选 `formatVolume?: (value: number) => string`。指数传入后，成交量 Histogram 的右轴采用自定义格式，成交量面板的十字线标签用同一个函数；其他调用继续使用现有 volume 和通用轴格式。不要在共享图表再除以 100。 |
+| `DetailChartWorkspace.tsx` 与 `detailChartTypes.ts` | 增加可选 `formatVolume?: (value: number) => string`。指数传入后，成交量 Histogram 的 `priceFormat` 使用 `type: "custom"`、`minMove: 0.01` 和传入的 formatter。成交量面板同步十字线的 formatter 使用同一函数；其他调用继续使用现有 volume 和通用轴格式。不要在共享图表再除以 100。 |
 
-验收用实际 `/minutes` 回包核对同根柱的数值与右轴、顶部总量、十字线和悬浮提示。覆盖至少一个有小数手的分钟样本，检查日、周、月与分钟切换、分钟首屏和续页，比较右栏从原有手数生成的格式。对共享股票图测一条原有成交量展示回归。成交额继续走各自现有格式。[分钟适配](../../wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.ts#L108) · [日周月与右栏适配](../../wealth/src/features/index-detail/api/indexDetailViewModelAdapter.ts#L101) · [分钟图](../../wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.tsx#L180) · [日周月图](../../wealth/src/features/index-detail/chart/IndexChartWorkspace.tsx#L290) · [共享成交量柱与十字线](../../wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx#L315)
+验收用实际 `/minutes` 回包核对同根柱的数值与右轴、顶部总量、十字线和悬浮提示。覆盖至少一个有小数手的分钟样本，浏览器检查日、周、月与分钟切换、日线续页、分钟首屏、右栏格式。现行分钟页面只发首批请求，分钟续页用实际 `nextCursor` 回包通过同一适配函数验收。沿用当前交互范围。对共享股票图测一条原有成交量展示回归。成交额继续走各自现有格式。[分钟适配](../../wealth/src/features/index-detail/api/indexMinuteViewModelAdapter.ts#L108) · [日周月与右栏适配](../../wealth/src/features/index-detail/api/indexDetailViewModelAdapter.ts#L101) · [分钟图](../../wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.tsx#L180) · [日周月图](../../wealth/src/features/index-detail/chart/IndexChartWorkspace.tsx#L290) · [共享成交量柱与十字线](../../wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx#L315)
+
+<a id="index-minute-volume-stage-three-result"></a>
+
+### 4.1 实施与独立验收（2026-11-27）
+
+- 代码核对确认，分钟首屏行情和带指标行情都在 `indexMinuteViewModelAdapter.ts` 中换算一次。七个分钟周期共用该适配。右栏和日、周、月直接用接口的手数。指数详情给共享图表传入格式化函数，成交量柱和十字线沿用同一数值。成交额沿用原有格式。股票图表原有成交量格式由回归测试验证。
+- Wealth 类型检查、构建及 157 项定向测试通过。浏览器使用独立开发服务和隔离的测试登录状态，实际行情来自运行中的本地后端。深证成指 11 月 26 日的右栏和日 K 都显示 1.5 亿手，周 K 显示 6.69 亿手，月 K 显示 34.16 亿手。向左拖动日 K，按实际 `nextEndDate` 加载了 500 根历史行情。
+- 深证成指 5 分钟首屏及实际游标续页各返回 500 根。浏览器核对了成交量刻度、十字线、顶部总量和悬浮框。11 月 26 日 10:45 的悬浮框显示成交量 212.59 万手、成交额 49.21 亿元。另用真实接口返回的前后两页各 7 根校验适配，时间和成交额逐根一致。11 月 10 日 14:40 的 242,676,131 股转换为 2,426,761.31 手，显示 242.68 万手，确认绘图值保留小数手。
+- 11 月 10 日样本的深证成指周、月 K 接口返回已有的缺行情错误。周、月 K 的展示验收使用接口正常返回的 11 月 26 日。Prod 本轮以现行数据合同和前端构建核对为准，正式运行版本待后续发布。
 
 ## 5. 阶段交付
 
