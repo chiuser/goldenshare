@@ -98,6 +98,8 @@ docs/
 - [技术指标算子库实施 LLD v1（待评审；现状审计、文件级改动、迁移与验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-operator-library-implementation-lld-v1.md)
 - [技术指标算子库读取优化方案 v1（待评审；按截止日和根数取行情、减少重复查询）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-read-optimization-plan-v1.md)
 - [技术指标算子库读取优化 LLD v1（待评审；文件、SQL、接口和分阶段验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-read-optimization-low-level-design-v1.md)
+- [股票与指数 K 线指标组装架构改进方案 v1（待评审；日线、周月线调用流程与行为等价验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kline-composition-refactor-plan-v1.md)
+- [股票与指数 K 线指标组装架构改进 LLD v1（待实施；交叉引用、文件迁移与验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kline-composition-refactor-low-level-design-v1.md)
 - [指数周线、月线接入技术指标算子库方案 v1（阶段一已实现并完成只读验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-index-period-plan-v1.md)
 - [指数周线、月线接入技术指标算子库 LLD v1（DG／Prod 读取、日期、单位与独立验收）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-index-period-low-level-design-v1.md)
 - [股票周线、月线算子库需求 v1](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-stock-period-requirements-v1.md)
