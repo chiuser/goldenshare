@@ -68,7 +68,8 @@ def test_d3_fixed_sql_resources_and_output_dependency_boundary():
     expected = {
         "calculation": {"smoothing_parameters.sql","rolling_mean.sql","bollinger_bands.sql",
                         "macd_first.sql","macd_segment.sql","kdj_window.sql","kdj_segment.sql",
-                        "macd_warmup.sql","kdj_warmup.sql","nineturn_batch.sql"},
+                        "macd_warmup.sql","kdj_warmup.sql","nineturn_batch.sql",
+                        "trend_channel_first.sql","trend_channel_segment.sql"},
         "output": {"merge_batch.sql","select_result.sql"},
     }
     for part, names in expected.items():
@@ -115,5 +116,6 @@ def test_indicator_dependency_boundaries():
                                    for module in modules for prefix in banned), path
         package = root / "src/app/runtime/technical_indicators"
         assert {path.name for path in package.glob("*.py")} == {
-            "__init__.py", "admission.py", "composition.py", "execution.py", "response.py",
+            "__init__.py", "admission.py", "composition.py", "execution.py",
+            "read_session.py", "response.py",
         }
