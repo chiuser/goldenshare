@@ -1,6 +1,6 @@
 # 股票与指数 K 线指标组装架构改进 LLD v1
 
-**状态**　2026-11-27，阶段 1 已实施并通过独立对照审计，阶段 2 和 3 待推进。本文承接[架构改进方案及目标流程图](technical-indicator-kline-composition-refactor-plan-v1.md)。原代码审计基线为 `de20bc808`，本需求相关代码与九转阶段一提交 `9d7e10c04` 无差异。阶段 1 的改造前比较点为方案、LLD 的提交 `c58b840e4`。
+**状态**　2026-11-27，阶段 1 和 2 已实施并通过独立对照审计，阶段 3 待推进。本文承接[架构改进方案及目标流程图](technical-indicator-kline-composition-refactor-plan-v1.md)。原代码审计基线为 `de20bc808`，本需求相关代码与九转阶段一提交 `9d7e10c04` 无差异。阶段 1 的改造前比较点为方案、LLD 的提交 `c58b840e4`，阶段 2 的源码比较点为阶段 1 提交 `199d16e13`。
 
 ## 1. 开发约束
 
@@ -82,11 +82,11 @@
 
 `index_daily_kline_service.py` 只依赖已有业务 schema、展示/状态规则、算子结果类型与本域 `compose/`。新增仅由该服务产生的 `IndexDailyCalculatedPage`，字段为行情 `rows`、`common_fields`、`trend_fields`、`nine_turn_markers` 和 `missing_count`。`prepare_local_result()` 和 `prepare_prod_result()` 只处理已读数据。`assemble(*, context, identity, page, start_date, limit, next_end, include_nine_turn)` 接收它和原查询上下文，`context` 沿用 `MarketPageContextLike`，空页直接传 `page=None`。查询负责传现行 `next_end`，本地从 `source_facts.previous_target_date` 按原有结果分支赋值；Prod 继续从原窗口算游标。空页的 `missing_count` 仍为 `None`，本地九转字段仍为 `[]`，Prod 仍无九转字段。
 
-`assemble()` 沿原优先级确定 `expectedTradeDate` 和状态，每根先用 `build_index_kline_bar_fields()` 得到行情字段，再取 `compose/common.py` 的指标，收成普通 `IndexKlineBarDto`。上证本页有行时显式调用 `compose/trend_channel.py`，构造原 `IndexSseDailyKlineBarDto` 和 `IndexSseDailyKlineFactorsDto`。按本地/Prod 与上证/普通的原选择返回原 DTO 与 `missing_count`，保留 `IndexDetailSseKlineMetaDto` 的 `nextEndDate` 和 debug 投影基于响应类型的分支。检查无须把四轨或指标值写回行情行。
+`assemble()` 沿原优先级确定 `expectedTradeDate` 和状态。每根使用 `build_index_kline_bar_fields()` 得到行情字段，再取 `compose/common.py` 的指标，收成普通 `IndexKlineBarDto`。上证本页有行时，按旧调用的求值顺序先调用 `compose/trend_channel.py` 构造四轨，再转换行情和公共指标，构造原 `IndexSseDailyKlineBarDto` 和 `IndexSseDailyKlineFactorsDto`。按本地/Prod 与上证/普通的原选择返回原 DTO 与 `missing_count`，保留 `IndexDetailSseKlineMetaDto` 的 `nextEndDate` 和 debug 投影基于响应类型的分支。检查无须把四轨或指标值写回行情行。
 
 ### 5.2 周线、月线
 
-[`src/app/dependencies/index_period_technical_indicators.py` 22–79 行](../../src/app/dependencies/index_period_technical_indicators.py#L22) 继续原能力探测、App 请求时机、投影和 JSON 编码。只换清单来源与会话函数。现有 `latest_rows` 分支对应 `calculate_with_source()`，其他保留 `calculate()`。
+[`src/app/dependencies/index_period_technical_indicators.py` 22–79 行](../../src/app/dependencies/index_period_technical_indicators.py#L22) 继续原能力探测、App 请求时机、投影和 JSON 编码。阶段 2 只换清单来源，沿用阶段 1 的会话函数。现有 `latest_rows` 分支对应 `calculate_with_source()`，其他保留 `calculate()`。
 
 | [`index_detail_period_kline_query_service.py`](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py) 原代码 | 修改和交接位置 |
 | --- | --- |
@@ -95,7 +95,7 @@
 | 67–118 行 | DG 从 `calculate_recent()` 的 `source_facts` 组本页和历史游标，Prod 用 `index_period_page(..., limit=limit + 1)` 做当页选择。有需要才保留原 `index_period_boundary()` 检查，日期顺序、空窗、延迟、发布范围缺数据、`check_period_key()` 校验和超一根的裁剪全部照旧。 |
 | 120–158 行 | 查询仅按原条件取得 `result`。若 `page.rows` 空，跳过 `calculate`。有行时，DG 复用 `page.result`，Prod 原样调用 `calculate(page.periods[0], page.cutoffs[-1])`。把明确的命名字段传给 `IndexPeriodKlineService.assemble()`。 |
 
-`src/biz/services/wealth/market/index_detail/index_period_kline_service.py:IndexPeriodKlineService.assemble(*, context, index_ref, auxiliary_rows, periods, cutoffs, end, expected, next_end, result, pct_scale, period, start_date, limit)` 接收页对象已有的值与临时结果。`pct_scale` 由查询传现值，Prod `100`、DG `1`。函数按原顺序做以下工作。
+`src/biz/services/wealth/market/index_detail/index_period_kline_service.py:IndexPeriodKlineService.assemble(*, ts_code, context, index_ref, auxiliary_rows, periods, cutoffs, end, expected, next_end, result, pct_scale, period, start_date, limit)` 接收原请求标的、本页已有值和临时结果。诊断继续使用查询参数 `ts_code`，回包继续使用已取到的 `index_ref`。`pct_scale` 由查询传现值，Prod `100`、DG `1`。函数按原顺序做以下工作。
 
 1. 若有行情行，验证 `result.times == periods`、`result.source_as_of == cutoffs`、`result.range.count == len(auxiliary_rows)`。保留 `price` 的原实例选择方式和六列存在、长度检查、错误名称及顺序。
 2. 按 `source_as_of` 和辅助行逐根拼价格和辅助数据，保持涨跌幅缩放、成交量 `/100`、成交额 `/1000`、原 `None` 和交易日。用 §4 的公共字段校验与缺项统计替换对旧日线函数的调用。有效历史数仍用 `result.statistics.source_rows - result.range.count`。
@@ -105,7 +105,7 @@
 
 ### 6.1 三个推进阶段
 
-各阶段按顺序推进。上一阶段完成对应验收后，才进入下一阶段。当前阶段 1 已验收，阶段 2 和 3 待推进。
+各阶段按顺序推进。上一阶段完成对应验收后，才进入下一阶段。当前阶段 1 和 2 已验收，阶段 3 待推进。
 
 阶段 1 的前后对照优先复用 `tests/app/technical_indicators/test_stock_daily_source_repair.py` 的本地股票日线、周月线，`tests/web/test_stock_daily_technical_indicator_api.py` 的股票 Prod 路由测试，`tests/app/technical_indicators/test_index_daily_kline_integration.py` 的本地指数日线，以及 `tests/app/technical_indicators/test_index_daily_prod_trend_channel.py` 和 `tests/web/test_wealth_index_detail_weekly_monthly_api.py` 的临时 PostgreSQL 测试。区分真实算子和测试替身，用现有 `.venv` 和 `PYTHONPATH=packages/technical_indicators/src:.` 运行。临时采样和原始回包放在 `/private/tmp`，在本文记录可复验的样本、对照摘要和限制。
 
@@ -131,7 +131,7 @@ Prod 股票日线九转旧能力删除维持暂停。主要指数日线趋势通
 
 **性能、失败与中断。** 沿用 [`src/foundation/config/settings.py` 的现行限制](../../src/foundation/config/settings.py#L85)，包括 `TECHNICAL_INDICATOR_MAX_INPUT_ROWS`、`TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS`、`TECHNICAL_INDICATOR_MAX_SOURCE_FILES`、`TECHNICAL_INDICATOR_REQUEST_MEMORY_BYTES`、`TECHNICAL_INDICATOR_TOTAL_TARGET_MS` 和 `TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS`，同一环境使用相同配置值。保留 [`_execute()` 的工作期限和取消处理](../../src/app/runtime/technical_indicators/execution.py#L90)。对每个样本记录前后实际目标根数、源调用和读取次数、计算次数及耗时。同一成功请求中的算子次数、读取次数和读取范围与基线一致。正常空页、校验失败及取消也按基线对照，避免后移检查后增加一次 SQL 或文件读取。内存中保留每个指标结果元组的引用，减少逐根写旧字段的步骤。组装层不写数据库或文件，不加重试或持久化。请求失败仍走原错误与资源清理。验证被中断时只重新发对应原请求，记录重跑与独立回归花费。现阶段没有新增毫秒阈值，开发前后以同一环境的测量记录与原预算验收。
 
-**验收环境。** 先用现有仓库环境运行定向测试，用生产者生成的临时 DG 文件与临时 PostgreSQL 验证实际读链，以及正常、空页和错误响应。隔离夹具与调用替身所覆盖的部分分别记录。再用获准的有界只读样本对账同样的请求和页范围，保留原始业务单位及字段。正式数据、线上配置和部署不在本 LLD 的执行范围。阶段 1 的实际证据见 §7。
+**验收环境。** 先用现有仓库环境运行定向测试，用生产者生成的临时 DG 文件与临时 PostgreSQL 验证实际读链，以及正常、空页和错误响应。隔离夹具与调用替身所覆盖的部分分别记录。通用 Web 回归在导入应用前设置 `APP_ENV=test`，通过 `GOLDENSHARE_ENV_FILE` 指向本任务的临时空配置文件，避免工作区 `.env` 选择本地路由。再用获准的有界只读样本对账同样的请求和页范围，保留原始业务单位及字段。正式数据、线上配置和部署不在本 LLD 的执行范围。阶段 1 和 2 的实际证据见 §7、§8。
 
 **已完成的设计核对。** 单独运行现有缺项统计函数，与 §4 的直接读取算子列规则对照。使用 16 组历史根数，分别覆盖无缺项、25 个字段各自缺项及同根全部缺项，共 432 组构造输入，计数一致。该检查只验证设计公式，运行时取数、组装与接口回包按上表验收。
 
@@ -144,4 +144,13 @@ Prod 股票日线九转旧能力删除维持暂停。主要指数日线趋势通
 - **读取与计算。** 每个请求的实际观测计数逐项一致。真实算子执行 38 次，另有 2 个股票 Prod 路由请求使用 SQLite 和算子替身，测试各断言一次计算请求。临时 PostgreSQL、DG 行情及参考数据按调用位置分别计数。对照包括 203 次 PostgreSQL SQLAlchemy 查询事件、57 次算子 PostgreSQL 查询调用、57 次 Lake 定位查询，以及 9 次股票周月线分区读取，前后各相同。调用位置可能有层级关系，各项不相加为物理读次数。逐请求耗时已记录，本批样本中位数为 70.8 → 65.6 毫秒，最大为 116.9 → 125.2 毫秒。这是隔离回归实测，验收仍使用 §6.2 的原工作期限。
 - **定向回归。** 扩展回归 110 项通过，涵盖股票组装与接口、会话故障注入、取消和资源释放、DG 参考数据及分层护栏。其中另用隔离 PostgreSQL 对照搬迁前后的会话，验证事务开启只读、已设置正的 SQL 超时且退出后连接归还。隔离测试没有连接正式 Prod。
 
-保留本地临时对照原始记录 `/private/tmp/goldenshare-kline-phase1.WCtgXR/before-timed.jsonl`、`/private/tmp/goldenshare-kline-phase1.WCtgXR/after-timed.jsonl`，以及同目录的 `kline_capture.py` 和 `compare_kline.py` 供阶段 3 使用。归一化结果的 SHA-256 为 `f5b9f49afe3c4c3f86ff99adcb174eea13fec62f906c91a4fa3de6f41b9fc2b0`。阶段 2、3、主要指数趋势通道扩展和 Prod 股票九转旧能力清理均未启动。
+保留本地临时对照原始记录 `/private/tmp/goldenshare-kline-phase1.WCtgXR/before-timed.jsonl`、`/private/tmp/goldenshare-kline-phase1.WCtgXR/after-timed.jsonl`，以及同目录的 `kline_capture.py` 和 `compare_kline.py` 供阶段 3 使用。归一化结果的 SHA-256 为 `f5b9f49afe3c4c3f86ff99adcb174eea13fec62f906c91a4fa3de6f41b9fc2b0`。阶段 1 收尾时，阶段 2、3、主要指数趋势通道扩展和 Prod 股票九转旧能力清理均未启动。
+
+## 8. 阶段 2 实施与独立对照审计（2026-11-27）
+
+阶段 2 通过。独立核对以 `199d16e13` 为源码比较点，覆盖 App 入口、原查询、移出的校验和组装、回包与消费方。
+
+- **依赖与职责。** 周月线 App 从 [指数请求清单](../../src/biz/services/wealth/market/index_detail/index_kline_calculations.py) 取清单。[周月线查询](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py) 已去掉日线继承与导入。计算结果分别交给 [日线组装服务](../../src/biz/services/wealth/market/index_detail/index_daily_kline_service.py) 和 [周月线组装服务](../../src/biz/services/wealth/market/index_detail/index_period_kline_service.py)。CodeGraph 和源码引用复核覆盖公共校验、缺项统计、指标入口和权重使用的数值转换。算子路径已移除 `apply_calculated_kline_factors()` 和旧列写入，MACD 的 `hist` 直接交给 `compose/macd.py`。预计算结果入口仍用原行情行组装。权重查询只更新 `to_float()` 的导入。
+- **错误和取数时机。** 逐函数对照确认，日线预计算读取、辅助 SQL、周月线选页以及日线实例、版本、四轨和九转校验保留原行为。新增对照用例证明 Prod 日线日期或 OHLC 不匹配时在辅助 SQL 前失败，本地九转错误在后续上下文解析前失败。缺项统计使用实际旧函数与新实现，逐项对照 §6.2 的 432 组构造输入，结果一致，传入的行情行没有被写入指标字段。
+- **相同输入对照。** 重跑 §7 的 14 个用例、48 个请求，逐条核对 HTTP 状态、业务 JSON、读取与计算计数，均一致。只归一化 `pageContext.generatedAt`。对照包括本地上证和非上证、Prod 上证与预计算分支、周月线及既有失败响应。股票 Prod 路由中有两个请求继续使用原 SQLite 和算子替身。48 个隔离请求中位数 66.0 毫秒、最大 133.4 毫秒，仍按现有工作期限验收。阶段 2 原始对照记录为 `/private/tmp/goldenshare-kline-phase2.TdCkU2/after-timed.jsonl`，归一化摘要与 §7 一致。
+- **回归。** 126 项后端定向用例通过，覆盖字段映射、真实临时 DG 与 PostgreSQL、普通与 debug、缺页、取消、旧预计算结果、指数权重与独立九转接口。股票与指数的前端历史加载用例共 12 项通过。未触及正式环境。阶段 3 的完整对照审计待单独推进。

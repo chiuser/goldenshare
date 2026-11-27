@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from datetime import date, datetime, timedelta
-from math import isfinite
 from typing import Any, Mapping
 from zoneinfo import ZoneInfo
 
@@ -14,27 +13,20 @@ from src.biz.queries.wealth.market.index_detail.index_detail_query import (
     _KLINE_FIELD_NAMES, IndexDetailQuery,
 )
 from src.biz.schemas.wealth.market.index_detail import (
-    IndexDetailIdentityDto,
     IndexDetailIndexRefDto,
     IndexDetailKlineMetaDto,
     IndexDetailKlineResponseDto,
-    IndexDetailSseKlineMetaDto,
-    LocalIndexDetailDailyKlineResponseDto, IndexDetailSseDailyKlineResponseDto, LocalIndexDetailSseDailyKlineResponseDto,
 )
-from src.biz.schemas.wealth.market.nine_turn import NineTurnMarkerDto
+from src.biz.services.wealth.market.index_detail.index_daily_kline_service import IndexDailyKlineService
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import (
-    build_identity, build_index_trend_channel_factors, build_index_sse_daily_kline_bar,
-    build_kline_bar,
-    build_page_context,
+    build_kline_bar, build_page_context, require_index_kline_identity,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_status_resolver import IndexDetailStatusResolver
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
-    IndexDetailNotFoundError,
     IndexDetailQueryError,
     IndexDetailRequestError,
     IndexDetailUniverseService,
 )
-from src.biz.services.wealth.market.nine_turn.nine_turn_response_policy import build_nine_turn_marker
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from src.foundation.clients.technical_indicator_stock_daily import dg_index_daily_origin
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
@@ -63,100 +55,9 @@ _MA_FIELDS: tuple[tuple[str, int], ...] = (
     ("ma_bfq_90", 90),
     ("ma_bfq_250", 250),
 )
-_BOLL_FIELDS = _TECHNICAL_REQUIRED_FIELDS[:3]
-SSE_DAILY_CALCULATIONS = (
-    *({"calculation_id": "ma", "parameters": {"period": period}} for _, period in _MA_FIELDS),
-    {"calculation_id": "boll", "parameters": {"period": 20, "multiplier": 2}},
-    {"calculation_id": "macd", "parameters": {"fast": 12, "slow": 26, "signal": 9}},
-    {"calculation_id": "kdj", "parameters": {"window": 9, "k_period": 3, "d_period": 3}},
-)
-_SSE_FACTOR_FIELDS = (
-    *((("value", field),) for field, _ in _MA_FIELDS),
-    tuple(zip(("upper", "middle", "lower"), _BOLL_FIELDS)),
-    tuple(zip(("dif", "dea", "hist"), _TECHNICAL_REQUIRED_FIELDS[3:6])),
-    tuple(zip(("k", "d", "j"), _TECHNICAL_REQUIRED_FIELDS[6:])),
-)
 SSE_DAILY_AUX_FIELDS = ("vol", "amount", "pre_close", "change_amount", "pct_chg")
-PriceRows = list[dict[str, Any]]
 CalculateDailyFactors = Callable[[tuple[date, ...]], tuple[CalculationResult, int, tuple]]
 CalculateRecentDaily = Callable[[date, date, int], CalculationWithSource]
-
-
-
-def index_daily_calculations(ts_code, *, include_price_and_nine_turn):
-    return (
-        *SSE_DAILY_CALCULATIONS,
-        *(({"calculation_id": "price", "parameters": {}}, {"calculation_id": "nineturn", "parameters": {}})
-          if include_price_and_nine_turn else ()),
-        *(({"calculation_id": "trend_channel", "parameters": {}},) if ts_code == "000001.SH" else ()),
-    )
-
-
-def _split_daily_results(ts_code, result, *, include_price_and_nine_turn):
-    expected = {(item["calculation_id"], tuple(sorted(item["parameters"].items())))
-                for item in index_daily_calculations(ts_code, include_price_and_nine_turn=include_price_and_nine_turn)}
-    actual = {(item.calculation_id, tuple(sorted(item.parameters))): item for item in result.calculations}
-    versions = {"ma": "1.0.0", "boll": "1.0.0", "macd": "2.0.0", "kdj": "2.0.0",
-                "price": "1.0.0", "nineturn": "1.0.0", "trend_channel": "1.0.0"}
-    if (len(actual) != len(result.calculations) or set(actual) != expected
-            or any(item.algorithm_version != versions[item.calculation_id] for item in result.calculations)):
-        raise IndexDetailQueryError(f"{ts_code} 本页指标实例、参数或版本不完整")
-    channel = None
-    if ts_code == "000001.SH":
-        channel = dict(actual[("trend_channel", ())].fields)
-        if len(actual[("trend_channel", ())].fields) != 4 or set(channel) != {"short_upper", "short_lower", "long_upper", "long_lower"} or any(
-            len(values) != len(result.times) or any(type(v) not in (int, float) or not isfinite(v) for v in values)
-            for values in channel.values()
-        ):
-            raise IndexDetailQueryError(f"{ts_code} 趋势通道结果字段不完整或数值无效")
-    indicators = tuple(item for item in result.calculations if item.calculation_id not in ("price", "nineturn", "trend_channel"))
-    direct = {item.calculation_id: item for item in result.calculations if item.calculation_id in ("price", "nineturn")}
-    return indicators, direct, channel
-
-def apply_calculated_kline_factors(ts_code, rows, calculations):
-    instances = {(item.calculation_id, tuple(sorted(dict(item.parameters).items()))): dict(item.fields)
-                 for item in calculations}
-    if len(calculations) != len(_SSE_FACTOR_FIELDS) or len(instances) != len(_SSE_FACTOR_FIELDS):
-        raise IndexDetailQueryError(f"{ts_code} 本页指标实例不完整")
-    for request, fields in zip(SSE_DAILY_CALCULATIONS, _SSE_FACTOR_FIELDS, strict=True):
-        key = request["calculation_id"], tuple(sorted(request["parameters"].items()))
-        values_by_field = instances.get(key, {})
-        for result_field, row_field in fields:
-            values = values_by_field.get(result_field)
-            if values is None or len(values) != len(rows):
-                raise IndexDetailQueryError(f"{ts_code} 指标结果字段不完整：{key[0]}.{result_field}")
-            for row, value in zip(rows, values, strict=True):
-                row[row_field] = value
-
-
-def count_calculated_kline_missing(rows, preceding_rows):
-    required = _BASE_REQUIRED_FIELDS + _TECHNICAL_REQUIRED_FIELDS[3:]
-    windowed = _MA_FIELDS + tuple((name, 20) for name in _BOLL_FIELDS)
-    return sum(
-        sum(row[name] is None for name in required)
-        + sum(row[name] is None and effective_count >= period for name, period in windowed)
-        for effective_count, row in enumerate(rows, start=preceding_rows + 1)
-    )
-
-
-def _build_nine_turn_markers(ts_code, dates, calculation) -> list[NineTurnMarkerDto]:
-    counts = dict(calculation.fields)
-    up = counts.get("up_count", ())
-    down = counts.get("down_count", ())
-    if len(up) != len(dates) or len(down) != len(dates):
-        raise IndexDetailQueryError(f"{ts_code} 九转结果与本页行情根数不一致")
-
-    markers = []
-    for day, up_count, down_count in zip(dates, up, down, strict=True):
-        if (up_count not in range(14) or down_count not in range(14)
-                or (up_count > 0 and down_count > 0)):
-            raise IndexDetailQueryError(f"{ts_code} {day} 九转计数无效")
-        marker = build_nine_turn_marker(
-            trade_date=day, trade_time=None, up_count=int(up_count), down_count=int(down_count),
-        )
-        if marker is not None:
-            markers.append(marker)
-    return markers
 
 
 class IndexDetailKlineQueryService:
@@ -209,14 +110,14 @@ class IndexDetailKlineQueryService:
         daily_lake = None if ts_code == "899050.BJ" else self._daily_lake
         history_before = None
         if daily_lake is None:
-            identity = self._build_identity_or_raise(self._query.load_identity(session, ts_code=ts_code), ts_code=ts_code)
+            identity = require_index_kline_identity(self._query.load_identity(session, ts_code=ts_code), ts_code=ts_code)
             context = self._context_query.resolve_context(session, market="CN_A", requested_trade_date=end_date)
             query_end_date = end_date or context.trade_date
             rows = self._query.load_kline_rows(
                 session, ts_code=ts_code, end_date=query_end_date, start_date=start_date, limit=limit,
             )
         else:
-            identity = self._build_identity_or_raise(daily_lake.index_identity(ts_code), ts_code=ts_code)
+            identity = require_index_kline_identity(daily_lake.index_identity(ts_code), ts_code=ts_code)
             context = self._context_query.resolve_local_context(
                 daily_lake, market="CN_A", requested_trade_date=end_date,
             )
@@ -296,7 +197,7 @@ class IndexDetailKlineQueryService:
         if start_date is not None:
             lower = max(lower, start_date)
         check_active()
-        identity = self._build_identity_or_raise(self._daily_lake.index_identity(ts_code), ts_code=ts_code)
+        identity = require_index_kline_identity(self._daily_lake.index_identity(ts_code), ts_code=ts_code)
         check_active()
         now = datetime.now(ZoneInfo("Asia/Shanghai"))
         context = None
@@ -307,9 +208,7 @@ class IndexDetailKlineQueryService:
             query_end = context.trade_date
         else:
             query_end = end_date
-        rows, missing_count, next_end = [], None, None
-        nine_turn_markers = []
-        trend_fields = None
+        page, next_end = None, None
         if query_end < lower:
             if context is None:
                 calendar = self._daily_lake.calendar_rows(start=query_end, end=query_end)
@@ -318,36 +217,17 @@ class IndexDetailKlineQueryService:
             facts = calculated.source_facts
             if context is None:
                 calendar = tuple((day.trade_date, day.is_open, day.pretrade_date) for day in facts.calendar_days)
-            result = calculated.result
-            if result is not None:
-                dates = tuple(bar.trade_date for bar in facts.target_bars)
-                if dates != result.times or len(dates) != result.range.count:
-                    raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
-                indicators, direct_outputs, trend_fields = _split_daily_results(
-                    ts_code, result, include_price_and_nine_turn=True,
-                )
-                values = dict(direct_outputs["price"].fields)
-                nine_turn_markers = _build_nine_turn_markers(ts_code, dates, direct_outputs["nineturn"])
-                for index, bar in enumerate(facts.target_bars):
-                    vol, amount = values["volume"][index], values["amount"][index]
-                    rows.append({
-                        "trade_date": bar.trade_date,
-                        **{name: values[name][index] for name in ("open", "high", "low", "close")},
-                        "pre_close": bar.pre_close, "change": bar.change_amount, "pct_change": bar.pct_chg,
-                        "vol": None if vol is None else vol / 100,
-                        "amount": None if amount is None else amount / 1000,
-                    })
-                apply_calculated_kline_factors(ts_code, rows, indicators)
-                missing_count = count_calculated_kline_missing(rows, calculated.selection.preceding_rows)
+            if calculated.result is not None:
+                page = IndexDailyKlineService.prepare_local_result(ts_code, calculated)
                 next_end = facts.previous_target_date
         if context is None:
             context = self._context_query.resolve_local_context(
                 self._daily_lake, market="CN_A", requested_trade_date=end_date, now=now, calendar_rows=calendar,
             )
         check_active()
-        return self._calculated_daily_response(
-            context, identity, rows, missing_count, start_date, limit, next_end,
-            nine_turn_markers=nine_turn_markers, trend_fields=trend_fields,
+        return IndexDailyKlineService.assemble(
+            context=context, identity=identity, page=page, start_date=start_date, limit=limit,
+            next_end=next_end, include_nine_turn=True,
         )
 
     def _build_calculated_daily_kline(
@@ -361,10 +241,9 @@ class IndexDetailKlineQueryService:
         context, window = self._context_query.resolve_sse_kline_context(
             session, requested_trade_date=end_date, start=lower, limit=limit,
         )
-        identity = self._build_identity_or_raise(identity_row, ts_code=ts_code)
+        identity = require_index_kline_identity(identity_row, ts_code=ts_code)
         dates = tuple(row[0] for row in window)
-        rows, missing_count = [], None
-        trend_fields = None
+        rows, page = [], None
         if dates:
             result, preceding_rows, target_ohlc = calculate(dates)
             if result.times != dates or target_ohlc is None or len(target_ohlc) != len(dates):
@@ -379,44 +258,14 @@ class IndexDetailKlineQueryService:
                     "pre_close": row["pre_close"], "change": row["change_amount"], "pct_change": row["pct_chg"],
                     "vol": row["vol"], "amount": row["amount"],
                 })
-            if result.range.count != len(rows):
-                raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
-            indicators, _, trend_fields = _split_daily_results(ts_code, result, include_price_and_nine_turn=False)
-            apply_calculated_kline_factors(ts_code, rows, indicators)
-            missing_count = count_calculated_kline_missing(rows, preceding_rows)
+            page = IndexDailyKlineService.prepare_prod_result(ts_code, rows, result, preceding_rows)
         next_end = window[0][2] if len(window) == limit else None
         if next_end is not None and start_date is not None and next_end < start_date:
             next_end = None
-        return self._calculated_daily_response(context, identity, rows, missing_count, start_date, limit, next_end, trend_fields=trend_fields)
-
-    def _calculated_daily_response(
-        self, context, identity, rows, missing_count, start_date, limit, next_end, *, nine_turn_markers=None, trend_fields=None,
-    ):
-        query_end = context.trade_date
-        expected_end = query_end if context.is_trading_day else context.prev_trade_date
-        data_status = self._status_resolver.resolve(
-            expected_trade_date=expected_end or query_end,
-            observed_trade_date=rows[-1]["trade_date"] if rows else None,
-            empty=not rows, partial=bool(missing_count),
+        return IndexDailyKlineService.assemble(
+            context=context, identity=identity, page=page, start_date=start_date, limit=limit,
+            next_end=next_end, include_nine_turn=False,
         )
-        fields = dict(
-            pageContext=build_page_context(context),
-            indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
-            period="day", bars=[
-                build_index_sse_daily_kline_bar(row, build_index_trend_channel_factors(trend_fields, index))
-                if identity.tsCode == "000001.SH" else build_kline_bar(row)
-                for index, row in enumerate(rows)
-            ],
-            meta=IndexDetailSseKlineMetaDto(
-                count=len(rows), limit=limit, startDate=start_date, endDate=query_end, nextEndDate=next_end,
-            ),
-            dataStatus=data_status,
-        )
-        if nine_turn_markers is not None:
-            model = LocalIndexDetailSseDailyKlineResponseDto if identity.tsCode == "000001.SH" else LocalIndexDetailDailyKlineResponseDto
-            return model(**fields, nineTurnMarkers=nine_turn_markers), missing_count
-        model = IndexDetailSseDailyKlineResponseDto if identity.tsCode == "000001.SH" else IndexDetailKlineResponseDto
-        return model(**fields), missing_count
 
     @staticmethod
     def _read_sse_auxiliary(session, ts_code, dates):
@@ -504,14 +353,3 @@ class IndexDetailKlineQueryService:
                 if row.get(field_name) is None and effective_count >= period:
                     return True
         return False
-
-    @staticmethod
-    def _build_identity_or_raise(
-        identity_row: Mapping[str, Any] | None, *, ts_code: str,
-    ) -> IndexDetailIdentityDto:
-        if identity_row is None:
-            raise IndexDetailNotFoundError(f"未找到指数身份：{ts_code}")
-        try:
-            return build_identity(identity_row)
-        except ValueError as exc:
-            raise IndexDetailNotFoundError(f"指数身份缺少名称：{ts_code}") from exc

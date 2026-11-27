@@ -6,11 +6,11 @@ from zoneinfo import ZoneInfo
 
 from src.app.runtime.technical_indicators.execution import _execute
 from src.app.runtime.technical_indicators.read_session import open_technical_indicator_read_session
-from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import SSE_DAILY_CALCULATIONS
 from src.biz.queries.wealth.market.index_detail.index_detail_period_kline_query_service import (
     IndexDetailPeriodKlineQueryService,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError
+from src.biz.services.wealth.market.index_detail.index_kline_calculations import index_period_calculations
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from goldenshare_technical_indicators.contracts import CalculationRequest
@@ -46,7 +46,7 @@ async def run_index_period_kline(request, *, arrived_at, ts_code, period, start_
                 security_type="index", ts_code=ts_code, period=period, adjustment="none",
                 start=datetime.combine(start, time.min, zone) if start is not None else None,
                 end=datetime.combine(end, time.min, zone), latest_rows=latest_rows,
-                calculations=({"calculation_id": "price", "parameters": {}}, *SSE_DAILY_CALCULATIONS),
+                calculations=index_period_calculations(),
             )
             return (service.calculate_with_source(calculation) if latest_rows is not None
                     else service.calculate(calculation))

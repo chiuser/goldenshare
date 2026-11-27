@@ -8,10 +8,9 @@ from fastapi import Request
 
 from src.app.runtime.technical_indicators.execution import _execute
 from src.app.runtime.technical_indicators.read_session import open_technical_indicator_read_session
-from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
-    index_daily_calculations, IndexDetailKlineQueryService,
-)
+from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import IndexDetailKlineQueryService
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError, IndexDetailRequestError
+from src.biz.services.wealth.market.index_detail.index_kline_calculations import index_daily_calculations
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from goldenshare_technical_indicators.contracts import CalculationRequest

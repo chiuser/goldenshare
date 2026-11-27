@@ -7,15 +7,15 @@ from zoneinfo import ZoneInfo
 
 from goldenshare_technical_indicators.contracts import CalculationResult
 
-from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext
-from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service import (
-    IndexDetailKlineQueryService, apply_calculated_kline_factors, count_calculated_kline_missing,
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext, MarketPageContextQuery
+from src.biz.queries.wealth.market.index_detail.index_detail_query import IndexDetailQuery
+from src.biz.schemas.wealth.market.index_detail import IndexDetailIndexRefDto
+from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import require_index_kline_identity
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailQueryError, IndexDetailRequestError, IndexDetailUniverseService,
 )
-from src.biz.schemas.wealth.market.index_detail import (
-    IndexDetailIndexRefDto, IndexDetailKlineResponseDto, IndexDetailSseKlineMetaDto,
-)
-from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import build_kline_bar, build_page_context
-from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError, IndexDetailRequestError
+from src.biz.services.wealth.market.index_detail.index_period_kline_service import IndexPeriodKlineService
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.clients.technical_indicator_index_period import check_period_key
 
 
@@ -32,8 +32,15 @@ class IndexPeriodPage:
     result: CalculationResult | None = None
 
 
-class IndexDetailPeriodKlineQueryService(IndexDetailKlineQueryService):
+class IndexDetailPeriodKlineQueryService:
     """Select one index-period page and join the aligned price and indicator result."""
+
+    def __init__(self, *, daily_lake: IndexDailyLakeReader | None = None) -> None:
+        self._universe_service = IndexDetailUniverseService()
+        self._context_query = MarketPageContextQuery()
+        self._query = IndexDetailQuery()
+        self._daily_lake = daily_lake
+        self._kline_service = IndexPeriodKlineService()
 
     def read_page(self, session, *, source, ts_code, period, start_date, end_date, limit, control,
                   calculate_recent=None):
@@ -52,7 +59,7 @@ class IndexDetailPeriodKlineQueryService(IndexDetailKlineQueryService):
             context = self._context_query.resolve_local_context(
                 None, market="CN_A", requested_trade_date=end_date, now=now, calendar_rows=calendar,
             )
-        identity = self._build_identity_or_raise(identity_row, ts_code=ts_code)
+        identity = require_index_kline_identity(identity_row, ts_code=ts_code)
         lookup = dict(session=session, period=period, ts_code=ts_code, control=control)
         end = end_date
         if end is None:
@@ -118,41 +125,12 @@ class IndexDetailPeriodKlineQueryService(IndexDetailKlineQueryService):
         )
 
     def query_period_kline(self, page, *, ts_code, period, start_date, limit, calculate=None):
-        rows, missing_count = [], None
+        result = None
         if page.rows:
             result = page.result if calculate is None else calculate(page.periods[0], page.cutoffs[-1])
-            if (result.times != page.periods or result.source_as_of != page.cutoffs
-                    or result.range.count != len(page.rows)):
-                raise IndexDetailQueryError(f"{ts_code} {period} 指标结果日期或根数与本页行情不一致")
-            price = next(item for item in result.calculations if item.calculation_id == "price")
-            prices = dict(price.fields)
-            fields = ("open", "high", "low", "close", "volume", "amount")
-            if any(name not in prices or len(prices[name]) != len(page.rows) for name in fields):
-                raise IndexDetailQueryError(f"{ts_code} {period} 行情结果字段不完整")
-            pct_scale = 100 if self._daily_lake is None else 1
-            for index, (day, auxiliary) in enumerate(zip(result.source_as_of, page.rows, strict=True)):
-                volume, amount = prices["volume"][index], prices["amount"][index]
-                pct = auxiliary["pct_chg"]
-                rows.append({
-                    "trade_date": day,
-                    **{name: prices[name][index] for name in fields[:4]},
-                    "vol": None if volume is None else volume / 100,
-                    "amount": None if amount is None else amount / 1000,
-                    "pre_close": auxiliary["pre_close"],
-                    "change": auxiliary["change_amount"],
-                    "pct_change": None if pct is None else pct * pct_scale,
-                })
-            apply_calculated_kline_factors(ts_code, rows, tuple(item for item in result.calculations if item is not price))
-            missing_count = count_calculated_kline_missing(rows, result.statistics.source_rows - result.range.count)
-        data_status = self._status_resolver.resolve(
-            expected_trade_date=page.expected, observed_trade_date=page.cutoffs[-1] if rows else None,
-            empty=not rows, partial=bool(missing_count),
+        return self._kline_service.assemble(
+            ts_code=ts_code, context=page.context, index_ref=page.index_ref, auxiliary_rows=page.rows,
+            periods=page.periods, cutoffs=page.cutoffs, end=page.end, expected=page.expected, next_end=page.next_end,
+            result=result, pct_scale=100 if self._daily_lake is None else 1,
+            period=period, start_date=start_date, limit=limit,
         )
-        return IndexDetailKlineResponseDto(
-            pageContext=build_page_context(page.context), indexRef=page.index_ref, period=period,
-            bars=[build_kline_bar(row) for row in rows],
-            meta=IndexDetailSseKlineMetaDto(
-                count=len(rows), limit=limit, startDate=start_date, endDate=page.end, nextEndDate=page.next_end,
-            ),
-            dataStatus=data_status,
-        ), missing_count

@@ -14,13 +14,14 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailWeightRowDto,
     IndexDetailWeightsResponseDto,
 )
-from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import build_identity, resolve_direction, to_float
+from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import build_identity, resolve_direction
 from src.biz.services.wealth.market.index_detail.index_detail_status_resolver import IndexDetailStatusResolver
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
     IndexDetailQueryError,
     IndexDetailUniverseService,
 )
+from src.biz.services.wealth.market.index_detail.index_detail_value_conversion import to_float
 from src.biz.services.wealth.market.index_detail.index_weight_contribution_builder import (
     calculate_contribution_point,
 )

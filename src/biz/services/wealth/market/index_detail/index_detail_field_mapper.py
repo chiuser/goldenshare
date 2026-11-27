@@ -5,7 +5,7 @@ from typing import Any, Mapping, Protocol
 
 from src.biz.services.wealth.market.detail_volume_display import format_daily_volume_display
 from src.biz.schemas.wealth.market.index_detail import (
-    IndexBollDto, IndexTrendChannelFactorsDto, IndexSseDailyKlineBarDto, IndexSseDailyKlineFactorsDto,
+    IndexBollDto,
     IndexDetailDailyBasicDto,
     IndexDetailIdentityDto,
     IndexDetailPageContextDto,
@@ -17,6 +17,9 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexMovingAverageDto,
 )
 
+from .index_detail_universe import IndexDetailNotFoundError
+from .index_detail_value_conversion import to_float
+
 
 class MarketPageContextLike(Protocol):
     trade_date: date
@@ -25,12 +28,6 @@ class MarketPageContextLike(Protocol):
     session_status: str
     generated_at: datetime
     source: str
-
-
-def to_float(value: Any) -> float | None:
-    if value is None:
-        return None
-    return float(value)
 
 
 def resolve_direction(change_pct: float | None) -> str:
@@ -77,6 +74,17 @@ def build_identity(row: Mapping[str, Any]) -> IndexDetailIdentityDto:
         publisher=row.get("publisher"),
         tags=list(dict.fromkeys(tags)),
     )
+
+
+def require_index_kline_identity(
+    identity_row: Mapping[str, Any] | None, *, ts_code: str,
+) -> IndexDetailIdentityDto:
+    if identity_row is None:
+        raise IndexDetailNotFoundError(f"未找到指数身份：{ts_code}")
+    try:
+        return build_identity(identity_row)
+    except ValueError as exc:
+        raise IndexDetailNotFoundError(f"指数身份缺少名称：{ts_code}") from exc
 
 
 def build_quote(row: Mapping[str, Any], *, vol: Any, amount: Any) -> IndexDetailQuoteDto:
@@ -136,13 +144,6 @@ def build_index_common_factors(row):
                 macd=build_index_macd_factors(row), kdj=build_index_kdj_factors(row))
 
 
-def build_index_trend_channel_factors(fields, index):
-    return IndexTrendChannelFactorsDto(
-        shortUpper=fields["short_upper"][index], shortLower=fields["short_lower"][index],
-        longUpper=fields["long_upper"][index], longLower=fields["long_lower"][index],
-    )
-
-
 def build_index_kline_bar_fields(row):
     high, low, pre_close, vol = (to_float(row.get(name)) for name in ("high", "low", "pre_close", "vol"))
     return dict(
@@ -156,8 +157,3 @@ def build_index_kline_bar_fields(row):
 
 def build_kline_bar(row: Mapping[str, Any]) -> IndexKlineBarDto:
     return IndexKlineBarDto(**build_index_kline_bar_fields(row), factors=IndexKlineFactorsDto(**build_index_common_factors(row)))
-
-
-def build_index_sse_daily_kline_bar(row, trend_factors):
-    return IndexSseDailyKlineBarDto(**build_index_kline_bar_fields(row),
-                                  factors=IndexSseDailyKlineFactorsDto(**build_index_common_factors(row), trendChannel=trend_factors))
