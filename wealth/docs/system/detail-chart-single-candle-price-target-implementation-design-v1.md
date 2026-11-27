@@ -1,6 +1,7 @@
 # 股票和指数详情页单阳测顶、单阴测底方案 v1
 
-> 2026-11-27。管理员已确认四个默认系数、日线入口、股票前复权价格口径、Figma 交互及[代码级 LLD](./detail-chart-single-candle-price-target-low-level-design-v1.md)。先核对真实日线样本，再进入开发。
+> 2026-11-27 本轮已收尾。功能已提交为 `155df5e06`，管理员试用后暂未发现问题。详见 [LLD 的试用与收尾记录](./detail-chart-single-candle-price-target-low-level-design-v1.md#2026-11-27-试用与收尾)。
+> 设计阶段，管理员确认了四个默认系数、日线入口、股票前复权价格口径、Figma 交互及代码级 LLD。先核对真实日线样本，再进入开发。
 > [已确认的 Figma R1](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2307-79)包含股票和指数日 K 入口、弹窗及状态示例。行情和测算结果用于演示。
 
 ## 1. 产品口径
