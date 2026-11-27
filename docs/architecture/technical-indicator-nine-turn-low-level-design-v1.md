@@ -1,6 +1,6 @@
 # 九转算子及本地股票详情接入 LLD v1
 
-**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2、3待推进。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，阶段1结果见[§12.8](#prod-stock-nine-turn-stage1)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。页面切换、旧接口删除和真实Prod来源验收未执行，未部署。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次明确批准变更；历史验收结果保留。
+**2026-11-27 Prod股票日线九转：阶段1实现及限定测试完成，阶段2通过开工审计，尚未开发，阶段3待推进。** 管理员确认Prod九转也接算子库，并批准删除旧股票独立日线九转接口及专用查询代码。现行本期设计见[§12](#prod-stock-nine-turn-lld)，阶段1结果见[§12.8](#prod-stock-nine-turn-stage1)，阶段2开工审计见[§12.9](#prod-stock-nine-turn-stage2-readiness)，方案见[§6](technical-indicator-nine-turn-plan-v1.md#prod-stock-nine-turn-plan)。页面切换、旧接口删除和真实Prod来源验收未执行，未部署。下方原阶段“Prod不变／无标记数组／保留独立接口”的要求仅适用于原实施阶段，不再限制本次明确批准变更；历史验收结果保留。
 
 2026-11-22｜本地股票日线九转已切换，首屏与续页均从算子库取得九转标记。[本机切换后复验](#10-本机切换后复验) · [专项方案](technical-indicator-nine-turn-plan-v1.md)
 
@@ -340,7 +340,11 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 | 历史页与环境 | 本地 `useStockDailyHistory`沿现有批次、日期、四轨和标记一起提交，成功才更新游标；Prod沿原首屏与日期请求方式，不增设本地式续页 |
 | 显示与重试 | 原开关、样式、颜色及日期定位不变，开关不取数；九转计算/合同错误随日K失败、取消和重试，不单独重试九转或回读成品 |
 
-股票页删除 `loadStockNineTurnSeries`、`useNineTurnSeriesRegistry`调用、相关日线周期常量、`ensure("day")`及 `retry("day")`。加载占位沿现有图层状态，成功使用同批结果。`StockChartWorkspace`删除仅为独立九转准备的 `onNineTurnRetry`参数及传递；共享 `NineTurnLayerStatus.onRetry`本已可选，股票图层不再传它，指数及其他调用方保持。共用registry、状态组件、标记DTO、`useNineTurnChartLayer`及 `NineTurnMarkerPrimitive`均保留。
+股票页删除 `loadStockNineTurnSeries`、`useNineTurnSeriesRegistry`调用、仅供该调用使用的日线周期常量、`ensure("day")`及 `retry("day")`。在 `StockDetailPage.tsx:loadStockDetail()` 收到日 K 后统一校验并保存 `nineTurnMarkers`，本地与 Prod 都在判断行情是否为空前完成字段校验。已有本地历史加载继续用同批 K 线、四轨和九转更新图表。
+
+**区分日线九转重试与周月线行情重试。** [股票页](../../wealth/src/pages/stock-detail/StockDetailPage.tsx#L301)的日线和周月线目前都向 [`StockChartWorkspace`](../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx#L35)传 `onNineTurnRetry`。日线传旧独立九转的回调，周月线把 `periodKline.retry` 多传给了九转图层。后者由 [`buildStockDailyNineTurnLayer()`](../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts#L11)组装，`canRetry` 固定为 `false`。因此两个调用点同时移除 `onNineTurnRetry`，删除图表组件的该参数和向 `NineTurnLayerStatus` 的传递，更新 `StockChartWorkspace.test.tsx` 的组件参数。共享状态组件的可选 `onRetry`、指数调用、共用 registry、标记 DTO 和绘图实现保留。
+
+周月线**首批行情失败**仍在股票页的周期行情状态区点击「重试」，由 [`useStockPeriodKline().retry()`](../../wealth/src/features/stock-detail/controller/useStockPeriodKline.ts#L76)用原交易日重新发同周期的 `/stock-detail/kline` 请求。**周线历史页失败**继续由 `StockChartWorkspace.periodHistory.retry` 处理，保留已显示的 K 线和标记、首批状态以及失败页的 `nextEndDate`，重试成功后才更新游标。月线沿已有加载方式。保留这些行情重试的按钮、回调及请求参数。
 
 失败或取消后，输入会话、数据库连接、临时表、工作许可及发送资源按现有执行流程释放；没有业务数据写入、补算落库或持久化续跑。重试是同一日K请求的完整重新读取、计算和返回。本地历史失败保留原图和原游标；Prod首屏失败沿原日K页面错误处理，不新增独立九转错误UI。
 
@@ -348,11 +352,11 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 
 | 对象 | 处理及原因 |
 | --- | --- |
-| `src/biz/api/wealth/market/stock_detail_nine_turn.py` | 删除旧路由及专用错误映射；`src/app/api/v1/router.py`同步删该模块导入、挂载，其他路由顺序不改 |
-| `src/biz/queries/wealth/market/stock_nine_turn/` | 删除专用query、service及包文件，清零运行代码引用，不为测试保留实现 |
+| `src/biz/api/wealth/market/stock_detail_nine_turn.py` | 删除旧日线路由及专用错误映射；`src/app/api/v1/router.py`同步删除该模块导入和主路由挂载。Local 和 Prod 都退出该路径；本地分钟路由的注册及其他路由顺序保持 |
+| `src/biz/queries/wealth/market/stock_nine_turn/` | 先按 §12.4.1 解除分钟端依赖，再删除专用 query、service 及包文件。全部旧错误类型随日线模块删除，无重导出 |
 | `wealth/src/features/nine-turn/api/nineTurnApiClient.ts` | 删除 `StockNineTurnFetchParams`、`fetchStockNineTurnSeries`和私有函数中的股票专用类型/分支；保留指数请求、通用错误处理及其原行为，不重写指数入口 |
-| `tests/web/test_wealth_stock_nine_turn_api.py` | 删除旧接口的读表、部分匹配、独立日期窗口/游标、参数及品种拒绝测试；将仍有效的page-init九转能力和Prod分钟路由未开放断言迁入现有股票日K路由测试，不整文件丢弃仍有效行为 |
-| `tests/wealth_watchlist_browser_fixture.py` | 清理只为旧股票日线九转接口准备的结果表导入、建表清单项和种子；保留自选、身份、日历、行情及其他夹具。该文件不是Prod清表脚本，不操作正式库 |
+| `tests/web/test_wealth_stock_nine_turn_api.py` | 将 `test_page_init_announces_daily_nine_turn_only_in_non_local_env` 的日线九转能力及盘口断言、`test_non_local_app_does_not_mount_stock_minute_nine_turn_route` 的 Prod 分钟路由断言迁入 `tests/web/test_stock_daily_technical_indicator_api.py`。旧日线读表、部分匹配、独立窗口/游标、参数和品种拒绝用例随独立接口删除 |
+| [`tests/wealth_watchlist_browser_fixture.py`](../../tests/wealth_watchlist_browser_fixture.py#L19) | 删除 `stock_detail_nine_turn` 的导入和 `browser_app()` 中对应挂载。删除只供该旧路由使用的 `EquityQfqNineTurnDaily` 模型导入、临时建表项及插入种子，清掉因此废弃的导入。保留自选、身份、日历、行情和其他夹具；清理仅针对测试文件中的临时 PostgreSQL 样本 |
 | 前端混合测试 | 清理股票页面和历史测试中旧请求的mock/import/期望，更新缺失标记字段、Prod内联输出及零独立请求断言；不导入旧模块并设置“调用即报错”来证明删除 |
 | `src/foundation/clients/local_lake/stock_nine_turn_contract.py` | 保留：股票分钟独立九转API及新分钟算子读取器仍用其上限与支持周期，不能因名称含stock_nine_turn就删除 |
 | Prod股票日线前复权九转表及模型 | 保留 `core_serving.equity_qfq_nineturn_daily`、对应模型/全局注册/迁移及服务表合同测试；运营卡片和DG发布仍有用途，不改表结构或删除数据 |
@@ -360,6 +364,21 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 | DG相关对象 | 不启停sensor、不改生成/修复/同步/check/日审计、不改文件或数据集，也不把这些事项设为本次开工前提 |
 
 旧路径在完整路由装配和OpenAPI中退出；隔离应用请求返回404。不把旧2000根接口截断、分批代算或转发为500根 `/kline`，不追加开关保留两种股票日线九转来源。前后端组成同一交付候选，发布另行授权。
+
+#### 12.4.1 分钟错误归属与接口映射
+
+当前 [股票分钟九转服务](../../src/biz/queries/wealth/market/stock_minute_nine_turn/stock_minute_nine_turn_query_service.py#L11) 的 `read()` 从旧日线模块借用 `StockNineTurnNotFoundError`，`to_response()` 又把共用九转组装的 `NineTurnContractError` 包成旧日线的 `StockNineTurnSourceContractError`。分钟图 `StockMinuteQueryService.read_chart()` 和独立分钟九转共同调用 `to_response()`，两个 HTTP 入口也分别引用旧类型。清理顺序和归属如下。
+
+| 当前代码点 | 阶段 2 实施与保留的行为 |
+| --- | --- |
+| `stock_minute_nine_turn/stock_minute_nine_turn_query_service.py:read()` | 在本模块定义 `StockMinuteNineTurnNotFoundError(ValueError)`。股票身份缺失或类型不是 `EQUITY` 时沿用原文案，在调用分钟行情读取前抛出该错误 |
+| 同一文件的 `to_response()` | 移除对旧日线错误的包装，直接传递已有的 [`NineTurnContractError`](../../src/biz/services/wealth/market/nine_turn/nine_turn_response_policy.py#L24)。保留 `build_nine_turn_response()`、日期窗口、游标及标记的现有组装，无新增读数或算子调用 |
+| [`stock_detail_minutes.py`](../../src/biz/api/wealth/market/stock_detail_minutes.py#L26) | `get_stock_minute_bars()` 捕获 `NineTurnContractError`，沿用 `is_stock_minute_source_contract_error()` 分类。该判断用共用错误替换旧日线类型，继续识别算子 `SourceContractError` 和原先被归为合同错误的读取异常。组装合同出错仍返回 HTTP 503 / `SM_SOURCE_CONTRACT_INVALID`，参数错误及一般读取错误维持各自响应 |
+| [`stock_detail_minute_nine_turn.py:_http_error()`](../../src/biz/api/wealth/market/stock_detail_minute_nine_turn.py#L65) | 从分钟服务导入新的未找到股票错误，在普通 `ValueError` 分支之前映射为 HTTP 404 / `NT_NOT_FOUND`。继续复用分钟合同错误判断，组装合同出错仍返回 HTTP 500 / `NT_SOURCE_CONTRACT_INVALID`。两个入口的原 HTTP 文案照用 |
+
+完成以上迁移并核对全部引用后，再删旧日线路由、日线专用查询和错误定义。本步骤保留两个分钟入口、分钟数据源与算子、共用组装函数，以及指数九转调用。
+
+自选浏览器夹具还有一处在本阶段前已存在的装配问题。其 `browser_app()` 访问 `stock_detail.router`，而 [现行股票路由](../../src/biz/api/wealth/market/stock_detail.py#L103)通过 `build_router(local=...)` 提供。阶段 2 只移除旧九转挂载及其临时数据，并检查移除后夹具模块可导入。路由和 OpenAPI 验收使用装配实际路由的隔离应用，阶段 3 浏览器验收按 §12.5–§12.6 使用候选后端。既有自选浏览器装配问题独立于本阶段的九转清理。
 
 ### 12.5 性能预算与真实验证范围
 
@@ -374,6 +393,8 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 
 修改前后用同一请求口径对照价格/复权读取量，不能把删掉一次独立HTTP读取说成Prod所有既有SQL重复都已消除。重试的结果按该次真实输入独立验证；来源正常更新时不新增跨请求必须完全相等的拒绝或重试门槛。临时脚本、配置、数据样本、日志、测试缓存及构建输出统一在 `/private/tmp`本任务目录，结果回写原方案/LLD，退出后关闭临时资源并清理无用产物。
 
+阶段 2 回归以现行请求数和预算为准。正常首批、本地续页及失败后的手动重试各执行自己的原 K 线请求，每次成功取数只用该请求内的一次联合计算。切换九转开关及股票日线图层产生的独立九转请求数均为零。错误归属迁移和夹具清理无需新配置、数据库或 Lake 写入。记录首次回归、失败后重跑有影响的用例及最终回归的实际耗时，正式来源的读数和耗时仍在阶段 3 按本节前述口径验收。
+
 ### 12.6 测试、合同和验收矩阵
 
 | 要求 | 代码点和测试消费者 | 必须验证的正反例 |
@@ -383,11 +404,12 @@ CodeGraph响应类型影响面覆盖日线/周月线组装、Python继承类、�
 | 九转数值与预热 | 现有 `tests/foundation/technical_indicators/test_nine_turn_calculation.py`及日K集成 | 以独立字面值覆盖行情真实起点的前4根、相等归零、换向、9与10—13、13封顶、历史短/上市前、跨批和从中间窗口请求；同批真实Prod输入独立复算，不借旧成品缺记录判新算法错误 |
 | 无多余源读取 | Prod日K来源装配、真实只读追踪及日K集成 | 同一目标加入九转不增加独立价格/复权查询或复权次数，不读旧九转表/文件；保留当前选页辅助字段的合理查询，不顺手改通用source |
 | 前端首屏与本地历史 | `StockDetailPage.test.tsx`、`useStockDailyHistory.test.tsx`、`stockDetailViewModelAdapter.test.ts`、`StockChartWorkspace.test.tsx` | Prod和本地首屏从日K保存标记，打开/开关/切股/切日及本地续页无股票独立九转请求；旧响应缺字段必须失败；本地失败不提交游标，重试同一批；首批无标记而历史有标记可显示 |
-| 共用类型与周期回归 | 前端API overload、`useStockPeriodKline.test.ts`及股票周月线真实路由隔离测试；股票分钟与指数九转原测试 | 必有类型的所有构造同步；周月字段、分钟及指数入口和绘图保持，无股票清理误删共用能力 |
-| 旧接口退出 | 主路由/OpenAPI、前端client和专用query删除清单、迁移后的股票日K路由测试 | 旧URL返回404、OpenAPI不存在，运行源码无旧模块或股票独立fetch引用；不为断言保留旧实现，不移除运营模型/服务表合同测试 |
+| 周月线行情重试和切换 | `StockDetailPage.test.tsx`、`StockChartWorkspace.test.tsx`、`useStockPeriodKline.test.ts`及股票周月线真实路由隔离测试 | 周、月首批各测失败后经状态区重试，保持股票、周期、查询日期及既有传参。周线复用已有失败游标用例，失败保留已显示 K 线、九转和首批状态，点击历史重试使用原 `endDate`，成功后合并一次。切换周期取消旧请求。周月线仍显示同批九转，重试不发独立九转请求 |
+| 股票分钟错误和共用能力 | `tests/web/test_stock_detail_minutes_api.py` 跑实际分钟路由、读取器、算子及组装；`test_wealth_stock_minute_nine_turn_api.py` 和指数日线/分钟九转原用例 | 保留两个股票分钟入口正常回包的标记、游标及环境开关。对 `/minute-nine-turn` 用未知或非股票身份触发 404 / `NT_NOT_FOUND`，确认发生在分钟读取前。在正常分钟样本上让共享组装抛出 `NineTurnContractError`，分别断言 503 / `SM_SOURCE_CONTRACT_INVALID`、500 / `NT_SOURCE_CONTRACT_INVALID`；同时保留现有读取层合同异常、非法参数、指数入口和标记绘制的回归 |
+| 旧接口、旧类型与夹具退出 | 主路由/OpenAPI、迁移后的 `test_stock_daily_technical_indicator_api.py`、前端 client、专用 query 和自选浏览器夹具 | 隔离应用按实际主路由装配，分别在 Local 与 Prod 验证旧日线 URL 返回 404、OpenAPI 无旧路径，同时核对旧 URL 之外的股票日 K、环境能力和保留接口。源码和测试无旧日线模块导入、挂载或旧错误类型引用，前端无旧股票独立请求实现，保留 HTTP 404 和零旧请求断言。自选夹具可导入且无旧路由或结果种子，运营模型及服务表合同测试保留 |
 | 失败、中断及预算 | 现有execution/admission和相关日K集成、工程外真实只读验证 | 计算失败、回包字段错误、断开与同参重试均沿日K处理，资源释放、旧页面状态稳定；不提高预算或安装依赖掩盖失败 |
 
-前端真实浏览器验收在与候选后端配套的构建中完成：Prod模式股票日线首屏、九转开关、换股和换日期；本地额外核首批/续页与游标。请求真实后端并使用真实来源，登录和其他非目标模块可用既有隔离夹具，须写明隔离层。匿名线上探测401仅证明鉴权，不能作为真实业务结果验收；未执行正式线上登录验收时据实说明。所有当前相关后端回归、Wealth类型检查、定向测试和生产构建完成后，再做与编码分开的LLD逐项对照审计；不存在第二审计人时明确为另一次自审，不声称独立人员审计。
+阶段 2 完成后运行隔离的后端路由回归、Wealth 类型检查、定向测试和生产构建，再做与编码分开的 LLD 逐项对照。阶段 3 的真实浏览器验收使用与候选后端配套的构建，覆盖 Prod 股票日线首屏、九转开关、换股和换日期，本地额外核对首批、续页与游标。行情请求经过实际后端和真实来源；登录及其他无关模块可用隔离夹具，须写明隔离层。匿名线上探测 401 只验证鉴权，正式线上登录验收的执行情况据实记录。阶段 3 结束后再做整项迁移的对照审计。审计应注明由谁执行。
 
 ### 12.7 阶段、文档交接和当前状态
 
@@ -419,3 +441,18 @@ Wealth执行 `npm --prefix wealth run typecheck` 通过；使用现有Vitest运�
 **另一次审计。** 编码及上述测试后重新从§12.2、12.3和方案§6.4抽取阶段1要求，核对实际diff、全部调用引用、响应继承、测试与阶段边界；使用CodeGraph `codegraph_explore`、`codegraph_impact`，批量修改后执行 `codegraph sync`与状态核对。另用AST比较改前/后App的 `work()`、`_work_period()`及请求校验，确认来源选择、读取和计算入口原样保留；阶段2页面/路由及算子公式、预热无本轮修改。文档完整性、7份文档新增进度链接/锚点和限定文件差异检查通过。结论：阶段1范围内未发现与LLD不符的未解决项；没有新业务规则、源读取、配置、反向依赖或兼容路径。审计是与编码分开的另一次自审，没有第二审计人，不声称独立人员审计。
 
 **交接。** 阶段2仍须切换Prod页面读取同批标记、删除旧独立接口及专用代码；阶段3仍须真实Prod有界数值/读取/费用、取消重试和浏览器验收。当前候选前后端迁移尚未完成，不发布阶段1中间版本。开发完成汇报时尚未提交，实际提交状态以Git记录为准。
+
+<a id="prod-stock-nine-turn-stage2-readiness"></a>
+
+### 12.9 阶段 2 开工审计（2026-11-27）
+
+以 `3caf9436c` 为本次开工审计源码基线。阶段 1 提交 `9d7e10c04` 的股票日 K 回包已经提供同批标记。用 CodeGraph `codegraph_explore` 和源码引用复核确认，阶段 2 的待改代码有明确入口和验收位置。
+
+| 开工条件 | 核对结果 |
+| --- | --- |
+| 先解除分钟对旧日线模块的依赖 | 分钟服务和两个分钟接口的引用仍存在。§12.4.1 已确定两个错误的归属、迁移顺序及保留的 HTTP 响应；§12.6 的回归直接覆盖正常路径、身份和组装异常 |
+| 旧接口及调用方完整清理 | §12.4 已覆盖主路由、旧查询、前端请求、混合测试和自选夹具挂载。§12.6 用实际主路由隔离装配验证 404、OpenAPI 和保留入口；自选夹具的既有装配问题已经单独记录 |
+| 保留周月线现行重试行为 | §12.3 区分无效的图层重试参数、有效的周期首批重试与周线历史重试；§12.6 明确验证原请求参数、原游标和已有行情及标记 |
+| 阶段边界和验收资源 | 原方案的页面切换和旧独立接口删除范围不变。沿用现有环境做阶段 2 的隔离回归与构建。正式来源验证、真实浏览器及完整迁移对照在阶段 3 执行 |
+
+本次重跑现有后端定向用例 45 项和前端定向用例 50 项，全部通过，其中包含两个分钟入口的正常和读取异常回归、旧日线路由基线、周线同游标重试及周期切换。前一次只读审计另通过隔离请求验证分钟九转身份 404 和两个入口的组装异常映射。此处记录的是改造前基线，阶段 2 完成后按 §12.6 验收。**阶段 2 具备开工条件，无待拍板的业务问题。**
