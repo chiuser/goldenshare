@@ -2,7 +2,7 @@
 
 **2026-11-23｜本轮已完成。** 阶段 1 至 4 已在 `dev-interface` 提交并通过复核，阶段 5 已完成 Prod 只读评估。现有 Prod 路径继续使用。若后续确认要改 Prod，建议优先做上证综指日线和股票日线。 [本地交付记录](technical-indicator-read-optimization-low-level-design-v1.md#local-read-optimization-closeout) · [Prod 评估结果](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation)
 
-本专项减少已接算子库链路的重复读取。本地股票日线、指数日线和指数周月线按截止日和根数取数。指数 5 分钟算子按起止时间请求，定位与计算共用本次读取的行情。原基线见[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
+本专项减少已接算子库链路的重复读取。本地股票日线、指数日线和指数周月线按截止日和根数取数。本次也曾优化独立指数 5 分钟区间读取，该入口于 2026-11-27 清退。现行指数分钟详情按截止时间和根数读取。原基线见[股票首屏验收](../../wealth/docs/pages/stock-detail/stock-detail-first-screen-and-local-dg-read-low-level-design-v1.md)、[指数日线验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance)和[上一次股票日线读取修复](technical-indicator-stock-period-low-level-design-v1.md#stock-daily-read-repair)。
 
 ## 1. 范围
 
@@ -11,10 +11,14 @@
 | 本地股票日线首屏和续页 | 业务先逐日查找本页日期，再读日线展示字段。算子库另读同一批日线取价，并逐日查停牌做缺口检查。 | 算子库接收截止日和根数，直接读日 K 和所需预热，当次返回同源展示字段。缺口检查交给 DG。 [股票日线接线](../../src/app/dependencies/stock_daily_technical_indicators.py#L181) · [按根数读取](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L633) |
 | 本地指数日线首屏和续页 | 业务先按开市日选页。算子库读日期和四价，业务随后另读同一行情来源的量额、昨收及涨跌字段。 | 直接按截止日和根数取实际行情，复用同次取数。整页的行情更新判断由 `/page-init` 负责。 [现行指数选页和组装](../../src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py#L231) · [现行定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L343) |
 | 本地指数周线和月线 | 业务先读成品选页和取展示字段，内核再读同一个成品文件的日期和价格。部分空页或延迟还会另查成品首尾。 | 选页、预热、价格和展示字段复用同一次读数，组装时复用该次取得的截止日和必要的范围信息。 [业务选页](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py#L35) · [内核定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L539) |
-| 指数 5 分钟不复权算子 | DG 和 Prod 已启用计算。DG 先读时间定位，再读行情列，部分场景还要重读时间找边界。指数分钟详情仍走现有成品接口。 | DG 按真实时间戳和已有开盘规则计算。每个用到的交易日分区查询一次，定位和计算共用行情。开发安排见 §5。 [分钟定位](../../src/foundation/clients/local_lake/technical_indicator_price_locator.py#L702) · [分钟详情入口](../../src/biz/api/wealth/market/index_detail_minutes.py#L54) |
-| Prod 已接入的链路 | 股票日线、上证综指已接入的日线分支、指数周月线和独立的指数 5 分钟算子，存在程度不同的先查范围再取价。 | 已以有界只读样本量化合并查询的收益。具体实施另行决定。 [Prod 行情读取](../../src/foundation/clients/technical_indicator_postgres.py#L173) · [评估结果](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation) |
+| 独立指数 5 分钟区间读取（历史） | DG 和 Prod 当时均支持该入口，DG 先定位时间，再读取行情列。 | 当时优化了 DG 按分区取数，定位与计算共用行情。现行指数详情使用七频按根数读取，独立区间入口已清退。 [清退记录](../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement-result) |
+| Prod 读取评估 | 样本包括股票日线、上证综指已接入的日线分支、指数周月线和当时的独立指数 5 分钟算子。 | 已用有界只读样本量化合并查询的收益，评估已完成。Prod 通用读取扩围由各接口另定范围。 [评估结果](technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation) |
 
-**股票周线、月线由原专项负责，排除在本次优化范围之外。** 原专项直接使用已发布的前复权行情，并复用已读成品计算指标。股票分钟线、指数九转迁移、趋势通道和 ETF 属于各自的后续需求。本专项只读现有来源，沿用本地读 DG、Prod 读 PostgreSQL 的运行方式。 [股票周月线专项](technical-indicator-stock-period-plan-v1.md) · [运行环境装配](../../src/app/runtime/technical_indicators/composition.py#L34)
+**2026-11-24｜股票周月线专项也已交付。** `e4dec25ee` 已把 DG 和 Prod 的股票前复权周月线接入同一个股票详情 `/kline`。本地读取 DG 发布的前复权周月线成品，Prod 读取 `core_serving.stk_period_bar_adj`。算子库用同一批成品计算 MA、BOLL、MACD、KDJ 和九转，并交付行情、指标及续页所需的日期。周线每批最多 100 根，月线在现有输出上限内一次返回可用历史。股票周月线至此完成，继续沿用成品取价。 [专项方案](technical-indicator-stock-period-plan-v1.md) · [接口及浏览器验收](technical-indicator-stock-period-low-level-design-v1.md#stock-period-phase-three-acceptance)
+
+复查平安银行 `000001.SZ` 截至 2026-11-23 的数据。DG 通过算子游标连续翻了七页，前六页各 100 根，最后一页 62 根，最早一根为 2014-01-03。Prod 只读核对同一业务范围为 662 根，起点一致。月线 DG 一次返回 155 根，Prod 样本有 201 根，两端按各自成品覆盖范围交付，最新月均已覆盖 2026-11-23。
+
+**2026-11-27｜衔接事项已核对。** 本地股票分钟线、指数七频分钟行情和指标、指数日线与分钟九转均已接入并按各自范围验收。趋势通道已在独立专项验收收尾。ETF 和 Prod 扩围按独立需求决定，本读取优化专项已无待开发阶段。 [股票分钟验收](technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-phase-three-acceptance) · [指数分钟验收](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#index-minute-kernel-stage-3-acceptance) · [指数日线九转验收](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit) · [指数分钟九转验收](technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-three-audit) · [趋势通道专项](technical-indicator-trend-channel-low-level-design-v1.md#trend-channel-closeout)
 
 ## 2. 通用取数方式
 
@@ -47,13 +51,13 @@
 
 运行时继续读取 DG 正式指数周线和月线成品。请求按标的、周期和日期范围取得目标及预热记录，复用成品字段完成行情与指标组装。自然周期起始日用于排序和对齐，实际行情截止日用于回包显示和更新状态。遇到空页、节假日短周、当周或当月尚未更新时，沿用已有的预期日期、历史分页和状态规则。若有业务需要用到最早或最新成品的日期，由读数结果提供或按需核对，避免再扫一遍同一批价格。 [原指数周月线方案](technical-indicator-index-period-plan-v1.md) · [当前周月线回包](../../src/biz/queries/wealth/market/index_detail/index_detail_period_kline_query_service.py#L95)
 
-### 4.2 指数 5 分钟不复权算子
+### 4.2 独立指数 5 分钟区间读取（历史）
 
-按已启用的指数范围和正式分钟数据源优化内部读数。现有分钟读数以实际记录为准，时间有空档时按已读记录计算。保留排序、重复时间处理、开盘 K 线及量额规则。核对预热、跨日及 09:35 附近读取边界，减少仅为了计数或定位时间而再次读所选行情。详情页分钟 K 线和分钟指标迁移仍由分钟线专项处理。 [现有分钟读取测试](../../tests/foundation/technical_indicators/test_stage_b_index_minutes.py)
+阶段 4 当时核对了预热、跨日和 09:35 附近的读数边界，减少重复定位。2026-11-27 清退独立区间读取及对应测试，现行分钟详情继续使用已验收的七频读取。 [阶段 4 历史验收](technical-indicator-read-optimization-low-level-design-v1.md#stage-4-read-acceptance) · [清退与现行回归](../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement-result)
 
-## 5. 推进顺序
+## 5. 阶段交付记录
 
-| 阶段 | 主要任务 | 通过标准 |
+| 阶段（均已完成） | 原定任务 | 验收标准 |
 | --- | --- | --- |
 | 1. 通用取数与本地股票日线 | 新增算子库按截止日和根数取行情的能力，打通股票首屏、历史页和组装。按已确认的范围取消请求内历史缺口和停牌查询。 | 首屏、续页、历史不足正常。日期、前复权价格、指标、九转、盘口与同口径基线一致。请求跟踪确认同一批日线用于选页和计算，业务只补独立的每日指标。 |
 | 2. 本地指数日线 | 复用新取数能力，省掉业务日历选页和整页最新状态的二次判断，合并普通指数日线字段读取。 | 上证综指、深证成指、北证 50 和中证 A500 的首屏与续页可正常使用。校对页边界、空页、部分指标状态及直接请求休市日的语义。 [原验收记录](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance) |

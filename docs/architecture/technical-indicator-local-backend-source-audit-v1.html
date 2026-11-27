@@ -92,7 +92,7 @@
 <body>
   <header>
     <div class="wrap">
-      <p><time datetime="2026-11-24">2026-11-24</time> · 财势乾坤本地后端</p>
+      <p><time datetime="2026-11-27">2026-11-27</time> · 财势乾坤本地后端</p>
       <h1>技术指标来源</h1>
       <p>股票与指数 · Wealth 详情、通用行情、调试接口</p>
     </div>
@@ -106,7 +106,7 @@
       <a href="#migration-roadmap">六步推进规划</a>
       <a href="#verification">核验范围</a>
     </nav>
-    <p class="scope">以 <code>dev-interface</code> 当前提交的本地构建为准。常用本机启动方式下，业务代码会调用的标为<strong>正在使用</strong>，其余标为<strong>没有使用</strong>。调用方和触发条件列在最后一列。测试、手动请求和另行启动的 Wealth 开发模式不计入常用本机业务调用。</p>
+    <p class="scope">依据 <code>dev-interface</code> 已提交代码和各专项验收。表中的使用状态以页面实际调用条件为准。指数分钟主图只在 Wealth 开发模式启用，后端分钟路由只在本地能力开启时挂载。部署和运行记录以各专项已核实范围为准。</p>
 
     <section id="stock" aria-labelledby="stock-title">
       <h2 id="stock-title">股票</h2>
@@ -144,9 +144,9 @@
               <th scope="row">日线</th>
               <td>趋势通道</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag dg">直接读 DG</span></td>
-              <td>DG 股票日线趋势通道 <code>gold/indicator/stock_daily_trend_channel</code>，按交易日分区。</td>
-              <td>股票详情趋势通道图层调用 <code>/stock-detail/trend-channel</code>。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py#L40">数据集路径</a> · <a class="ref" href="../../src/biz/queries/wealth/market/stock_detail_trend_channel/stock_detail_trend_channel_query_service.py">读取</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>与本批日 K 共用 DG 股票不复权日线和复权因子，使用前复权行情计算四轨。</td>
+              <td>随 <code>/stock-detail/kline</code> 返回。验收和清理范围见<a class="ref" href="technical-indicator-trend-channel-low-level-design-v1.md#trend-channel-closeout">趋势通道专项</a>。</td>
             </tr>
             <tr id="stock-active-minute-indicators">
               <th scope="row">1、5、15、30、60、90、120 分钟</th>
@@ -203,7 +203,7 @@
 
     <section id="index" aria-labelledby="index-title">
       <h2 id="index-title">指数</h2>
-      <p>本地指数详情支持的 10 只指数，日 K 和周月 K 的技术指标都用算子库。日 K 首屏和续页每批最多 500 根。Wealth 开发模式的七个分钟周期也已接入算子库。首屏盘口直接读 DG 普通指数日线，日线九转按 DG 日线选页、从 Prod 读取已有结果。</p>
+      <p>本地指数详情支持的 10 只指数，日 K 和周月 K 的技术指标都用算子库。日 K 首屏和续页每批最多 500 根。Wealth 开发模式的七个分钟周期也已接入算子库。首屏盘口读取 DG 普通指数日线。日线和适用分钟周期的九转随本批 K 线返回。</p>
       <div class="table-wrap" role="region" aria-labelledby="index-title" tabindex="0">
         <table aria-labelledby="index-title">
           <colgroup><col class="period"><col class="indicator"><col class="status"><col class="method"><col class="source"><col class="route"></colgroup>
@@ -226,20 +226,28 @@
               <td>打开指数详情时调用 <code>/index-detail/page-init</code>。<code>quote.tradeDate</code> 与 <code>asOfTradeDate</code> 一致，首批日 K 用该日作为截止日。<br><a class="ref" href="../../src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py#L60">盘口查询</a></td>
             </tr>
             <tr id="index-active-daily-nine-turn">
-              <th scope="row">日线<span class="sub">详情支持的 10 只指数</span></th>
+              <th scope="row">日线<span class="sub">详情支持名单</span></th>
               <td>九转序列</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag dg">DG 选日期</span> <span class="tag prod">Prod 读结果</span></td>
-              <td>按 DG 交易日历选日期，再用 <code>silver/index_daily</code> 核对行情。按指数代码和交易日匹配 Prod 指数日线九转 <code>core_serving.index_nineturn_daily</code>。</td>
-              <td><code>/index-detail/nine-turn</code>。首屏用页面日期，续页传当批日 K 的实际首末日期。部分九转结果缺失时保留已有标记。<br><a class="ref" href="../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query_service.py#L88">选页和匹配</a> · <a class="ref" href="../../wealth/src/features/index-detail/controller/useIndexDailyHistory.ts#L133">续页九转请求</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>与本批日 K 共用 DG 普通指数日线 <code>silver/index_daily</code> 的收盘价，生成 1–9 标记。</td>
+              <td>普通和调试 <code>/index-detail/kline</code> 返回 <code>nineTurnMarkers</code>。首屏、续页和技术面摘要使用同批标记。<br><a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit">接入验收</a></td>
             </tr>
-            <tr>
+            <tr id="index-standalone-daily-nine-turn">
+              <th scope="row">日线<span class="sub">保留的独立接口</span></th>
+              <td>九转序列</td>
+              <td><span class="tag unused">本地日 K 不再调用</span></td>
+              <td><span class="tag prod">直接读 Prod</span></td>
+              <td>独立接口仍读取 Prod 指数日线九转 <code>core_serving.index_nineturn_daily</code>。</td>
+              <td><code>/index-detail/nine-turn</code> 供仍使用独立结果的调用路径。<br><a class="ref" href="../../src/biz/queries/wealth/market/index_nine_turn/index_nine_turn_query_service.py">查询实现</a></td>
+            </tr>
+            <tr id="index-active-trend-channel">
               <th scope="row">日线<span class="sub">上证综指 <code>000001.SH</code></span></th>
               <td>趋势通道</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag compute">读 Prod 行情后计算</span></td>
-              <td>Prod 指数日线行情 <code>core_serving.index_daily_serving</code> 提供四价。业务侧专用计算器生成通道，可复用进程内缓存。</td>
-              <td>上证综指详情的首屏和向左翻页调用 <code>/api/v1/quote/detail/trend-channel</code>，由业务侧计算。<br><a class="ref" href="../../src/biz/queries/quote_trend_channel_query.py#L78">行情查询</a> · <a class="ref" href="../../src/biz/services/quote_trend_channel_query_service.py#L251">计算和缓存</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>本地与日 K 共用 DG 普通指数日线，计算四轨。</td>
+              <td>随 <code>/index-detail/kline</code> 返回。<a class="ref" href="technical-indicator-trend-channel-low-level-design-v1.md#trend-channel-closeout">趋势通道专项验收</a></td>
             </tr>
             <tr>
               <th scope="row">周线、月线<span class="sub">详情支持名单</span></th>
@@ -254,24 +262,24 @@
               <td>K 线、MA、BOLL、MACD、KDJ</td>
               <td><span class="tag unused">没有使用</span><span class="sub">常用本机页面</span><span class="sub">Wealth 开发模式会调用</span></td>
               <td><span class="tag library">算子库计算</span></td>
-              <td>1、5、15、30、60 分钟读 DG 不复权指数标准 K 线 <code>gold/quote/major_index_mins</code>。90、120 分钟分别读 DG <code>silver/quote/major_index_mins</code> 的 <code>freq=30min</code>、<code>freq=60min</code> 分区，由算子库按交易时段合成，再计算指标。成交量为股，成交额为元。</td>
-              <td>Wealth 开发模式切到分钟图时调用 <code>/index-detail/minutes</code> 和 <code>/index-detail/minute-indicators</code>，各请求 500 根，并按 <code>tradeTime</code> 对齐。后端沿用 v1 游标，北证 50 返回空态。两条接口均在本地挂载。<br><a class="ref" href="../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts#L40">页面调用</a> · <a class="ref" href="../../src/app/dependencies/index_minute_technical_indicators.py#L30">算子调用</a> · <a class="ref" href="../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L60">行情来源</a></td>
+              <td>1、5、15、30、60 分钟读 DG 不复权指数标准 K 线 <code>gold/quote/major_index_mins</code>。90、120 分钟分别读 DG <code>silver/quote/major_index_mins</code> 的 <code>freq=30min</code>、<code>freq=60min</code> 分区，由算子库按交易时段合成，再计算指标。接口成交量为股、成交额为元。页面成交量除以 100 后以手显示。</td>
+              <td>Wealth 开发模式切到分钟图时调用 <code>/index-detail/minutes</code> 和 <code>/index-detail/minute-indicators</code>，各请求 500 根，并按 <code>tradeTime</code> 对齐。后端沿用 v1 游标，北证 50 返回空态。行情回包在适用周期同时返回九转。<br><a class="ref" href="../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts#L40">页面调用</a> · <a class="ref" href="../../src/app/dependencies/index_minute_technical_indicators.py#L30">算子调用</a> · <a class="ref" href="../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L60">行情来源</a></td>
             </tr>
             <tr>
               <th scope="row">15、30、60、90、120 分钟</th>
               <td>九转序列</td>
               <td><span class="tag active">正在使用</span></td>
-              <td><span class="tag dg">直接读 DG</span></td>
-              <td>DG 主要指数分钟九转 <code>gold/indicator/major_index_mins_nineturn</code>，用 DG 指数分钟 K 线的时间匹配。</td>
-              <td><code>/index-detail/minute-nine-turn</code>。技术页签按支持周期拉取标记。北证 50 无分钟九转。<br><a class="ref" href="../../src/foundation/clients/local_lake/index_nine_turn_contract.py#L13">支持周期和路径</a> · <a class="ref" href="../../wealth/src/pages/index-detail/IndexDetailPageView.tsx#L140">页面调用</a></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>用 DG 同批分钟收盘价计算，90／120 分钟沿用同一合成规则。</td>
+              <td>分钟图使用 <code>/index-detail/minutes</code> 的 <code>nineTurn</code>。技术面复用已加载周期，其余摘要周期按需调用 <code>/index-detail/minute-nine-turn</code>。北证 50 返回空态。</td>
             </tr>
             <tr>
               <th scope="row">5 分钟</th>
               <td>九转序列</td>
-              <td><span class="tag unused">没有使用</span></td>
-              <td><span class="tag dg">直接读 DG</span></td>
-              <td>同一 DG 主要指数分钟九转数据集 <code>gold/indicator/major_index_mins_nineturn</code> 的 5 分钟分区。</td>
-              <td><code>/index-detail/minute-nine-turn</code>。仅 Wealth 开发模式切到 5 分钟图时请求标记。1 分钟九转未开放。<br><a class="ref" href="../../wealth/src/features/index-detail/model/indexTechnicalNineTurnSummary.ts#L3">技术页签周期</a> · <a class="ref" href="../../src/foundation/clients/local_lake/index_nine_turn_contract.py#L13">后端支持周期</a></td>
+              <td><span class="tag active">开发模式使用</span></td>
+              <td><span class="tag library">算子库计算</span></td>
+              <td>用 DG 同批 5 分钟行情收盘价计算。</td>
+              <td>开发模式从 <code>/index-detail/minutes</code> 取标记。技术面摘要不列 5 分钟，1 分钟无九转。<br><a class="ref" href="../../wealth/src/features/index-detail/model/indexTechnicalNineTurnSummary.ts#L3">摘要周期</a></td>
             </tr>
             <tr>
               <th scope="row">日线、周线、月线<span class="sub">通用行情</span></th>
@@ -284,7 +292,7 @@
           </tbody>
         </table>
       </div>
-      <p class="note">本地指数普通日 K、首屏盘口和日线九转均无需读取 DG 或 Prod 的指数日线技术因子。上证综指趋势通道继续读取 Prod 普通日线。指数调试的盘口和日、周、月 K 线与普通入口共用取数，增加诊断字段。常用本机页面没有使用这些调试接口，另行启动的 Wealth 开发模式可调用。<a href="../../src/biz/api/wealth/market/index_detail_debug.py#L25">调试入口</a></p>
+      <p class="note">本地指数日 K 的常用指标和九转共用本批普通行情。上证综指同批计算趋势通道。研究和调试的来源见下方各项。</p>
       <p class="note">简写接口统一以 <code>/api/v1/wealth/market</code> 为前缀。Wealth 日线、周线、月线及指数分钟表中的 MA 为 5、10、20、30、60、90、250。</p>
     </section>
 
@@ -325,17 +333,17 @@
     </section>
 
     <section id="migration-roadmap" aria-labelledby="roadmap-title">
-      <h2 id="roadmap-title">六步推进规划</h2>
-      <p>截至 2026-11-24，前两步已验收。下一步优先验证本地股票 30 分钟线。前复权分钟行情同时供 MACD、KDJ 和九转生成，复权变化会涉及这几份成品。先切一档周期，就能一起验证三类依赖能否退出。</p>
+      <h2 id="roadmap-title">六步规划执行记录</h2>
+      <p>截至 2026-11-27，第 1 至 5 步均按各自批准范围交付。第 6 步已完成有界评估，Prod 扩围及研究功能接入按独立需求安排。</p>
       <div class="table-wrap" role="region" aria-labelledby="roadmap-title" tabindex="0">
         <table class="roadmap-table" aria-labelledby="roadmap-title">
           <colgroup><col class="roadmap-stage"><col class="roadmap-progress"><col class="roadmap-next"><col class="roadmap-check"></colgroup>
-          <thead><tr><th scope="col">阶段</th><th scope="col">当前进展</th><th scope="col">下一步</th><th scope="col">收益与验收</th></tr></thead>
+          <thead><tr><th scope="col">阶段</th><th scope="col">当前进展</th><th scope="col">范围与后续</th><th scope="col">收益与验收</th></tr></thead>
           <tbody>
             <tr>
               <th scope="row">1. 修复股票日线重复读取</th>
               <td><span class="tag active">已完成</span><br>本地日 K 首屏和续页已经按截止日和根数取行情。选页、算指标、组装回包共用该批行情，批内碰到前复权基准时复用已读因子。<br><a class="ref" href="technical-indicator-read-optimization-low-level-design-v1.md#stage-1-read-acceptance">验收记录</a></td>
-              <td>以现行链路为基线，后续股票分钟线复用已验证的日期与复权因子读取方式。</td>
+              <td>本步已收尾。股票分钟线接入及验收见第 3 步。</td>
               <td>已有同请求结果、文件读取次数和耗时对照。收益来自减少日 K 请求的重复读取。</td>
             </tr>
             <tr>
@@ -347,26 +355,26 @@
             <tr>
               <th scope="row">3. 切换本地股票分钟线</th>
               <td><span class="tag active">本地开发入口已验收</span><br>本地七个周期都使用算子库，图表每个窗口请求一次。加载提示按所选周期显示。<br><a class="ref" href="#stock-active-minute-indicators">页面来源</a> · <a class="ref" href="technical-indicator-stock-minute-low-level-design-v1.md#stock-minute-phase-three-acceptance">阶段 3 验收</a></td>
-              <td>基础五档读取 DG Silver 同频率不复权行情，90／120 分钟分别读取 Silver 30／60 分钟行情。按交易日复权，再计算指标。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a></td>
+              <td>基础五档读取 DG Silver 同频率不复权行情，90／120 分钟分别读取 Silver 30／60 分钟行情。先按交易日复权，90／120 分钟再合成，最后计算指标。<br><a class="ref" href="technical-indicator-stock-minute-plan-v1.md">本期方案</a></td>
               <td>股票详情的三个接口已退出 Gold 成品读取。交易助手仍读 Gold 1 分钟行情，DG 指标和九转生成及检查仍按现行依赖运行。<br><a class="ref" href="../../src/foundation/clients/local_lake/stock_rule_minute_reader.py#L37">交易助手读取</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py#L224">DG 指标依赖</a></td>
             </tr>
             <tr>
               <th scope="row">4. 切换本地股票日线趋势通道</th>
-              <td><span class="tag prod">待推进</span><br>股票详情仍读 DG 趋势通道成品。生成端读取 DG 股票前复权日线。DG 日线九转成品另有同步到 Prod 的依赖。<br><a class="ref" href="#stock-active-trend-channel">图层调用</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_trend_channel.py#L55">通道生成输入</a> · <a class="ref" href="../../lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily_qfq_nineturn_prod_core.py#L55">九转同步</a></td>
-              <td>用与本地股票日 K 相同口径的前复权行情计算通道。先对照通道值、方向状态和历史页开头，再确定请求所需的前置历史。</td>
-              <td>趋势通道切换后，与已完成的本地股票日线九转一起核对前复权日线成品的剩余依赖。Prod 同步链也纳入核对。</td>
+              <td><span class="tag active">独立专项已完成</span><br>股票与上证综指的日 K 同批计算趋势通道。</td>
+              <td>业务接入和旧接口清理已收尾。DG 成品及生产任务沿用各自专项范围。</td>
+              <td><a class="ref" href="technical-indicator-trend-channel-low-level-design-v1.md#trend-channel-closeout">专项完成记录</a></td>
             </tr>
             <tr>
               <th scope="row">5. 收尾本地指数</th>
-              <td><span class="tag compute">部分完成</span><br>本地指数日 K、周月 K 和七频分钟 K 线及常用指标已走算子库。日线九转仍读 Prod 结果表，分钟九转仍读 DG 结果，上证综指趋势通道仍以 Prod 普通日线为输入。<br><a class="ref" href="#index-dev-minute-kline">分钟接入</a> · <a class="ref" href="#index-active-daily-nine-turn">日线九转</a> · <a class="ref" href="../../src/biz/queries/quote_trend_channel_query.py#L78">通道输入</a></td>
-              <td>先把指数日线九转并入现有日 K 计算，验证首屏和续页按交易日的 1–9 标记。再评估上证综指趋势通道改用 DG 普通日线。指数分钟九转和研究功能按实际使用量另排。</td>
-              <td>指数分钟两条接口已退出 DG 指数分钟技术指标成品读取。XXM 研究仍读取 <code>gold/indicator/major_index_mins_technical</code>，该数据集继续生成。<br><a class="ref" href="../../src/biz/queries/wealth/market/index_detail_xxm/source.py#L252">XXM 取数</a> · <a class="ref" href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#index-minute-kernel-stage-3-acceptance">分钟验收</a></td>
+              <td><span class="tag active">已完成</span><br>日 K、周月 K、七频分钟常用指标及日线和适用分钟周期的九转已走算子库。</td>
+              <td>分钟主图继续在 Wealth 开发模式启用。XXM 等研究保留各自数据来源。</td>
+              <td><a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-two-audit">日线九转验收</a> · <a class="ref" href="technical-indicator-nine-turn-low-level-design-v1.md#local-index-nine-turn-phase-three-audit">分钟九转验收</a> · <a class="ref" href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-stage-three-result">成交量展示验收</a></td>
             </tr>
             <tr>
               <th scope="row">6. 按接口评估 Prod</th>
-              <td><span class="tag compute">已做现有链路评估</span><br>读取优化专项已对股票日线、上证综指日线、周线、月线和 5 分钟做 Prod 有界对照。按目前路由，Prod 日 K 只有上证综指且请求不超过 500 根时走日线算子，其他指数仍走技术因子查询。<br><a class="ref" href="technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation">只读对照</a> · <a class="ref" href="../../src/biz/api/wealth/market/index_detail.py#L183">接口分流</a> · <a class="ref" href="../../src/biz/queries/wealth/market/index_detail/index_detail_query.py#L229">技术因子查询</a></td>
-              <td>如要继续推进 Prod，先评估其他指数日线，从 Prod PostgreSQL 普通指数日线取价计算。实测首屏、续页及并发，再决定是否切换。股票分钟等待各接口评估。</td>
-              <td>按接口决定迁移范围和收益。本地切换可独立推进。</td>
+              <td><span class="tag compute">评估已完成</span><br>已有股票日线、上证综指日线和指数周月线样本。早期样本包含已清退的独立指数 5 分钟读取。</td>
+              <td>其他指数日线和股票分钟的 Prod 扩围按独立需求安排。</td>
+              <td><a class="ref" href="technical-indicator-read-optimization-low-level-design-v1.md#prod-read-optimization-evaluation">有界对照及评估结论</a></td>
             </tr>
           </tbody>
         </table>
@@ -381,11 +389,12 @@
 
     <section id="verification" class="check" aria-labelledby="check-title">
       <h2 id="check-title">核验范围</h2>
+      <p><strong>2026-11-27 指数分钟成交量验收。</strong> 历史分区已按确认清单修复，读取时的临时乘 100 已撤。当前本地指数分钟接口返回股和元，页面显示手。DG 重载后的首批日更中，上证综指和深证成指各 9 根 30 分钟行情逐根对账一致。旧 DG／Prod 指数 5 分钟区间读取已清退，现行五个直读周期和两个合成周期继续使用。<a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-dg-first-routine-result">首批日更</a> · <a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-volume-stage-three-result">页面验收</a> · <a href="../datasets/index-minute-volume-normalization-low-level-design-v1.md#index-minute-interval-retirement-result">旧入口清退</a></p>
       <p>2026-11-24 完成本地指数分钟三阶段验收，接入提交为 <code>9fadec585</code>。用临时本地服务和正式 DG 数据核对了七个周期的 500 根首屏、旧 v1 游标续页和行情指标对齐。两次 5,000 根指标响应均低于 5 MB，10,000 根请求超限时返回 HTTP 400。<a href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#index-minute-kernel-stage-3-acceptance">专项验收记录</a></p>
       <p>2026-11-24 复核股票周月线，接口和页面接入提交为 <code>e4dec25ee</code>。以 2026-11-23 为截止日，平安银行 DG 周线翻到第七页结束，共 662 根，月线一次返回 155 根。<a href="technical-indicator-stock-period-low-level-design-v1.md#stock-period-phase-three-acceptance">专项验收记录</a></p>
       <p>2026-11-23 核对了 <code>dev-interface</code> 本地读取优化的四个实施提交。股票日线、指数日线和指数周月线有隔离接口验收，指数 5 分钟有算子库调用验收。<a href="technical-indicator-read-optimization-low-level-design-v1.md#local-read-optimization-closeout">提交与复核记录</a></p>
       <p>本地指数日线三阶段已在 <code>dev-interface</code> 提交，最近提交为 <code>efac00ae3</code>。用本地隔离服务和正式 DG、只读 PostgreSQL 完成接口及 Chrome 验收。上证综指、深证成指、北证 50、中证 A500 的第一批均为 500 根，续页分别为 500、500、450、23 根。两只短页均到头停止，九转按续页匹配。<a href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#local-index-daily-history-browser-acceptance">验收记录</a></p>
-      <p>按 <code>dev-interface</code> 现行接口、配置和取数代码核对。已用本机 Web 配置确认算子库选择 DG，股票和指数分钟、分钟九转、股票日线趋势通道均启用。已核对所列正式 DG 数据集的代表性文件存在，文件存在只证明路径可用。<a href="../../src/app/api/v1/router.py#L173">本地路由注册</a> · <a href="../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L17">算子库数据集配置</a></p>
+      <p>历史核验曾确认本机 DG 配置和代表性数据文件。当前路由装配、页面条件及各专项实际验收以本表和对应记录为准。<a href="../../src/app/api/v1/router.py#L173">本地路由注册</a> · <a href="../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/datasets.py#L17">算子库数据集配置</a></p>
       <p>此前 176 项相关测试通过，覆盖股票与指数日线、指数周月线、分钟指标、九转和趋势通道，使用隔离数据或临时数据库。<a href="../../tests/web/test_wealth_index_detail_weekly_monthly_api.py">指数周月线接口测试</a> · <a href="../../tests/app/technical_indicators/test_stock_daily_source_repair.py">股票日线接口测试</a></p>
       <p>常用本机的 <code>/wealth</code> 由 Web 提供构建后的前端。表中 Prod 指本地后端连接的数据库。通用行情此前通过 15 项回归，股票日线九转已有页面切换验收。<a href="../../src/app/web/app.py#L91">本机 Wealth 入口</a> · <a href="../../tests/web/test_quote_api.py#L469">股票日线技术因子回归</a> · <a href="technical-indicator-nine-turn-low-level-design-v1.md#10-本机切换后复验">股票日线九转复验</a> · <a href="../../wealth/docs/pages/stock-detail/stock-detail-field-source-audit-v1.html">股票详细字段来源</a></p>
     </section>
