@@ -256,6 +256,26 @@ def load_event_plan(
     return plan
 
 
+def _events_for_trade_dates(
+    plan: EtfDailyBootstrapEventPlan,
+    trade_dates: Sequence[str],
+) -> tuple[
+    tuple[EtfDailyMaterializationEventSpec, ...],
+    tuple[EtfDailyCheckEventSpec, ...],
+]:
+    if not trade_dates:
+        return plan.materializations, plan.checks
+    selected = set(trade_dates)
+    if len(selected) != len(trade_dates):
+        raise EtfDailyBootstrapEventsError("duplicate event trade dates")
+    if selected - {spec.trade_date for spec in plan.materializations}:
+        raise EtfDailyBootstrapEventsError("event trade date is outside the frozen plan")
+    return (
+        tuple(spec for spec in plan.materializations if spec.trade_date in selected),
+        tuple(spec for spec in plan.checks if spec.trade_date in selected),
+    )
+
+
 def apply_events(
     *,
     instance: dg.DagsterInstance,
@@ -263,6 +283,7 @@ def apply_events(
     checkpoint_path: Path,
     output_path: Path,
     confirm_events_apply: bool,
+    trade_dates: Sequence[str] = (),
 ) -> dict[str, object]:
     if not confirm_events_apply:
         raise EtfDailyBootstrapEventsError("events apply confirmation is required")
@@ -270,6 +291,7 @@ def apply_events(
         raise EtfDailyBootstrapEventsError(
             "event plan contains an active run or conflict"
         )
+    materializations, checks = _events_for_trade_dates(plan, trade_dates)
     _revalidate_physical_report(plan)
     if _active_run_count(instance):
         raise EtfDailyBootstrapEventsError(
@@ -281,9 +303,9 @@ def apply_events(
         for item in checkpoint
     ):
         raise EtfDailyBootstrapEventsError("event checkpoint belongs to another plan")
-    materialization_records = _load_materializations(instance, plan.materializations)
+    materialization_records = _load_materializations(instance, materializations)
     reported_materializations = 0
-    for spec in plan.materializations:
+    for spec in materializations:
         record = materialization_records.get((spec.asset_key, spec.trade_date))
         if record is not None:
             if not _materialization_matches(record, spec):
@@ -328,7 +350,7 @@ def apply_events(
             write_mode="write_new",
         )
     reported_checks = 0
-    for spec in plan.checks:
+    for spec in checks:
         materialization = materialization_records[(spec.asset_key, spec.trade_date)]
         existing = _load_checks(instance, (spec,)).get(
             (spec.asset_key, spec.check_name, spec.trade_date)
@@ -384,8 +406,9 @@ def apply_events(
         "event_plan_hash": plan.event_plan_hash,
         "reported_materialization_count": reported_materializations,
         "reported_check_count": reported_checks,
-        "materialization_count": len(plan.materializations),
-        "blocking_check_count": len(plan.checks),
+        "materialization_count": len(materializations),
+        "blocking_check_count": len(checks),
+        **({"trade_dates": sorted(trade_dates)} if trade_dates else {}),
         "lake_files_written": 0,
         "dynamic_partitions_written": 0,
         "sensor_changes": 0,
@@ -400,16 +423,18 @@ def post_audit_events(
     instance: dg.DagsterInstance,
     plan: EtfDailyBootstrapEventPlan,
     output_path: Path,
+    trade_dates: Sequence[str] = (),
 ) -> dict[str, object]:
+    materialization_specs, check_specs = _events_for_trade_dates(plan, trade_dates)
     _revalidate_physical_report(plan)
-    materializations = _load_materializations(instance, plan.materializations)
-    checks = _load_checks(instance, plan.checks)
+    materializations = _load_materializations(instance, materialization_specs)
+    checks = _load_checks(instance, check_specs)
     failures: list[str] = []
-    for spec in plan.materializations:
+    for spec in materialization_specs:
         record = materializations.get((spec.asset_key, spec.trade_date))
         if record is None or not _materialization_matches(record, spec):
             failures.append(_materialization_identity(spec))
-    for spec in plan.checks:
+    for spec in check_specs:
         materialization = materializations.get((spec.asset_key, spec.trade_date))
         record = checks.get((spec.asset_key, spec.check_name, spec.trade_date))
         if (
@@ -423,8 +448,9 @@ def post_audit_events(
     payload: dict[str, object] = {
         "schema_version": "etf_daily_events_post_audit_v1",
         "event_plan_hash": plan.event_plan_hash,
-        "materialization_count": len(plan.materializations),
-        "blocking_check_count": len(plan.checks),
+        "materialization_count": len(materialization_specs),
+        "blocking_check_count": len(check_specs),
+        **({"trade_dates": sorted(trade_dates)} if trade_dates else {}),
         "failure_count": len(failures),
         "failures": failures,
         "passed": not failures,

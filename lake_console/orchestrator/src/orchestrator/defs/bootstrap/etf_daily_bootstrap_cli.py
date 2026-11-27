@@ -174,10 +174,12 @@ def _parser() -> argparse.ArgumentParser:
     events_apply.add_argument("--checkpoint", type=_absolute_path, required=True)
     events_apply.add_argument("--output", type=_absolute_path, required=True)
     events_apply.add_argument("--confirm-events-apply", action="store_true")
+    events_apply.add_argument("--trade-date", action="append", default=[])
 
     events_audit = commands.add_parser("events-post-audit")
     _event_plan_args(events_audit)
     events_audit.add_argument("--output", type=_absolute_path, required=True)
+    events_audit.add_argument("--trade-date", action="append", default=[])
     return parser
 
 
@@ -654,9 +656,15 @@ def _run(
             checkpoint_path=args.checkpoint,
             output_path=args.output,
             confirm_events_apply=True,
+            trade_dates=args.trade_date,
         )
     if args.command == "events-post-audit":
-        return post_audit_events(instance=instance, plan=plan, output_path=args.output)
+        return post_audit_events(
+            instance=instance,
+            plan=plan,
+            output_path=args.output,
+            trade_dates=args.trade_date,
+        )
     raise AssertionError(f"unsupported command: {args.command}")
 
 

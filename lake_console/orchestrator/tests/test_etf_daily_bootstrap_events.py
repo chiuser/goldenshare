@@ -8,6 +8,8 @@ from pathlib import Path
 import dagster as dg
 import pytest
 
+from orchestrator.defs.bootstrap import etf_daily_bootstrap_cli
+from orchestrator.defs.bootstrap.etf_daily_bootstrap_apply import load_checkpoint
 from orchestrator.defs.bootstrap.etf_daily_bootstrap_events import (
     EtfDailyBootstrapEventsError,
     apply_events,
@@ -21,6 +23,7 @@ from orchestrator.defs.bootstrap.etf_daily_bootstrap_plan import (
     EtfDailySilverBootstrapPlan,
     hash_payload,
 )
+from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.etf_basic import (
     build_etf_basic_silver_snapshot_reference,
 )
@@ -257,6 +260,102 @@ def test_event_plan_round_trip_apply_replay_and_post_audit(tmp_path: Path) -> No
             output_path=tmp_path / "events-post-audit.json",
         )
         assert audited["passed"] is True
+
+
+def test_event_commands_can_apply_and_audit_selected_dates(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    earlier, sample = "2024-12-30", "2024-12-31"
+    silver_plan = _silver_plan((earlier, sample))
+    physical = tmp_path / "physical.json"
+    _physical_report(physical, silver_plan)
+    # The synthetic evidence names paths under /tmp. No Lake files are opened.
+    monkeypatch.setattr(etf_daily_bootstrap_cli, "FORMAL_LAKE_ROOT", Path("/tmp"))
+    checkpoint = tmp_path / "checkpoint.json"
+    event_plan_path = tmp_path / "events-plan.json"
+    with dg.DagsterInstance.ephemeral(tempdir=tmp_path / "instance") as instance:
+        plan = build_event_plan(
+            instance=instance,
+            silver_plan=silver_plan,
+            physical_report_path=physical,
+        )
+        write_event_plan(plan, event_plan_path)
+
+        def run(command: str, output: str, *selected: str) -> dict[str, object]:
+            argv = [
+                command,
+                "--events-plan",
+                str(event_plan_path),
+                "--expected-events-plan-hash",
+                plan.event_plan_hash,
+                "--output",
+                str(tmp_path / output),
+            ]
+            for day in selected:
+                argv.extend(("--trade-date", day))
+            if command == "events-apply":
+                argv.extend(("--confirm-events-apply", "--checkpoint", str(checkpoint)))
+            args = etf_daily_bootstrap_cli._parser().parse_args(argv)
+            assert etf_daily_bootstrap_cli._confirmation_error(args) is None
+            return etf_daily_bootstrap_cli._run(
+                args=args, instance=instance, duckdb=DuckDBResource()
+            )
+
+        for command in ("events-apply", "events-post-audit"):
+            with pytest.raises(EtfDailyBootstrapEventsError, match="outside the frozen plan"):
+                run(command, "outside.json", sample, "2025-01-02")
+            with pytest.raises(EtfDailyBootstrapEventsError, match="duplicate"):
+                run(command, "duplicate.json", sample, sample)
+        assert not checkpoint.exists()
+
+        first = run("events-apply", "sample-apply.json", sample)
+        assert first["trade_dates"] == [sample]
+        assert first["reported_materialization_count"] == 4
+        assert first["reported_check_count"] == 17
+        assert first["event_plan_hash"] == plan.event_plan_hash
+
+        materialization_ids = {}
+        for spec in plan.materializations:
+            if spec.trade_date == sample:
+                asset_key = dg.AssetKey(spec.asset_key)
+                records = instance.fetch_materializations(
+                    dg.AssetRecordsFilter(asset_key=asset_key), limit=3
+                ).records
+                assert [record.partition_key for record in records] == [sample]
+                materialization_ids[spec.asset_key] = records[0].storage_id
+        for spec in plan.checks:
+            if spec.trade_date == sample:
+                records = instance.event_log_storage.get_asset_check_execution_history(
+                    dg.AssetCheckKey(dg.AssetKey(spec.asset_key), spec.check_name), limit=3
+                )
+                assert [record.partition for record in records] == [sample]
+                evaluation = records[0].event.dagster_event.event_specific_data
+                assert evaluation.passed and evaluation.blocking
+                assert evaluation.target_materialization_data.storage_id == (
+                    materialization_ids[spec.asset_key]
+                )
+
+        sample_audit = run("events-post-audit", "sample-audit.json", sample)
+        assert sample_audit["passed"] is True
+        assert sample_audit["materialization_count"] == 4
+        assert sample_audit["blocking_check_count"] == 17
+        with pytest.raises(EtfDailyBootstrapEventsError, match="did not close"):
+            run("events-post-audit", "too-early-full-audit.json")
+
+        replay = run("events-apply", "sample-replay.json", sample)
+        assert replay["reported_materialization_count"] == 0
+        assert replay["reported_check_count"] == 0
+        assert len(load_checkpoint(checkpoint)) == 21
+
+        remainder = run("events-apply", "remainder.json", earlier)
+        assert remainder["reported_materialization_count"] == 4
+        assert remainder["reported_check_count"] == 17
+        entries = load_checkpoint(checkpoint)
+        assert len(entries) == 42
+        assert {entry.phase_plan_hash for entry in entries} == {plan.event_plan_hash}
+        full_audit = run("events-post-audit", "final-audit.json", sample, earlier)
+        assert full_audit["passed"] is True
+        assert full_audit["trade_dates"] == [earlier, sample]
 
 
 def test_existing_non_equivalent_materialization_is_a_hard_conflict(

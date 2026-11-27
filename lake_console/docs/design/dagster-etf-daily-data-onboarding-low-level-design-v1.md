@@ -2227,3 +2227,50 @@ cli physical-post-audit --raw-plan "$W/raw-plan.json" --expected-raw-plan-hash "
 主要命令实耗合计 202.183 秒。Raw 续写 67.332 秒，Raw 审计 2.674 秒，Silver 计划 2.505 秒，Silver 续写 124.049 秒，最终物理验收 5.623 秒。两次批量审计的核心 SQL 部分分别用 44 条 SQL、1.215 秒及 60 条 SQL、3.291 秒，批次结束时临时磁盘占用均为 0 字节。最终 checkpoint 为 1,292,495 字节。
 
 继续使用阶段 3 的来源指纹和 ETF 基础信息物化 ID。全区间报告及全量计划位于原操作目录的 `phase4/`。全量 Silver Plan 指纹为 `919c70825a6d00c8b2793769c34bb57f3bce14e5f4d8ea8db8f6125883d9b2e5`，Raw 审计报告为 `daddff10546d2c6f6cd290bf45af45e84169d9dd472c5353b36b8864f043823b`，全量物理验收报告为 `5a344f9dc30c46fd2b791e2c89436093f1a2edfb928af6c05665680fd81cf312`。本阶段登记物化与检查事件均为 0，四个资产在这 484 个日期内未查询到物化记录。
+
+<a id="etf-daily-2023-2024-phase5"></a>
+
+### 阶段 5 事件分批执行细案与首批范围（2026-11-27）
+
+阶段 5 的目标是把阶段 4 已验收的历史文件登记到正式 Dagster。复用原 484 日物理报告和全量 Silver Plan，冻结一份完整事件计划，含四资产的 1,936 条物化和期末 20 日（2024-12-04 至 2024-12-31）的 340 条阻塞检查。日期不在期末窗口的检查证据保留在物理报告中；ETF 日线覆盖告警继续保留。此轮授权仅覆盖 **2024-12-31 的 4 条物化和 17 条阻塞检查**，四资产检查数分别为 3、3、5、6。其余事件待单独授权。本阶段不读 Prod、Tushare，不写 Lake、不注册分区、不启停 sensor、不启动 Dagster job。
+
+**实现范围与验收。** CodeGraph 确认日频历史入口沿 `etf_daily_bootstrap_cli._run` 调用现有 `apply_events` 和 `post_audit_events`。两条命令增加可重复的 `--trade-date`，从已校验的完整计划选定日期，通过同一选择函数限制读取、写入、回执及验收。越界或重复日期在事件写入前拒绝。保留既有未传日期的行为，正式分批命令必须显式给出本批日期。计划哈希、物理报告哈希、checkpoint 归属和活动任务门禁沿用现有实现。先登记选定日期的物化并核实文件 metadata，再登记绑定同日期同资产物化 ID 的阻塞检查。已存在且等价的事件复用，冲突即停。隔离测试将验证两日期计划中只写所选日期、双向绑定、重复执行复用、未知或重复日期拒绝，以及分批后可复用同一计划和 checkpoint 写入另一个日期。代码影响限此 CLI、事件模块和对应隔离测试。
+
+| 环节 | 预算、失败及恢复 |
+| --- | --- |
+| 批量预查 | 全量只读试算实测 0.804 秒，含 4 次物化集合、17 次检查历史、1 次活动任务探测和文件路径清点。正式首批冻结同一范围，另读回分区集合并复验 2024-12-31 的 4 个文件指纹。发现计划、文件、分区冲突或活动任务时停止。 |
+| 首批写入与续跑 | 首批上限 21 条事件，最多 43 次事件或运行状态读取（活动任务 1 次、物化批量预读 4 次、新物化读回 4 次、检查写前和写后各 17 次）。同一进度文件目前有 1,936 条、1,292,495 字节；21 次重写的基础输出约为 `21 × 1,292,495 ≈ 27.1 MB`，另加新条目的增量和进度回读。以 2026-09-04 的 1,964 条正式事件用时 137.15 秒作为比例参考，本批写入约 `137.15 × 21 ÷ 1,964 ≈ 1.5` 秒，实际受存储往返和启动开销影响。中断后持原计划与进度复核已登记记录并续补缺项。误写保留证据，若需更正另行审批。 |
+| 首批读回 | 4 次物化集合、17 次检查历史读回。另按完整计划批量查询同四资产和 17 种检查，共 21 次，核实首批绑定明细及其余日期仍为空。检查须全部通过且为阻塞类型，并逐条绑定同资产同日期物化 ID。历史全量聚合验收曾实测 1.87 秒，用于本批命令开销的参考。 |
+| 后续批次参考 | 首批之后尚有 1,932 条物化和 323 条阻塞检查。余下 483 日沿用每组 20 日的处理规模可分为 24 组及尾组 3 日，获准后以原计划哈希选日期并续用原进度。历史全量实耗按全部 2,276 条比例约 159 秒，仅作参考。剩余批次预算用本轮实测校准，计入每批启动、回读和进度增长，全部完成后执行全量集合验收。 |
+
+**命令与范围。** 工作目录 `/Users/congming/github/goldenshare/lake_console/orchestrator`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，在原操作目录的 `operation.lock` 下串行执行。计划与读回使用已存在的正式只读实例 `daily_basic_event_instance(writable=False)`，写入只在首批命令使用 `writable=True`。通过下面的 CLI 参数和相同的命令分发路径执行。
+
+```bash
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+W=/private/tmp/goldenshare-bootstrap/etf_daily/etf-history-2023-2024-phase3
+E="$W/phase5"
+cli() { .venv/bin/python3 -B -m orchestrator.defs.bootstrap.etf_daily_bootstrap_cli "$@"; }
+cli events-plan --silver-plan "$W/phase4/silver-plan.json" --expected-silver-plan-hash 919c70825a6d00c8b2793769c34bb57f3bce14e5f4d8ea8db8f6125883d9b2e5 --physical-report "$W/phase4/physical-audit.json" --output "$E/events-plan.json"
+# eh 为完整事件计划读回并校验的哈希。
+cli events-apply --events-plan "$E/events-plan.json" --expected-events-plan-hash "$eh" --checkpoint "$W/checkpoint.jsonl" --trade-date 2024-12-31 --confirm-events-apply --output "$E/sample-apply.json"
+cli events-post-audit --events-plan "$E/events-plan.json" --expected-events-plan-hash "$eh" --trade-date 2024-12-31 --output "$E/sample-audit.json"
+```
+
+<a id="etf-daily-2023-2024-phase5-sample-result"></a>
+
+### 阶段 5 首批验收（2026-11-27）
+
+分批入口在隔离 Dagster 中使用两日期计划验证。选定日期写入四资产和 17 条绑定检查，越界、重复日期均在写入前拒绝。重复执行样本新增 0 条，另一个日期沿同一计划及进度完成，证明后续可以续跑。ETF 日频隔离回归 203 项通过，改动文件的 Ruff 检查通过。
+
+正式只读预查复核 484 个已注册日期和样本 4 个文件指纹。完整事件计划冻结时，待写入 1,936 条物化和 340 条检查，无现有冲突或活动任务。正式只写 2024-12-31，读回字段、行数、路径和指纹与物理报告一致。17 条检查均通过且为阻塞类型，逐条核对同日同资产的物化 ID、run ID 和时间戳，失败 0。
+
+| 数据集 | 物化记录 ID | 已确认绑定的阻塞检查 |
+| --- | ---: | ---: |
+| 基金日线 Raw | 8426093 | 3 |
+| 基金复权因子 Raw | 8426095 | 3 |
+| ETF 日线 Silver | 8426094 | 5 |
+| ETF 复权因子 Silver | 8426096 | 6 |
+
+计划、样本写入、样本聚合读回实耗分别为 0.807、2.011、0.444 秒。原进度增加 21 条事件，文件大小从 1,292,495 增至 1,303,251 字节。完整计划集合复核确认尚有 1,932 条物化和 323 条阻塞检查待写。以样本写入均速估算，`2.011 × 2,255 ÷ 21 ≈ 216` 秒可用作剩余批次写入的对照，未计批次差异、进度进一步增长、批次级读回和最终验收；后续正式预算在继续前复核。
+
+原操作目录的 `phase5/` 保存完整事件计划及样本回执。事件计划哈希 `f3c81a65b7e7352ada1671a1bef3abebd53ef9f4d510fe75cfcc774a52effabb`，样本绑定报告哈希 `d6bd7a6ec8ac642ff2bfdaa40908fd64711c82e37dcf0ac28f80e12ac69fec16`。后续批次沿用同一计划和进度，等待授权。
